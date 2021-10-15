@@ -1,5 +1,6 @@
 
 # RFC Translater
+项目源自GitHub开源项目：https://github.com/tex2e/rfc-translater
 
 ### 目的
 1. 因为RFC的英语太难读了，所以想读谷歌翻译的并排句子。
@@ -27,13 +28,12 @@
 感谢您使用本网站。
 翻译修改的顺序如下。
 
-### 翻译修改者
+### 修订翻译的步骤
 
-1. 在GitHub上Fork。
-2. 剪掉早午餐。取个合适的名字。
-3. html/rfcXXXX.html的翻译修改。。
-   - updated_byを「翻译编辑 : 自動生成 + 一部修正」这样。如果你想留下你的名字「一部修正(tex2e)」请这样写。
-   - 使用`<h5>`。第一个写英文，第二个写日文。
+1. 在GitHub上Fork一个仓库出来。
+2. 在html/rfcXXXX.html的翻译基础上进行修改。。
+   - 如果你想留下名字，请这样写：「翻译编辑 : 自动生成 + 部分修正 updated_by 张三」。
+   - 使用`<h5>`标签。第一个标签写英文，第二个标签写中文。
       ```html
       <div class="row">
         <div class="col-sm-12 col-md-6">
@@ -48,7 +48,7 @@
         </div>
       </div>
       ```
-   - 文章は`<p>`を使います。「indent-X」class中指定缩进的深度。
+   - 使用`<p>`标签指定缩进深度。
       ```html
       <div class="row">
         <div class="col-sm-12 col-md-6">
@@ -63,7 +63,7 @@
         </div>
       </div>
       ```
-   - 图表`<pre>`使用。只有英文。
+   - 图表使用`<pre>`标签。
       ```html
       <div class="row">
         <div class="col-sm-12 col-md-12">
@@ -76,31 +76,31 @@
       </div>
       ```
 4. 在浏览器中打开修改后的HTML，检查是否显示正确。
-5. push到Fork过的资料库中。
+5. push到Fork过的仓库中。
 6. 在GitHub上发布PullRequest。
 
-### 管理者
+### 仓库管理员
 
 1. 检查PullRequest的修改差异，只检查是否正确进行了HTML转移，以及是否存在与XSS相关的字符串(`script`， `a`， `img`， `javascript`等)
 2. 如果没有问题就Merge，本地pull
 3. `main.py --make-json --rfc <目标RFC>` 用HTML反向创建JSON，确认变更差异
 4. `main.py --make --rfc <目标RFC>` 用JSON反向创建HTML，确认变更差异
-5. 推送到资料库
+5. 推送到仓库
 
 <br>
 
 ## 面向开发者
 
 ### 实现功能
-- 只翻译文章，直接表示图和表
+- 只翻译文章，图和表格，直接显示
 - 即使文章是分页的，也要翻译成一个段落
-- 也反映缩进的深度
-- 分条标记(o + * -等)的符号
-- 标题(1.2. ~等)文字要大
+- 需要反应缩进深度
+- 分条标记使用(o + * -)等符号
+- 标题(1.2. ~等)字体要大
 - 即使滚动原本(英语RFC)的链接也总是显示
 - 对于被取消的RFC，显示被取消和到修改版RFC的链接（例：RFC2246, RFC2616）
 
-動作環境：Python3 + Windows or MacOS
+操作环境：Python3 + Windows or MacOS
 
 ```
 pip install requests lxml
@@ -111,17 +111,11 @@ pip install selenium
 pip install beautifulsoup4
 ```
 
-Windowsの場合は、py -m pip に読み替えてください。
-
 **注意：翻译工作非常花时间。翻译一个RFC短则需要5分钟，长则需要30分钟到1个小时。**
-在开发初期，我启动多个实例，24小时同时运行，这样做了半年左右。
+在开发初期，我启动多个实例，24小时运行，这样做了半年左右。
 
-2021/02/27 补充:因为googletrans3.0.0不太好用，所以改用Selenium的谷歌翻译。
-如果你想使用传统的方法， `--transmode py-googletrans` 请指定。
-
-SeleniumではFirefoxを使用しているため、geckodriver のダウンロードが必要です。
-geckodriverの配置場所を環境変数 WEBDRIVER_EXE_PATH に指定してから実行してください。
-詳細は src/trans_rfc.py の WEBDRIVER_EXE_PATH を参照ください。
+当前支持谷歌、有道、百度翻译。谷歌不好用，因为采用selenium模拟浏览器，所以翻译慢
+而有道和百度直接调用翻译接口，普通RFC几十秒就可以生成翻译结果
 
 ```bash
 python main.py --rfc 123 # RFC 123翻译(获取+翻译+生成HTML)
@@ -137,20 +131,20 @@ python main.py --rfc 123 --transmode selenium       # Seleniumを使用してGoo
 python main.py --rfc 123 --transmode py-googletrans # googletransを使用してGoogle翻訳
 ```
 
-生成物：
-1. fetch_rfc（取得） ... data/A000/B00/rfcABCD.json (段落区切りで取り出した文章)
-2. trans_rfc（翻訳） ... data/A000/B00/rfcABCD-trans.json (各文章の翻訳を加えたもの)
-3. make_html（生成） ... html/rfcABCD.html (原文と翻訳を並べて表示するHTML)
+生成文件：
+1. fetch_rfc（取得） ... data/A000/B00/rfcABCD.json (按段落切分文章后的json文件)
+2. trans_rfc（翻訳） ... data/A000/B00/rfcABCD-trans.json (翻译后的json文件)
+3. make_html（生成） ... html/rfcABCD.html (根据原文以及译文生成的html文件)
 
 ```bash
-python main.py --make-index # インデックスページの作成
+python main.py --make-index # 生成index文件
 ```
 
-ローカルで成果物の確認
+本地检验效果
 
 ```bash
 python -m http.server
-# localhost:8000/htmlにアクセス
+# localhost:8000/htmlxxx
 ```
 
 RFCを解析した結果、本来プログラムとして解釈すべき部分を文章として解釈してしまった場合、プログラムのインデントを削除してJSON化するツール：
@@ -161,21 +155,19 @@ RFCを解析した結果、本来プログラムとして解釈すべき部分�
 
 ---
 
-#### Figs
-
-各RFCから図のみを集めて公開するサイト「RFC Figs」について
+#### 图片
 
 ```bash
-# 1000個のRFC毎に図を集め、JSONファイルで保存する
+# 每1000个RFC中的图片保存为一个json文件
 python3 figs/collect_figures.py --begin 0000 --end 0999 -w figs/data/0000.json
 ...
 python3 figs/collect_figures.py --begin 7000 --end 7999 -w figs/data/7000.json
 
-# JSONをHTMLに変換する
+# JSON文件转换为HTML文件
 python3 figs/make_html.py 0000
 ...
 python3 figs/make_html.py 7000
 
-# インデックスページの作成
+# 生成figs的index文件
 python3 figs/make_index.py
 ```
