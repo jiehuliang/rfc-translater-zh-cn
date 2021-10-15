@@ -15,6 +15,7 @@ from selenium import webdriver  # pip install selenium
 from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException
 from src.trans_youdao import youdao_trans
+from src.trans_baidu import bd_translate
 
 # 必须使用小写注册规则
 trans_rules = {
@@ -47,6 +48,7 @@ class TransMode:
     PY_GOOGLETRANS  = 1
     SELENIUM_GOOGLE = 2
     YOUDAO_DIC      = 3
+    BAIDU_TRANS     = 4
 
 
 # 翻译类的抽象
@@ -182,13 +184,29 @@ class TranslatorYouDaotrans(Translator):
     def __init__(self, total, desc=''):
         super(TranslatorYouDaotrans, self).__init__(total, desc)
 
-    def translate(self, text, dest='zh-CN'):
-        return ''.join(youdao_trans(text, dest))
+    def translate(self, text):
+        return ''.join(youdao_trans(text))
 
-    def translate_texts(self, texts, dest='zh-CN'):
+    def translate_texts(self, texts):
         res = []
         for text in texts:
-            ja = youdao_trans(text, dest)
+            ja = youdao_trans(text)
+            res.append(ja)
+            self.increment_count()
+        return res
+
+class TranslatorBaiDutrans(Translator):
+    # 百度翻译
+    def __init__(self, total, desc=''):
+        super(TranslatorBaiDutrans, self).__init__(total, desc)
+
+    def translate(self, text):
+        return ''.join(bd_translate(text))
+
+    def translate_texts(self, texts):
+        res = []
+        for text in texts:
+            ja = bd_translate(text)
             res.append(ja)
             self.increment_count()
         return res
@@ -216,6 +234,8 @@ def trans_rfc(number, mode):
         translator = TranslatorGoogletrans(total=len(obj['contents']), desc=desc)
     elif mode == TransMode.SELENIUM_GOOGLE:
         translator = TranslatorSeleniumGoogletrans(total=len(obj['contents']), desc=desc)
+    elif mode == TransMode.BAIDU_TRANS:
+        translator = TranslatorBaiDutrans(total=len(obj['contents']), desc=desc)
     else:
         translator = TranslatorYouDaotrans(total=len(obj['contents']), desc=desc)
     is_canceled = False
@@ -313,7 +333,7 @@ def trans_test(mode=TransMode.SELENIUM_GOOGLE):
         return ja in ('テスト', 'しけん')
     else:
         translator = TranslatorYouDaotrans(total=1)
-        res = translator.translate('test', dest='zh-CHS')
+        res = translator.translate('test')
         print('result:', res)
         return res in ('测试', '考试')
 

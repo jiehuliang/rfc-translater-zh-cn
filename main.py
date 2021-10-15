@@ -71,6 +71,9 @@ if __name__ == '__main__':
     transmode = TransMode.YOUDAO_DIC
     if args.transmode == 'py-googletrans':
         transmode = TransMode.PY_GOOGLETRANS
+    
+    if args.transmode == 'baidu':
+        transmode = TransMode.BAIDU_TRANS
 
     if args.make_index:
         # 创建index.html

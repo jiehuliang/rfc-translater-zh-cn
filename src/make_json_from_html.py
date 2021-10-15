@@ -18,7 +18,7 @@ def make_json_from_html(rfc_number):
 
     # 保存用JSONの構造
     data = {
-        "title": {"text": "", "ja": ""},
+        "title": {"text": "", "zh-CHS": ""},
         "number": 0,
         "created_at": str(datetime.now(CST)),
         "updated_by": "",
@@ -29,7 +29,7 @@ def make_json_from_html(rfc_number):
     # print(html_text)
 
     # 英語タイトル
-    data['title']['text'] = soup.find('title').text.replace(" 日本語訳", "")
+    data['title']['text'] = soup.find('title').text.replace(" 中文翻译", "")
     # 日本語タイトル
     data['title']['zh-CHS'] = soup.find(class_="title_ja").find("strong").text
 

@@ -32,10 +32,10 @@ def do_request(data):
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     return requests.post(YOUDAO_URL, data=data, headers=headers)
 
-def youdao_trans(query_string, dst='zh-CHS'):  
+def youdao_trans(query_string):  
     data = {}
     data['from'] = 'en'
-    data['to'] = dst
+    data['to'] = 'zh-CHS'
     data['signType'] = 'v3'
     curtime = str(int(time.time()))
     data['curtime'] = curtime
