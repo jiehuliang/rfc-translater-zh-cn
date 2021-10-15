@@ -46,7 +46,7 @@ def youdao_trans(query_string, dst='zh-CHS'):
     data['q'] = query_string
     data['salt'] = salt
     data['sign'] = sign
-    data['vocabId'] = "FB0A388EB1A04776AF2162720DE5D0D4"
+    data['vocabId'] = "1B1BCBC625BA45688824BE573C91CF7B"
 
     try:
         response = do_request(data)

@@ -183,7 +183,7 @@ class TranslatorYouDaotrans(Translator):
         super(TranslatorYouDaotrans, self).__init__(total, desc)
 
     def translate(self, text, dest='zh-CN'):
-        return youdao_trans(text, dest)
+        return ''.join(youdao_trans(text, dest))
 
     def translate_texts(self, texts, dest='zh-CN'):
         res = []
@@ -222,14 +222,14 @@ def trans_rfc(number, mode):
 
     try:
         # 标题翻译
-        if not obj['title'].get('ja'):  # 跳过已翻译的段落
+        if not obj['title'].get('zh-CHS'):  # 跳过已翻译的段落
             titles = obj['title']['text'][0].split(':', 1)  # "RFC XXXX - Title"
             if len(titles) <= 1:
-                obj['title']['ja'] = "RFC %d" % number
+                obj['title']['zh-CHS'] = "RFC %d" % number
             else:
                 text = titles[1]
                 ja = translator.translate(text)
-                obj['title']['ja'] = "RFC %d - %s" % (number, ja)
+                obj['title']['zh-CHS'] = "RFC %d - %s" % (number, ja)
 
         # 段落翻译
         #   一次翻译多个段落
@@ -242,7 +242,7 @@ def trans_rfc(number, mode):
             for i, obj_contents_i in obj_contents:
 
                 # 跳过已经翻译的段落和图表而不翻译
-                if (obj_contents_i.get('ja') or (obj_contents_i.get('raw') == True)):
+                if (obj_contents_i.get('zh-CHS') or (obj_contents_i.get('raw') == True)):
                     texts.append('')
                     pre_texts.append('')
                     continue
@@ -268,7 +268,7 @@ def trans_rfc(number, mode):
             # 存储翻译结果
             for (i, obj_contents_i), pre_text, text_ja in \
                     zip(obj_contents, pre_texts, texts_ja):
-                obj['contents'][i]['ja'] = pre_text + ''.join(text_ja)
+                obj['contents'][i]['zh-CHS'] = pre_text + ''.join(text_ja)
 
         print("", flush=True)
 

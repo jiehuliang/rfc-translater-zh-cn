@@ -21,15 +21,15 @@ def trans_replace():
             # 変換ルールに基づく置換
             for text_eng, text_ja in rules.items():
                 if paragraph['text'] == text_eng:
-                    paragraph['ja'] = text_ja
+                    paragraph['zh-CHS'] = text_ja
                     is_changed = True
 
             # セクション番号が「1.1。」となっている部分の修正
-            # if paragraph.get('ja'):
+            # if paragraph.get('zh-CHS'):
             #     m = re.match(r'^(\d{1,2}\.\d{1,2}(?:\.\d{1,2})?)。(.*)$',
-            #                  paragraph['ja'])
+            #                  paragraph['zh-CHS'])
             #     if m:
-            #         paragraph['ja'] = m[1] + '. ' + m[2]
+            #         paragraph['zh-CHS'] = m[1] + '. ' + m[2]
             #         is_changed = True
 
         if is_changed:

@@ -262,7 +262,7 @@ def fetch_rfc(number, force=False):
     tree = html.fromstring(_cleanhtml(page.content))
 
     # 获取标题
-    title = tree.xpath('//title/text()')
+    title = tree.xpath('//title/text()')[0]
     if len(title) == 0:
         raise RFCNotFound
 

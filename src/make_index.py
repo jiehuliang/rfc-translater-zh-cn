@@ -19,7 +19,7 @@ def make_index():
         if not m:
             print("not found title: %s" % filename)
             continue
-        title = m[1].replace('日本語訳', '').strip()
+        title = m[1].replace('中文翻译', '').strip()
         m = re.match(r'rfc(\d+).html', rfcfile)
         if m:
             filenum = int(m[1])
