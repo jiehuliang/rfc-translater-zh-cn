@@ -3,13 +3,18 @@ import os
 import re
 import json
 import time
+import uuid
+import requests
+import hashlib
+import time
 from tqdm import tqdm # pip install tqdm
 from datetime import datetime, timedelta, timezone
-JST = timezone(timedelta(hours=+9), 'JST')
+CST = timezone(timedelta(hours=+9), 'CST')
 import urllib.parse
 from selenium import webdriver  # pip install selenium
 from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException
+from src.trans_youdao import youdao_trans
 
 # 必须使用小写注册规则
 trans_rules = {
@@ -41,6 +46,7 @@ trans_rules = {
 class TransMode:
     PY_GOOGLETRANS  = 1
     SELENIUM_GOOGLE = 2
+    YOUDAO_DIC      = 3
 
 
 # 翻译类的抽象
@@ -171,6 +177,21 @@ class TranslatorSeleniumGoogletrans(Translator):
             return True
         return self._browser.quit()
 
+class TranslatorYouDaotrans(Translator):
+    # 有道翻译
+    def __init__(self, total, desc=''):
+        super(TranslatorYouDaotrans, self).__init__(total, desc)
+
+    def translate(self, text, dest='zh-CN'):
+        return youdao_trans(text, dest)
+
+    def translate_texts(self, texts, dest='zh-CN'):
+        res = []
+        for text in texts:
+            ja = youdao_trans(text, dest)
+            res.append(ja)
+            self.increment_count()
+        return res
 
 def chunks(l, n):
     for i in range(0, len(l), n):
@@ -193,14 +214,16 @@ def trans_rfc(number, mode):
     desc = 'RFC %d' % number
     if mode == TransMode.PY_GOOGLETRANS:
         translator = TranslatorGoogletrans(total=len(obj['contents']), desc=desc)
-    else:
+    elif mode == TransMode.SELENIUM_GOOGLE:
         translator = TranslatorSeleniumGoogletrans(total=len(obj['contents']), desc=desc)
+    else:
+        translator = TranslatorYouDaotrans(total=len(obj['contents']), desc=desc)
     is_canceled = False
 
     try:
         # 标题翻译
         if not obj['title'].get('ja'):  # 跳过已翻译的段落
-            titles = obj['title']['text'].split(' - ', 1)  # "RFC XXXX - Title"
+            titles = obj['title']['text'][0].split(':', 1)  # "RFC XXXX - Title"
             if len(titles) <= 1:
                 obj['title']['ja'] = "RFC %d" % number
             else:
@@ -245,17 +268,17 @@ def trans_rfc(number, mode):
             # 存储翻译结果
             for (i, obj_contents_i), pre_text, text_ja in \
                     zip(obj_contents, pre_texts, texts_ja):
-                obj['contents'][i]['ja'] = pre_text + text_ja
+                obj['contents'][i]['ja'] = pre_text + ''.join(text_ja)
 
         print("", flush=True)
 
     except json.decoder.JSONDecodeError as e:
         print('[-] googletrans is blocked by Google :(')
-        print('[-]', datetime.now(JST))
+        print('[-]', datetime.now(CST))
         is_canceled = True
     except NoSuchElementException as e:
         print('[-] Google Translate is blocked by Google :(')
-        print('[-]', datetime.now(JST))
+        print('[-]', datetime.now(CST))
         is_canceled = True
     except KeyboardInterrupt as e:
         print('Interrupted!')
@@ -283,11 +306,18 @@ def trans_test(mode=TransMode.SELENIUM_GOOGLE):
         translator = TranslatorGoogletrans(total=1)
         ja = translator.translate('test', dest='ja')
         return ja == 'テスト'
-    else:
+    elif mode == TransMode.SELENIUM_GOOGLE:
         translator = TranslatorSeleniumGoogletrans(total=1)
         ja = translator.translate('test', dest='ja')
         print('result:', ja)
         return ja in ('テスト', 'しけん')
+    else:
+        translator = TranslatorYouDaotrans(total=1)
+        res = translator.translate('test', dest='zh-CHS')
+        print('result:', res)
+        return res in ('测试', '考试')
+
+
 
 if __name__ == '__main__':
     import argparse

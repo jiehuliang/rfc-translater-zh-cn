@@ -4,7 +4,7 @@ import re
 import json
 import codecs
 from datetime import datetime, timedelta, timezone
-JST = timezone(timedelta(hours=+9), 'JST')
+CST = timezone(timedelta(hours=+9), 'CST')
 import textwrap
 from bs4 import BeautifulSoup
 from pprint import pprint
@@ -20,7 +20,7 @@ def make_json_from_html(rfc_number):
     data = {
         "title": {"text": "", "ja": ""},
         "number": 0,
-        "created_at": str(datetime.now(JST)),
+        "created_at": str(datetime.now(CST)),
         "updated_by": "",
         "contents": []
     }

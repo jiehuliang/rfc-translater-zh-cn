@@ -68,7 +68,7 @@ if __name__ == '__main__':
         RFCs = [int(rfc_number) for rfc_number in args.rfc.split(",")]
 
     # 选择翻译工具:默认为Selenium+谷歌翻译
-    transmode = TransMode.SELENIUM_GOOGLE
+    transmode = TransMode.YOUDAO_DIC
     if args.transmode == 'py-googletrans':
         transmode = TransMode.PY_GOOGLETRANS
 

@@ -6,7 +6,7 @@ import textwrap
 import requests
 from lxml import html
 from datetime import datetime, timedelta, timezone
-JST = timezone(timedelta(hours=+9), 'JST')
+CST = timezone(timedelta(hours=+8), 'CST')
 
 # 表示段落跨页的文字
 BREAK = '\n\x07\n'
@@ -230,10 +230,10 @@ def _cleanhtml(raw_html):
 # [EntryPoint]
 # RFC获取
 def fetch_rfc(number, force=False):
-    # url = 'https://www.rfc-editor.org/rfc/rfc%d.html' % number
+    url = 'https://www.rfc-editor.org/rfc/rfc%d.html' % number
     # url = 'https://datatracker.ietf.org/doc/html/rfc%d' % number
     # url = 'https://ftp.ripe.net/mirrors/rfc/rfc%d.html' % number
-    url = 'https://datatracker.ietf.org/doc/html/rfc%d' % number
+    # url = 'https://datatracker.ietf.org/doc/html/rfc%d' % number
 
 
     # tmpres = os.popen('curl -x 127.0.0.1:10809 %s' % url).readlines()
@@ -247,15 +247,16 @@ def fetch_rfc(number, force=False):
     # 创建输出目录
     os.makedirs(output_dir, exist_ok=True)
 
-    proxy = '127.0.0.1:10809'
-    proxies = {
-        "http": "http://%(proxy)s/" % {'proxy': proxy},
-        "https": "http://%(proxy)s/" % {'proxy': proxy}
-    }
+    # proxy = '127.0.0.1:10809'
+    # proxies = {
+    #     "http": "http://%(proxy)s/" % {'proxy': proxy},
+    #     "https": "http://%(proxy)s/" % {'proxy': proxy}
+    # }
 
     # 获取RFC页面的内容
     headers = {'User-agent': '', 'referer': url}
-    page = requests.get(url, headers, timeout=(36.2, 180), proxies=proxies)
+    # page = requests.get(url, headers, timeout=(36.2, 180), proxies=proxies)
+    page = requests.get(url, headers, timeout=(36.2, 180))
     # f = open(output_file,'w', encoding='utf8')
     # f.write(page.text)
     tree = html.fromstring(_cleanhtml(page.content))
@@ -265,27 +266,27 @@ def fetch_rfc(number, force=False):
     if len(title) == 0:
         raise RFCNotFound
 
-    if not force:
-        # 设置标题
-        # MEMO: RFC的HTML结构发生变化的时候，研究一下这里是否可以搞定
+    # if not force:
+    #     # 设置标题
+    #     # MEMO: RFC的HTML结构发生变化的时候，研究一下这里是否可以搞定
 
-        # <span class="h1">标题</span>
-        # content_h1 = tree.xpath('//span[@class="h1"]/text()') # 6/17 因为有通过换行分割成多个的情况所以废止
-        # <meta name="description" content="标题 (RFC)">
-        content_description = tree.xpath('//meta[@name="description"]/@content')
+    #     # <span class="h1">标题</span>
+    #     # content_h1 = tree.xpath('//span[@class="h1"]/text()') # 6/17 因为有通过换行分割成多个的情况所以废止
+    #     # <meta name="description" content="标题 (RFC)">
+    #     content_description = tree.xpath('//meta[@name="description"]/@content')
 
-        # if len(content_h1) > 0:
-        #     title = "RFC %s - %s" % (number, content_h1[0]) # 6/17 因为有通过换行分割成多个的情况所以废止
-        if len(content_description) > 0:
-            tmp = content_description[0]
-            tmp = re.sub(r' ?\(RFC ?\)$', '', tmp)
-            title = "RFC %s - %s" % (number, tmp)
-        else:
-            raise Exception("Cannot extract RFC Title!")
+    #     # if len(content_h1) > 0:
+    #     #     title = "RFC %s - %s" % (number, content_h1[0]) # 6/17 因为有通过换行分割成多个的情况所以废止
+    #     if len(content_description) > 0:
+    #         tmp = content_description[0]
+    #         tmp = re.sub(r' ?\(RFC ?\)$', '', tmp)
+    #         title = "RFC %s - %s" % (number, tmp)
+    #     else:
+    #         raise Exception("Cannot extract RFC Title!")
 
-    else:
-        # 有force选项的时候，即使标题不存在也要执行
-        title = "RFC %s" % number
+    # else:
+    #     # 有force选项的时候，即使标题不存在也要执行
+    #     title = "RFC %s" % number
 
     # 获取文章内容
     # MEMO: RFC的HTML结构发生变化的时候，研究一下这里是否可以搞定
@@ -356,7 +357,7 @@ def fetch_rfc(number, force=False):
     obj = {
         'title': {'text': title},
         'number': number,
-        'created_at': str(datetime.now(JST)),
+        'created_at': str(datetime.now(CST)),
         'updated_by': '',
         'contents': [],
     }
