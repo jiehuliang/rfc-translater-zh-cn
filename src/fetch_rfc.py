@@ -297,7 +297,7 @@ def fetch_rfc(number, force=False):
         '//pre/span[@class="h1" or @class="h2" or @class="h3" or '
                    '@class="h4" or @class="h5" or @class="h6"]//text() |'
         '//pre/span/a[@class="selflink"]/text() |'  # 标题编号
-        '//a[@class="invisible"]'  # 页的划分
+        '//a[@class="grey"]'  # 页的划分
     )
 
     # 在分页时，段落跨页的处理(RFC8650 ~不再分页，所以没有关系)
