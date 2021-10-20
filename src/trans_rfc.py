@@ -50,7 +50,6 @@ class TransMode:
     YOUDAO_DIC      = 3
     BAIDU_TRANS     = 4
 
-
 # 翻译类的抽象
 class Translator:
 

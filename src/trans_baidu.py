@@ -6,6 +6,7 @@
 import requests
 import random
 import json
+import time
 from hashlib import md5
 
 # Set your own appid/appkey.
@@ -31,6 +32,7 @@ def bd_translate(query_str):
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     payload = {'appid': appid, 'q': query_str, 'from': from_lang, 'to': to_lang, 'salt': salt, 'sign': sign}
 
+    time.sleep(1)
     # Send request
     try:
         r = requests.post(url, params=payload, headers=headers)
