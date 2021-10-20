@@ -20,6 +20,8 @@ def make_md5(s, encoding='utf-8'):
     return md5(s.encode(encoding)).hexdigest()
 
 def bd_translate(query_str):
+    if query_str == '' or query_str == ' ':
+        return " "
     from_lang = 'en'
     to_lang =  'zh'
     endpoint = 'http://api.fanyi.baidu.com'
