@@ -48,6 +48,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--rfc', type=str, help='RFC number')
+    parser.add_argument('--file', type=str, help='read RFC number from file')
     parser.add_argument('--fetch', action='store_true', help='only fetch RFC')
     parser.add_argument('--trans', action='store_true', help='only translate')
     parser.add_argument('--make', action='store_true', help='only make HTML')
@@ -66,6 +67,10 @@ if __name__ == '__main__':
     RFCs = None
     if args.rfc:
         RFCs = [int(rfc_number) for rfc_number in args.rfc.split(",")]
+
+    if args.file:
+        f = open(args.file, "r")
+        RFCs = [int(rfc_number) for rfc_number in f.readlines()]
 
     # 选择翻译工具:默认为Selenium+谷歌翻译
     transmode = TransMode.BAIDU_TRANS
@@ -118,6 +123,7 @@ if __name__ == '__main__':
     elif RFCs:
         # 指定范围，按顺序获取、翻译、制作RFC
         for rfc in RFCs:
+            print("translating RFC %d" % rfc)
             main(rfc, transmode)
     else:
         # 按顺序获取、翻译、制作未翻译的RFC
