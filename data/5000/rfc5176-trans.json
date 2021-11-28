@@ -1,0 +1,1410 @@
+{
+  "title": {
+    "text": "RFC 5176: Dynamic Authorization Extensions to Remote Authentication Dial In User Service (RADIUS)",
+    "zh-CHS": "RFC 5176"
+  },
+  "number": 5176,
+  "created_at": "2021-11-10 09:18:30.012460+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                           M. Chiba\nRequest for Comments: 5176                                    G. Dommety\nObsoletes: 3576                                                M. Eklund\nCategory: Informational                              Cisco Systems, Inc.\n                                                               D. Mitton\n                                           RSA, Security Division of EMC\n                                                                B. Aboba\n                                                   Microsoft Corporation\n                                                            January 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": " Dynamic Authorization Extensions to Remote Authentication Dial In User Service (RADIUS)",
+      "zh-CHS": "远程身份验证拨入用户服务（RADIUS）的动态授权扩展"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a currently deployed extension to the Remote Authentication Dial In User Service (RADIUS) protocol, allowing dynamic changes to a user session, as implemented by network access server products. This includes support for disconnecting users and changing authorizations applicable to a user session.",
+      "zh-CHS": "本文档描述了当前部署的远程身份验证拨入用户服务（RADIUS）协议的扩展，它允许动态更改用户会话，如网络访问服务器产品所实现的那样。这包括支持断开用户连接和更改适用于用户会话的授权。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Applicability ..............................................3\n   1.2. Requirements Language ......................................4\n   1.3. Terminology ................................................4\n2. Overview ........................................................4\n   2.1. Disconnect Messages (DMs) ..................................5\n   2.2. Change-of-Authorization (CoA) Messages .....................5\n   2.3. Packet Format ..............................................6\n3. Attributes .....................................................10\n   3.1. Proxy State ...............................................12\n   3.2. Authorize Only ............................................13\n   3.3. State .....................................................14\n   3.4. Message-Authenticator .....................................15\n   3.5. Error-Cause ...............................................16\n   3.6. Table of Attributes .......................................20\n4. Diameter Considerations ........................................24\n5. IANA Considerations ............................................26\n6. Security Considerations ........................................26\n   6.1. Authorization Issues ......................................26\n   6.2. IPsec Usage Guidelines ....................................27\n   6.3. Replay Protection .........................................28\n7. Example Traces .................................................28\n8. References .....................................................29\n   8.1. Normative References ......................................29\n   8.2. Informative References ....................................30\n9. Acknowledgments ................................................30\nAppendix A ........................................................31",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The RADIUS protocol, defined in [RFC2865], does not support unsolicited messages sent from the RADIUS server to the Network Access Server (NAS).",
+      "zh-CHS": "[RFC2865]中定义的RADIUS协议不支持从RADIUS服务器发送到网络访问服务器（NAS）的未经请求的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "However, there are many instances in which it is desirable for changes to be made to session characteristics, without requiring the NAS to initiate the exchange. For example, it may be desirable for administrators to be able to terminate user session(s) in progress. Alternatively, if the user changes authorization level, this may require that authorization attributes be added/deleted from user session(s).",
+      "zh-CHS": "但是，在许多情况下，需要对会话特性进行更改，而不需要NAS启动交换。例如，管理员可能希望能够终止正在进行的用户会话。或者，如果用户更改授权级别，这可能需要从用户会话中添加/删除授权属性。"
+    },
+    {
+      "indent": 3,
+      "text": "To overcome these limitations, several vendors have implemented additional RADIUS commands in order to enable unsolicited messages to be sent to the NAS. These extended commands provide support for Disconnect and Change-of-Authorization (CoA) packets. Disconnect",
+      "zh-CHS": "为了克服这些限制，一些供应商实施了额外的RADIUS命令，以便能够将未经请求的消息发送到NAS。这些扩展命令支持断开和更改授权（CoA）数据包。断开"
+    },
+    {
+      "indent": 3,
+      "text": "packets cause user session(s) to be terminated immediately, whereas CoA packets modify session authorization attributes such as data filters.",
+      "zh-CHS": "数据包导致用户会话立即终止，而CoA数据包修改会话授权属性，如数据过滤器。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Applicability",
+      "section_title": true,
+      "zh-CHS": "1.1. 适用性"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol is being recommended for publication as an Informational RFC rather than as a standards-track RFC because of problems that cannot be fixed without creating incompatibilities with deployed implementations. This includes security vulnerabilities, as well as semantic ambiguities resulting from the design of the Change-of-Authorization (CoA) commands. While fixes are recommended, they cannot be made mandatory since this would be incompatible with existing implementations.",
+      "zh-CHS": "建议将此协议作为信息RFC而不是标准跟踪RFC发布，因为如果不创建与已部署实现的不兼容性，就无法修复这些问题。这包括安全漏洞，以及由于设计授权变更（CoA）命令而导致的语义歧义。虽然建议进行修复，但不能强制进行修复，因为这与现有实现不兼容。"
+    },
+    {
+      "indent": 3,
+      "text": "Existing implementations of this protocol do not support authorization checks, so that an ISP sharing a NAS with another ISP could disconnect or change authorizations for another ISP's users. In order to remedy this problem, a \"Reverse Path Forwarding\" check is described; see Section 6.1 for details.",
+      "zh-CHS": "此协议的现有实现不支持授权检查，因此与其他ISP共享NAS的ISP可以断开或更改其他ISP用户的授权。为了解决该问题，描述了“反向路径转发”检查；详见第6.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "Existing implementations utilize per-packet authentication and integrity protection algorithms with known weaknesses [MD5Attack]. To provide stronger per-packet authentication and integrity protection, the use of IPsec is recommended. See Section 6.2 for details.",
+      "zh-CHS": "现有的实现利用每个包的身份验证和完整性保护算法，这些算法具有已知的弱点[MD5Attack]。为了提供更强的每包身份验证和完整性保护，建议使用IPsec。详见第6.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Existing implementations lack replay protection. In order to support replay detection, it is recommended that an Event-Timestamp Attribute be added to all packets in situations where IPsec replay protection is not employed. See Section 6.3 for details.",
+      "zh-CHS": "现有的实现缺乏重播保护。为了支持重播检测，建议在未采用IPsec重播保护的情况下，向所有数据包添加事件时间戳属性。详见第6.3节。"
+    },
+    {
+      "indent": 3,
+      "text": "The approach taken with CoA commands in existing implementations results in a semantic ambiguity. Existing implementations of the CoA-Request identify the affected session, as well as supply the authorization changes. Since RADIUS Attributes included within existing implementations of the CoA-Request can be used for session identification or authorization change, it may not be clear which function a given attribute is serving.",
+      "zh-CHS": "现有实现中使用CoA命令的方法会导致语义歧义。CoA请求的现有实现识别受影响的会话，并提供授权更改。由于CoA请求的现有实现中包含的RADIUS属性可用于会话标识或授权更改，因此可能不清楚给定属性服务于哪个功能。"
+    },
+    {
+      "indent": 3,
+      "text": "The problem does not exist within the Diameter protocol [RFC3588], in which server-initiated authorization change is initiated using a Re-Auth-Request (RAR) command identifying the session via User-Name and Session-Id Attribute Value Pairs (AVPs) and containing a Re-Auth-Request-Type AVP with value \"AUTHORIZE_ONLY\". This results in initiation of a standard Request/Response sequence where authorization changes are supplied. As a result, in no command can Diameter AVPs have multiple potential meanings.",
+      "zh-CHS": "Diameter协议[RFC3588]中不存在此问题，在该协议中，使用重新授权请求（RAR）命令启动服务器启动的授权更改，该命令通过用户名和会话Id属性值对（AVP）标识会话，并包含值为“仅授权”的重新授权请求类型AVP。这导致启动标准请求/响应序列，其中提供授权更改。因此，在任何命令中，Diameter AVP都不能具有多个潜在含义。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Requirements Language",
+      "section_title": true,
+      "zh-CHS": "1.2. 需求语言"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Terminology",
+      "section_title": true,
+      "zh-CHS": "1.3. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "This document frequently uses the following terms:",
+      "zh-CHS": "本文件经常使用以下术语："
+    },
+    {
+      "indent": 3,
+      "text": "Dynamic Authorization Client (DAC) The entity originating Change of Authorization (CoA) Requests or Disconnect-Requests. While it is possible that the DAC is co-resident with a RADIUS authentication or accounting server, this need not necessarily be the case.",
+      "zh-CHS": "动态授权客户端（DAC）：发起授权变更（CoA）请求或断开连接请求的实体。虽然DAC可能与RADIUS身份验证或记帐服务器共存，但情况不一定如此。"
+    },
+    {
+      "indent": 3,
+      "text": "Dynamic Authorization Server (DAS) The entity receiving CoA-Request or Disconnect-Request packets. The DAS may be a NAS or a RADIUS proxy.",
+      "zh-CHS": "动态授权服务器（DAS）接收CoA请求或断开请求数据包的实体。DAS可以是NAS或RADIUS代理。"
+    },
+    {
+      "indent": 3,
+      "text": "Network Access Server (NAS) The device providing access to the network.",
+      "zh-CHS": "网络访问服务器（NAS）提供网络访问的设备。"
+    },
+    {
+      "indent": 3,
+      "text": "service The NAS provides a service to the user, such as IEEE 802 or Point-to-Point Protocol (PPP).",
+      "zh-CHS": "服务NAS向用户提供服务，如IEEE 802或点对点协议（PPP）。"
+    },
+    {
+      "indent": 3,
+      "text": "session Each service provided by the NAS to a user constitutes a session, with the beginning of the session defined as the point where service is first provided and the end of the session defined as the point where service is ended. A user may have multiple sessions in parallel or series if the NAS supports that.",
+      "zh-CHS": "会话NAS向用户提供的每个服务都构成一个会话，会话的开始定义为首次提供服务的点，会话的结束定义为服务的结束点。如果NAS支持，则用户可以并行或串联多个会话。"
+    },
+    {
+      "indent": 3,
+      "text": "silently discard This means the implementation discards the packet without further processing. The implementation SHOULD provide the capability of logging the error, including the contents of the silently discarded packet, and SHOULD record the event in a statistics counter.",
+      "zh-CHS": "静默丢弃这意味着实现在不进行进一步处理的情况下丢弃数据包。实现应该提供记录错误的能力，包括静默丢弃的数据包的内容，并且应该在统计计数器中记录事件。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Overview",
+      "section_title": true,
+      "zh-CHS": "2. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the most commonly implemented features of Disconnect and Change-of-Authorization (CoA) packets.",
+      "zh-CHS": "本节描述了断开连接和更改授权（CoA）数据包最常用的功能。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Disconnect Messages (DMs)",
+      "section_title": true,
+      "zh-CHS": "2.1. 断开连接消息（DMs）"
+    },
+    {
+      "indent": 3,
+      "text": "A Disconnect-Request packet is sent by the Dynamic Authorization Client in order to terminate user session(s) on a NAS and discard all associated session context. The Disconnect-Request packet is sent to UDP port 3799, and identifies the NAS as well as the user session(s) to be terminated by inclusion of the identification attributes described in Section 3.",
+      "zh-CHS": "动态授权客户端发送断开连接请求数据包，以终止NAS上的用户会话并丢弃所有相关会话上下文。断开连接请求数据包被发送到UDP端口3799，并通过包含第3节中描述的标识属性来标识NAS以及要终止的用户会话。"
+    },
+    {
+      "indent": 3,
+      "text": "+----------+                          +----------+\n|          |   Disconnect-Request     |          |\n|          |   <--------------------  |          |\n|    NAS   |                          |    DAC   |\n|          |   Disconnect-ACK/NAK     |          |\n|          |   ---------------------> |          |\n+----------+                          +----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The NAS responds to a Disconnect-Request packet sent by a Dynamic Authorization Client with a Disconnect-ACK if all associated session context is discarded and the user session(s) are no longer connected, or a Disconnect-NAK, if the NAS was unable to disconnect one or more sessions and discard all associated session context. A Disconnect-ACK MAY contain the Acct-Terminate-Cause (49) Attribute [RFC2866] with the value set to 6 for Admin-Reset.",
+      "zh-CHS": "如果放弃所有相关会话上下文且用户会话不再连接，NAS将使用断开确认响应动态授权客户端发送的断开连接请求数据包；如果NAS无法断开一个或多个会话并放弃所有相关会话上下文，NAS将使用断开连接NAK响应断开连接请求数据包。断开连接确认可能包含Acct Terminate Cause（49）属性[RFC2866]，该属性的值设置为6，用于管理重置。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Change-of-Authorization (CoA) Messages",
+      "section_title": true,
+      "zh-CHS": "2.2. 授权变更（CoA）消息"
+    },
+    {
+      "indent": 3,
+      "text": "CoA-Request packets contain information for dynamically changing session authorizations. Typically, this is used to change data filters. The data filters can be of either the ingress or egress kind, and are sent in addition to the identification attributes as described in Section 3. The port used and packet format (described in Section 2.3) are the same as those for Disconnect-Request packets.",
+      "zh-CHS": "CoA请求数据包包含动态更改会话授权的信息。通常，这用于更改数据过滤器。数据过滤器可以是入口或出口类型，并且除了第3节中描述的标识属性之外，还发送数据过滤器。所使用的端口和数据包格式（如第2.3节所述）与断开连接请求数据包的端口和数据包格式相同。"
+    },
+    {
+      "indent": 3,
+      "text": "The following attributes MAY be sent in a CoA-Request:",
+      "zh-CHS": "以下属性可在CoA请求中发送："
+    },
+    {
+      "indent": 3,
+      "text": "Filter-ID (11) - Indicates the name of a data filter list to be applied for the session(s) that the identification attributes map to.",
+      "zh-CHS": "筛选器ID（11）-表示要应用于标识属性映射到的会话的数据筛选器列表的名称。"
+    },
+    {
+      "indent": 3,
+      "text": "NAS-Filter-Rule (92) - Provides a filter list to be applied for the session(s) that the identification attributes map to [RFC4849].",
+      "zh-CHS": "NAS筛选器规则（92）-提供要应用于标识属性映射到[RFC4849]的会话的筛选器列表。"
+    },
+    {
+      "indent": 3,
+      "text": "+----------+                          +----------+\n|          |      CoA-Request         |          |\n|          |  <--------------------   |          |\n|   NAS    |                          |    DAC   |\n|          |     CoA-ACK/NAK          |          |\n|          |   ---------------------> |          |\n+----------+                          +----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The NAS responds to a CoA-Request sent by a Dynamic Authorization Client with a CoA-ACK if the NAS is able to successfully change the authorizations for the user session(s), or a CoA-NAK if the CoA-Request is unsuccessful. A NAS MUST respond to a CoA-Request including a Service-Type Attribute with an unsupported value with a CoA-NAK; an Error-Cause Attribute with value \"Unsupported Service\" SHOULD be included.",
+      "zh-CHS": "如果NAS能够成功更改用户会话的授权，NAS将使用CoA ACK响应动态授权客户端发送的CoA请求；如果CoA请求失败，NAS将使用CoA NAK响应。NAS必须使用CoA NAK响应CoA请求，该请求包括具有不支持值的服务类型属性；应包括值为“Unsupported Service”的错误原因属性。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Packet Format",
+      "section_title": true,
+      "zh-CHS": "2.3. 数据包格式"
+    },
+    {
+      "indent": 3,
+      "text": "For either Disconnect-Request or CoA-Request packets UDP port 3799 is used as the destination port. For responses, the source and destination ports are reversed. Exactly one RADIUS packet is encapsulated in the UDP Data field.",
+      "zh-CHS": "对于断开连接请求或CoA请求数据包，UDP端口3799用作目标端口。对于响应，源端口和目标端口是反向的。UDP数据字段中只封装了一个RADIUS数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "A summary of the data format is shown below. The fields are transmitted from left to right.",
+      "zh-CHS": "数据格式摘要如下所示。字段从左向右传输。"
+    },
+    {
+      "indent": 3,
+      "text": "The packet format consists of the following fields: Code, Identifier, Length, Authenticator, and Attributes in Type-Length-Value (TLV) format. All fields hold the same meaning as those described in RADIUS [RFC2865]. The Authenticator field MUST be calculated in the same way as is specified for an Accounting-Request in [RFC2866].",
+      "zh-CHS": "数据包格式由以下字段组成：代码、标识符、长度、验证器和类型长度值（TLV）格式的属性。所有字段的含义与RADIUS[RFC2865]中所述的相同。验证器字段的计算方法必须与[RFC2866]中为记帐请求指定的方法相同。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Code      |  Identifier   |            Length             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|                         Authenticator                         |\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Attributes ...\n+-+-+-+-+-+-+-+-+-+-+-+-+-",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Code",
+      "zh-CHS": "密码"
+    },
+    {
+      "indent": 6,
+      "text": "The Code field is one octet, and identifies the type of RADIUS packet. Packets received with an invalid Code field MUST be silently discarded. RADIUS codes (decimal) for this extension are assigned as follows:",
+      "zh-CHS": "代码字段是一个八位字节，用于标识RADIUS数据包的类型。接收到的带有无效代码字段的数据包必须以静默方式丢弃。此扩展的半径代码（十进制）分配如下："
+    },
+    {
+      "indent": 6,
+      "text": "40 - Disconnect-Request [RFC3575]\n41 - Disconnect-ACK [RFC3575]\n42 - Disconnect-NAK [RFC3575]\n43 - CoA-Request [RFC3575]\n44 - CoA-ACK [RFC3575]\n45 - CoA-NAK [RFC3575]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Identifier",
+      "zh-CHS": "标识符"
+    },
+    {
+      "indent": 6,
+      "text": "The Identifier field is one octet, and aids in matching requests and replies. A Dynamic Authorization Server implementing this specification MUST be capable of detecting a duplicate request if it has the same source IP address, source UDP port, and Identifier within a short span of time.",
+      "zh-CHS": "标识符字段是一个八位字节，有助于匹配请求和响应。如果在短时间内具有相同的源IP地址、源UDP端口和标识符，则实现此规范的动态授权服务器必须能够检测到重复请求。"
+    },
+    {
+      "indent": 6,
+      "text": "The responsibility for retransmission of Disconnect-Request and CoA-Request packets lies with the Dynamic Authorization Client. If after sending these packets, the Dynamic Authorization Client does not receive a response, it will retransmit.",
+      "zh-CHS": "断开连接请求和CoA请求数据包的重新传输由动态授权客户端负责。如果在发送这些数据包之后，动态授权客户端没有收到响应，它将重新传输。"
+    },
+    {
+      "indent": 6,
+      "text": "The Identifier field MUST be changed whenever the content of the Attributes field changes, or whenever a valid reply has been received for a previous request. For retransmissions where the contents are identical, the Identifier MUST remain unchanged.",
+      "zh-CHS": "每当Attributes字段的内容更改时，或者每当收到前一个请求的有效答复时，都必须更改Identifier字段。对于内容相同的重传，标识符必须保持不变。"
+    },
+    {
+      "indent": 6,
+      "text": "If the Dynamic Authorization Client is retransmitting a Disconnect-Request or CoA-Request to the same Dynamic Authorization Server as before, and the attributes haven't changed, the same Request Authenticator, Identifier, and source port MUST be used. If any attributes have changed, a new Authenticator and Identifier MUST be used.",
+      "zh-CHS": "如果动态授权客户端正在将断开连接请求或CoA请求重新传输到与以前相同的动态授权服务器，并且属性没有更改，则必须使用相同的请求验证器、标识符和源端口。如果任何属性已更改，则必须使用新的验证器和标识符。"
+    },
+    {
+      "indent": 6,
+      "text": "If the Request to a primary Dynamic Authorization Server fails, a secondary Dynamic Authorization Server must be queried, if available; issues relating to failover algorithms are described in [RFC3539]. Since this represents a new request, a new Request Authenticator and Identifier MUST be used. However, where the Dynamic Authorization Client is sending directly to the NAS, failover typically does not make sense, since CoA-Request or Disconnect-Request packets need to be delivered to the NAS where the session resides.",
+      "zh-CHS": "如果对主动态授权服务器的请求失败，则必须查询辅助动态授权服务器（如果可用）；[RFC3539]中描述了与故障转移算法相关的问题。因为这表示一个新的请求，所以必须使用一个新的请求验证器和标识符。但是，当动态授权客户端直接发送到NAS时，故障切换通常没有意义，因为CoA请求或断开连接请求数据包需要发送到会话所在的NAS。"
+    },
+    {
+      "indent": 3,
+      "text": "Length",
+      "zh-CHS": "长"
+    },
+    {
+      "indent": 6,
+      "text": "The Length field is two octets. It indicates the length of the packet including the Code, Identifier, Length, Authenticator, and Attribute fields. Octets outside the range of the Length field MUST be treated as padding and ignored on reception. If the packet is shorter than the Length field indicates, it MUST be silently discarded. The minimum length is 20 and maximum length is 4096.",
+      "zh-CHS": "长度字段是两个八位字节。它指示数据包的长度，包括代码、标识符、长度、验证器和属性字段。长度字段范围之外的八位字节必须视为填充，并在接收时忽略。如果数据包短于长度字段指示的长度，则必须以静默方式将其丢弃。最小长度为20，最大长度为4096。"
+    },
+    {
+      "indent": 3,
+      "text": "Authenticator",
+      "zh-CHS": "验证者"
+    },
+    {
+      "indent": 6,
+      "text": "The Authenticator field is sixteen (16) octets. The most significant octet is transmitted first. This value is used to authenticate packets between the Dynamic Authorization Client and the Dynamic Authorization Server.",
+      "zh-CHS": "验证器字段为十六（16）个八位字节。最重要的八位字节首先传输。此值用于验证动态授权客户端和动态授权服务器之间的数据包。"
+    },
+    {
+      "indent": 6,
+      "text": "Request Authenticator",
+      "zh-CHS": "请求验证器"
+    },
+    {
+      "indent": 9,
+      "text": "In Request packets, the Authenticator value is a 16-octet MD5 [RFC1321] checksum, called the Request Authenticator. The Request Authenticator is calculated the same way as for an Accounting-Request, specified in [RFC2866].",
+      "zh-CHS": "在请求数据包中，验证器值是16个八位MD5[RFC1321]校验和，称为请求验证器。请求验证器的计算方法与[RFC2866]中规定的记帐请求的计算方法相同。"
+    },
+    {
+      "indent": 9,
+      "text": "Note that the Request Authenticator of a CoA-Request or Disconnect-Request cannot be computed the same way as the Request Authenticator of a RADIUS Access-Request, because there is no User-Password Attribute in a CoA-Request or Disconnect-Request.",
+      "zh-CHS": "请注意，CoA请求或断开连接请求的请求验证器的计算方法与RADIUS访问请求的请求验证器的计算方法不同，因为CoA请求或断开连接请求中没有用户密码属性。"
+    },
+    {
+      "indent": 6,
+      "text": "Response Authenticator",
+      "zh-CHS": "响应验证器"
+    },
+    {
+      "indent": 9,
+      "text": "The Authenticator field in a Response packet (e.g., Disconnect-ACK, Disconnect-NAK, CoA-ACK, or CoA-NAK) is called the Response Authenticator, and contains a one-way MD5 hash calculated over a stream of octets consisting of the Code, Identifier, Length, the Request Authenticator field from the packet being replied to, and the response attributes if any, followed by the shared secret. The resulting 16-octet MD5 hash value is stored in the Authenticator field of the Response packet.",
+      "zh-CHS": "响应分组中的认证符字段（例如，断开ACK、断开NAK、CoA ACK或CoA NAK）称为响应认证符，并包含在八位字节流上计算的单向MD5哈希，八位字节流包括代码、标识符、长度、来自被应答分组的请求认证符字段，以及响应属性（如果有），后跟共享机密。得到的16个八位组MD5散列值存储在响应数据包的验证器字段中。"
+    },
+    {
+      "indent": 6,
+      "text": "Administrative note: As noted in [RFC2865], Section 3, the secret (password shared between the Dynamic Authorization Client and the Dynamic Authorization Server) SHOULD be at least as large and unguessable as a well-chosen password. The Dynamic Authorization",
+      "zh-CHS": "管理说明：如[RFC2865]第3节所述，机密（动态授权客户端和动态授权服务器之间共享的密码）应至少与精心选择的密码一样大且不可用。动态授权"
+    },
+    {
+      "indent": 6,
+      "text": "Server MUST use the source IP address of the RADIUS UDP packet to decide which shared secret to use, so that requests can be proxied.",
+      "zh-CHS": "服务器必须使用RADIUS UDP数据包的源IP地址来决定使用哪个共享密钥，以便可以代理请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Attributes",
+      "zh-CHS": "属性"
+    },
+    {
+      "indent": 6,
+      "text": "In CoA-Request and Disconnect-Request packets, all attributes MUST be treated as mandatory. If one or more authorization changes specified in a CoA-Request cannot be carried out, the NAS MUST send a CoA-NAK. A NAS MUST respond to a CoA-Request containing one or more unsupported attributes or Attribute values with a CoA-NAK; an Error-Cause Attribute with value 401 (Unsupported Attribute) or 407 (Invalid Attribute Value) MAY be included. A NAS MUST respond to a Disconnect-Request containing one or more unsupported attributes or Attribute values with a Disconnect-NAK; an Error-Cause Attribute with value 401 (Unsupported Attribute) or 407 (Invalid Attribute Value) MAY be included.",
+      "zh-CHS": "在CoA请求和断开连接请求数据包中，所有属性都必须视为强制属性。如果无法执行CoA请求中指定的一个或多个授权更改，NAS必须发送CoA NAK。NAS必须使用CoA NAK响应包含一个或多个不受支持的属性或属性值的CoA请求；可能包括值为401（不支持的属性）或407（无效属性值）的错误原因属性。NAS必须使用断开NAK响应包含一个或多个不受支持的属性或属性值的断开请求；可能包括值为401（不支持的属性）或407（无效属性值）的错误原因属性。"
+    },
+    {
+      "indent": 6,
+      "text": "State changes resulting from a CoA-Request MUST be atomic: if the CoA-Request is successful for all matching sessions, the NAS MUST send a CoA-ACK in reply, and all requested authorization changes MUST be made. If the CoA-Request is unsuccessful for any matching sessions, the NAS MUST send a CoA-NAK in reply, and the requested authorization changes MUST NOT be made for any of the matching sessions. Similarly, a state change MUST NOT occur as a result of a Disconnect-Request that is unsuccessful with respect to any of the matching sessions; a NAS MUST send a Disconnect-NAK in reply if any of the matching sessions cannot be successfully terminated. A NAS that does not support dynamic authorization changes applying to multiple sessions MUST send a CoA-NAK or Disconnect-NAK in reply; an Error-Cause Attribute with value 508 (Multiple Session Selection Unsupported) SHOULD be included.",
+      "zh-CHS": "CoA请求导致的状态更改必须是原子性的：如果所有匹配会话的CoA请求都成功，NAS必须发送CoA ACK作为响应，并且必须进行所有请求的授权更改。如果任何匹配会话的CoA请求均不成功，NAS必须发送CoA NAK作为回复，并且不得对任何匹配会话进行请求的授权更改。类似地，对于任何匹配会话，断开连接请求不成功时不得导致状态改变；如果任何匹配会话无法成功终止，NAS必须发送断开NAK作为响应。不支持应用于多个会话的动态授权更改的NAS必须发送CoA NAK或断开NAK作为响应；应包括值为508（不支持多个会话选择）的错误原因属性。"
+    },
+    {
+      "indent": 6,
+      "text": "Within this specification, attributes can be used for identification, authorization, or other purposes. RADIUS Attribute specifications created after publication of this document SHOULD state whether an attribute can be included in CoA or Disconnect messages, and if so, which messages it can be included in and whether it serves as an identification or authorization attribute.",
+      "zh-CHS": "在本规范中，属性可用于标识、授权或其他目的。本文件发布后创建的RADIUS属性规范应说明属性是否可以包含在CoA或断开连接消息中，如果可以，可以包含在哪些消息中，以及它是否用作标识或授权属性。"
+    },
+    {
+      "indent": 6,
+      "text": "Even if a NAS implements an attribute for use with RADIUS authentication and accounting, it is possible that it will not support inclusion of that attribute within CoA-Request and Disconnect-Request packets, given the difference in attribute semantics. This is true even for attributes specified as",
+      "zh-CHS": "即使NAS实现了一个用于RADIUS身份验证和记帐的属性，由于属性语义的不同，它也可能不支持在CoA请求和断开请求数据包中包含该属性。即使对于指定为"
+    },
+    {
+      "indent": 6,
+      "text": "allowable within Access-Accept packets (such as those defined within [RFC2865], [RFC2868], [RFC2869], [RFC3162], [RFC3579], [RFC4372], [RFC4675], [RFC4818], and [RFC4849]).",
+      "zh-CHS": "允许的访问内接受数据包（如[RFC2865]、[RFC2868]、[RFC2869]、[RFC3162]、[RFC3579]、[RFC4372]、[RFC4675]、[RFC4818]和[RFC4849]中定义的数据包）。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Attributes",
+      "section_title": true,
+      "zh-CHS": "3. 属性"
+    },
+    {
+      "indent": 3,
+      "text": "In Disconnect-Request and CoA-Request packets, certain attributes are used to uniquely identify the NAS as well as user session(s) on the NAS. The combination of NAS and session identification attributes included in a CoA-Request or Disconnect-Request packet MUST match at least one session in order for a Request to be successful; otherwise a Disconnect-NAK or CoA-NAK MUST be sent. If all NAS identification attributes match, and more than one session matches all of the session identification attributes, then a CoA-Request or Disconnect-Request MUST apply to all matching sessions.",
+      "zh-CHS": "在断开连接请求和CoA请求数据包中，某些属性用于唯一标识NAS以及NAS上的用户会话。包括在CoA请求或断开连接请求数据包中的NAS和会话标识属性的组合必须至少匹配一个会话，以便请求成功；否则，必须发送断开NAK或CoA NAK。如果所有NAS标识属性匹配，并且多个会话匹配所有会话标识属性，则CoA请求或断开连接请求必须应用于所有匹配的会话。"
+    },
+    {
+      "indent": 3,
+      "text": "Identification attributes include NAS and session identification attributes, as described below.",
+      "zh-CHS": "标识属性包括NAS和会话标识属性，如下所述。"
+    },
+    {
+      "indent": 5,
+      "text": "NAS identification attributes",
+      "zh-CHS": "NAS标识属性"
+    },
+    {
+      "indent": 5,
+      "text": "Attribute              #   Reference  Description\n---------             ---  ---------  -----------\nNAS-IP-Address         4   [RFC2865]  The IPv4 address of the NAS.\nNAS-Identifier        32   [RFC2865]  String identifying the NAS.\nNAS-IPv6-Address      95   [RFC3162]  The IPv6 address of the NAS.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Session identification attributes",
+      "zh-CHS": "会话标识属性"
+    },
+    {
+      "indent": 5,
+      "text": "Attribute              #   Reference  Description\n---------             ---  ---------  -----------\nUser-Name              1   [RFC2865]  The name of the user\n                                      associated with one or\n                                      more sessions.\nNAS-Port               5   [RFC2865]  The port on which a\n                                      session is terminated.\nFramed-IP-Address      8   [RFC2865]  The IPv4 address associated\n                                      with a session.\nVendor-Specific       26   [RFC2865]  One or more vendor-specific\n                                      identification attributes.\nCalled-Station-Id     30   [RFC2865]  The link address to which\n                                      a session is connected.\nCalling-Station-Id    31   [RFC2865]  The link address from which\n                                      one or more sessions are\n                                      connected.\nAcct-Session-Id       44   [RFC2866]  The identifier uniquely\n                                      identifying a session\n                                      on the NAS.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Acct-Multi-Session-Id 50 [RFC2866] The identifier uniquely identifying related sessions. NAS-Port-Id 87 [RFC2869] String identifying the port where a session is. Chargeable-User- 89 [RFC4372] The CUI associated with one Identity or more sessions. Needed where a privacy Network Access Identifier (NAI) is used, since in this case the User-Name (e.g., \"anonymous\") may not identify sessions belonging to a given user. Framed-Interface-Id 96 [RFC3162] The IPv6 Interface Identifier associated with a session, always sent with Framed-IPv6-Prefix. Framed-IPv6-Prefix 97 [RFC3162] The IPv6 prefix associated with a session, always sent with Framed-Interface-Id.",
+      "zh-CHS": "Acct多会话Id 50[RFC2866]唯一标识相关会话的标识符。NAS端口Id 87[RFC2869]标识会话所在端口的字符串。计费用户-89[RFC4372]与一个身份或多个会话关联的CUI。使用隐私网络访问标识符（NAI）时需要，因为在这种情况下，用户名（例如，“匿名”）可能无法识别属于给定用户的会话。Framed Interface Id 96[RFC3162]与会话关联的IPv6接口标识符，始终以Framed-IPv6-Prefix发送。Framed-IPv6-Prefix 97[RFC3162]与会话关联的IPv6前缀，始终与Framed-Interface-Id一起发送。"
+    },
+    {
+      "indent": 3,
+      "text": "To address security concerns described in Section 6.1, either the User-Name or Chargeable-User-Identity attribute SHOULD be present in Disconnect-Request and CoA-Request packets.",
+      "zh-CHS": "为了解决第6.1节中所述的安全问题，断开连接请求和CoA请求数据包中应存在用户名或可收费用户身份属性。"
+    },
+    {
+      "indent": 3,
+      "text": "Where a Diameter client utilizes the same Session-Id for both authorization and accounting, inclusion of an Acct-Session-Id Attribute in a Disconnect-Request or CoA-Request can assist with Diameter/RADIUS translation, since Diameter RAR and ASR commands include a Session-Id AVP. An Acct-Session-Id Attribute SHOULD be included in Disconnect-Request and CoA-Request packets.",
+      "zh-CHS": "当Diameter客户端使用相同的会话Id进行授权和记帐时，在断开连接请求或CoA请求中包含Acct会话Id属性有助于Diameter/RADIUS转换，因为Diameter RAR和ASR命令包括会话Id AVP。Acct会话Id属性应包含在断开连接请求和CoA请求数据包中。"
+    },
+    {
+      "indent": 3,
+      "text": "A NAS implementing this specification SHOULD send an Acct-Session-Id or Acct-Multi-Session-Id Attribute within an Access-Request. Where an Acct-Session-Id or Acct-Multi-Session-Id Attribute is not included within an Access-Request, the Dynamic Authorization Client will not know the Acct-Session-Id or Acct-Multi-Session-Id of the session it is attempting to target, unless it also has access to the accounting data for that session.",
+      "zh-CHS": "实施此规范的NAS应在访问请求中发送Acct会话Id或Acct多会话Id属性。如果访问请求中未包含Acct会话Id或Acct多会话Id属性，则动态授权客户端将不知道其尝试目标会话的Acct会话Id或Acct多会话Id，除非它还可以访问该会话的记帐数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Where an Acct-Session-Id or Acct-Multi-Session-Id Attribute is not present in a CoA-Request or Disconnect-Request, it is possible that the User-Name or Chargeable-User-Identity attributes will not be sufficient to uniquely identify a single session (e.g., if the same user has multiple sessions on the NAS, or if the privacy NAI is used). In this case, if it is desired to identify a single session, session identification MAY be performed by using one or more of the Framed-IP-Address, Framed-IPv6-Prefix/Framed-Interface-Id, Called-Station-Id, Calling-Station-Id, NAS-Port, and NAS-Port-Id attributes.",
+      "zh-CHS": "如果CoA请求或断开连接请求中不存在Acct会话Id或Acct多会话Id属性，则用户名或收费用户标识属性可能不足以唯一标识单个会话（例如，如果同一用户在NAS上有多个会话，或者如果使用隐私NAI）。在这种情况下，如果希望识别单个会话，则可以通过使用帧化IP地址、帧化IPv6前缀/帧化接口Id、被叫站Id、呼叫站Id、NAS端口和NAS端口Id属性中的一个或多个来执行会话识别。"
+    },
+    {
+      "indent": 3,
+      "text": "To assist RADIUS proxies in routing Request packets to their destination, one or more of the NAS-IP-Address or NAS-IPv6-Address attributes SHOULD be present in CoA-Request and Disconnect-Request packets; the NAS-Identifier Attribute MAY be present. Impersonation issues with NAS Identification attributes are discussed in [RFC3579], Section 4.3.7.",
+      "zh-CHS": "为了帮助RADIUS代理将请求数据包路由到其目的地，CoA请求和断开请求数据包中应存在一个或多个NAS IP地址或NAS-IPv6-Address属性；可能存在NAS标识符属性。[RFC3579]第4.3.7节讨论了NAS标识属性的模拟问题。"
+    },
+    {
+      "indent": 3,
+      "text": "A Disconnect-Request MUST contain only NAS and session identification attributes. If other attributes are included in a Disconnect-Request, implementations MUST send a Disconnect-NAK; an Error-Cause Attribute with value \"Unsupported Attribute\" MAY be included.",
+      "zh-CHS": "断开连接请求必须仅包含NAS和会话标识属性。如果断开连接请求中包含其他属性，则实现必须发送断开连接NAK；可能包含值为“Unsupported Attribute”的错误原因属性。"
+    },
+    {
+      "indent": 3,
+      "text": "The DAC may require access to data from RADIUS authentication or accounting packets. It uses this data to compose compliant CoA-Request or Disconnect-Request packets. For example, as described in Section 3.3, a CoA-Request packet containing a Service-Type Attribute with a value of \"Authorize Only\" is required to contain a State Attribute. The NAS will subsequently transmit this attribute to the RADIUS server in an Access-Request. In order for the DAC to include a State Attribute that the RADIUS server will subsequently accept, some coordination between the two parties may be required.",
+      "zh-CHS": "DAC可能需要访问来自RADIUS身份验证或记帐数据包的数据。它使用这些数据组成符合CoA要求或断开要求的数据包。例如，如第3.3节所述，包含值为“仅授权”的服务类型属性的CoA请求数据包需要包含状态属性。NAS随后将在访问请求中将此属性传输到RADIUS服务器。为了使DAC包含RADIUS服务器随后将接受的状态属性，可能需要双方进行一些协调。"
+    },
+    {
+      "indent": 3,
+      "text": "This coordination can be achieved in multiple ways. The DAC may be co-located with a RADIUS server, in which case it is presumed to have access to the necessary data. The RADIUS server may also store that information in a common database. The DAC can then be separated from the RADIUS server, so long as it has access to that common database.",
+      "zh-CHS": "这种协调可以通过多种方式实现。DAC可以与RADIUS服务器共存，在这种情况下，假定DAC可以访问必要的数据。RADIUS服务器还可以将该信息存储在公共数据库中。然后，DAC可以与RADIUS服务器分离，只要它可以访问该公共数据库。"
+    },
+    {
+      "indent": 3,
+      "text": "Where the DAC is not co-located with a RADIUS server, and does not have access to a common database, the DAC SHOULD send CoA-Request or Disconnect-Request packets to a RADIUS server acting as a proxy, rather than sending them directly to the NAS.",
+      "zh-CHS": "如果DAC与RADIUS服务器不在同一位置，并且无法访问公共数据库，则DAC应向充当代理的RADIUS服务器发送CoA请求或断开请求数据包，而不是将其直接发送到NAS。"
+    },
+    {
+      "indent": 3,
+      "text": "A RADIUS server receiving a CoA-Request or Disconnect-Request packet from the DAC MAY then add or update attributes (such as adding NAS or session identification attributes or appending a State Attribute), prior to forwarding the packet. Having CoA/Disconnect-Requests forwarded by a RADIUS server can also enable upstream RADIUS proxies to perform a Reverse Path Forwarding (RPF) check (see Section 6.1).",
+      "zh-CHS": "从DAC接收CoA请求或断开连接请求数据包的RADIUS服务器随后可在转发数据包之前添加或更新属性（例如添加NAS或会话标识属性或附加状态属性）。RADIUS服务器转发CoA/断开连接请求也可使上游RADIUS代理执行反向路径转发（RPF）检查（见第6.1节）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Proxy State",
+      "section_title": true,
+      "zh-CHS": "3.1. 代理国"
+    },
+    {
+      "indent": 3,
+      "text": "If there are any Proxy-State attributes in a Disconnect-Request or CoA-Request received from the Dynamic Authorization Client, the Dynamic Authorization Server MUST include those Proxy-State attributes in its response to the Dynamic Authorization Client.",
+      "zh-CHS": "如果从动态授权客户端接收的断开连接请求或CoA请求中存在任何代理状态属性，则动态授权服务器必须在其对动态授权客户端的响应中包含这些代理状态属性。"
+    },
+    {
+      "indent": 3,
+      "text": "A forwarding proxy or NAS MUST NOT modify existing Proxy-State, State, or Class attributes present in the packet. The forwarding proxy or NAS MUST treat any Proxy-State attributes already in the packet as opaque data. Its operation MUST NOT depend on the content of Proxy-State attributes added by previous proxies. The forwarding proxy MUST NOT modify any other Proxy-State attributes that were in the packet; it may choose not to forward them, but it MUST NOT change their contents. If the forwarding proxy omits the Proxy-State attributes in the request, it MUST attach them to the response before sending it.",
+      "zh-CHS": "转发代理或NAS不得修改数据包中现有的代理状态、状态或类属性。转发代理或NAS必须将数据包中已有的任何代理状态属性视为不透明数据。其操作不得依赖于以前代理添加的代理状态属性的内容。转发代理不得修改数据包中的任何其他代理状态属性；它可以选择不转发，但不能更改其内容。如果转发代理在请求中忽略了代理状态属性，则必须在发送响应之前将其附加到响应。"
+    },
+    {
+      "indent": 3,
+      "text": "When the proxy forwards a Disconnect-Request or CoA-Request, it MAY add a Proxy-State Attribute, but it MUST NOT add more than one. If a Proxy-State Attribute is added to a packet when forwarding the packet, the Proxy-State Attribute MUST be added after any existing Proxy-State attributes. The forwarding proxy MUST NOT change the order of any attributes of the same type, including Proxy-State. Other attributes can be placed before, after, or even between the Proxy-State attributes.",
+      "zh-CHS": "当代理转发断开连接请求或CoA请求时，它可以添加代理状态属性，但不能添加多个属性。如果在转发数据包时向数据包添加了代理状态属性，则必须在任何现有代理状态属性之后添加代理状态属性。转发代理不得更改相同类型的任何属性（包括代理状态）的顺序。其他属性可以放置在代理状态属性之前、之后甚至之间。"
+    },
+    {
+      "indent": 3,
+      "text": "When the proxy receives a response to a CoA-Request or Disconnect-Request, it MUST remove its own Proxy-State Attribute (the last Proxy-State in the packet) before forwarding the response. Since Disconnect and CoA responses are authenticated on the entire packet contents, the stripping of the Proxy-State Attribute invalidates the integrity check, so the proxy MUST recompute it.",
+      "zh-CHS": "当代理收到对CoA请求或断开连接请求的响应时，它必须在转发响应之前删除自己的代理状态属性（数据包中的最后一个代理状态）。由于Disconnect和CoA响应是在整个数据包内容上进行身份验证的，因此代理状态属性的剥离会使完整性检查无效，因此代理必须重新计算它。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Authorize Only",
+      "section_title": true,
+      "zh-CHS": "3.2. 仅授权"
+    },
+    {
+      "indent": 3,
+      "text": "To simplify translation between RADIUS and Diameter, Dynamic Authorization Clients can include a Service-Type Attribute with value \"Authorize Only\" within a CoA-Request; see Section 4 for details on Diameter considerations. Support for a CoA-Request including a Service-Type Attribute with value \"Authorize Only\" is OPTIONAL on the NAS and Dynamic Authorization Client. A Service-Type Attribute MUST NOT be included within a Disconnect-Request.",
+      "zh-CHS": "为了简化半径和直径之间的转换，动态授权客户端可以在CoA请求中包含值为“Authorize Only”的服务类型属性；有关直径注意事项的详细信息，请参见第4节。在NAS和动态授权客户端上，支持包含值为“Authorize Only”的服务类型属性的CoA请求是可选的。断开连接请求中不得包含服务类型属性。"
+    },
+    {
+      "indent": 3,
+      "text": "A NAS MUST respond to a CoA-Request including a Service-Type Attribute with value \"Authorize Only\" with a CoA-NAK; a CoA-ACK MUST NOT be sent. If the NAS does not support a Service-Type value of \"Authorize Only\", then it MUST respond with a CoA-NAK; an Error-Cause Attribute with a value of 405 (Unsupported Service) SHOULD be included.",
+      "zh-CHS": "NAS必须使用CoA NAK响应CoA请求，该请求包括值为“仅授权”的服务类型属性；不得发送CoA确认。如果NAS不支持“仅授权”的服务类型值，则必须使用CoA NAK进行响应；应包括值为405（不支持的服务）的错误原因属性。"
+    },
+    {
+      "indent": 3,
+      "text": "A CoA-Request containing a Service-Type Attribute with value \"Authorize Only\" MUST in addition contain only NAS or session identification attributes, as well as a State Attribute. If other",
+      "zh-CHS": "此外，包含值为“仅授权”的服务类型属性的CoA请求必须仅包含NAS或会话标识属性以及状态属性。如果其他"
+    },
+    {
+      "indent": 3,
+      "text": "attributes are included in such a CoA-Request, a CoA-NAK MUST be sent; an Error-Cause Attribute with value 401 (Unsupported Attribute) SHOULD be included.",
+      "zh-CHS": "如果CoA请求中包含属性，则必须发送CoA NAK；应包括值为401（不支持的属性）的错误原因属性。"
+    },
+    {
+      "indent": 3,
+      "text": "If a CoA-Request packet including a Service-Type value of \"Authorize Only\" is successfully processed, the NAS MUST respond with a CoA-NAK containing a Service-Type Attribute with value \"Authorize Only\", and an Error-Cause Attribute with value 507 (Request Initiated). The NAS then MUST send an Access-Request to the RADIUS server including a Service-Type Attribute with value \"Authorize Only\", along with a State Attribute. This Access-Request SHOULD contain the NAS identification attributes from the CoA-Request, as well as the session identification attributes from the CoA-Request permitted in an Access-Request; it also MAY contain other attributes permitted in an Access-Request.",
+      "zh-CHS": "如果成功处理了包括服务类型值“仅授权”的CoA请求数据包，则NAS必须使用包含值为“仅授权”的服务类型属性和值为507的错误原因属性（请求已启动）的CoA NAK进行响应。然后，NAS必须向RADIUS服务器发送一个访问请求，包括一个值为“仅授权”的服务类型属性以及一个状态属性。该访问请求应包含CoA请求中的NAS标识属性，以及访问请求中允许的CoA请求中的会话标识属性；它还可能包含访问请求中允许的其他属性。"
+    },
+    {
+      "indent": 3,
+      "text": "As noted in [RFC2869], Section 5.19, a Message-Authenticator attribute SHOULD be included in an Access-Request that does not contain a User-Password, CHAP-Password, ARAP-Password, or EAP-Message Attribute. The RADIUS server then will respond to the Access-Request with an Access-Accept to (re-)authorize the session or an Access-Reject to refuse to (re-)authorize it.",
+      "zh-CHS": "如[RFC2869]第5.19节所述，不包含用户密码、CHAP密码、ARAP密码或EAP消息属性的访问请求中应包含消息验证器属性。然后，RADIUS服务器将使用Access Accept（重新）授权会话或Access Reject（拒绝）拒绝（重新）授权会话来响应访问请求。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. State",
+      "section_title": true,
+      "zh-CHS": "3.3. 状态"
+    },
+    {
+      "indent": 3,
+      "text": "The State Attribute is available to be sent by the Dynamic Authorization Client to the NAS in a CoA-Request packet and MUST be sent unmodified from the NAS to the Dynamic Authorization Client in a subsequent ACK or NAK packet.",
+      "zh-CHS": "状态属性可由动态授权客户端在CoA请求数据包中发送到NAS，并且必须在后续ACK或NAK数据包中未经修改地从NAS发送到动态授权客户端。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2865], Section 5.44 states:",
+      "zh-CHS": "[RFC2865]第5.44节规定："
+    },
+    {
+      "indent": 6,
+      "text": "An Access-Request MUST contain either a User-Password or a CHAP-Password or State. An Access-Request MUST NOT contain both a User-Password and a CHAP-Password. If future extensions allow other kinds of authentication information to be conveyed, the attribute for that can be used in an Access-Request instead of User-Password or CHAP-Password.",
+      "zh-CHS": "访问请求必须包含用户密码或CHAP密码或状态。访问请求不能同时包含用户密码和CHAP密码。如果将来的扩展允许传输其他类型的身份验证信息，则可以在访问请求中使用该信息的属性，而不是用户密码或CHAP密码。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to satisfy the requirements of [RFC2865], Section 5.44, an Access-Request with Service-Type Attribute with value \"Authorize Only\" MUST contain a State Attribute.",
+      "zh-CHS": "为了满足[RFC2865]第5.44节的要求，具有值为“仅授权”的服务类型属性的访问请求必须包含状态属性。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to provide a State Attribute to the NAS, a Dynamic Authorization Client sending a CoA-Request with a Service-Type Attribute with a value of \"Authorize Only\" MUST include a State Attribute, and the NAS MUST send the State Attribute unmodified to the RADIUS server in the resulting Access-Request, if any. A NAS",
+      "zh-CHS": "为了向NAS提供状态属性，动态授权客户端发送带有“仅授权”值的服务类型属性的CoA请求时，必须包含状态属性，NAS必须在生成的访问请求（如果有）中向RADIUS服务器发送未修改的状态属性。NAS"
+    },
+    {
+      "indent": 3,
+      "text": "receiving a CoA-Request containing a Service-Type Attribute with a value of \"Authorize Only\" but lacking a State Attribute MUST send a CoA-NAK and SHOULD include an Error-Cause Attribute with a value of 402 (Missing Attribute).",
+      "zh-CHS": "接收包含值为“仅授权”但缺少状态属性的服务类型属性的CoA请求时，必须发送CoA NAK，并应包括值为402（缺少属性）的错误原因属性。"
+    },
+    {
+      "indent": 3,
+      "text": "The State Attribute is also available to be sent by the Dynamic Authorization Client to the NAS in a CoA-Request that also includes a Termination-Action Attribute with the value of RADIUS-Request. If the NAS performs the Termination-Action by sending a new Access-Request upon termination of the current session, it MUST include the State Attribute unchanged in that Access-Request. In either usage, the Dynamic Authorization Server MUST NOT interpret the Attribute locally. A CoA-Request packet MUST have only zero or one State Attribute. Usage of the State Attribute is implementation dependent.",
+      "zh-CHS": "状态属性也可由动态授权客户端在CoA请求中发送到NAS，CoA请求还包括具有RADIUS请求值的终止操作属性。如果NAS通过在当前会话终止时发送新的访问请求来执行终止操作，则必须在该访问请求中包含State属性unchanged。在这两种情况下，动态授权服务器都不能在本地解释该属性。CoA请求数据包必须只有零或一个状态属性。State属性的使用取决于实现。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Message-Authenticator",
+      "section_title": true,
+      "zh-CHS": "3.4. 消息验证器"
+    },
+    {
+      "indent": 3,
+      "text": "The Message-Authenticator Attribute MAY be used to authenticate and integrity-protect CoA-Request, CoA-ACK, CoA-NAK, Disconnect-Request, Disconnect-ACK, and Disconnect-NAK packets in order to prevent spoofing.",
+      "zh-CHS": "消息认证器属性可用于认证和完整性保护CoA请求、CoA ACK、CoA NAK、断开请求、断开ACK和断开NAK分组，以防止欺骗。"
+    },
+    {
+      "indent": 3,
+      "text": "A Dynamic Authorization Server receiving a CoA-Request or Disconnect-Request with a Message-Authenticator Attribute present MUST calculate the correct value of the Message-Authenticator and silently discard the packet if it does not match the value sent. A Dynamic Authorization Client receiving a CoA/Disconnect-ACK or CoA/Disconnect-NAK with a Message-Authenticator Attribute present MUST calculate the correct value of the Message-Authenticator and silently discard the packet if it does not match the value sent.",
+      "zh-CHS": "接收CoA请求或具有消息验证器属性的断开连接请求的动态授权服务器必须计算消息验证器的正确值，如果数据包与发送的值不匹配，则自动丢弃该数据包。动态授权客户端接收到消息验证器属性存在的CoA/断开连接ACK或CoA/断开连接NAK时，必须计算消息验证器的正确值，如果数据包与发送的值不匹配，则自动丢弃该数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "When a Message-Authenticator Attribute is included within a CoA-Request or Disconnect-Request, it is calculated as follows:",
+      "zh-CHS": "当CoA请求或断开连接请求中包含消息验证器属性时，其计算如下："
+    },
+    {
+      "indent": 6,
+      "text": "Message-Authenticator = HMAC-MD5 (Type, Identifier, Length, Request Authenticator, Attributes)",
+      "zh-CHS": "消息验证器=HMAC-MD5（类型、标识符、长度、请求验证器、属性）"
+    },
+    {
+      "indent": 6,
+      "text": "When the HMAC-MD5 message integrity check is calculated the Request Authenticator field and Message-Authenticator Attribute MUST each be considered to be sixteen octets of zero. The Message-Authenticator Attribute is calculated and inserted in the packet before the Request Authenticator is calculated.",
+      "zh-CHS": "当计算HMAC-MD5消息完整性检查时，必须将请求验证器字段和消息验证器属性分别视为十六个八位组的零。在计算请求验证器之前，计算消息验证器属性并将其插入数据包中。"
+    },
+    {
+      "indent": 6,
+      "text": "When a Message-Authenticator Attribute is included within a CoA-ACK, CoA-NAK, Disconnect-ACK, or Disconnect-NAK, it is calculated as follows:",
+      "zh-CHS": "当消息验证器属性包括在CoA ACK、CoA NAK、Disconnect ACK或Disconnect NAK中时，其计算如下："
+    },
+    {
+      "indent": 9,
+      "text": "Message-Authenticator = HMAC-MD5 (Type, Identifier, Length, Request Authenticator, Attributes)",
+      "zh-CHS": "消息验证器=HMAC-MD5（类型、标识符、长度、请求验证器、属性）"
+    },
+    {
+      "indent": 6,
+      "text": "When the HMAC-MD5 message integrity check is calculated, the Message-Authenticator Attribute MUST be considered to be sixteen octets of zero. The Request Authenticator is taken from the corresponding CoA/Disconnect-Request. The Message-Authenticator is calculated and inserted in the packet before the Response Authenticator is calculated.",
+      "zh-CHS": "计算HMAC-MD5消息完整性检查时，必须将消息验证器属性视为十六个八位字节的零。请求验证器取自相应的CoA/断开连接请求。在计算响应验证器之前，计算消息验证器并将其插入数据包中。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Error-Cause",
+      "section_title": true,
+      "zh-CHS": "3.5. 错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "Description",
+      "zh-CHS": "描述"
+    },
+    {
+      "indent": 6,
+      "text": "It is possible that a Dynamic Authorization Server cannot honor Disconnect-Request or CoA-Request packets for some reason. The Error-Cause Attribute provides more detail on the cause of the problem. It MAY be included within CoA-NAK and Disconnect-NAK packets.",
+      "zh-CHS": "出于某种原因，动态授权服务器可能无法接受断开连接请求或CoA请求数据包。“错误原因”属性提供了有关问题原因的更多详细信息。它可以包括在CoA-NAK和断开NAK分组中。"
+    },
+    {
+      "indent": 6,
+      "text": "A summary of the Error-Cause Attribute format is shown below. The fields are transmitted from left to right.",
+      "zh-CHS": "错误原因属性格式的摘要如下所示。字段从左向右传输。"
+    },
+    {
+      "indent": 6,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Type      |    Length     |             Value\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n           Value (cont)         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Type",
+      "zh-CHS": "类型"
+    },
+    {
+      "indent": 6,
+      "text": "101 for Error-Cause",
+      "zh-CHS": "101错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "Length",
+      "zh-CHS": "长"
+    },
+    {
+      "indent": 6,
+      "text": "6",
+      "zh-CHS": "6."
+    },
+    {
+      "indent": 3,
+      "text": "Value",
+      "zh-CHS": "价值"
+    },
+    {
+      "indent": 6,
+      "text": "The Value field is four octets, containing an integer specifying the cause of the error. Values 0-199 and 300-399 are reserved. Values 200-299 represent successful completion, so that these",
+      "zh-CHS": "值字段是四个八位字节，包含一个指定错误原因的整数。保留值0-199和300-399。值200-299表示成功完成，因此"
+    },
+    {
+      "indent": 6,
+      "text": "values may only be sent within CoA-ACK or Disconnect-ACK packets and MUST NOT be sent within a CoA-NAK or Disconnect-NAK packet. Values 400-499 represent fatal errors committed by the Dynamic Authorization Client, so that they MAY be sent within CoA-NAK or Disconnect-NAK packets, and MUST NOT be sent within CoA-ACK or Disconnect-ACK packets. Values 500-599 represent fatal errors occurring on a Dynamic Authorization Server, so that they MAY be sent within CoA-NAK and Disconnect-NAK packets, and MUST NOT be sent within CoA-ACK or Disconnect-ACK packets. Error-Cause values SHOULD be logged by the Dynamic Authorization Client. Error-Code values (expressed in decimal) include:",
+      "zh-CHS": "值只能在CoA ACK或DISCONT ACK数据包内发送，不得在CoA NAK或DISCONT NAK数据包内发送。值400-499表示动态授权客户端犯下的致命错误，因此它们可以在CoA NAK或Disconnect NAK数据包内发送，并且不能在CoA ACK或Disconnect ACK数据包内发送。值500-599表示动态授权服务器上发生的致命错误，因此它们可以在CoA NAK和DISCONT NAK数据包内发送，并且不能在CoA ACK或DISCONT ACK数据包内发送。动态授权客户端应记录错误原因值。错误代码值（以十进制表示）包括："
+    },
+    {
+      "indent": 6,
+      "text": " #     Value\n---    -----\n201    Residual Session Context Removed\n202    Invalid EAP Packet (Ignored)\n401    Unsupported Attribute\n402    Missing Attribute\n403    NAS Identification Mismatch\n404    Invalid Request\n405    Unsupported Service\n406    Unsupported Extension\n407    Invalid Attribute Value\n501    Administratively Prohibited\n502    Request Not Routable (Proxy)\n503    Session Context Not Found\n504    Session Context Not Removable\n505    Other Proxy Processing Error\n506    Resources Unavailable\n507    Request Initiated\n508    Multiple Session Selection Unsupported",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "\"Residual Session Context Removed\" is sent in response to a Disconnect-Request if one or more user sessions are no longer active, but residual session context was found and successfully removed. This value is only sent within a Disconnect-ACK and MUST NOT be sent within a CoA-ACK, Disconnect-NAK, or CoA-NAK.",
+      "zh-CHS": "如果一个或多个用户会话不再处于活动状态，但找到并成功删除了剩余会话上下文，则发送“已删除剩余会话上下文”以响应断开连接请求。该值仅在断开连接确认内发送，不得在CoA确认、断开连接NAK或CoA NAK内发送。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Invalid EAP Packet (Ignored)\" is a non-fatal error that MUST NOT be sent by implementations of this specification.",
+      "zh-CHS": "“无效EAP数据包（忽略）”是一个非致命错误，本规范的实现不能发送该错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Unsupported Attribute\" is a fatal error sent if a Request contains an attribute (such as a Vendor-Specific or EAP-Message Attribute) that is not supported.",
+      "zh-CHS": "如果请求包含不受支持的属性（例如特定于供应商的属性或EAP消息属性），则“Unsupported Attribute”（不支持的属性）是发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Missing Attribute\" is a fatal error sent if critical attributes (such as NAS or session identification attributes) are missing from a Request.",
+      "zh-CHS": "如果请求中缺少关键属性（如NAS或会话标识属性），则“缺少属性”是发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"NAS Identification Mismatch\" is a fatal error sent if one or more NAS identification attributes (see Section 3) do not match the identity of the NAS receiving the Request.",
+      "zh-CHS": "如果一个或多个NAS标识属性（参见第3节）与接收请求的NAS标识不匹配，“NAS标识不匹配”是一个致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Invalid Request\" is a fatal error sent if some other aspect of the Request is invalid, such as if one or more attributes (such as EAP-Message Attribute(s)) are not formatted properly.",
+      "zh-CHS": "如果请求的某些其他方面无效，例如一个或多个属性（如EAP消息属性）未正确格式化，则“无效请求”是发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Unsupported Service\" is a fatal error sent if a Service-Type Attribute included with the Request is sent with an invalid or unsupported value. This error cannot be sent in response to a Disconnect-Request.",
+      "zh-CHS": "如果使用无效或不支持的值发送请求中包含的服务类型属性，则“不支持的服务”是发送的致命错误。无法发送此错误以响应断开连接请求。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Unsupported Extension\" is a fatal error sent due to lack of support for an extension such as Disconnect and/or CoA packets. This will typically be sent by a proxy receiving an ICMP port unreachable message after attempting to forward a CoA-Request or Disconnect-Request to the NAS.",
+      "zh-CHS": "“不支持的扩展”是由于缺少对诸如断开连接和/或CoA数据包等扩展的支持而发送的致命错误。这通常是由在尝试将CoA请求或断开连接请求转发到NAS后接收ICMP端口不可访问消息的代理发送的。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Invalid Attribute Value\" is a fatal error sent if a CoA-Request or Disconnect-Request contains an attribute with an unsupported value.",
+      "zh-CHS": "如果CoA请求或断开连接请求包含具有不支持值的属性，则“无效属性值”是发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Administratively Prohibited\" is a fatal error sent if the NAS is configured to prohibit honoring of CoA-Request or Disconnect-Request packets for the specified session.",
+      "zh-CHS": "如果NAS配置为禁止接受CoA请求或断开指定会话的请求数据包，则“管理禁止”是发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Request Not Routable\" is a fatal error that MAY be sent by a proxy and MUST NOT be sent by a NAS. It indicates that the proxy was unable to determine how to route a CoA-Request or Disconnect-Request to the NAS. For example, this can occur if the required entries are not present in the proxy's realm routing table.",
+      "zh-CHS": "“请求不可路由”是一个致命错误，可能由代理发送，不得由NAS发送。它表示代理无法确定如何将CoA请求或断开连接请求路由到NAS。例如，如果代理的领域路由表中不存在所需的条目，则可能发生这种情况。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Session Context Not Found\" is a fatal error sent if the session context identified in the CoA-Request or Disconnect-Request does not exist on the NAS.",
+      "zh-CHS": "如果NAS上不存在CoA请求或断开连接请求中标识的会话上下文，“未找到会话上下文”是发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Session Context Not Removable\" is a fatal error sent in response to a Disconnect-Request if the NAS was able to locate the session context, but could not remove it for some reason. It MUST NOT be sent within a CoA-ACK, CoA-NAK, or Disconnect-ACK, only within a Disconnect-NAK.",
+      "zh-CHS": "如果NAS能够找到会话上下文，但由于某种原因无法将其删除，则“会话上下文不可删除”是响应断开连接请求而发送的致命错误。它不能在CoA ACK、CoA NAK或DISCONTACT ACK内发送，只能在DISCONTACT NAK内发送。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Other Proxy Processing Error\" is a fatal error sent in response to a CoA or Disconnect-Request that could not be processed by a proxy, for reasons other than routing.",
+      "zh-CHS": "“其他代理处理错误”是响应CoA或断开连接请求而发送的致命错误，由于路由以外的原因，代理无法处理该请求。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Resources Unavailable\" is a fatal error sent when a CoA or Disconnect-Request could not be honored due to lack of available NAS resources (memory, non-volatile storage, etc.).",
+      "zh-CHS": "“资源不可用”是由于缺少可用NAS资源（内存、非易失性存储等）而无法执行CoA或断开连接请求时发送的致命错误。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Request Initiated\" is a fatal error sent by a NAS in response to a CoA-Request including a Service-Type Attribute with a value of \"Authorize Only\". It indicates that the CoA-Request has not been honored, but that the NAS is sending one or more RADIUS Access-Requests including a Service-Type Attribute with value \"Authorize Only\" to the RADIUS server.",
+      "zh-CHS": "“Request Initiated”（请求启动）是NAS响应CoA请求时发送的致命错误，该请求包括一个值为“Authorize Only”（仅授权）的服务类型属性。它表示CoA请求未得到满足，但NAS正在向RADIUS服务器发送一个或多个RADIUS访问请求，包括值为“Authorize Only”的服务类型属性。"
+    },
+    {
+      "indent": 6,
+      "text": "\"Multiple Session Selection Unsupported\" is a fatal error sent by a NAS in response to a CoA-Request or Disconnect-Request whose session identification attributes match multiple sessions, where the NAS does not support Requests applying to multiple sessions.",
+      "zh-CHS": "“不支持多个会话选择”是NAS在响应会话标识属性与多个会话匹配的CoA请求或断开连接请求时发送的致命错误，其中NAS不支持应用于多个会话的请求。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Table of Attributes",
+      "section_title": true,
+      "zh-CHS": "3.6. 属性表"
+    },
+    {
+      "indent": 3,
+      "text": "The following table provides a guide to which attributes may be found in which packets, and in what quantity.",
+      "zh-CHS": "下表提供了在哪些数据包中可以找到哪些属性以及数量的指南。"
+    },
+    {
+      "indent": 3,
+      "text": "Change-of-Authorization Messages",
+      "zh-CHS": "更改授权信息"
+    },
+    {
+      "indent": 3,
+      "text": "Request ACK NAK # Attribute 0-1 0 0 1 User-Name (Note 1) 0-1 0 0 4 NAS-IP-Address (Note 1) 0-1 0 0 5 NAS-Port (Note 1) 0-1 0 0-1 6 Service-Type 0-1 0 0 7 Framed-Protocol (Note 3) 0-1 0 0 8 Framed-IP-Address (Notes 1, 6) 0-1 0 0 9 Framed-IP-Netmask (Note 3) 0-1 0 0 10 Framed-Routing (Note 3) 0+ 0 0 11 Filter-ID (Note 3) 0-1 0 0 12 Framed-MTU (Note 3) 0+ 0 0 13 Framed-Compression (Note 3) 0+ 0 0 14 Login-IP-Host (Note 3) 0-1 0 0 15 Login-Service (Note 3) 0-1 0 0 16 Login-TCP-Port (Note 3) 0+ 0 0 18 Reply-Message (Note 2) 0-1 0 0 19 Callback-Number (Note 3) 0-1 0 0 20 Callback-Id (Note 3) 0+ 0 0 22 Framed-Route (Note 3) 0-1 0 0 23 Framed-IPX-Network (Note 3) 0-1 0-1 0-1 24 State 0+ 0 0 25 Class (Note 3) 0+ 0 0 26 Vendor-Specific (Note 7) 0-1 0 0 27 Session-Timeout (Note 3) 0-1 0 0 28 Idle-Timeout (Note 3) 0-1 0 0 29 Termination-Action (Note 3) Request ACK NAK # Attribute",
+      "zh-CHS": "请求确认NAK#属性0-1 0 0 1用户名（注1）0-1 0 0 4 NAS IP地址（注1）0-1 0 0 5 NAS端口（注1）0-1 0 0-1 6服务类型0-1 0 0 7框架协议（注3）0-1 0 8框架IP地址（注1，6）0-1 0 0 9框架IP网络掩码（注3）0-1 0 0 10框架路由（注3）0+0 0 0 11筛选器ID（注3）0-1 0 0 0 12框架MTU（注3）0+0 0 13帧压缩（注3）0+0 0 14登录IP主机（注3）0-1 0 15登录服务（注3）0-1 0 0 16登录TCP端口（注3）0+0 0 0 18回复消息（注2）0-1 0 0 19回拨号码（注3）0-1 0 20回拨Id（注3）0+0 0 0 22帧路由（注3）0-1 0 0 23帧IPX网络（注3）0-1 0-1 0-1 24状态0+0 0 25类（注3）0+0 0 26特定于供应商（注7）0-1 0 27会话超时（注3）0-1 0 28空闲超时（注3）0-1 0 29终止操作（注3）请求确认NAK属性"
+    },
+    {
+      "indent": 3,
+      "text": "Request ACK NAK # Attribute 0-1 0 0 30 Called-Station-Id (Note 1) 0-1 0 0 31 Calling-Station-Id (Note 1) 0-1 0 0 32 NAS-Identifier (Note 1) 0+ 0+ 0+ 33 Proxy-State 0-1 0 0 34 Login-LAT-Service (Note 3) 0-1 0 0 35 Login-LAT-Node (Note 3) 0-1 0 0 36 Login-LAT-Group (Note 3) 0-1 0 0 37 Framed-AppleTalk-Link (Note 3) 0+ 0 0 38 Framed-AppleTalk-Network (Note 3) 0-1 0 0 39 Framed-AppleTalk-Zone (Note 3) 0-1 0 0 44 Acct-Session-Id (Note 1) 0-1 0 0 50 Acct-Multi-Session-Id (Note 1) 0-1 0-1 0-1 55 Event-Timestamp 0+ 0 0 56 Egress-VLANID (Note 3) 0-1 0 0 57 Ingress-Filters (Note 3) 0+ 0 0 58 Egress-VLAN-Name (Note 3) 0-1 0 0 59 User-Priority-Table (Note 3) 0-1 0 0 61 NAS-Port-Type (Note 3) 0-1 0 0 62 Port-Limit (Note 3) 0-1 0 0 63 Login-LAT-Port (Note 3) 0+ 0 0 64 Tunnel-Type (Note 5) 0+ 0 0 65 Tunnel-Medium-Type (Note 5) 0+ 0 0 66 Tunnel-Client-Endpoint (Note 5) 0+ 0 0 67 Tunnel-Server-Endpoint (Note 5) 0+ 0 0 69 Tunnel-Password (Note 5) 0-1 0 0 71 ARAP-Features (Note 3) 0-1 0 0 72 ARAP-Zone-Access (Note 3) 0+ 0 0 78 Configuration-Token (Note 3) 0+ 0-1 0 79 EAP-Message (Note 2) 0-1 0-1 0-1 80 Message-Authenticator 0+ 0 0 81 Tunnel-Private-Group-ID (Note 5) 0+ 0 0 82 Tunnel-Assignment-ID (Note 5) 0+ 0 0 83 Tunnel-Preference (Note 5) 0-1 0 0 85 Acct-Interim-Interval (Note 3) 0-1 0 0 87 NAS-Port-Id (Note 1) 0-1 0 0 88 Framed-Pool (Note 3) 0-1 0 0 89 Chargeable-User-Identity (Note 1) 0+ 0 0 90 Tunnel-Client-Auth-ID (Note 5) 0+ 0 0 91 Tunnel-Server-Auth-ID (Note 5) 0-1 0 0 92 NAS-Filter-Rule (Note 3) 0 0 0 94 Originating-Line-Info 0-1 0 0 95 NAS-IPv6-Address (Note 1) 0-1 0 0 96 Framed-Interface-Id (Notes 1, 6) 0+ 0 0 97 Framed-IPv6-Prefix (Notes 1, 6) 0+ 0 0 98 Login-IPv6-Host (Note 3) 0+ 0 0 99 Framed-IPv6-Route (Note 3) Request ACK NAK # Attribute",
+      "zh-CHS": "请求确认NAK#属性0-1 0 0 30被叫站Id（注1）0-1 0 31主叫站Id（注1）0-1 0 32 NAS标识符（注1）0+0+0+0+33代理状态0-1 0 34登录LAT服务（注3）0-1 0 35登录LAT节点（注3）0-1 0 36登录LAT组（注3）0-1 0 37框架AppleTalk链接（注3）0+0 0 38框架AppleTalk网络（注3）0-1 0 0 39框架AppleTalk区域（注3）0-1 0 0 44 Acct会话Id（注1）0-1 0 0 50 Acct多会话Id（注1）0-1 0-1 0-1 55事件时间戳0+0 0 56出口VLANID（注3）0-1 0 0 57入口过滤器（注3）0+0 0 58出口VLAN名称（注3）0-1 0 0 0 59用户优先级表（注3）0-1 0 0 61 NAS端口类型（注3）0-1 0 0 62端口限制（注3）0-1 0 0 63登录LAT端口（注3）0+0 0 64隧道类型（注5）0+0 0 0 65隧道介质类型（注5）0+0 66隧道客户端端点（注5）0+0 0 67隧道服务器端点（注5）0+0 0 0 69隧道密码（注5）0-1 0 71 ARAP功能（注3）0-1 0 0 72 ARAP区域访问（注3）0+0 0 78配置令牌（注3）0+0-1 0 79 EAP消息（注2）0-1 0-1 0-1 80消息验证器0+0 0 0 81隧道专用组ID（注5）0+0 0 82隧道分配ID（注5）0+0 0 83隧道首选项（注5）0-1 0 85帐户临时间隔（注3）0-1 0 0 0 87 NAS端口ID（注1）0-1 0 0 88框架池（注3）0-1 0 0 89计费用户标识（注1）0+0 0 90隧道客户端身份验证ID（注5）0+0 0 91隧道服务器身份验证ID（注5）0-1 0 0 92 NAS筛选规则（注3）0 0 0 94原始线路信息0-1 0 0 95 NAS-IPv6-Address（注1）0-1 0 96框架接口ID（注1、6）0+0 0 0 0 97框架IPv6-Prefix（注1、6）0+0 0 98 Login-IPv6-Host（注3）0+0 0 99 Framed-IPv6-Route（注3）请求确认NAK#属性"
+    },
+    {
+      "indent": 3,
+      "text": "Request ACK NAK # Attribute 0-1 0 0 100 Framed-IPv6-Pool (Note 3) 0 0 0+ 101 Error-Cause 0+ 0 0 123 Delegated-IPv6-Prefix (Note 3) Request ACK NAK # Attribute",
+      "zh-CHS": "请求确认NAK#属性0-1 0 100带框IPv6-Pool（注3）0 0+101错误原因0+0 0 123委托IPv6-Prefix（注3）请求确认NAK#属性"
+    },
+    {
+      "indent": 3,
+      "text": "Disconnect Messages",
+      "zh-CHS": "断开消息连接"
+    },
+    {
+      "indent": 3,
+      "text": "Request ACK NAK # Attribute 0-1 0 0 1 User-Name (Note 1) 0-1 0 0 4 NAS-IP-Address (Note 1) 0-1 0 0 5 NAS-Port (Note 1) 0 0 0 6 Service-Type 0 0 0 8 Framed-IP-Address (Note 1) 0+ 0 0 18 Reply-Message (Note 2) 0 0 0 24 State 0+ 0 0 25 Class (Note 4) 0+ 0 0 26 Vendor-Specific (Note 7) 0-1 0 0 30 Called-Station-Id (Note 1) 0-1 0 0 31 Calling-Station-Id (Note 1) 0-1 0 0 32 NAS-Identifier (Note 1) 0+ 0+ 0+ 33 Proxy-State 0-1 0 0 44 Acct-Session-Id (Note 1) 0-1 0-1 0 49 Acct-Terminate-Cause 0-1 0 0 50 Acct-Multi-Session-Id (Note 1) 0-1 0-1 0-1 55 Event-Timestamp 0 0 0 61 NAS-Port-Type 0+ 0-1 0 79 EAP-Message (Note 2) 0-1 0-1 0-1 80 Message-Authenticator 0-1 0 0 87 NAS-Port-Id (Note 1) 0-1 0 0 89 Chargeable-User-Identity (Note 1) 0-1 0 0 95 NAS-IPv6-Address (Note 1) 0 0 0 96 Framed-Interface-Id (Note 1) 0 0 0 97 Framed-IPv6-Prefix (Note 1) 0 0 0+ 101 Error-Cause Request ACK NAK # Attribute",
+      "zh-CHS": "请求确认NAK#属性0-1 0 0 1用户名（注1）0-1 0 0 4 NAS IP地址（注1）0-1 0 0 5 NAS端口（注1）0 0 0 6服务类型0 0 0 8帧IP地址（注1）0+0 0 18回复消息（注2）0 0 24状态0+0 0 25类（注4）0+0 0 26特定于供应商（注7）0-1 0 0 30被叫站Id（注1）0-1 0 0 31呼叫站Id（注1）0-1 0 0 32 NAS标识符（注1）0+0+0+33代理状态0-1 0 0 44帐户会话Id（注1）0-1 0-1 0 49帐户终止原因0-1 0 50帐户多会话Id（注1）0-1 0-1 0-1 55事件时间戳0 0 0 61 NAS端口类型0+0-1 0 79 EAP消息（注2）0-1 0-1 0-1 80消息验证器0-1 0 0 87 NAS端口Id（注1）0-1 0 89计费用户标识（注1）0-1 0 0 95 NAS-IPv6-Address（注1）0 0 0 96帧接口Id（注1）0 0 0 97帧IPv6-Prefix（注1）0 0 0 0 0+101错误原因请求确认NAK#属性"
+    },
+    {
+      "indent": 3,
+      "text": "The following defines the meaning of the above table entries:",
+      "zh-CHS": "以下定义了上述表格条目的含义："
+    },
+    {
+      "indent": 3,
+      "text": "0 This attribute MUST NOT be present in packet. 0+ Zero or more instances of this attribute MAY be present in packet. 0-1 Zero or one instance of this attribute MAY be present in packet. 1 Exactly one instance of this attribute MUST be present in packet.",
+      "zh-CHS": "0此属性不能出现在数据包中。数据包中可能存在0+零个或多个此属性的实例。0-1数据包中可能存在该属性的零个或一个实例。1数据包中必须正好存在此属性的一个实例。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 1) Where NAS or session identification attributes are included in Disconnect-Request or CoA-Request packets, they are used for identification purposes only. These attributes MUST NOT be used for purposes other than identification (e.g., within CoA-Request packets to request authorization changes).",
+      "zh-CHS": "（注意1）如果NAS或会话标识属性包含在断开连接请求或CoA请求数据包中，则它们仅用于标识目的。这些属性不得用于识别以外的目的（例如，在CoA请求数据包内请求授权变更）。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 2) The Reply-Message Attribute is used to present a displayable message to the user. The message is only displayed as a result of a successful Disconnect-Request or CoA-Request (where a Disconnect-ACK or CoA-ACK is subsequently sent). Where Extension Authentication Protocol (EAP) is used for authentication, an EAP-Message/Notification-Request Attribute is sent instead, and Disconnect-ACK or CoA-ACK packets contain an EAP-Message/Notification-Response Attribute.",
+      "zh-CHS": "（注意2）回复消息属性用于向用户显示可显示的消息。该消息仅在成功断开连接请求或CoA请求（随后发送断开连接确认或CoA确认）后显示。在使用扩展身份验证协议（EAP）进行身份验证的情况下，将改为发送EAP消息/通知请求属性，并且断开ACK或CoA ACK数据包包含EAP消息/通知响应属性。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 3) When included within a CoA-Request, these attributes represent an authorization change request. When one of these attributes is omitted from a CoA-Request, the NAS assumes that the attribute value is to remain unchanged. Attributes included in a CoA-Request replace all existing values of the same attribute(s).",
+      "zh-CHS": "（注3）当包含在CoA请求中时，这些属性表示授权变更请求。当CoA请求中省略了其中一个属性时，NAS会假定该属性值保持不变。CoA请求中包含的属性将替换同一属性的所有现有值。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 4) When included within a successful Disconnect-Request (where a Disconnect-ACK is subsequently sent), the Class Attribute SHOULD be sent unmodified by the NAS to the RADIUS accounting server in the Accounting Stop packet. If the Disconnect-Request is unsuccessful, then the Class Attribute is not processed.",
+      "zh-CHS": "（注意4）当包含在成功的断开连接请求中（随后发送断开连接确认）时，NAS应在不修改的情况下将Class属性发送到记帐停止数据包中的RADIUS记帐服务器。如果断开连接请求失败，则不会处理Class属性。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 5) When included within a CoA-Request, these attributes represent an authorization change request. Where tunnel attributes are included within a successful CoA-Request, all existing tunnel attributes are removed and replaced by the new attribute(s).",
+      "zh-CHS": "（注意5）当包含在CoA请求中时，这些属性表示授权变更请求。如果成功的CoA请求中包含隧道属性，则所有现有隧道属性将被删除并替换为新属性。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 6) Since the Framed-IP-Address, Framed-IPv6-Prefix, and Framed-Interface-Id attributes are used for session identification, renumbering cannot be accomplished by including values of these attributes within a CoA-Request. Instead, a CoA-Request including a Service-Type Attribute with a value of \"Authorize Only\" is sent; new values can be supplied in an Access-Accept sent in response to the ensuing Access-Request. Note that renumbering will not be possible in all situations. For example, in order to change an IP address, IPCP or IPv6CP re-negotiation could be required, which is not supported by all PPP implementations.",
+      "zh-CHS": "（注意6）由于框架IP地址、框架IPv6前缀和框架接口Id属性用于会话标识，因此无法通过在CoA请求中包含这些属性的值来完成重新编号。相反，发送包括值为“仅授权”的服务类型属性的CoA请求；新值可以在响应随后的访问请求而发送的访问接受中提供。请注意，并非所有情况下都可以重新编号。例如，为了更改IP地址，可能需要IPCP或IPv6CP重新协商，这不是所有PPP实现都支持的。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note 7) Within Disconnect-Request packets, Vendor-Specific Attributes (VSAs) MAY be used for session identification. Within CoA-Request packets, VSAs MAY be used for either session identification or authorization change. However, the same Attribute MUST NOT be used for both purposes simultaneously.",
+      "zh-CHS": "（注意7）在断开连接请求数据包中，供应商特定属性（VSA）可用于会话标识。在CoA请求包中，VSA可用于会话标识或授权更改。但是，同一属性不能同时用于这两个目的。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Diameter Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 直径考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Due to differences in handling change-of-authorization requests in RADIUS and Diameter, it may be difficult or impossible for a Diameter/RADIUS gateway to successfully translate a Diameter Re-Auth-Request (RAR) to a CoA-Request and vice versa. For example, since a CoA-Request only initiates an authorization change but does not initiate re-authentication, a RAR command containing a Re-Auth-Request-Type AVP with value \"AUTHORIZE_AUTHENTICATE\" cannot be directly translated to a CoA-Request. A Diameter/RADIUS gateway receiving a CoA-Request containing authorization changes will need to translate this into two Diameter exchanges. First, the Diameter/RADIUS gateway will issue a RAR command including a Session-Id AVP and a Re-Auth-Request-Type AVP with value \"AUTHORIZE ONLY\". Then the Diameter/RADIUS gateway will respond to the ensuing access request with a response including the authorization attributes gleaned from the CoA-Request. To enable translation, the CoA-Request SHOULD include a Acct-Session-Id Attribute. If the Diameter client uses the same Session-Id for both authorization and accounting, then the Diameter/RADIUS gateway can copy the contents of the Acct-Session-Id Attribute into the Session-Id AVP; otherwise, it will need to map the Acct-Session-Id value to an equivalent Session-Id for use within a RAR command.",
+      "zh-CHS": "由于在处理RADIUS和Diameter中授权请求的更改方面存在差异，Diameter/RADIUS网关可能难以或不可能成功地将Diameter重新验证请求（RAR）转换为CoA请求，反之亦然。例如，由于CoA请求仅启动授权更改，而不启动重新身份验证，因此包含值为“AUTHORIZE_AUTHENTICATE”的重新身份验证请求类型AVP的RAR命令不能直接转换为CoA请求。接收包含授权更改的CoA请求的Diameter/RADIUS网关需要将其转换为两个Diameter交换。首先，Diameter/RADIUS网关将发出RAR命令，包括会话Id AVP和值为“仅授权”的重新授权请求类型AVP。然后，Diameter/RADIUS网关将通过包括从CoA请求中收集的授权属性的响应来响应随后的访问请求。要启用转换，CoA请求应包含Acct会话Id属性。如果Diameter客户端使用相同的会话Id进行授权和记帐，则Diameter/RADIUS网关可以将Acct会话Id属性的内容复制到会话Id AVP中；否则，它需要将Acct会话Id值映射到等效的会话Id，以便在RAR命令中使用。"
+    },
+    {
+      "indent": 3,
+      "text": "Where an Acct-Session-Id Attribute is not present in a CoA-Request or Disconnect-Request, a Diameter/RADIUS gateway will either need to determine the appropriate Acct-Session-Id or, if it cannot do so, it can send a CoA-NAK or Disconnect-NAK in reply, possibly including an Error-Cause Attribute with a value of 508 (Multiple Session Selection Unsupported).",
+      "zh-CHS": "如果CoA请求或断开连接请求中不存在Acct会话Id属性，Diameter/RADIUS网关将需要确定适当的Acct会话Id，或者，如果不能确定，它可以发送CoA NAK或断开连接NAK作为响应，可能包括值为508的错误原因属性（不支持多个会话选择）。"
+    },
+    {
+      "indent": 3,
+      "text": "To simplify translation between RADIUS and Diameter, Dynamic Authorization Clients can include a Service-Type Attribute with value \"Authorize Only\" within a CoA-Request, as described in Section 3.2. A Diameter/RADIUS gateway receiving a CoA-Request containing a Service-Type Attribute with a value \"Authorize Only\" translates this to a RAR with Re-Auth-Request-Type AVP with value \"AUTHORIZE ONLY\". The received RAA is then translated to a CoA-NAK with a Service-Type Attribute with value \"Authorize Only\". If the Result-Code AVP in the RAA has a value in the success category, then an Error-Cause Attribute with value \"Request Initiated\" is included in the CoA-NAK. If the Result-Code AVP in the RAA has a value indicating a Protocol Error or a Transient or Permanent Failure, then an alternate Error-Cause Attribute is returned as suggested below.",
+      "zh-CHS": "为了简化半径和直径之间的转换，动态授权客户端可以在CoA请求中包含值为“Authorize Only”的服务类型属性，如第3.2节所述。Diameter/RADIUS网关接收到包含值为“仅授权”的服务类型属性的CoA请求，将其转换为具有值为“仅授权”的重新授权请求类型AVP的RAR。然后，将接收到的RAA转换为具有值为“Authorize Only”的服务类型属性的CoA-NAK。如果RAA中的结果代码AVP具有成功类别中的值，则CoA NAK中包含值为“Request Initiated”的错误原因属性。如果RAA中的结果代码AVP有一个值指示协议错误或暂时性或永久性故障，则返回一个备用错误原因属性，如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "Within Diameter, a server can request that a session be aborted by sending an Abort-Session-Request (ASR), identifying the session to be terminated using Session-ID and User-Name AVPs. The ASR command is",
+      "zh-CHS": "在Diameter中，服务器可以通过发送中止会话请求（ASR）请求中止会话，并使用会话ID和用户名AVPs标识要终止的会话。ASR命令是"
+    },
+    {
+      "indent": 3,
+      "text": "translated to a Disconnect-Request containing Acct-Session-Id and User-Name attributes. If the Diameter client utilizes the same Session-Id in both authorization and accounting, then the value of the Session-ID AVP may be placed in the Acct-Session-Id Attribute; otherwise the value of the Session-ID AVP will need to be mapped to an appropriate Acct-Session-Id Attribute. To enable translation of a Disconnect-Request to an ASR, an Acct-Session-Id Attribute SHOULD be present.",
+      "zh-CHS": "转换为包含Acct会话Id和用户名属性的断开连接请求。如果Diameter客户端在授权和记帐中使用相同的会话Id，则会话Id AVP的值可以被置于Acct Session Id属性中；否则，会话ID AVP的值将需要映射到适当的Acct会话ID属性。要将断开连接请求转换为ASR，应存在Acct会话Id属性。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Diameter client utilizes the same Session-Id in both authorization and accounting, then the value of the Acct-Session-Id Attribute may be placed into the Session-ID AVP within the ASR; otherwise the value of the Acct-Session-Id Attribute will need to be mapped to an appropriate Session-ID AVP.",
+      "zh-CHS": "如果Diameter客户端在授权和记帐中使用相同的会话Id，则Acct会话Id属性的值可以放入ASR内的会话Id AVP中；否则，Acct会话Id属性的值将需要映射到适当的会话Id AVP。"
+    },
+    {
+      "indent": 3,
+      "text": "An Abort-Session-Answer (ASA) command is sent in response to an ASR in order to indicate the disposition of the request. A Diameter/RADIUS gateway receiving a Disconnect-ACK translates this to an ASA command with a Result-Code AVP of \"DIAMETER_SUCCESS\". A Disconnect-NAK received from the NAS is translated to an ASA command with a Result-Code AVP that depends on the value of the Error-Cause Attribute. Suggested translations between Error-Cause Attribute values and Result-Code AVP values are included below:",
+      "zh-CHS": "将发送一个中止会话应答（ASA）命令来响应ASR，以指示请求的处理。接收到断开确认的Diameter/RADIUS网关将此转换为ASA命令，结果代码AVP为“Diameter\\u SUCCESS”。从NAS接收的断开NAK被转换为ASA命令，其结果代码AVP取决于错误原因属性的值。错误原因属性值和结果代码AVP值之间的建议转换如下："
+    },
+    {
+      "indent": 3,
+      "text": " #    Error-Cause Attribute Value   Result-Code AVP\n---   ---------------------------  ------------------------\n201   Residual Session Context     DIAMETER_SUCCESS\n      Removed\n202   Invalid EAP Packet           DIAMETER_LIMITED_SUCCESS\n      (Ignored)\n401   Unsupported Attribute        DIAMETER_AVP_UNSUPPORTED\n402   Missing Attribute            DIAMETER_MISSING_AVP\n403   NAS Identification           DIAMETER_REALM_NOT_SERVED\n      Mismatch\n404   Invalid Request              DIAMETER_UNABLE_TO_COMPLY\n405   Unsupported Service          DIAMETER_COMMAND_UNSUPPORTED\n406   Unsupported Extension        DIAMETER_APPLICATION_UNSUPPORTED\n407   Invalid Attribute Value      DIAMETER_INVALID_AVP_VALUE\n501   Administratively             DIAMETER_AUTHORIZATION_REJECTED\n      Prohibited\n502   Request Not Routable (Proxy) DIAMETER_UNABLE_TO_DELIVER\n503   Session Context Not Found    DIAMETER_UNKNOWN_SESSION_ID\n504   Session Context Not          DIAMETER_AUTHORIZATION_REJECTED\n      Removable\n505   Other Proxy Processing       DIAMETER_UNABLE_TO_COMPLY\n      Error\n506   Resources Unavailable        DIAMETER_RESOURCES_EXCEEDED\n507   Request Initiated            DIAMETER_SUCCESS",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Since both the ASR/ASA and Disconnect-Request/Disconnect-NAK/Disconnect-ACK exchanges involve just a request and response, inclusion of an \"Authorize Only\" Service-Type within a Disconnect-Request is not needed to assist in Diameter/RADIUS translation, and may make translation more difficult. As a result, as noted in Section 3.2, the Service-Type Attribute MUST NOT be used within a Disconnect-Request.",
+      "zh-CHS": "由于ASR/ASA和Disconnect Request/Disconnect NAK/Disconnect ACK交换都只涉及请求和响应，因此不需要在Disconnect Request中包含“仅授权”服务类型来帮助进行直径/半径转换，并且可能会使转换更加困难。因此，如第3.2节所述，在断开连接请求中不得使用服务类型属性。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the RADIUS [RFC2865] namespace; see <http://www.iana.org/assignments/radius-types>. In addition to the allocations already made in [RFC3575] and [RFC3576], this specification allocates additional values of the Error-Cause Attribute (101):",
+      "zh-CHS": "本文档使用RADIUS[RFC2865]名称空间；看<http://www.iana.org/assignments/radius-types>. 除了[RFC3575]和[RFC3576]中已经进行的分配外，本规范还分配错误原因属性（101）的附加值："
+    },
+    {
+      "indent": 3,
+      "text": " #    Value\n---   -----\n407   Invalid Attribute Value\n508   Multiple Session Selection Unsupported",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Authorization Issues",
+      "section_title": true,
+      "zh-CHS": "6.1. 授权问题"
+    },
+    {
+      "indent": 3,
+      "text": "Where a NAS is shared by multiple providers, it is undesirable for one provider to be able to send Disconnect-Requests or CoA-Requests affecting the sessions of another provider.",
+      "zh-CHS": "如果NAS由多个提供商共享，则一个提供商不希望能够发送影响另一个提供商会话的断开连接请求或CoA请求。"
+    },
+    {
+      "indent": 3,
+      "text": "A Dynamic Authorization Server MUST silently discard Disconnect-Request or CoA-Request packets from untrusted sources. In situations where the Dynamic Authorization Client is co-resident with a RADIUS authentication or accounting server, a proxy MAY perform a \"reverse path forwarding\" (RPF) check to verify that a Disconnect-Request or CoA-Request originates from an authorized Dynamic Authorization Client. In addition, it SHOULD be possible to explicitly authorize additional sources of Disconnect-Request or CoA-Request packets relating to certain classes of sessions. For example, a particular source can be explicitly authorized to send CoA-Request packets relating to users within a set of realms.",
+      "zh-CHS": "动态授权服务器必须以静默方式放弃来自不受信任源的断开连接请求或CoA请求数据包。在动态授权客户端与RADIUS身份验证或记帐服务器共存的情况下，代理可以执行“反向路径转发”（RPF）检查，以验证断开连接请求或CoA请求是否源自授权的动态授权客户端。此外，应该可以明确授权与特定会话类别相关的断开连接请求或CoA请求数据包的其他来源。例如，可以明确授权特定源发送与一组领域内的用户相关的CoA请求数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "To perform the RPF check, the Dynamic Authorization Server uses the session identification attributes included in Disconnect-Request or CoA-Request packets, in order to determine the RADIUS server(s) to which an equivalent Access-Request could be routed. If the source address of the Disconnect-Request or CoA-Request is within this set, then the CoA-Request or Disconnect-Request is forwarded; otherwise it MUST be silently discarded.",
+      "zh-CHS": "为了执行RPF检查，动态授权服务器使用断开连接请求或CoA请求数据包中包含的会话标识属性，以确定等效访问请求可以路由到的RADIUS服务器。如果断开连接请求或CoA请求的源地址在此集合内，则CoA请求或断开连接请求被转发；否则，它必须被默默地丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "Typically, the Dynamic Authorization Server will extract the realm from the Network Access Identifier [RFC4282] included within the User-Name or Chargeable-User-Identity Attribute, and determine the corresponding RADIUS servers in the realm routing tables. If the Dynamic Authorization Server maintains long-term session state, it MAY perform the authorization check based on the session identification attributes in the CoA-Request. The session identification attributes can be used to tie a session to a particular proxy or set of proxies, as with the NAI realm.",
+      "zh-CHS": "通常，动态授权服务器将从用户名或收费用户标识属性中包含的网络访问标识符[RFC4282]中提取领域，并确定领域路由表中相应的RADIUS服务器。如果动态授权服务器保持长期会话状态，则可基于CoA请求中的会话标识属性执行授权检查。会话标识属性可用于将会话绑定到特定代理或代理集，就像NAI领域一样。"
+    },
+    {
+      "indent": 3,
+      "text": "Where no proxy is present, the RPF check can only be performed by the NAS if it maintains its own a realm routing table. If the NAS does not maintain a realm routing table (e.g., it selects forwarding proxies based on primary/secondary configuration and/or liveness checks), then an RPF check cannot be performed.",
+      "zh-CHS": "在不存在代理的情况下，只有NAS维护自己的域路由表时，才能执行RPF检查。如果NAS不维护领域路由表（例如，它根据主/辅助配置和/或活动性检查选择转发代理），则无法执行RPF检查。"
+    },
+    {
+      "indent": 3,
+      "text": "Since authorization to send a Disconnect-Request or CoA-Request is determined based on the source address and the corresponding shared secret, the Dynamic Authorization Server SHOULD configure a different shared secret for each Dynamic Authorization Client.",
+      "zh-CHS": "由于发送断开连接请求或CoA请求的授权是根据源地址和相应的共享密钥确定的，因此动态授权服务器应为每个动态授权客户端配置不同的共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. IPsec Usage Guidelines",
+      "section_title": true,
+      "zh-CHS": "6.2. IPsec使用指南"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to security vulnerabilities unique to Disconnect or CoA packets, the protocol exchanges described in this document are susceptible to the same vulnerabilities as RADIUS [RFC2865]. It is RECOMMENDED that IPsec be employed to afford better security, utilizing the profile described in [RFC3579], Section 4.2.",
+      "zh-CHS": "除了断开连接或CoA数据包特有的安全漏洞外，本文档中描述的协议交换易受RADIUS[RFC2865]相同漏洞的影响。建议采用IPsec，利用[RFC3579]第4.2节中描述的配置文件提供更好的安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "For Dynamic Authorization Servers implementing this specification, the IPsec policy would be \"Require IPsec, from any to me, destination port UDP 3799\". This causes the Dynamic Authorization Server to require use of IPsec. If some Dynamic Authorization Clients do not support IPsec, then a more granular policy will be required: \"Require IPsec, from IPsec-Capable-DAC to me\".",
+      "zh-CHS": "对于实现此规范的动态授权服务器，IPsec策略将是“需要IPsec，从任意到我，目标端口UDP 3799”。这会导致动态授权服务器要求使用IPsec。如果某些动态授权客户端不支持IPsec，则需要更精细的策略：“需要IPsec，从支持IPsec的DAC到me”。"
+    },
+    {
+      "indent": 3,
+      "text": "For Dynamic Authorization Clients implementing this specification, the IPsec policy would be \"Initiate IPsec, from me to any, destination port UDP 3799\". This causes the Dynamic Authorization Client to initiate IPsec when sending Dynamic Authorization traffic to any Dynamic Authorization Server. If some Dynamic Authorization Servers contacted by the Dynamic Authorization Client do not support IPsec, then a more granular policy will be required, such as \"Initiate IPsec, from me to IPsec-Capable-DAS, destination port UDP 3799\".",
+      "zh-CHS": "对于实现此规范的动态授权客户端，IPsec策略将是“启动IPsec，从我到任何目标端口UDP 3799”。这会导致动态授权客户端在向任何动态授权服务器发送动态授权流量时启动IPsec。如果动态授权客户端联系的某些动态授权服务器不支持IPsec，则需要更精细的策略，例如“启动IPsec，从me到支持IPsec的DAS，目标端口UDP 3799”。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. Replay Protection",
+      "section_title": true,
+      "zh-CHS": "6.3. 重播保护"
+    },
+    {
+      "indent": 3,
+      "text": "Where IPsec replay protection is not used, an Event-Timestamp (55) [RFC2869] Attribute SHOULD be included within CoA-Request and Disconnect-Request packets, and MAY be included within CoA-ACK, CoA-NAK, Disconnect-ACK, and Disconnect-NAK packets.",
+      "zh-CHS": "在未使用IPsec重播保护的情况下，事件时间戳（55）[RFC2869]属性应包含在CoA请求和断开连接请求数据包中，并且可以包含在CoA ACK、CoA NAK、断开连接ACK和断开连接NAK数据包中。"
+    },
+    {
+      "indent": 3,
+      "text": "When the Event-Timestamp Attribute is present, both the Dynamic Authorization Server and the Dynamic Authorization Client MUST check that the Event-Timestamp Attribute is current within an acceptable time window. If the Event-Timestamp Attribute is not current, then the packet MUST be silently discarded. This implies the need for loose time synchronization within the network, which can be achieved by a variety of means, including Simple Network Time Protocol (SNTP), as described in [RFC4330]. Implementations SHOULD be configurable to discard CoA-Request or Disconnect-Request packets not containing an Event-Timestamp Attribute.",
+      "zh-CHS": "当存在事件时间戳属性时，动态授权服务器和动态授权客户端都必须检查事件时间戳属性是否在可接受的时间窗口内是当前的。如果事件时间戳属性不是当前的，则必须以静默方式丢弃数据包。这意味着需要在网络内进行松散时间同步，这可以通过多种方式实现，包括[RFC4330]中所述的简单网络时间协议（SNTP）。实现应可配置为丢弃CoA请求或断开不包含事件时间戳属性的请求包。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Event-Timestamp Attribute is included, it represents the time at which the original packet was sent, and therefore it SHOULD NOT be updated when the packet is retransmitted. If the Event-Timestamp Attribute is not updated, this implies that the Identifier is not changed in retransmitted packets. As a result, the ability to detect replay within the time window is dependent on support for duplicate detection within that same window. As noted in Section 2.3, duplicate detection is REQUIRED for Dynamic Authorization Servers implementing this specification.",
+      "zh-CHS": "如果包含事件时间戳属性，则它表示发送原始数据包的时间，因此在重新传输数据包时不应更新该数据包。如果未更新事件时间戳属性，则表示在重新传输的数据包中未更改标识符。因此，在时间窗口内检测重播的能力取决于对同一窗口内重复检测的支持。如第2.3节所述，实现本规范的动态授权服务器需要重复检测。"
+    },
+    {
+      "indent": 3,
+      "text": "The time window used for duplicate detection MUST be the same as the window used to detect a stale Event-Timestamp Attribute. Since the RADIUS Identifier cannot be repeated within the selected time window, no more than 256 Requests can be accepted within the time window. As a result, the chosen time window will depend on the expected maximum volume of CoA/Disconnect-Requests, so that unnecessary discards can be avoided. A default time window of 300 seconds should be adequate in many circumstances.",
+      "zh-CHS": "用于重复检测的时间窗口必须与用于检测过时事件时间戳属性的窗口相同。由于RADIUS标识符不能在选定的时间窗口内重复，因此在该时间窗口内最多只能接受256个请求。因此，选择的时间窗口将取决于CoA/断开连接请求的预期最大容量，因此可以避免不必要的丢弃。在许多情况下，300秒的默认时间窗口应足够。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Example Traces",
+      "section_title": true,
+      "zh-CHS": "7. 示例跟踪"
+    },
+    {
+      "indent": 3,
+      "text": "Disconnect Request with User-Name:",
+      "zh-CHS": "断开具有用户名的请求："
+    },
+    {
+      "indent": 6,
+      "text": " 0: xxxx xxxx xxxx xxxx xxxx 2801 001c 1b23    .B.....$.-(....#\n16: 624c 3543 ceba 55f1 be55 a714 ca5e 0108    bL5C..U..U...^..\n32: 6d63 6869 6261",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Disconnect Request with Acct-Session-ID:",
+      "zh-CHS": "断开帐户会话ID为的请求："
+    },
+    {
+      "indent": 6,
+      "text": " 0: xxxx xxxx xxxx xxxx xxxx 2801 001e ad0d    .B..... ~.(.....\n16: 8e53 55b6 bd02 a0cb ace6 4e38 77bd 2c0a    .SU.......N8w.,.\n32: 3930 3233 3435 3637                        90234567",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Disconnect Request with Framed-IP-Address:",
+      "zh-CHS": "断开具有框架IP地址的请求："
+    },
+    {
+      "indent": 6,
+      "text": " 0: xxxx xxxx xxxx xxxx xxxx 2801 001a 0bda    .B.....\"2.(.....\n16: 33fe 765b 05f0 fd9c c32a 2f6b 5182 0806    3.v[.....*/kQ...\n32: 0a00 0203",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1321] Rivest, R., \"The MD5 Message-Digest Algorithm\", RFC 1321, April 1992.",
+      "zh-CHS": "[RFC1321]Rivest，R.，“MD5消息摘要算法”，RFC13211992年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，RFC 211997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2865] Rigney, C., Rubens, A., Simpson, W. and S. Willens, \"Remote Authentication Dial In User Service (RADIUS)\", RFC 2865, June 2000.",
+      "zh-CHS": "[RFC2865]Rigney，C.，Rubens，A.，Simpson，W.和S.Willens，“远程认证拨入用户服务（RADIUS）”，RFC 28652000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2866] Rigney, C., \"RADIUS Accounting\", RFC 2866, June 2000.",
+      "zh-CHS": "[RFC2866]Rigney，C.，“半径会计”，RFC 28662000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2869] Rigney, C., Willats W. and P. Calhoun, \"RADIUS Extensions\", RFC 2869, June 2000.",
+      "zh-CHS": "[RFC2869]Rigney，C.，Willats W.和P.Calhoun，“半径延伸”，RFC 2869，2000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3162] Aboba, B., Zorn, G. and D. Mitton, \"RADIUS and IPv6\", RFC 3162, August 2001.",
+      "zh-CHS": "[RFC3162]Aboba，B.，Zorn，G.和D.Mitton，“RADIUS和IPv6”，RFC 3162，2001年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3575] Aboba, B., \"IANA Considerations for RADIUS\", RFC 3575, July 2003.",
+      "zh-CHS": "[RFC3575]Aboba，B.，“IANA对RADIUS的考虑”，RFC 35752003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3579] Aboba, B. and P. Calhoun, \"RADIUS Support for Extensible Authentication Protocol (EAP)\", RFC 3579, September 2003.",
+      "zh-CHS": "[RFC3579]Aboba，B.和P.Calhoun，“可扩展身份验证协议（EAP）的RADIUS支持”，RFC 3579，2003年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4282] Aboba, B., Beadles, M., Arkko, J. and P. Eronen, \"The Network Access Identifier\", RFC 4282, December 2005.",
+      "zh-CHS": "[RFC4282]Aboba，B.，Beadles，M.，Arkko，J.和P.Erenen，“网络访问标识符”，RFC 42822005年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[MD5Attack] Dobbertin, H., \"The Status of MD5 After a Recent Attack\", CryptoBytes Vol.2 No.2, Summer 1996.",
+      "zh-CHS": "[MD5Attack]Dobbertin，H.，“最近一次攻击后MD5的状态”，CryptoBytes第2卷第2期，1996年夏季。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2868] Zorn, G., Leifer, D., Rubens, A., Shriver, J., Holdrege, M. and I. Goyret, \"RADIUS Attributes for Tunnel Protocol Support\", RFC 2868, June 2000.",
+      "zh-CHS": "[RFC2868]Zorn，G.，Leifer，D.，Rubens，A.，Shriver，J.，Holdrege，M.和I.Goyret，“隧道协议支持的半径属性”，RFC 28682000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3539] Aboba, B. and J. Wood, \"Authentication, Authorization and Accounting Transport Profile\", RFC 3539, June 2003.",
+      "zh-CHS": "[RFC3539]Aboba，B.和J.Wood，“认证、授权和会计运输概况”，RFC 3539，2003年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3576] Chiba, M., Dommety, G., Eklund, M., Mitton, D. and B. Aboba, \"Dynamic Authorization Extensions to Remote Authentication Dial In User Service (RADIUS)\", RFC 3576, July 2003.",
+      "zh-CHS": "[RFC3576]Chiba，M.，Dommety，G.，Eklund，M.，Mitton，D.和B.Aboba，“远程认证拨号用户服务（RADIUS）的动态授权扩展”，RFC 35762003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3588] Calhoun, P., Loughney, J., Guttman, E., Zorn, G. and J. Arkko, \"Diameter Base Protocol\", RFC 3588, September 2003.",
+      "zh-CHS": "[RFC3588]Calhoun，P.，Loughney，J.，Guttman，E.，Zorn，G.和J.Arkko，“直径基础协议”，RFC 3588，2003年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4330] Mills, D., \"Simple Network Time Protocol (SNTP) Version 4 for IPv4, IPv6 and OSI\", RFC 4330, January 2006.",
+      "zh-CHS": "[RFC4330]Mills，D.“IPv4、IPv6和OSI的简单网络时间协议（SNTP）第4版”，RFC 4330，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4372] Adrangi, F., Lior, A., Korhonen, J. and J. Loughney, \"Chargeable User Identity\", RFC 4372, January 2006.",
+      "zh-CHS": "[RFC4372]Adrangi，F.，Lior，A.，Korhonen，J.和J.Loughney，“收费用户身份”，RFC 4372，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4675] Congdon, P., Sanchez, M. and B. Aboba, \"RADIUS Attributes for Virtual LAN and Priority Support\", RFC 4675, September 2006.",
+      "zh-CHS": "[RFC4675]Congdon，P.，Sanchez，M.和B.Aboba，“虚拟LAN和优先级支持的RADIUS属性”，RFC 4675，2006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4818] Salowey, J. and R. Droms, \"RADIUS Delegated-IPv6-Prefix Attribute\", RFC 4818, April 2007.",
+      "zh-CHS": "[RFC4818]Salowey，J.和R.Droms，“RADIUS-IPv6-Prefix属性”，RFC 4818，2007年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4849] Congdon, P., Sanchez, M. and B. Aboba, \"RADIUS Filter Rule Attribute\", RFC 4849, April 2007.",
+      "zh-CHS": "[RFC4849]Congdon，P.，Sanchez，M.和B.Aboba，“半径过滤器规则属性”，RFC 4849，2007年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol was first developed and distributed by Ascend Communications. Example code was distributed in their free server kit.",
+      "zh-CHS": "该协议首先由Ascend Communications开发和发布。示例代码在他们的免费服务器套件中分发。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to acknowledge valuable suggestions and feedback from Avi Lior, Randy Bush, Steve Bellovin, Glen Zorn, Mark Jones, Claudio Lapidus, Anurag Batta, Kuntal Chowdhury, Tim Moore, Russ Housley, Joe Salowey, Alan DeKok, and David Nelson.",
+      "zh-CHS": "作者希望感谢来自Avi Lior、Randy Bush、Steve Bellovin、Glen Zorn、Mark Jones、Claudio Lapidus、Anurag Batta、Kuntal Chowdhury、Tim Moore、Russ Housley、Joe Salowey、Alan DeKok和David Nelson的宝贵建议和反馈。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Changes from RFC 3576",
+      "section_title": true,
+      "zh-CHS": "附录A.对RFC 3576的变更"
+    },
+    {
+      "indent": 3,
+      "text": "This Appendix lists the major changes between [RFC3576] and this document. Minor changes, including style, grammar, spelling, and editorial changes, are not mentioned here.",
+      "zh-CHS": "本附录列出了[RFC3576]与本文件之间的主要变更。这里没有提到一些小的变化，包括风格、语法、拼写和编辑方面的变化。"
+    },
+    {
+      "indent": 3,
+      "text": "o The term \"Dynamic Authorization Client\" is used instead of RADIUS server where it applies to the originator of CoA-Request and Disconnect-Request packets. The term \"Dynamic Authorization Server\" is used instead of NAS where it applies to the receiver of CoA-Request and Disconnect-Request packets. Definitions of these terms have been added (Section 1.3).",
+      "zh-CHS": "o 术语“动态授权客户端”用于代替RADIUS服务器，该术语适用于CoA请求和断开连接请求数据包的发起人。术语“动态授权服务器”用于代替NAS，适用于CoA请求和断开连接请求数据包的接收者。增加了这些术语的定义（第1.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added requirement for duplicate detection on the Dynamic Authorization Server (Section 2.3).",
+      "zh-CHS": "o 增加了动态授权服务器上重复检测的要求（第2.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Clarified expected behavior when session identification attributes match more than one session (Sections 2.3, 3, 3.5, 4).",
+      "zh-CHS": "o 阐明了会话标识属性与多个会话匹配时的预期行为（第2.3、3、3.5、4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added Chargeable-User-Identity as a session identification attribute. Removed NAS-Port-Type as a session identification attribute (Section 3).",
+      "zh-CHS": "o 添加了计费用户标识作为会话标识属性。已删除NAS端口类型作为会话标识属性（第3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added recommendation that an Acct-Session-Id or Acct-Multi-Session-Id Attribute be included in an Access-Request (Section 3).",
+      "zh-CHS": "o 增加了在访问请求中包含Acct会话Id或Acct多会话Id属性的建议（第3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added discussion of scenarios in which the \"Dynamic Authorization Client\" and RADIUS server are not co-located (Section 3).",
+      "zh-CHS": "o 增加了对“动态授权客户端”和RADIUS服务器不在同一位置的场景的讨论（第3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added details relating to handling of the Proxy-State Attribute (Section 3.1).",
+      "zh-CHS": "o 添加了有关代理状态属性处理的详细信息（第3.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added clarification that support for a Service-Type Attribute with value \"Authorize Only\" is optional on both the NAS and Dynamic Authorization Client (Section 3.2). Use of the Service-Type Attribute within a Disconnect-Request is prohibited (Sections 3.2, 3.6).",
+      "zh-CHS": "o 增加了对值为“仅授权”的服务类型属性的支持在NAS和动态授权客户端上都是可选的（第3.2节）。禁止在断开连接请求中使用服务类型属性（第3.2、3.6节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added requirement for inclusion of the State Attribute in CoA-Request packets including a Service-Type Attribute with a value of \"Authorize Only\" (Section 3.3).",
+      "zh-CHS": "o 增加了在CoA请求数据包中包含状态属性的要求，包括值为“仅授权”的服务类型属性（第3.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added clarification on the calculation of the Message-Authenticator Attribute (Section 3.4).",
+      "zh-CHS": "o 增加了对消息验证器属性计算的说明（第3.4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Additional Error-Cause Attribute values are allocated for Invalid Attribute Value (407) and Multiple Session Selection Identification (508) (Sections 3.5, 4).",
+      "zh-CHS": "o 为无效属性值（407）和多会话选择标识（508）分配额外的错误原因属性值（第3.5、4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Updated the CoA-Request Attribute Table to include Filter-Rule, Delegated-IPv6-Prefix, Egress-VLANID, Ingress-Filters, Egress-VLAN-Name, and User-Priority attributes (Section 3.6).",
+      "zh-CHS": "o 更新CoA请求属性表，以包括筛选规则、委派的IPv6前缀、出口VLANID、入口筛选器、出口VLAN名称和用户优先级属性（第3.6节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added the Chargeable-User-Identity Attribute to both the CoA-Request and Disconnect-Request Attribute table (Section 3.6).",
+      "zh-CHS": "o 在CoA请求和断开连接请求属性表中都添加了付费用户标识属性（第3.6节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Use of Vendor-Specific Attributes (VSAs) for session identification and authorization change has been clarified (Section 3.6).",
+      "zh-CHS": "o 已澄清了使用供应商特定属性（VSA）进行会话标识和授权更改（第3.6节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added Note 6 on the use of the CoA-Request for renumbering, and Note 7 on the use of Vendor-Specific attributes (Section 3.6).",
+      "zh-CHS": "o 增加了关于使用CoA重新编号请求的注释6，以及关于使用供应商特定属性的注释7（第3.6节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added Diameter Considerations (Section 4).",
+      "zh-CHS": "o 增加了直径注意事项（第4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Event-Timestamp Attribute should not be recalculated on retransmission. The implications for replay and duplicate detection are discussed (Section 6.3).",
+      "zh-CHS": "o 重新传输时不应重新计算事件时间戳属性。讨论了重放和重复检测的含义（第6.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Operation of the Reverse Path Forwarding (RPF) check has been clarified. Use of the RPF check is optional rather than recommended by default (Section 6.1).",
+      "zh-CHS": "o 已澄清反向路径转发（RPF）检查的操作。RPF检查的使用是可选的，而不是默认推荐的（第6.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Text on impersonation (included in [RFC3579], Section 4.3.7) and IPsec operation (included in [RFC3579], Section 4.2) has been removed, and is now referenced.",
+      "zh-CHS": "o 关于模拟（包括在[RFC3579]第4.3.7节）和IPsec操作（包括在[RFC3579]第4.2节）的文本已被删除，现在被引用。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Murtaza Chiba Cisco Systems, Inc. 170 West Tasman Dr. San Jose CA, 95134",
+      "zh-CHS": "Murtaza Chiba Cisco Systems，Inc.170西塔斯曼加州圣何塞博士，95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mchiba@cisco.com\nPhone: +1 408 525 7198",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Gopal Dommety Cisco Systems, Inc. 170 West Tasman Dr. San Jose, CA 95134",
+      "zh-CHS": "Gopal Dommety思科系统公司，170西塔斯曼博士，加利福尼亚州圣何塞市，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: gdommety@cisco.com\nPhone: +1 408 525 1404",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Mark Eklund Cisco Systems, Inc. 170 West Tasman Dr. San Jose, CA 95134",
+      "zh-CHS": "Mark Eklund Cisco Systems，Inc.170西塔斯曼博士，加利福尼亚州圣何塞市，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: meklund@cisco.com\nPhone: +1 865 671 6255",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "David Mitton RSA, Security Division of EMC 174 Middlesex Turnpike Bedford, MA 01730",
+      "zh-CHS": "David Mitton RSA，马萨诸塞州贝德福德市米德尔塞克斯收费公路174号EMC安全部门01730"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: david@mitton.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Bernard Aboba Microsoft Corporation One Microsoft Way Redmond, WA 98052",
+      "zh-CHS": "伯纳德·阿博巴（Bernard Aboba）微软公司华盛顿州雷德蒙微软大道一号，邮编：98052"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: bernarda@microsoft.com\nPhone: +1 425 706 6605\nFax:   +1 425 936 7329",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

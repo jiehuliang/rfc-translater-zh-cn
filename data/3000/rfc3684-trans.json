@@ -1,0 +1,2026 @@
+{
+  "title": {
+    "text": "RFC 3684:  Topology Dissemination Based on Reverse-Path Forwarding (TBRPF) ",
+    "zh-CHS": "RFC 3684"
+  },
+  "number": 3684,
+  "created_at": "2021-11-17 16:42:37.634580+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                           R. Ogier\nRequest for Comments: 3684                             SRI International\nCategory: Experimental                                        F. Templin\n                                                                   Nokia\n                                                                M. Lewis\n                                                       SRI International\n                                                           February 2004",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "Topology Dissemination Based on Reverse-Path Forwarding (TBRPF)",
+      "zh-CHS": "基于反向路径转发（TBRPF）的拓扑传播"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines an Experimental Protocol for the Internet community. It does not specify an Internet standard of any kind. Discussion and suggestions for improvement are requested. Distribution of this memo is unlimited.",
+      "zh-CHS": "这份备忘录为互联网社区定义了一个实验性协议。它没有规定任何类型的互联网标准。要求进行讨论并提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2004). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2004年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "Topology Dissemination Based on Reverse-Path Forwarding (TBRPF) is a proactive, link-state routing protocol designed for mobile ad-hoc networks, which provides hop-by-hop routing along shortest paths to each destination. Each node running TBRPF computes a source tree (providing paths to all reachable nodes) based on partial topology information stored in its topology table, using a modification of Dijkstra's algorithm. To minimize overhead, each node reports only *part* of its source tree to neighbors. TBRPF uses a combination of periodic and differential updates to keep all neighbors informed of the reported part of its source tree. Each node also has the option to report additional topology information (up to the full topology), to provide improved robustness in highly mobile networks. TBRPF performs neighbor discovery using \"differential\" HELLO messages which report only *changes* in the status of neighbors. This results in HELLO messages that are much smaller than those of other link-state routing protocols such as OSPF.",
+      "zh-CHS": "基于反向路径转发的拓扑分发（TBRPF）是一种主动的、链路状态路由协议，设计用于移动自组织网络，它提供沿最短路径到每个目的地的逐跳路由。运行TBRPF的每个节点根据其拓扑表中存储的部分拓扑信息，使用Dijkstra算法的修改，计算源树（提供到所有可到达节点的路径）。为了最小化开销，每个节点只向邻居报告其源树的*部分*。TBRPF使用定期更新和差异更新的组合，使所有邻居都知道其源树的报告部分。每个节点还可以选择报告额外的拓扑信息（直到完整的拓扑），以便在高度移动的网络中提供更好的健壮性。TBRPF使用“差异”HELLO消息执行邻居发现，该消息仅报告邻居状态的*更改*。这导致HELLO消息比其他链路状态路由协议（如OSPF）的消息小得多。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction. . . . . . . . . . . . . . . . . . . . . . . . .   3\n2.  Requirements. . . . . . . . . . . . . . . . . . . . . . . . .   4\n3.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . .   4\n4.  Applicability Section . . . . . . . . . . . . . . . . . . . .   5\n5.  TBRPF Overview. . . . . . . . . . . . . . . . . . . . . . . .   6\n    5.1.   Overview of Neighbor Discovery . . . . . . . . . . . .   6\n    5.2.   Overview of the Routing Module. .. . . . . . . . . . .   8\n6.  TBRPF Packets . . . . . . . . . . . . . . . . . . . . . . . .  10\n    6.1.   TBRPF Packet Header. . . . . . . . . . . . . . . . . .  10\n    6.2.   TBRPF Packet Body. . . . . . . . . . . . . . . . . . .  11\n           6.2.1.  Padding Options (TYPE = 0 thru 1). . . . . . .  12\n           6.2.2.  Messages (TYPE = 2 thru 10). . . . . . . . . .  13\n7.  TBRPF Neighbor Discovery. . . . . . . . . . . . . . . . . . .  13\n    7.1.   HELLO Message Format . . . . . . . . . . . . . . . . .  13\n    7.2.   Neighbor Table . . . . . . . . . . . . . . . . . . . .  14\n    7.3.   Sending HELLO Messages . . . . . . . . . . . . . . . .  15\n    7.4.   Processing a Received HELLO Message. . . . . . . . . .  16\n    7.5.   Expiration of Timer nbr_life . . . . . . . . . . . . .  18\n    7.6.   Link-Layer Failure Notification. . . . . . . . . . . .  18\n    7.7.   Optional Link Metrics. . . . . . . . . . . . . . . . .  18\n    7.8.   Configurable Parameters. . . . . . . . . . . . . . . .  19\n8.  TBRPF Routing Module. . . . . . . . . . . . . . . . . . . . .  19\n    8.1.   Conceptual Data Structures . . . . . . . . . . . . . .  19\n    8.2.   TOPOLOGY UPDATE Message Format . . . . . . . . . . . .  21\n    8.3.   Interface, Host, and Network Prefix Association\n           Message Formats. . . . . . . . . . . . . . . . . . . .  23\n    8.4.   TBRPF Routing Operation. . . . . . . . . . . . . . . .  24\n           8.4.1.  Periodic Processing. . . . . . . . . . . . . .  24\n           8.4.2.  Updating the Source Tree and Topology\n                   Graph. . . . . . . . . . . . . . . . . . . . .  25\n           8.4.3.  Updating the Routing Table . . . . . . . . . .  26\n           8.4.4.  Updating the Reported Node Set . . . . . . . .  27\n           8.4.5.  Generating Periodic Updates. . . . . . . . . .  29\n           8.4.6.  Generating Differential Updates. . . . . . . .  29\n           8.4.7.  Processing Topology Updates. . . . . . . . . .  30\n           8.4.8.  Expiring Topology Information. . . . . . . . .  32\n           8.4.9.  Optional Reporting of Redundant Topology\n                   Information. . . . . . . . . . . . . . . . . .  32\n           8.4.10. Local Topology Changes . . . . . . . . . . . .  33\n           8.4.11. Generating Association Messages. . . . . . . .  34\n           8.4.12. Processing Association Messages. . . . . . . .  36\n           8.4.13. Non-Relay Operation. . . . . . . . . . . . . .  37\n    8.5.   Configurable Parameters. . . . . . . . . . . . . . . .  38\n9.  TBRPF Flooding Mechanism. . . . . . . . . . . . . . . . . . .  38\n10. Operation of TBRPF in Mobile Ad-Hoc Networks. . . . . . . . .  39\n    10.1.  Data Link Layer Assumptions. . . . . . . . . . . . . .  39",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "    10.2.  Network Layer Assumptions. . . . . . . . . . . . . . .  39\n    10.3.  Optional Automatic Address Resolution. . . . . . . . .  40\n    10.4.  Support for Multiple Interfaces and/or\n           Alias Addresses. . . . . . . . . . . . . . . . . . . .  40\n    10.5.  Support for Network Prefixes . . . . . . . . . . . . .  40\n    10.6.  Support for non-MANET Hosts. . . . . . . . . . . . . .  40\n    10.7.  Internet Protocol Considerations . . . . . . . . . . .  41\n           10.7.1. IPv4 Operation . . . . . . . . . . . . . . . .  41\n           10.7.2. IPv6 Operation . . . . . . . . . . . . . . . .  41\n11. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  41\n12. Security Considerations . . . . . . . . . . . . . . . . . . .  42\n13. Acknowledgements. . . . . . . . . . . . . . . . . . . . . . .  42\n14. References. . . . . . . . . . . . . . . . . . . . . . . . . .  42\n    14.1.  Normative References . . . . . . . . . . . . . . . . .  42\n    14.2.  Informative References . . . . . . . . . . . . . . . .  43\nAuthors' Addresses. . . . . . . . . . . . . . . . . . . . . . . .  45\nFull Copyright Statement. . . . . . . . . . . . . . . . . . . . .  46",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Topology Dissemination Based on Reverse-Path Forwarding (TBRPF) is a proactive, link-state routing protocol designed for mobile ad-hoc networks (MANETs), which provides hop-by-hop routing along shortest paths to each destination. Each node running TBRPF computes a source tree (providing shortest paths to all reachable nodes) based on partial topology information stored in its topology table, using a modification of Dijkstra's algorithm. To minimize overhead, each node reports only *part* of its source tree to neighbors.",
+      "zh-CHS": "基于反向路径转发（TBRPF）的拓扑分发是一种主动的、链路状态路由协议，专为移动自组织网络（MANET）设计，它提供沿最短路径到每个目的地的逐跳路由。运行TBRPF的每个节点根据其拓扑表中存储的部分拓扑信息，使用Dijkstra算法的修改，计算源树（为所有可到达节点提供最短路径）。为了最小化开销，每个节点只向邻居报告其源树的*部分*。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF uses a combination of periodic and differential updates to keep all neighbors informed of the reported part of its source tree. Each node also has the option to report addition topology information (up to the full topology), to provide improved robustness in highly mobile networks.",
+      "zh-CHS": "TBRPF使用定期更新和差异更新的组合，使所有邻居都知道其源树的报告部分。每个节点还可以选择报告添加的拓扑信息（直到完整拓扑），以在高度移动的网络中提供更好的健壮性。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF performs neighbor discovery using \"differential\" HELLO messages which report only *changes* in the status of neighbors. This results in HELLO messages that are much smaller than those of other link-state routing protocols such as OSPF [6].",
+      "zh-CHS": "TBRPF使用“差异”HELLO消息执行邻居发现，该消息仅报告邻居状态的*更改*。这导致HELLO消息比其他链路状态路由协议（如OSPF[6]）的消息小得多。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF consists of two modules: the neighbor discovery module and the routing module (which performs topology discovery and route computation). An overview of these modules is given in Section 5.",
+      "zh-CHS": "TBRPF由两个模块组成：邻居发现模块和路由模块（执行拓扑发现和路由计算）。第5节对这些模块进行了概述。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements",
+      "section_title": true,
+      "zh-CHS": "2. 要求"
+    },
+    {
+      "indent": 3,
+      "text": "The keywords \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\", when they appear in this document, are to be interpreted as described in BCP 14, RFC 2119 [1].",
+      "zh-CHS": "本文件中出现的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“建议”、“可”和“可选”应按照BCP 14、RFC 2119[1]中的说明进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also makes use of internal conceptual variables to describe protocol behavior and external variables that an implementation must allow system administrators to change. The specific variable names, how their values change, and how their settings influence protocol behavior are provided to demonstrate protocol behavior. An implementation is not required to have them in the exact form described here, so long as its external behavior is consistent with that described in this document.",
+      "zh-CHS": "本文档还使用内部概念变量来描述协议行为和实现必须允许系统管理员更改的外部变量。提供特定变量名称、其值如何更改以及其设置如何影响协议行为，以演示协议行为。只要实现的外部行为与本文档中描述的一致，则不要求实现的外部行为与本文中描述的完全相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Terminology",
+      "section_title": true,
+      "zh-CHS": "3. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The following terms are used to describe TBRPF:",
+      "zh-CHS": "以下术语用于描述TBRPF："
+    },
+    {
+      "indent": 3,
+      "text": "node A router that implements TBRPF.",
+      "zh-CHS": "节点实现TBRPF的路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "router ID Each node is identified by a unique 32-bit router ID (RID), which for IPv4 is typically equal to the IP address of one of its interfaces. The term \"node u\" denotes the node whose RID is equal to u.",
+      "zh-CHS": "路由器ID每个节点由唯一的32位路由器ID（RID）标识，对于IPv4，该ID通常等于其一个接口的IP地址。术语“节点u”表示其RID等于u的节点。"
+    },
+    {
+      "indent": 3,
+      "text": "interface A node's attachment to a communication facility or medium through which it can communicate with other nodes. A node can have multiple interfaces. An interface can be wireless or wired, and can be broadcast (e.g., Ethernet) or point-to-point. Each interface is identified by its IP address. The term \"interface I\" denotes the interface whose IP address is I.",
+      "zh-CHS": "将一个节点的附件连接到一个通信设备或媒体，通过该设备或媒体可以与其他节点进行通信。一个节点可以有多个接口。接口可以是无线或有线的，也可以是广播（如以太网）或点对点。每个接口都由其IP地址标识。术语“接口I”表示其IP地址为I的接口。"
+    },
+    {
+      "indent": 3,
+      "text": "link A link is an ordered pair of interfaces (I,J) where I and J are on two different nodes, and where interface I has recently received packets sent from interface J. A link (i,j) from node i to node j is said to exist if node i has an interface I and node j has an interface J such that (I,J) is a link. Nodes i and j are called the \"tail\" and \"head\" of the link, respectively.",
+      "zh-CHS": "链路A链路是一对有序的接口（I，J），其中I和J位于两个不同的节点上，并且其中接口I最近已接收到从接口J发送的数据包。如果节点I具有接口I且节点J具有接口J使得（I，J）是链路，则称存在从节点I到节点J的链路（I，J）。节点i和j分别称为链路的“尾”和“头”。"
+    },
+    {
+      "indent": 3,
+      "text": "bidirectional link A link (I,J) such that interfaces I and J can both hear each other. Also called a 2-way link.",
+      "zh-CHS": "双向链路一种链路（I，J），使得接口I和J都能听到对方的声音。也称为双向链接。"
+    },
+    {
+      "indent": 3,
+      "text": "neighbor node A node j is said to be a neighbor of node i if node i can hear node j on some interface. Node j is said to be a 2-way neighbor if there is a bidirectional link between i and j.",
+      "zh-CHS": "如果节点i可以在某个接口上听到节点j，则称节点j为节点i的邻居。如果i和j之间存在双向链路，则称节点j为双向邻居。"
+    },
+    {
+      "indent": 3,
+      "text": "MANET interface Any wireless interface such that two neighbor nodes on the interface need not be neighbors of each other. MANET nodes typically have at least one MANET interface, but this is not a requirement.",
+      "zh-CHS": "MANET接口任何无线接口，使得接口上的两个相邻节点不必彼此相邻。MANET节点通常至少有一个MANET接口，但这不是一个要求。"
+    },
+    {
+      "indent": 3,
+      "text": "topology\n   The topology of the network is described by a graph G = (V, E),\n   where V is the set of nodes u and E is the set of links (u,v) in\n   the network.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "source tree The directed tree (denoted T) computed by each node that provides shortest paths to all other reachable nodes.",
+      "zh-CHS": "源树由每个节点计算的有向树（表示为T），它提供到所有其他可到达节点的最短路径。"
+    },
+    {
+      "indent": 3,
+      "text": "topology update A message that reports the state of one or more links.",
+      "zh-CHS": "拓扑更新报告一个或多个链接状态的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "parent The parent of node i for node u is the next node on the computed shortest path from node i to node u.",
+      "zh-CHS": "父节点u的节点i的父节点是计算出的从节点i到节点u的最短路径上的下一个节点。"
+    },
+    {
+      "indent": 3,
+      "text": "predecessor The predecessor of a node v on the source tree is the node u such that the link (u,v) is in the source tree.",
+      "zh-CHS": "前置节点源树上节点v的前置节点是节点u，因此链接（u，v）位于源树中。"
+    },
+    {
+      "indent": 3,
+      "text": "leaf node A leaf node of the source tree is a node on the source tree that is not the predecessor of any other node on the source tree.",
+      "zh-CHS": "叶节点源树的叶节点是源树上的节点，它不是源树上任何其他节点的前置节点。"
+    },
+    {
+      "indent": 3,
+      "text": "proactive routing protocol A routing protocol in which each node maintains routes to all reachable destinations at all times, whether or not there is currently any need to deliver packets to those destinations. In contrast, an \"on-demand\" routing protocol discovers and maintains routes only when they are needed.",
+      "zh-CHS": "主动路由协议一种路由协议，其中每个节点始终维护到所有可到达目的地的路由，无论当前是否需要将数据包发送到这些目的地。相反，“按需”路由协议仅在需要时才发现和维护路由。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Applicability Section",
+      "section_title": true,
+      "zh-CHS": "4. 适用性部分"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF is a proactive routing protocol designed for mobile ad-hoc networks (MANETs). It can support networks with up to a few hundred nodes, and can be combined with hierarchical routing techniques to support much larger networks. Because it employs techniques to",
+      "zh-CHS": "TBRPF是一种为移动自组织网络（MANET）设计的主动式路由协议。它可以支持多达几百个节点的网络，并且可以与分层路由技术相结合，以支持更大的网络。因为它使用技术来"
+    },
+    {
+      "indent": 3,
+      "text": "greatly reduce control traffic, TBRPF can support much larger and denser networks than routing protocols based on the classical link-state algorithm (e.g., OSPF).",
+      "zh-CHS": "与基于经典链路状态算法（如OSPF）的路由协议相比，TBRPF可以大大减少控制流量，从而支持更大、更密集的网络。"
+    },
+    {
+      "indent": 3,
+      "text": "The number of nodes that can be supported depends on several factors, including the MAC data rate, the rate of topology changes, and the network density (average number of neighbors). Simulations have been reported in which TBRPF has supported as many as 500 nodes. In simulations with 100 nodes and 20 traffic streams (sources), using IEEE 802.11 with a data rate of 2 Mbps, TBRPF was found to generate approximately 80-120 kb/s of routing control traffic for the scenarios considered, which compared favorably with other MANET routing protocols [7][8]. A proof of correctness for TBRPF can be found in references [8] and [9].",
+      "zh-CHS": "可支持的节点数取决于多个因素，包括MAC数据速率、拓扑变化率和网络密度（平均邻居数）。据报道，在模拟中，TBRPF支持多达500个节点。在对100个节点和20个业务流（源）的模拟中，使用IEEE 802.11和2 Mbps的数据速率，发现TBRPF在所考虑的场景中产生约80-120 kb/s的路由控制流量，这与其他MANET路由协议相比是有利的[7][8]。TBRPF的正确性证明见参考文献[8]和[9]。"
+    },
+    {
+      "indent": 0,
+      "text": "5. TBRPF Overview",
+      "section_title": true,
+      "zh-CHS": "5. TBRPF概述"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF consists of two main modules: the neighbor discovery module, and the routing module (which performs topology discovery and route computation).",
+      "zh-CHS": "TBRPF由两个主要模块组成：邻居发现模块和路由模块（执行拓扑发现和路由计算）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Overview of Neighbor Discovery",
+      "section_title": true,
+      "zh-CHS": "5.1. 邻居发现综述"
+    },
+    {
+      "indent": 3,
+      "text": "The TBRPF Neighbor Discovery (TND) protocol allows each node i to quickly detect the neighbor nodes j such that a bidirectional link (I,J) exists between an interface I of node i and an interface J of node j. The protocol also quickly detects when a bidirectional link breaks or becomes unidirectional.",
+      "zh-CHS": "TBRPF邻居发现（TND）协议允许每个节点i快速检测邻居节点j，使得在节点i的接口i和节点j的接口j之间存在双向链路（i，j）。该协议还可以快速检测双向链路何时中断或变为单向链路。"
+    },
+    {
+      "indent": 3,
+      "text": "The key feature of TND is that it uses \"differential\" HELLO messages which report only *changes* in the status of links. This results in HELLO messages that are much smaller than those of other link-state routing protocols such as OSPF, in which each HELLO message includes the IDs of *all* neighbors. As a result, HELLO messages can be sent more frequently, which allows faster detection of topology changes.",
+      "zh-CHS": "TND的关键特性是它使用“差异”HELLO消息，只报告链接状态的*更改*。这导致HELLO消息比其他链路状态路由协议（如OSPF）的消息小得多，在OSPF中，每个HELLO消息都包含*所有*邻居的id。因此，HELLO消息可以更频繁地发送，从而可以更快地检测拓扑更改。"
+    },
+    {
+      "indent": 3,
+      "text": "TND is designed to be fully modular and independent of the routing module. TND performs ONLY neighbor sensing, i.e., it determines which nodes are (1-hop) neighbors. In particular, it does not discover 2-hop neighbors (which is handled by the routing module). As a result, TND can be used by other routing protocols, and TBRPF can use another neighbor discovery protocol in place of TND, e.g., one provided by the link layer.",
+      "zh-CHS": "TND设计为完全模块化，独立于路由模块。TND仅执行邻居感知，即，它确定哪些节点是（1跳）邻居。特别是，它不会发现2跳邻居（由路由模块处理）。结果，TND可由其他路由协议使用，并且TBRPF可使用另一邻居发现协议代替TND，例如，由链路层提供的邻居发现协议。"
+    },
+    {
+      "indent": 3,
+      "text": "Nodes with multiple interfaces run TND separately on each interface, similar to OSPF. Thus, a neighbor table is maintained for each local interface, and a HELLO sent on a particular interface contains only information regarding neighbors heard on that interface.",
+      "zh-CHS": "具有多个接口的节点在每个接口上分别运行TND，类似于OSPF。因此，为每个本地接口维护一个邻居表，并且在特定接口上发送的HELLO只包含关于在该接口上听到的邻居的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "We note that, in wireless networks, it is possible for a single interface I to receive packets from multiple interfaces J associated with the same neighbor node. This could happen, for example, if the neighbor uses a directional antenna with different interfaces representing different beams. For this reason, TBRPF includes neighbor interface addresses in HELLO messages, unlike OSPF, which includes only router IDs in HELLO packets.",
+      "zh-CHS": "我们注意到，在无线网络中，单个接口I可以从与同一邻居节点相关联的多个接口J接收数据包。例如，如果邻居使用具有代表不同波束的不同接口的定向天线，则可能发生这种情况。因此，TBRPF在HELLO消息中包含邻居接口地址，而OSPF只在HELLO数据包中包含路由器ID。"
+    },
+    {
+      "indent": 3,
+      "text": "Each TBRPF node maintains a neighbor table for each local interface I, which stores state information for each neighbor interface J heard on that interface, i.e., for each link (I,J) between interface I and a neighbor interface J. The status of each link can be 1-WAY, 2-WAY, or LOST. The neighbor table for interface I determines the contents of HELLO messages sent on interface I, and is updated based on HELLO messages received on interface I (and possibly on link-layer notifications).",
+      "zh-CHS": "每个TBRPF节点为每个本地接口I维护一个邻居表，该表存储在该接口上听到的每个邻居接口J的状态信息，即，对于接口I和邻居接口J之间的每个链路（I，J）。每个链路的状态可以是单向、双向或丢失。接口I的邻居表确定接口I上发送的HELLO消息的内容，并根据接口I上接收的HELLO消息（可能还有链路层通知）进行更新。"
+    },
+    {
+      "indent": 3,
+      "text": "Each TBRPF node sends (on each interface) at least one HELLO message per HELLO_INTERVAL. Each HELLO message contains three (possibly empty) lists of neighbor interface addresses (which are formatted as three message subtypes): NEIGHBOR REQUEST, NEIGHBOR REPLY, and NEIGHBOR LOST. Each HELLO message also contains the current HELLO sequence number (HSEQ), which is incremented with each transmitted HELLO.",
+      "zh-CHS": "每个TBRPF节点（在每个接口上）每个HELLO_间隔至少发送一条HELLO消息。每个HELLO消息包含三个（可能为空）邻居接口地址列表（格式为三个消息子类型）：邻居请求、邻居回复和邻居丢失。每个HELLO消息还包含当前HELLO序列号（HSEQ），该序列号随每个发送的HELLO而递增。"
+    },
+    {
+      "indent": 3,
+      "text": "In the following overview of the operation of TND, we assume that interface I belongs to node i, and interface J belongs to node j. When a node i changes the status of a link (I,J), it includes the neighbor interface address J in the appropriate list (NEIGHBOR REQUEST/REPLY/LOST) in at most NBR_HOLD_COUNT (typically 3) consecutive HELLOs sent on interface I. This ensures that node j will either receive one of these HELLOs on interface J, or will miss NBR_HOLD_COUNT HELLOs and thus declare the link (J,I) to be LOST. This technique makes it unnecessary for a node to include each 1-WAY or 2-WAY neighbor in HELLOs indefinitely, unlike OSPF.",
+      "zh-CHS": "在下面的TND操作概述中，我们假设接口I属于节点I，接口J属于节点J。当节点i改变链路（i，J）的状态时，它在接口i上发送的最多NBR_HOLD_计数（通常为3个）的连续hello中将邻居接口地址J包括在适当的列表（邻居请求/应答/丢失）中。这确保节点J将在接口J上接收其中一个hello，或者将错过NBR_HOLD_COUNT HELLOs，从而宣布链接（J，I）丢失。与OSPF不同的是，这种技术使得节点无需无限期地将每个1路或2路邻居包含在HELLOs中。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid establishing a link that is likely to be short lived (i.e., to employ hysteresis), node i must receive (on interface I) at least HELLO_ACQUIRE_COUNT (e.g., 2) of the last HELLO_ACQUIRE_WINDOW (e.g., 3) HELLOs sent from a neighbor interface J, before declaring the link (I,J) to be 1-WAY. When this happens, node i includes J in the NEIGHBOR REQUEST list in each of its next NBR_HOLD_COUNT HELLO messages sent on interface I, or until a NEIGHBOR REPLY message containing I is received on interface I from neighbor interface J.",
+      "zh-CHS": "为了避免建立可能是短命的链路（即，采用滞后），节点i必须在将链路（i，J）声明为单向之前，接收（在接口i上）从邻居接口J发送的最后一个HELLO_ACQUIRE_窗口（例如，3）HELLO的至少HELLO_ACQUIRE_计数（例如，2）。当发生这种情况时，节点i在其在接口i上发送的每个下一个NBR\\u HOLD\\u COUNT HELLO消息中，或者直到在接口i上从邻居接口J接收到包含i的邻居应答消息为止，将J包括在邻居请求列表中。"
+    },
+    {
+      "indent": 3,
+      "text": "If node j receives (on interface J) one of the HELLOs sent from interface I that contains J in the NEIGHBOR REQUEST list, then node j declares the link (J,I) to be 2-WAY (unless it is already 2-WAY), and",
+      "zh-CHS": "如果节点j（在接口j上）接收到从接口I发送的、邻居请求列表中包含j的hello之一，则节点j将链路（j，I）声明为双向链路（除非它已经是双向链路），并且"
+    },
+    {
+      "indent": 3,
+      "text": "includes I in the NEIGHBOR REPLY list in each of its next NBR_HOLD_COUNT HELLO messages sent on interface J. Upon receiving one of these HELLOs on interface I, node i declares the link (I,J) to be 2-WAY.",
+      "zh-CHS": "在接口J上发送的每个NBR_HOLD_COUNT HELLO消息中，在邻居回复列表中包括I。在接口I上接收到其中一个HELLO后，节点I将链路（I，J）声明为双向。"
+    },
+    {
+      "indent": 3,
+      "text": "If node i receives a HELLO on interface I, sent from neighbor interface J, whose HSEQ indicates that at least NBR_HOLD_COUNT HELLOs were missed, or if node i receives no HELLO on interface I sent from interface J within NBR_HOLD_TIME seconds, then node i changes the status of link (I,J) to LOST (unless it is already LOST), and includes J in the NEIGHBOR LOST list in each of its next NBR_HOLD_COUNT HELLO messages sent on interface I (unless the link changes status before these transmissions are complete). Node j will either receive one of these HELLOs on interface J or will miss NBR_HOLD_COUNT HELLOs; in either case, node j will declare the link (J,I) to be LOST. In this manner, both nodes will agree that the link between I and J is no longer bidirectional, even if node j can still hear HELLOs from node i.",
+      "zh-CHS": "如果节点i在接口i上接收到从邻居接口J发送的HELLO，其HSEQ指示至少错过了NBR_HOLD_COUNT HELLO，或者如果节点i在NBR_HOLD_时间秒内没有在接口J上接收到HELLO，则节点i将链路（i，J）的状态更改为LOST（除非它已经丢失），并且在接口I上发送的每个下一个NBR_HOLD_COUNT HELLO消息中，在邻居丢失列表中包括J（除非链路在这些传输完成之前改变状态）。节点j将在接口j上接收这些hello中的一个，或者将错过NBR\\u HOLD\\u COUNT hello；在任何一种情况下，节点j都将声明链路（j，I）丢失。以这种方式，两个节点将同意I和J之间的链路不再是双向的，即使节点J仍然可以从节点I听到hello。"
+    },
+    {
+      "indent": 3,
+      "text": "Each node may maintain and update one or more link metrics for each link (I,J) from a local interface I to a neighbor interface J, representing the quality of the link. Such link metrics can be used as additional conditions for changing the status of a neighbor, based on the link metric going above or below some threshold. TBRPF also allows link metrics to be advertised in topology updates, and to be used for computing shortest paths.",
+      "zh-CHS": "每个节点可以维护和更新从本地接口I到邻居接口J的每个链路（I，J）的一个或多个链路度量，表示链路的质量。基于高于或低于某个阈值的链路度量，此类链路度量可用作更改邻居状态的附加条件。TBRPF还允许在拓扑更新中公布链路度量，并用于计算最短路径。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Overview of the Routing Module",
+      "section_title": true,
+      "zh-CHS": "5.2. 路由模块概述"
+    },
+    {
+      "indent": 3,
+      "text": "Each node running TBRPF maintains a source tree, denoted T, which provides shortest paths to all reachable nodes. Each node computes and updates its source tree based on partial topology information stored in its topology table, using a modification of Dijkstra's algorithm. To minimize overhead, each node reports only part of its source tree to neighbors. The main idea behind the current version of TBRPF came from PTSP [10], another protocol in which each node reports only part of its source tree. (However, TBRPF differs from PTSP in several ways.) The current version of TBRPF should not be confused with its previous version [11], which is a full-topology routing protocol.",
+      "zh-CHS": "运行TBRPF的每个节点都维护一个源树，表示为T，它提供到所有可到达节点的最短路径。每个节点使用Dijkstra算法的修改，根据其拓扑表中存储的部分拓扑信息计算并更新其源树。为了最小化开销，每个节点只向邻居报告其源树的一部分。当前版本的TBRPF背后的主要思想来自PTSP[10]，这是另一种协议，其中每个节点只报告其源树的一部分。（然而，TBRPF与PTSP在几个方面有所不同。）TBRPF的当前版本不应与其以前的版本[11]混淆，后者是一个完整的拓扑路由协议。"
+    },
+    {
+      "indent": 3,
+      "text": "The part of T that a node reports to neighbors is called the \"reported subtree\" and is denoted RT. Each node reports RT to neighbors in *periodic* topology updates (e.g., every 5 seconds), and reports changes (additions and deletions) to RT in more frequent *differential* updates (e.g., every 1 second). Periodic updates inform new neighbors of RT, and ensure that each neighbor eventually learns RT even if it does not receive all updates. Differential",
+      "zh-CHS": "节点向邻居报告的T部分称为“报告子树”，表示为RT。每个节点在*定期*拓扑更新（例如，每5秒）中向邻居报告RT，并在更频繁*差异*更新（例如，每1秒）中向RT报告更改（添加和删除）。定期更新通知新邻居RT，并确保每个邻居最终学习RT，即使它没有收到所有更新。有差别的"
+    },
+    {
+      "indent": 3,
+      "text": "updates ensure the fast propagation of each topology update to all nodes that are affected by the update. A received topology update is not forwarded, but *may* result in a change to RT, which will be reported in the next differential or periodic update. Whenever possible, topology updates are included in the same packet as a HELLO message, to minimize the number of control packets sent. TBRPF does not require reliable or sequenced delivery of messages, and does not use ACKs or NACKs.",
+      "zh-CHS": "更新确保每个拓扑更新快速传播到受更新影响的所有节点。接收到的拓扑更新不会转发，但*可能*导致对RT的更改，这将在下一次差异或定期更新中报告。只要有可能，拓扑更新都包含在与HELLO消息相同的数据包中，以尽量减少发送的控制数据包的数量。TBRPF不要求可靠或按顺序传递消息，也不使用ACK或NACK。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF supports multiple interfaces, associated hosts, and network prefixes. Information regarding associated interfaces, hosts, and prefixes is disseminated efficiently in periodic and differential updates, similar to the dissemination of topology updates.",
+      "zh-CHS": "TBRPF支持多个接口、关联主机和网络前缀。有关相关接口、主机和前缀的信息在定期和差异更新中有效传播，类似于拓扑更新的传播。"
+    },
+    {
+      "indent": 3,
+      "text": "The reported subtree RT consists of links (u,v) of T such that u is in the \"reported node set\" RN, which is computed as follows. Node i includes a neighbor j in RN if and only if node i determines that one of its neighbors may select i to be its next hop on its shortest path to j. To make this determination, node i computes the shortest paths, up to 2 hops, from each neighbor to each other neighbor, using only neighbors (or node i itself) as an intermediate node, and using relay priority (included in HELLO messages) and router ID to break ties. After a node determines which neighbors are in RN, each reachable node u is included in RN if and only if the next hop on the shortest path to u is in RN. A node also includes itself in RN. As a result, the reported subtree RT includes the subtrees of T that are rooted at neighbors in RN, and also includes all local links to neighbors.",
+      "zh-CHS": "报告的子树RT由T的链接（u，v）组成，使得u位于“报告的节点集”RN中，其计算如下。节点i在RN中包括邻居j，当且仅当节点i确定其一个邻居可以选择i作为其到j的最短路径上的下一跳时。为了进行此确定，节点i计算从每个邻居到另一个邻居的最短路径（最多2跳），仅使用邻居（或节点i本身）作为中间节点，并使用中继优先级（包括在HELLO消息中）和路由器ID断开连接。在节点确定哪些邻居在RN中之后，当且仅当到u的最短路径上的下一跳在RN中时，每个可到达节点u才包括在RN中。节点本身也包括在RN中。因此，报告的子树RT包括根在RN中的邻居的T子树，并且还包括到邻居的所有本地链接。"
+    },
+    {
+      "indent": 3,
+      "text": "We note that neighbors in RN are analogous to multipoint relay (MPR) selectors [12]. Thus, if node i selects neighbor j to be in RN, then node i effectively selects itself to be an MPR of node j. This is quite different from [12], in which a node does not select itself to be an MPR, but selects a subset of its neighbors to be MPRs.",
+      "zh-CHS": "我们注意到RN中的邻居类似于多点中继（MPR）选择器[12]。因此，如果节点i选择邻居j位于RN中，则节点i有效地选择自身作为节点j的MPR。这与[12]完全不同，在[12]中，节点不选择自身作为MPR，而是选择其邻居的子集作为MPR。"
+    },
+    {
+      "indent": 3,
+      "text": "A node with a larger relay priority reports a larger part of its source tree (on average), and is more likely to be selected as a next-hop relay by its neighbors. A node with relay priority equal to 0 is called a non-relay node, and never forwards packets originating from other nodes.",
+      "zh-CHS": "具有较大中继优先级的节点（平均）报告其源树的较大部分，并且更有可能被其邻居选择为下一跳中继。中继优先级等于0的节点称为非中继节点，从不转发来自其他节点的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF does not use sequence numbers for topology updates, thus reducing message overhead and avoiding wraparound problems. Instead, a technique similar to SPTA [13] is used in which, for each link (u,v) reported by one or more neighbors, only the next hop p(u) to u is believed regarding the state of the link. (However, in SPTA each node reports the full topology.) Using this technique, each node maintains a topology graph TG, consisting of links that are believed",
+      "zh-CHS": "TBRPF不使用拓扑更新的序列号，因此减少了消息开销并避免了环绕问题。相反，使用类似于SPTA[13]的技术，其中，对于一个或多个邻居报告的每个链路（u，v），关于链路的状态，仅相信下一跳p（u）到u。（然而，在SPTA中，每个节点都报告完整的拓扑结构。）使用此技术，每个节点都维护一个拓扑图TG，由可信的链接组成"
+    },
+    {
+      "indent": 3,
+      "text": "to be up, and computes T as the shortest-path tree within TG. To allow immediate rerouting, the restriction that each link (u,v) in TG must be reported by p(u) is relaxed temporarily if p(u) changes to a neighbor that is not reporting the link.",
+      "zh-CHS": "，并计算T作为TG中的最短路径树。为了允许立即重新路由，如果p（u）更改为不报告链路的邻居，则暂时放宽TG中的每个链路（u，v）必须由p（u）报告的限制。"
+    },
+    {
+      "indent": 3,
+      "text": "Each node is required to report RT, but may report additional links, e.g., to provide increased robustness in highly mobile networks. More precisely, a node may maintain any subgraph H of TG that contains T, and report the reported subgraph RH, which consists of links (u,v) of H such that u is in RN. For example, H can equal TG, which would provide each node with the full network topology if this is done by all nodes. H can also be a biconnected subgraph that contains T, which would provide each node with two disjoint paths to each other node, if this is done by all nodes.",
+      "zh-CHS": "每个节点都需要报告RT，但可以报告额外的链路，例如，在高度移动的网络中提供更高的健壮性。更准确地说，节点可以维护包含T的TG的任何子图H，并报告报告的子图RH，其由H的链接（u，v）组成，使得u在RN中。例如，H可以等于TG，这将为每个节点提供完整的网络拓扑，如果这是由所有节点完成的。H也可以是一个包含T的双连通子图，如果所有节点都这样做的话，它将为每个节点提供到其他节点的两条不相交路径。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF allows the option to include link metrics in topology updates, and to compute paths that are shortest with respect to the metric. This allows packets to be sent along paths that are higher quality than minimum-hop paths.",
+      "zh-CHS": "TBRPF允许选项在拓扑更新中包括链路度量，并计算相对于该度量最短的路径。这允许数据包沿着比最小跳数路径质量更高的路径发送。"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF allows path optimality to be traded off in order to reduce the amount of control traffic in networks with a large diameter, where the degree of approximation is determined by the configurable parameter NON_TREE_PENALTY.",
+      "zh-CHS": "TBRPF允许对路径优化进行权衡，以减少大直径网络中的控制流量，其中近似程度由可配置参数NON_TREE_penal确定。"
+    },
+    {
+      "indent": 0,
+      "text": "6. TBRPF Packets",
+      "section_title": true,
+      "zh-CHS": "6. TBRPF数据包"
+    },
+    {
+      "indent": 3,
+      "text": "Nodes send TBRPF protocol data in contiguous units known as packets. Each packet includes a header, optional header extensions, and a body comprising one or more messages and padding options as needed. To facilitate efficient receiver processing, senders SHOULD insert padding options as necessary to align multi-octet words within the TBRPF packet on natural boundaries (i.e., modulo-8/4/2 addresses for 64/32/16-bit words, respectively). Receivers MUST be capable of processing multi-octet words whether or not aligned on natural boundaries. The following sections specify elements of the TBRPF packet in more detail.",
+      "zh-CHS": "节点以称为数据包的连续单元发送TBRPF协议数据。每个分组包括报头、可选的报头扩展、以及根据需要包含一个或多个消息和填充选项的主体。为了便于高效的接收器处理，发送方应根据需要插入填充选项，以便在自然边界上对齐TBRPF数据包内的多个八位组字（即，分别为64/32/16位字的模8/4/2地址）。接收器必须能够处理多个八位组字，无论是否在自然边界上对齐。以下各节详细说明了TBRPF数据包的元素。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. TBRPF Packet Header",
+      "section_title": true,
+      "zh-CHS": "6.1. TBRPF包头"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF packet headers are variable-length (minimum one octet). The format for the packet header is as follows:",
+      "zh-CHS": "TBRPF数据包头长度可变（至少一个八位字节）。数据包头的格式如下："
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Vers |L|I|R|R|   Reserved    |      Header Extensions ...\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version (4 bits) The TBRPF version number. This specification documents version 4 of the protocol.",
+      "zh-CHS": "版本（4位）TBRPF版本号。本规范记录了协议的第4版。"
+    },
+    {
+      "indent": 3,
+      "text": "Flags (4 bits) Two bits (L,I) specify which header extensions (if any) follow. Two bits (R) are reserved for future use, and MUST be zero. Any extensions specified by these bits MUST appear in the same order as the bits (i.e., first L, then I) as follows:",
+      "zh-CHS": "标志（4位）两位（L，I）指定后面的标头扩展名（如果有）。保留两位（R）供将来使用，并且必须为零。这些位指定的任何扩展必须以与位相同的顺序出现（即，首先是L，然后是i），如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "L - Length included If the underlying delivery service provides a length field, the sender MAY set L = '0' and omit the length extension. Otherwise, the sender MUST set L = '1' and include a 16-bit unsigned integer length immediately after any previous header field. The length includes all header and data bytes and is written into the length field in network byte order.",
+      "zh-CHS": "L-包含的长度如果基础传递服务提供长度字段，则发件人可以将L设置为“0”，并省略长度扩展名。否则，发送方必须将L设置为“1”，并在前面的任何头字段之后立即包含一个16位无符号整数长度。长度包括所有标头和数据字节，并按网络字节顺序写入长度字段。"
+    },
+    {
+      "indent": 6,
+      "text": "Receivers examine the L bit to determine whether the length field is present. If L = '1', the receiver reads the length field to determine the length of the TBRPF packet, including the TBRPF packet header. Receivers discard any TBRPF packet if neither the underlying delivery service nor the TBRPF packet header provide packet length.",
+      "zh-CHS": "接收器检查L位以确定是否存在长度字段。如果L='1'，接收器读取长度字段以确定TBRPF数据包的长度，包括TBRPF数据包头。如果基础传递服务和TBRPF数据包头都不提供数据包长度，则接收方丢弃任何TBRPF数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "I - Router ID (RID) included If the underlying delivery service encodes the sender's RID, the sender MAY set I = '0' and omit the RID field. Otherwise, the sender MUST set I = '1' and include a 4-octet RID in network byte order immediately after any previous header fields. The RID option provides a mechanism for implicit network-level address resolution. A receiver that detects a RID option SHOULD create a binding between the RID and the source address that appears in the network-level header.",
+      "zh-CHS": "I-包含路由器ID（RID）如果基础传递服务对发送方的RID进行编码，发送方可以将I设置为“0”，并省略RID字段。否则，发送方必须将I设置为“1”，并在前面的任何头字段之后立即按网络字节顺序包含一个4-octet RID。RID选项提供了隐式网络级地址解析的机制。检测RID选项的接收器应在RID和出现在网络级标头中的源地址之间创建绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "Reserved Reserved for future use; MUST be zero.",
+      "zh-CHS": "留作日后使用；必须是零。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. TBRPF Packet Body",
+      "section_title": true,
+      "zh-CHS": "6.2. TBRPF包体"
+    },
+    {
+      "indent": 3,
+      "text": "The TBRPF packet body consists of the concatenation of one or more TBRPF messages (and padding options where necessary). Messages and padding options within the TBRPF packet body are encoded using the following format:",
+      "zh-CHS": "TBRPF数据包主体由一个或多个TBRPF消息的串联（以及必要时的填充选项）组成。TBRPF数据包正文中的消息和填充选项使用以下格式进行编码："
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+- - - - -\n|OPTIONS| TYPE  | VALUE\n+-+-+-+-+-+-+-+-+- - - - -",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OPTIONS (4 bits) Four option bits that depend on TYPE.",
+      "zh-CHS": "选项（4位）取决于类型的四个选项位。"
+    },
+    {
+      "indent": 3,
+      "text": "TYPE (4 bits) Identifier for message type or padding option.",
+      "zh-CHS": "消息类型或填充选项的类型（4位）标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "VALUE Variable-length field. (Format and length depend on TYPE, as described in the following sections.)",
+      "zh-CHS": "值可变长度字段。（格式和长度取决于类型，如下节所述。）"
+    },
+    {
+      "indent": 3,
+      "text": "The sequence of elements MUST be processed strictly in the order they appear within the TBRPF packet body; a receiver must not, for example, scan through the packet body looking for a particular type of element prior to processing all preceding elements [2]. TBRPF packet elements include padding options and messages as described below.",
+      "zh-CHS": "元素序列必须严格按照它们在TBRPF包体中出现的顺序进行处理；例如，在处理所有前面的元素之前，接收器不得扫描包体以寻找特定类型的元素[2]。TBRPF数据包元素包括填充选项和消息，如下所述。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2.1. Padding Options (TYPE = 0 thru 1)",
+      "section_title": true,
+      "zh-CHS": "6.2.1. 填充选项（类型=0到1）"
+    },
+    {
+      "indent": 3,
+      "text": "Senders MAY insert two types of padding options where necessary, e.g., to satisfy alignment requirements for other elements [2]. Padding options may occur anywhere within the TBRPF packet body. The following two padding options are defined:",
+      "zh-CHS": "发送方可在必要时插入两种类型的填充选项，例如，以满足其他元件的对齐要求[2]。填充选项可能出现在TBRPF包体中的任何位置。定义了以下两个填充选项："
+    },
+    {
+      "indent": 4,
+      "text": "Pad1 option (TYPE = 0)",
+      "zh-CHS": "Pad1选项（类型=0）"
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+\n|   0   |   0   |\n+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The Pad1 option inserts one octet of padding into the TBRPF packet body; the VALUE field is omitted. If more than one octet of padding is required, the PadN option (described next) should be used, rather than multiple Pad1 options.",
+      "zh-CHS": "Pad1选项将一个八位字节的填充插入TBRPF包体；值字段被省略。如果需要多个八位字节的填充，则应使用PadN选项（如下所述），而不是多个Pad1选项。"
+    },
+    {
+      "indent": 4,
+      "text": "PadN option (TYPE = 1)",
+      "zh-CHS": "PadN选项（类型=1）"
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+- - - - - - - - - - -\n|   0   |   1   |      LEN      |  Zero-valued Octets\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+- - - - - - - - - - -",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The PadN option inserts two or more octets of padding into the TBRPF packet body. The first octet of the VALUE field contains an 8-bit unsigned integer length containing a value between 0 - 253 which specifies the number of zero-valued octets that immediately follow, yielding a maximum total of 255 padding octets.",
+      "zh-CHS": "PadN选项将两个或多个八位字节的填充插入TBRPF数据包体。值字段的第一个八位字节包含一个8位无符号整数长度，该长度包含一个介于0-253之间的值，该值指定紧跟其后的零值八位字节数，最多产生255个填充八位字节。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2.2. Messages (TYPE = 2 thru 10)",
+      "section_title": true,
+      "zh-CHS": "6.2.2. 消息（类型=2到10）"
+    },
+    {
+      "indent": 3,
+      "text": "Additional message types are described as they occur in the following sections. Senders encode messages as specified by the individual message formats. Receivers detect errors in message construction, e.g., messages with unrecognized types, messages with a non-integral number of elements, or with fewer elements than indicated, etc. In all cases, upon detecting an error, the receiver MUST discontinue processing the current TBRPF packet and discard any unprocessed elements.",
+      "zh-CHS": "其他消息类型将在以下各节中介绍。发送者按照单独的消息格式对消息进行编码。接收器检测到消息构造中的错误，例如，类型无法识别的消息、元素数量不完整的消息或元素数量少于指示的消息等。在所有情况下，在检测到错误后，接收器必须停止处理当前TBRPF数据包，并丢弃任何未处理的元素。"
+    },
+    {
+      "indent": 0,
+      "text": "7. TBRPF Neighbor Discovery",
+      "section_title": true,
+      "zh-CHS": "7. TBRPF邻居发现"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the TBRPF Neighbor Discovery (TND) protocol, which allows each node to quickly detect bidirectional links (I,J) between a local interface I and a neighbor interface J, and to quickly detect the loss of such links. The interface between TND and the routing module is defined by the neighbor table maintained by TND and the three procedures Link_Up(I,J), Link_Down(I,J), and Link_Change(I,J), which are called by TND to announce a new link, the loss of a link, and a change in the metric of a link, respectively.",
+      "zh-CHS": "本节描述了TBRPF邻居发现（TND）协议，该协议允许每个节点快速检测本地接口I和邻居接口J之间的双向链路（I，J），并快速检测此类链路的丢失。TND和路由模块之间的接口由TND维护的邻居表和三个过程Link_Up（I，J）、Link_Down（I，J）和Link_Change（I，J）定义，TND调用这三个过程分别宣布新链路、链路丢失和链路度量的变化。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. HELLO Message Format",
+      "section_title": true,
+      "zh-CHS": "7.1. 你好消息格式"
+    },
+    {
+      "indent": 3,
+      "text": "The HELLO message has the following three subtypes:",
+      "zh-CHS": "HELLO消息有以下三个子类型："
+    },
+    {
+      "indent": 3,
+      "text": "- NEIGHBOR REQUEST (TYPE = 2) - NEIGHBOR REPLY (TYPE = 3) - NEIGHBOR LOST (TYPE = 4)",
+      "zh-CHS": "- 邻居请求（类型=2）-邻居回复（类型=3）-邻居丢失（类型=4）"
+    },
+    {
+      "indent": 3,
+      "text": "Each HELLO subtype has the following format:",
+      "zh-CHS": "每个HELLO子类型都具有以下格式："
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   0   | TYPE  |     HSEQ      |  Pri  |          n            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               Neighbor Interface Address (1)                  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               Neighbor Interface Address (2)                  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n~                              ...                              ~\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               Neighbor Interface Address (n)                  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "HSEQ (8 bits) The HELLO sequence number.",
+      "zh-CHS": "HSEQ（8位）HELLO序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "Pri (4 bits) This field indicates the sending node's relay priority, which is an integer between 0 and 15. A node with a higher relay priority is more likely to be selected as the next hop on a route. The value 0 is reserved for non-relay nodes, i.e., nodes that should never forward packets originating from other nodes. A router in normal operation SHOULD have a relay priority equal to 7. A router can change its relay priority dynamically, e.g., when its power supply becomes critical.",
+      "zh-CHS": "Pri（4位）该字段表示发送节点的中继优先级，该优先级为0到15之间的整数。具有较高中继优先级的节点更有可能被选为路由上的下一跳。值0保留给非中继节点，即永远不应转发来自其他节点的数据包的节点。正常运行的路由器应具有等于7的中继优先级。路由器可以动态更改其中继优先级，例如，当其电源变得至关重要时。"
+    },
+    {
+      "indent": 3,
+      "text": "n (12 bits) The number of 32-bit neighbor interface addresses in the message.",
+      "zh-CHS": "n（12位）消息中32位邻居接口地址的数量。"
+    },
+    {
+      "indent": 3,
+      "text": "A HELLO message is the concatenation of a NEIGHBOR REQUEST message, a NEIGHBOR REPLY message, and a NEIGHBOR LOST message, where each of the last two messages is omitted if its list of neighbor interface addresses is empty. Thus, a HELLO message always includes a (possibly empty) NEIGHBOR REQUEST.",
+      "zh-CHS": "HELLO消息是邻居请求消息、邻居回复消息和邻居丢失消息的串联，如果其邻居接口地址列表为空，则最后两条消息中的每一条都将被忽略。因此，HELLO消息总是包含一个（可能是空的）邻居请求。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Neighbor Table",
+      "section_title": true,
+      "zh-CHS": "7.2. 邻表"
+    },
+    {
+      "indent": 3,
+      "text": "Each node maintains, for each of its local interfaces I, a neighbor table, which stores state information for each neighbor interface J from which HELLO messages have recently been received by interface I. The entry for neighbor interface J, in the neighbor table for I, contains the following variables:",
+      "zh-CHS": "每个节点为其每个本地接口I维护一个邻居表，该表存储接口I最近从中接收HELLO消息的每个邻居接口J的状态信息。I的邻居表中的邻居接口J条目包含以下变量："
+    },
+    {
+      "indent": 6,
+      "text": "nbr_rid(I,J) - The router ID of the node associated with neighbor interface J.",
+      "zh-CHS": "nbr_rid（I，J）-与邻居接口J关联的节点的路由器ID。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_status(I,J) - The current status of the link (I,J), which can be LOST, 1-WAY, or 2-WAY.",
+      "zh-CHS": "nbr_状态（I，J）-链路（I，J）的当前状态，可以是丢失、单向或双向。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_life(I,J) - The amount of time (in seconds) remaining before nbr_status(I,J) must be changed to LOST if no further HELLO message from interface J is received. Set to NBR_HOLD_TIME whenever a HELLO is received on interface I from interface J.",
+      "zh-CHS": "nbr_寿命（I，J）-如果没有收到来自接口J的进一步HELLO消息，则nbr_状态（I，J）必须更改为丢失之前剩余的时间量（秒）。当从接口J在接口I上收到HELLO时，设置为NBR\\u HOLD\\u TIME。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_hseq(I,J) - The value of HSEQ in the last HELLO message received on interface I from interface J. Used to determine the number of HELLOs that have been missed.",
+      "zh-CHS": "nbr_hseq（I，J）-在接口I上从接口J接收到的最后一条HELLO消息中的hseq值。用于确定错过的HELLO数。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_count(I,J) - The remaining number of times a NEIGHBOR REQUEST/ REPLY/LOST message containing J must be sent on interface I.",
+      "zh-CHS": "nbr_计数（I，J）-包含J的邻居请求/回复/丢失消息必须在接口I上发送的剩余次数。"
+    },
+    {
+      "indent": 6,
+      "text": "hello_history(I,J) - A list of the sequence numbers of the last HELLO_ACQUIRE_WINDOW HELLO messages received on interface I from interface J.",
+      "zh-CHS": "hello_history（I，J）-在接口I上从接口J接收的最后一个hello_ACQUIRE_窗口hello消息的序列号列表。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_metric(I,J) - An optional measure of the quality of the link (I,J), represented by an integer between 1 and 255, where smaller values indicate better quality. Defaults to 1 if not used.",
+      "zh-CHS": "nbr_度量（I，J）-链路质量（I，J）的可选度量，由1到255之间的整数表示，其中值越小表示质量越好。如果未使用，则默认为1。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_pri(I,J) - The relay priority of the node associated with interface J.",
+      "zh-CHS": "nbr_pri（I，J）-与接口J关联的节点的中继优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "The entry for interface J in the neighbor table for interface I may be deleted if no HELLO has been received on interface I from interface J within the last 2*NBR_HOLD_TIME seconds. (It is kept while NEIGHBOR LOST messages containing J are being transmitted.) The absence of an entry for a given interface J is equivalent to an entry with nbr_status(I,J) = LOST and hello_history(I,J) = NULL.",
+      "zh-CHS": "如果在最后2*NBR\\u HOLD\\u时间秒内接口I上没有收到来自接口J的HELLO，则可以删除接口I的邻居表中接口J的条目。（在传输包含J的邻居丢失消息时保留）。给定接口J缺少条目相当于nbr_状态（I，J）=丢失且hello_历史（I，J）=空的条目。"
+    },
+    {
+      "indent": 3,
+      "text": "The three possible values of nbr_status(I,J) have the following informal meanings (the exact meanings are defined by the protocol):",
+      "zh-CHS": "nbr_状态（I，J）的三个可能值具有以下非正式含义（确切含义由协议定义）："
+    },
+    {
+      "indent": 3,
+      "text": "LOST Interface I has not received a sufficient number of HELLO messages recently from Interface J.",
+      "zh-CHS": "丢失的接口I最近没有从接口J收到足够数量的HELLO消息。"
+    },
+    {
+      "indent": 3,
+      "text": "1-WAY Interface I has received a sufficient number of HELLO messages recently from Interface J, but the link is not 2-WAY.",
+      "zh-CHS": "单向接口I最近从接口J收到了足够多的HELLO消息，但链接不是双向的。"
+    },
+    {
+      "indent": 3,
+      "text": "2-WAY Interfaces I and J have both received a sufficient number of HELLO messages recently from each other.",
+      "zh-CHS": "双向接口I和J最近都收到了足够数量的来自彼此的HELLO消息。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Sending HELLO Messages",
+      "section_title": true,
+      "zh-CHS": "7.3. 发送问候信息"
+    },
+    {
+      "indent": 3,
+      "text": "Each node MUST send, on each local interface, at least one HELLO message per HELLO_INTERVAL. HELLO messages MAY be sent more frequently than this (e.g., for faster detection of topology changes). However, to avoid the possibility that HSEQ wraps around to the same number before a neighbor that stops receiving HELLO messages changes the status of the link to LOST, the time between two consecutive HELLO messages (sent on a given interface) MUST be greater than NBR_HOLD_TIME/128 second.",
+      "zh-CHS": "每个节点必须在每个本地接口上，每个HELLO\\u间隔至少发送一条HELLO消息。HELLO消息的发送频率可能高于此频率（例如，为了更快地检测拓扑变化）。但是，为了避免在停止接收HELLO消息的邻居将链路状态更改为LOST（丢失）之前HSEQ环绕到相同号码的可能性，两条连续HELLO消息（在给定接口上发送）之间的时间必须大于NBR_HOLD_time/128秒。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid synchronization of control messages, which can result in collisions, HELLO messages SHOULD NOT be transmitted at equal intervals. To achieve this, a node MAY choose the interval between consecutive HELLO messages to be HELLO_INTERVAL - jitter, where jitter is selected randomly from the interval [0, MAX_JITTER].",
+      "zh-CHS": "为避免控制消息的同步（这可能导致冲突），HELLO消息不应以相等的间隔传输。为了实现这一点，节点可以选择连续HELLO消息之间的间隔为HELLO_interval-jitter，其中jitter是从间隔[0，MAX_jitter]中随机选择的。"
+    },
+    {
+      "indent": 3,
+      "text": "Each HELLO message always includes a NEIGHBOR REQUEST message, even if its list of neighbor addresses is empty. The NEIGHBOR REQUEST message includes the sequence number HSEQ, which is incremented by 1 (modulo 256) each time a HELLO is sent. The HELLO message also includes a NEIGHBOR REPLY message if its list of neighbor addresses is nonempty, and a NEIGHBOR LOST message if its list of neighbor addresses is nonempty. The contents of these three messages are determined by the following steps at node i for each interface I:",
+      "zh-CHS": "每个HELLO消息始终包含一个邻居请求消息，即使其邻居地址列表为空。邻居请求消息包括序列号HSEQ，该序列号在每次发送HELLO时递增1（模256）。如果邻居地址列表为非空，HELLO消息还包括邻居回复消息，如果邻居地址列表为非空，则包括邻居丢失消息。对于每个接口i，这三条消息的内容由节点i处的以下步骤确定："
+    },
+    {
+      "indent": 3,
+      "text": "1. For each interface J such that nbr_status(I,J) = LOST and nbr_count(I,J) > 0, include J in the NEIGHBOR LOST message and decrement nbr_count(I,J).",
+      "zh-CHS": "1. 对于每个接口J，使得nbr_状态（I，J）=丢失且nbr_计数（I，J）>0，在邻居丢失消息中包括J并减少nbr_计数（I，J）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. For each interface J such that nbr_status(I,J) = 1-WAY and nbr_count(I,J) > 0, include J in the NEIGHBOR REQUEST message and decrement nbr_count(I,J).",
+      "zh-CHS": "2. 对于每个接口J，使得nbr_状态（I，J）=1路且nbr_计数（I，J）>0，在邻居请求消息中包括J并减少nbr_计数（I，J）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. For each interface J such that nbr_status(I,J) = 2-WAY and nbr_count(I,J) > 0, include J in the NEIGHBOR REPLY message and decrement nbr_count(I,J).",
+      "zh-CHS": "3. 对于每个接口J，使得nbr_状态（I，J）=2路且nbr_计数（I，J）>0，在邻居回复消息中包括J并减少nbr_计数（I，J）。"
+    },
+    {
+      "indent": 3,
+      "text": "If a node restarts, so that all entries are removed from the neighbor table, then the node MUST ensure that (for each interface) at least one of the following two conditions is satisfied:",
+      "zh-CHS": "如果节点重新启动，以便从邻居表中删除所有条目，则该节点必须确保（对于每个接口）至少满足以下两个条件之一："
+    },
+    {
+      "indent": 3,
+      "text": "1. The difference between the transmission times of the first HELLO sent after restarting and the last HELLO sent before restarting is at least 2*NBR_HOLD_TIME.",
+      "zh-CHS": "1. 重新启动后发送的第一个HELLO与重新启动前发送的最后一个HELLO的传输时间之差至少为2*NBR\\U HOLD\\U时间。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Letting HSEQ_LAST denote the sequence number of the last HELLO that was sent before restarting, the sequence number of the first HELLO sent after restarting is set to HSEQ_LAST + NBR_HOLD_COUNT + 1 (modulo 256).",
+      "zh-CHS": "2. 让HSEQ_LAST表示重新启动前发送的最后一个HELLO的序列号，重新启动后发送的第一个HELLO的序列号设置为HSEQ_LAST+NBR_HOLD_COUNT+1（模256）。"
+    },
+    {
+      "indent": 3,
+      "text": "Either of these conditions ensures that, if node i with interface I restarts, then each neighbor of node i that has a link (J,I) to interface I will set the status of the link to LOST.",
+      "zh-CHS": "这两种情况都可以确保，如果具有接口i的节点i重新启动，则节点i中具有到接口i的链路（J，i）的每个邻居都会将链路的状态设置为丢失。"
+    },
+    {
+      "indent": 0,
+      "text": "7.4. Processing a Received HELLO Message",
+      "section_title": true,
+      "zh-CHS": "7.4. 处理收到的HELLO消息"
+    },
+    {
+      "indent": 3,
+      "text": "When a node receives a HELLO message, it obtains the IP address of the sending interface from the IP header. If the TBRPF packet header of the received HELLO contains the RID option, then the RID of the sending node is obtained from the TBRPF packet header; otherwise it is equal to the IP address of the sending interface. If node i (with RID equal to i) receives a HELLO message on interface I, sent by node j (with RID equal to j) on interface J, with sequence number HSEQ and relay priority PRI, then node i performs the following steps:",
+      "zh-CHS": "当节点接收到HELLO消息时，它从IP报头获取发送接口的IP地址。如果接收到的HELLO的TBRPF包头包含RID选项，则从TBRPF包头获取发送节点的RID；否则，它等于发送接口的IP地址。如果节点i（RID等于i）在接口i上接收到由接口j上的节点j（RID等于j）发送的HELLO消息，该消息的序列号为HSEQ和中继优先级PRI，则节点i执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. If the neighbor table for interface I does not contain an entry for interface J, create one with nbr_rid(I,J) = j, nbr_status(I,J) = LOST (temporarily), nbr_count(I,J) = 0, and nbr_hseq(I,J) = HSEQ.",
+      "zh-CHS": "1. 如果接口I的相邻表不包含接口J的条目，则创建一个具有nbr_rid（I，J）=J、nbr_status（I，J）=LOST（暂时）、nbr_count（I，J）=0和nbr_hseq（I，J）=hseq的表。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Update hello_history(I,J) to reflect the received HELLO message. If nbr_hseq(I,J) > HSEQ (due to wraparound), set nbr_hseq(I,J) = nbr_hseq(I,J) - 256.",
+      "zh-CHS": "2. 更新hello_历史记录（I，J）以反映收到的hello消息。如果nbr_hseq（I，J）>hseq（由于环绕），则设置nbr_hseq（I，J）=nbr_hseq（I，J）-256。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If nbr_status(I,J) = LOST and hello_history(I,J) indicates that HELLO_ACQUIRE_COUNT of the last HELLO_ACQUIRE_WINDOW HELLO messages from interface J have been received:",
+      "zh-CHS": "3. 如果nbr_状态（I，J）=丢失且hello_历史记录（I，J）表明已接收到来自接口J的上一个hello_ACQUIRE_窗口hello消息的hello_ACQUIRE_计数："
+    },
+    {
+      "indent": 6,
+      "text": "a. If interface I does not appear in the NEIGHBOR REQUEST list or the NEIGHBOR REPLY list, set nbr_status(I,J) = 1-WAY and nbr_count(I,J) = NBR_HOLD_COUNT.",
+      "zh-CHS": "a. 如果接口I未出现在邻居请求列表或邻居回复列表中，则设置nbr_状态（I，J）=1路和nbr_计数（I，J）=nbr_保持计数。"
+    },
+    {
+      "indent": 6,
+      "text": "b. Else, set nbr_status(I,J) = 2-WAY and nbr_count(I,J) = NBR_HOLD_COUNT. Call Link_Up(I,J).",
+      "zh-CHS": "b. 否则，设置nbr_状态（I，J）=2路和nbr_计数（I，J）=nbr_保持计数。调用链接（I，J）。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Else, if nbr_status(I,J) = 1-WAY:",
+      "zh-CHS": "4. 否则，如果nbr_状态（I，J）=单向："
+    },
+    {
+      "indent": 6,
+      "text": "a. If HSEQ - nbr_hseq(I,J) > NBR_HOLD_COUNT, then set nbr_status(I,J) = LOST and nbr_count(I,J) = NBR_HOLD_COUNT.",
+      "zh-CHS": "a. 如果HSEQ-nbr\\U HSEQ（I，J）>nbr\\U保持计数，则设置nbr\\U状态（I，J）=丢失和nbr\\U计数（I，J）=nbr\\U保持计数。"
+    },
+    {
+      "indent": 6,
+      "text": "b. Else, if interface I appears in the NEIGHBOR REQUEST list, set nbr_status(I,J) = 2-WAY and nbr_count(I,J) = NBR_HOLD_COUNT. Call Link_Up(I,J).",
+      "zh-CHS": "b. 否则，如果接口I出现在邻居请求列表中，则设置nbr_状态（I，J）=2路和nbr_计数（I，J）=nbr_保持计数。调用链接（I，J）。"
+    },
+    {
+      "indent": 6,
+      "text": "c. Else, if interface I appears in the NEIGHBOR REPLY list, set nbr_status(I,J) = 2-WAY and nbr_count(I,J) = 0. Call Link_Up(I,J).",
+      "zh-CHS": "c. 否则，如果接口I出现在邻居回复列表中，则设置nbr_状态（I，J）=2路，nbr_计数（I，J）=0。调用链接（I，J）。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Else, if nbr_status(I,J) = 2-WAY:",
+      "zh-CHS": "5. 否则，如果nbr_状态（I，J）=双向："
+    },
+    {
+      "indent": 6,
+      "text": "a. If interface I appears in the NEIGHBOR LOST list, set nbr_status(I,J) = LOST and nbr_count(I,J) = 0. Call Link_Down(I,J).",
+      "zh-CHS": "a. 如果接口I出现在邻居丢失列表中，则设置nbr_状态（I，J）=丢失，nbr_计数（I，J）=0。调用Link_Down（I，J）。"
+    },
+    {
+      "indent": 6,
+      "text": "b. Else, if HSEQ - nbr_hseq(I,J) > NBR_HOLD_COUNT, set nbr_status(I,J) = LOST and nbr_count(I,J) = NBR_HOLD_COUNT. Call Link_Down(I,J).",
+      "zh-CHS": "b. 否则，如果HSEQ-nbr\\U HSEQ（I，J）>nbr\\U保持计数，则设置nbr\\U状态（I，J）=丢失，nbr\\U计数（I，J）=nbr\\U保持计数。调用Link_Down（I，J）。"
+    },
+    {
+      "indent": 6,
+      "text": "c. Else, if interface I appears in the NEIGHBOR REQUEST list and nbr_count(I,J) = 0, set nbr_count(I,J) = NBR_HOLD_COUNT.",
+      "zh-CHS": "c. 否则，如果接口I出现在邻居请求列表中，且nbr_计数（I，J）=0，则设置nbr_计数（I，J）=nbr_保持计数。"
+    },
+    {
+      "indent": 3,
+      "text": "6. Set nbr_life(I,J) = NBR_HOLD_TIME, nbr_hseq(I,J) = HSEQ, and nbr_pri(I,J) = PRI.",
+      "zh-CHS": "6. 设置nbr_寿命（I，J）=nbr_保持时间，nbr_hseq（I，J）=hseq和nbr_优先级（I，J）=优先级。"
+    },
+    {
+      "indent": 0,
+      "text": "7.5. Expiration of Timer nbr_life",
+      "section_title": true,
+      "zh-CHS": "7.5. 计时器nbr_寿命到期"
+    },
+    {
+      "indent": 3,
+      "text": "Upon expiration of the timer nbr_life(I,J) in the neighbor table for interface I, node i performs the following step:",
+      "zh-CHS": "在接口I的邻居表中的计时器nbr_寿命（I，J）到期时，节点I执行以下步骤："
+    },
+    {
+      "indent": 6,
+      "text": "If nbr_status(I,J) = 1-WAY or 2-WAY, set nbr_status(I,J) = LOST and nbr_count(I,J) = NBR_HOLD_COUNT. Call Link_Down(I,J).",
+      "zh-CHS": "如果nbr_状态（I，J）=单向或双向，则设置nbr_状态（I，J）=丢失和nbr_计数（I，J）=nbr_保持计数。调用Link_Down（I，J）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.6. Link-Layer Failure Notification",
+      "section_title": true,
+      "zh-CHS": "7.6. 链路层故障通知"
+    },
+    {
+      "indent": 3,
+      "text": "Some link-layer protocols (e.g., IEEE 802.11) provide a notification that the link to a particular neighbor has failed, e.g., after attempting a maximum number of retransmissions. If such an notification is provided by the link layer, then node i SHOULD perform the following step upon receipt of a link-layer failure notification for the link (I,J) from local interface I to neighbor interface J:",
+      "zh-CHS": "一些链路层协议（例如，IEEE 802.11）提供到特定邻居的链路失败的通知，例如，在尝试最大次数的重新传输之后。如果这种通知是由链路层提供的，则节点i在接收到从本地接口i到邻居接口J的链路（i，J）的链路层故障通知后，应执行以下步骤："
+    },
+    {
+      "indent": 6,
+      "text": "If nbr_status(I,J) = 2-WAY, set nbr_status(I,J) = LOST and nbr_count(I,J) = NBR_HOLD_COUNT. Call Link_Down(I,J).",
+      "zh-CHS": "如果nbr_状态（I，J）=双向，则设置nbr_状态（I，J）=丢失和nbr_计数（I，J）=nbr_保持计数。调用Link_Down（I，J）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.7. Optional Link Metrics",
+      "section_title": true,
+      "zh-CHS": "7.7. 可选链接度量"
+    },
+    {
+      "indent": 3,
+      "text": "Each node MAY maintain and update one or more link metrics for each link (I,J), representing the quality of the link, e.g., signal strength, number of HELLOs received over some time interval, reliability, stability, bandwidth, etc. Each node MUST declare a neighbor to be LOST if either NBR_HOLD_COUNT HELLOs are missed or if no HELLO is received within NBR_HOLD_TIME seconds; however, a node MAY also declare a neighbor to be LOST based on a link metric being above or below some threshold. Each node MUST receive at least HELLO_ACQUIRE_COUNT of the last HELLO_ACQUIRE_WINDOW HELLOs from a neighbor before declaring the neighbor 1-WAY or 2-WAY; however, a node MAY require an additional condition based on a link metric being above or below some threshold, before declaring the neighbor 1-WAY or 2-WAY. This document does not specify any particular link metric, but an implementation of TBRPF that uses such metrics is considered to be compliant with this specification.",
+      "zh-CHS": "每个节点可以维护和更新每个链路（I，J）的一个或多个链路度量，表示链路的质量，例如，信号强度、在某个时间间隔内接收的hello的数量、可靠性、稳定性、带宽，等。如果错过NBR_HOLD_COUNT HELLO或在NBR_HOLD_时间秒内未收到HELLO，则每个节点必须声明一个邻居丢失；然而，节点也可以基于高于或低于某个阈值的链路度量来声明邻居丢失。在声明邻居为单向或双向之前，每个节点必须至少从邻居接收最近一次HELLO_ACQUIRE_窗口HELLOs的HELLO_ACQUIRE_计数；然而，在声明邻居1路或2路之前，节点可能需要基于高于或低于某个阈值的链路度量的附加条件。本文档未指定任何特定链接度量，但使用此类度量的TBRPF实现被视为符合本规范。"
+    },
+    {
+      "indent": 3,
+      "text": "The function Link_Change(I,J) is called to alert the routing module whenever nbr_metric(I,J) changes significantly. If the configurable parameter USE_METRICS is equal to 1, then the metrics nbr_metric(I,J) are used by the routing module for route computation, as described in Section 8.",
+      "zh-CHS": "调用函数Link_Change（I，J）以在nbr_度量（I，J）发生显著变化时向路由模块发出警报。如果可配置参数USE_METRICS等于1，则路由模块将使用指标nbr_metric（I，J）进行路由计算，如第8节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "7.8. Configurable Parameters",
+      "section_title": true,
+      "zh-CHS": "7.8. 可配置参数"
+    },
+    {
+      "indent": 3,
+      "text": "This section lists the parameters used by the neighbor discovery protocol, and their proposed default values. All nodes MUST be configured to have the same value for all of the following parameters.",
+      "zh-CHS": "本节列出了邻居发现协议使用的参数及其建议的默认值。必须将所有节点配置为具有以下所有参数的相同值。"
+    },
+    {
+      "indent": 6,
+      "text": "Parameter Name          Default Value\n--------------          -------------\nHELLO_INTERVAL          1 second\nMAX_JITTER              0.1 second\nNBR_HOLD_TIME           3 seconds\nNBR_HOLD_COUNT          3\nHELLO_ACQUIRE_COUNT     2\nHELLO_ACQUIRE_WINDOW    3",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8. TBRPF Routing Module",
+      "section_title": true,
+      "zh-CHS": "8. TBRPF路由模块"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the TBRPF routing module, which performs topology discovery and route computation.",
+      "zh-CHS": "本节介绍TBRPF路由模块，该模块执行拓扑发现和路由计算。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Conceptual Data Structures",
+      "section_title": true,
+      "zh-CHS": "8.1. 概念数据结构"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the information required by the neighbor discovery protocol, each node running TBRPF maintains a topology table TT, which stores information for each known node and link in the network. Nodes are identified by their RIDs, i.e., node u is the node whose RID is u. The following information is stored in the topology table at node i for each node u and link (u,v):",
+      "zh-CHS": "除了邻居发现协议所需的信息外，运行TBRPF的每个节点都维护一个拓扑表TT，该表存储网络中每个已知节点和链路的信息。节点由其RID标识，即节点u是RID为u的节点。对于每个节点u和链路（u，v），以下信息存储在节点i的拓扑表中："
+    },
+    {
+      "indent": 6,
+      "text": "T(u,v) - Equal to 1 if (u,v) is in node i's source tree T, and 0 otherwise. The previous source tree is also maintained as old_T.",
+      "zh-CHS": "T（u，v）-如果（u，v）在节点i的源树T中，则等于1，否则等于0。上一个源树也作为旧树维护。"
+    },
+    {
+      "indent": 6,
+      "text": "RN(u) - Equal to 1 if u is in node i's reported node set RN, and 0 otherwise. The previous reported node set is also maintained as old_RN.",
+      "zh-CHS": "RN（u）-如果u在节点i的报告节点集RN中，则等于1，否则等于0。以前报告的节点集也保留为旧节点集。"
+    },
+    {
+      "indent": 6,
+      "text": "RT(u,v) - Equal to 1 if (u,v) is in node i's reported subtree RT, and 0 otherwise. Since RT is defined as the set of links (u,v) in T such that u is in RN, this variable need not be maintained explicitly.",
+      "zh-CHS": "RT（u，v）-如果（u，v）在节点i的报告子树RT中，则等于1，否则等于0。由于RT被定义为T中的链接集（u，v），因此u在RN中，因此不需要显式维护此变量。"
+    },
+    {
+      "indent": 6,
+      "text": "TG(u,v) - Equal to 1 if (u,v) is in node i's topology graph TG, and 0 otherwise.",
+      "zh-CHS": "TG（u，v）-如果（u，v）在节点i的拓扑图TG中，则等于1，否则等于0。"
+    },
+    {
+      "indent": 6,
+      "text": "N - The set of 2-way neighbors of node i.",
+      "zh-CHS": "N-节点i的双向邻居集。"
+    },
+    {
+      "indent": 6,
+      "text": "r(u,v) - The list of neighbors that are reporting link (u,v) in their reported subtree RT. The set of links (u,v) reported by neighbor j is denoted RT_j.",
+      "zh-CHS": "r（u，v）-在其报告子树RT中报告链接（u，v）的邻居列表。由邻居j报告的链接集（u，v）表示为RTJ。"
+    },
+    {
+      "indent": 6,
+      "text": "r(u) - The list of neighbors that are reporting node u in their reported node set RN.",
+      "zh-CHS": "r（u）-在其报告的节点集中报告节点u的邻居列表。"
+    },
+    {
+      "indent": 6,
+      "text": "p(u) - The current parent for node u, equal to the next node on the shortest path to u.",
+      "zh-CHS": "p（u）-节点u的当前父节点，等于到u的最短路径上的下一个节点。"
+    },
+    {
+      "indent": 6,
+      "text": "pred(u) - The node that is the predecessor of node u in the source tree T. Equal to NULL if node u is not reachable.",
+      "zh-CHS": "pred（u）-源树T中节点u的前身节点。如果节点u不可访问，则等于NULL。"
+    },
+    {
+      "indent": 6,
+      "text": "pred(j,u) - The node that is the predecessor of node u in the subtree RT_j reported by neighbor j.",
+      "zh-CHS": "pred（j，u）-邻居j报告的子树RT_j中节点u的前身节点。"
+    },
+    {
+      "indent": 6,
+      "text": "d(u) - The length of the shortest path to node u. If USE_METRICS = 0, d(u) is the number of hops to node u.",
+      "zh-CHS": "d（u）-到节点u的最短路径的长度。如果USE_METRICS=0，d（u）是到节点u的跳数。"
+    },
+    {
+      "indent": 6,
+      "text": "reported(u,v) - Equal to 1 if link (u,v) in TG is reported by p(u), and 0 otherwise.",
+      "zh-CHS": "报告（u，v）-如果TG中的链接（u，v）由p（u）报告，则等于1，否则等于0。"
+    },
+    {
+      "indent": 6,
+      "text": "tg_expire(u) - Expiration time for links (u,v) in TG.",
+      "zh-CHS": "tg_expire（u）-tg中链接（u，v）的过期时间。"
+    },
+    {
+      "indent": 6,
+      "text": "rt_expire(j,u) - Expiration time for links (u,v) in RT_j.",
+      "zh-CHS": "rt_expire（j，u）-rt_j中链接（u，v）的过期时间。"
+    },
+    {
+      "indent": 6,
+      "text": "nr_expire(u,v) - Expiration time for a link (u,v) in TG such that reported(u,v) = 0. Such non-reported links can be used temporarily during rerouting.",
+      "zh-CHS": "nr_expire（u，v）-TG中链路（u，v）的过期时间，报告的（u，v）=0。这种未报告的链接可以在重新路由期间临时使用。"
+    },
+    {
+      "indent": 6,
+      "text": "metric(j,u,v) - The metric for link (u,v) reported by neighbor j.",
+      "zh-CHS": "度量（j，u，v）-邻居j报告的链路（u，v）的度量。"
+    },
+    {
+      "indent": 6,
+      "text": "metric(u,v) - The metric for link (u,v) in TG. For a neighbor j, metric(i,j) is the minimum of nbr_metric(I,J) over all 2-WAY links (I,J) from i to j.",
+      "zh-CHS": "公制（u，v）-TG中链路（u，v）的公制。对于邻居j，度量（i，j）是从i到j的所有双向链路（i，j）上的nbr_度量（i，j）的最小值。"
+    },
+    {
+      "indent": 6,
+      "text": "cost(u,v) - The cost for link (u,v), equal to metric(u,v) if USE_METRICS = 1, and otherwise equal to 1.",
+      "zh-CHS": "成本（u，v）-链路（u，v）的成本，如果使用_度量=1，则等于度量（u，v），否则等于1。"
+    },
+    {
+      "indent": 6,
+      "text": "local_if(j) - The address of the preferred local interface for forwarding packets to neighbor j.",
+      "zh-CHS": "local_if（j）-用于将数据包转发到邻居j的首选本地接口的地址。"
+    },
+    {
+      "indent": 6,
+      "text": "nbr_if(j) - The address of the preferred interface of neighbor j.",
+      "zh-CHS": "nbr_if（j）-邻居j的首选接口地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The routing table consists of a list of tuples of the form (rt_dest, rt_next, rt_dist, rt_if_id), where rt_dest is the destination IP address or prefix, rt_next is the interface address of the next hop of the route, rt_dist is the length of the route, and rt_if_id is the ID of the local interface through which the next hop can be reached.",
+      "zh-CHS": "路由表由以下形式的元组列表组成（rt_dest，rt_next，rt_dist，rt_if_id），其中rt_dest是目标IP地址或前缀，rt_next是路由的下一跳的接口地址，rt_dist是路由的长度，rt_if_id是可以到达下一跳的本地接口的id。"
+    },
+    {
+      "indent": 3,
+      "text": "Each node also maintains three tables that describe associated IP addresses or prefixes: the \"interface table\", which associates interface IP addresses with router IDs, the \"host table\", which associates host IP addresses with router IDs, and the \"network prefix table\", which associates network prefixes with router IDs.",
+      "zh-CHS": "每个节点还维护三个描述相关IP地址或前缀的表：将接口IP地址与路由器ID关联的“接口表”，将主机IP地址与路由器ID关联的“主机表”，以及将网络前缀与路由器ID关联的“网络前缀表”。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"interface table\" consists of tuples of the form (if_addr, if_rid, if_expire), where if_addr is an interface IP address associated with the router with RID = if_rid, and if_expire is the time at which the tuple expires and MUST be removed. The interface table at a node does NOT contain an entry in which if_addr equals the node's own RID; thus, a node does not advertise its own RID as an associated interface.",
+      "zh-CHS": "“接口表”由以下形式的元组组成（if_addr、if_rid、if_expire），其中if_addr是与路由器关联的接口IP地址，rid=if_rid，if_expire是元组过期且必须删除的时间。节点上的接口表不包含一个条目，其中如果_addr等于节点自己的RID；因此，节点不会将其自己的RID作为关联接口发布。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"host table\" consists of tuples of the form (h_addr, h_rid, h_expire), where h_addr is a host IP address associated with the router with RID = h_rid, and h_expire is the time at which the tuple expires and MUST be removed.",
+      "zh-CHS": "“主机表”由以下形式的元组组成（h_addr、h_rid、h_expire），其中h_addr是与rid=h_rid的路由器关联的主机IP地址，h_expire是元组过期且必须删除的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"network prefix table\" consists of tuples of the form (net_prefix, net_length, net_rid, net_expire), where net_prefix and net_length describe a network prefix associated with the router with RID = net_rid, and net_expire is the time at which the tuple expires and MUST be removed. A MANET may be configured as a \"stub\" network, in which case one or more gateway routers may announce a default prefix such that net_prefix = net_length = 0. Two copies of each table are kept: an \"old\" copy that was last reported to neighbors, and the current copy that is updated when association messages are received.",
+      "zh-CHS": "“网络前缀表”由以下形式的元组组成（net_prefix、net_length、net_rid、net_expire），其中net_prefix和net_length描述与路由器关联的网络前缀，其rid=net_rid，net_expire是元组过期且必须删除的时间。MANET可以配置为“存根”网络，在这种情况下，一个或多个网关路由器可以宣布默认前缀，使得net_prefix=net_length=0。每个表保留两个副本：一个是上次报告给邻居的“旧”副本，另一个是在收到关联消息时更新的当前副本。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. TOPOLOGY UPDATE Message Format",
+      "section_title": true,
+      "zh-CHS": "8.2. 拓扑更新消息格式"
+    },
+    {
+      "indent": 3,
+      "text": "The TOPOLOGY UPDATE message has the two formats, depending on the size of the message. The normal format is as follows, and is used whenever n, NRL, and NRNL all do not exceed 255:",
+      "zh-CHS": "拓扑更新消息有两种格式，具体取决于消息的大小。正常格式如下所示，并且在n、NRL和NRNL均不超过255时使用："
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|M|D|0|0|  TYPE |       n       |     NRL       |    NRNL       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Router ID of u                           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Router ID of v_1                         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n~                              ...                              ~\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Router ID of v_n                         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     metric 1    |  metric 2   |            ...                |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                              ...                              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The message body contains the n+1 router IDs for nodes u, v_1,...,v_n, which represent the links (u,v_1),..., (u,v_n). The first NRL of the v_k are reported leaf nodes, the next NRNL of the v_k are reported non-leaf nodes, and the last n - (NRL+NRNL) of the v_k are not reported (not in RN).",
+      "zh-CHS": "消息体包含节点u，v_1，…，v_n的n+1路由器ID，它们表示链路（u，v_1），…，（u，v_n）。v_k的第一个NRL是报告的叶节点，v_k的下一个NRNL是报告的非叶节点，v_k的最后n-（NRL+NRNL）没有报告（不在RN中）。"
+    },
+    {
+      "indent": 3,
+      "text": "The M bit indicates whether or not link metrics are included in the message. If M = 1, then a 1-octet metric is included for each of the links (u,v_1),..., (u,v_n), following the last router ID.",
+      "zh-CHS": "M位指示消息中是否包含链接度量。如果M=1，则在最后一个路由器ID之后，为每个链路（u，v_1），…，（u，v_n）包括1个八位组度量。"
+    },
+    {
+      "indent": 3,
+      "text": "The D bit indicates whether or not implicit deletion is used, and must be set to 1 if and only if IMPLICIT_DELETION = 1.",
+      "zh-CHS": "D位指示是否使用隐式删除，并且只有当且仅当隐式删除=1时，D位才必须设置为1。"
+    },
+    {
+      "indent": 3,
+      "text": "The TOPOLOGY UPDATE message has the following three subtypes:",
+      "zh-CHS": "拓扑更新消息具有以下三个子类型："
+    },
+    {
+      "indent": 3,
+      "text": "FULL (TYPE = 5) A FULL update (FULL, n, NRL, NRNL, u, v_1,..., v_n) reports that the links (u,v_1),..., (u,v_n) belong to the sending router's reported subtree RT, and that RT contains no other links with tail u.",
+      "zh-CHS": "FULL（TYPE=5）完整更新（FULL，n，NRL，NRL，u，v_1，…，v_n）报告链路（u，v_1），…，（u，v_n）属于发送路由器报告的子树RT，并且RT不包含带有尾部u的其他链路。"
+    },
+    {
+      "indent": 3,
+      "text": "ADD (TYPE = 6) An ADD update (ADD, n, NRL, NRNL, u, v_1,..., v_n) reports that the links (u,v_1),..., (u,v_n) have been added to the sending router's reported subtree RT.",
+      "zh-CHS": "ADD（TYPE=6）添加更新（ADD，n，NRL，NRL，u，v_1，…，v_n）报告链路（u，v_1），…，（u，v_n）已添加到发送路由器的报告子树RT中。"
+    },
+    {
+      "indent": 3,
+      "text": "DELETE (TYPE = 7) A DELETE update (DELETE, n, NRL, NRNL, u, v_1,..., v_n) reports that the links (u,v_1),..., (u,v_n) have been deleted from the sending router's reported subtree RT.",
+      "zh-CHS": "删除（TYPE=7）删除更新（DELETE，n，NRL，NRL，u，v_1，…，v_n）报告链路（u，v_1），…，（u，v_n）已从发送路由器的报告子树RT中删除。"
+    },
+    {
+      "indent": 3,
+      "text": "If n, NRL, or NRNL is larger than 255, then the long format of the TOPOLOGY UPDATE message is used, in which the first 4 octets of the normal format are replaced by the following 8 octets:",
+      "zh-CHS": "如果n、NRL或NRNL大于255，则使用拓扑更新消息的长格式，其中正常格式的前4个八位字节替换为以下8个八位字节："
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|M|D|1|0|  TYPE |      0        |             n                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|            NRL                |            NRNL               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8.3. Interface, Host, and Network Prefix Association Message Formats",
+      "section_title": true,
+      "zh-CHS": "8.3. 接口、主机和网络前缀关联消息格式"
+    },
+    {
+      "indent": 3,
+      "text": "The INTERFACE ASSOCIATION (TYPE = 8) and HOST ASSOCIATION (TYPE = 9) messages have the following format:",
+      "zh-CHS": "接口关联（类型=8）和主机关联（类型=9）消息具有以下格式："
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|ST | 0 |  TYPE |    Reserved   |             n                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         Router ID                             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         IP Address                            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         IP Address                            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                              ...                              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The message body contains the router ID of the originating node, and n IP addresses of interfaces (TYPE = 8) or hosts (TYPE = 9) that are associated with the router ID. The ST field is defined below.",
+      "zh-CHS": "消息正文包含发起节点的路由器ID，以及与路由器ID关联的接口（类型=8）或主机（类型=9）的n个IP地址。ST字段定义如下。"
+    },
+    {
+      "indent": 3,
+      "text": "The NETWORK PREFIX ASSOCIATION message (TYPE = 10) has the following format:",
+      "zh-CHS": "网络前缀关联消息（类型=10）具有以下格式："
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|ST | 0 |  TYPE |    Reserved   |             n                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         Router ID                             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| PrefixLength  | Prefix byte 1 | Prefix byte 2 |     ...       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|      ...      | PrefixLength  | Prefix byte 1 | Prefix byte 2 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|      ...                                                      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The message body contains the router ID of the originating node, and n network prefixes, each specified by a 1-octet prefix length followed immediately by the prefix, using the minimum number of whole octets required. To minimize overhead, the prefix lengths and prefixes are NOT aligned along word boundaries.",
+      "zh-CHS": "消息体包含发起节点的路由器ID和n个网络前缀，每个前缀由1个八位字节前缀长度指定，后跟前缀，使用所需的最小整八位字节数。为了最小化开销，前缀长度和前缀不沿单词边界对齐。"
+    },
+    {
+      "indent": 3,
+      "text": "The INTERFACE ASSOCIATION, HOST ASSOCIATION, and NETWORK PREFIX ASSOCIATION messages each have the following three subtypes (similar to those for the TOPOLOGY UPDATE message):",
+      "zh-CHS": "接口关联、主机关联和网络前缀关联消息各有以下三个子类型（与拓扑更新消息类似）："
+    },
+    {
+      "indent": 3,
+      "text": "FULL (ST = 0) Indicates that this is a FULL update that includes all interface addresses, host addresses, or network prefixes associated with the given router ID.",
+      "zh-CHS": "FULL（ST=0）表示这是一个完整更新，包括与给定路由器ID关联的所有接口地址、主机地址或网络前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "ADD (ST = 1) Indicates that the included IP addresses or network prefixes are associated with the router ID, but may not include all such IP addresses or network prefixes.",
+      "zh-CHS": "ADD（ST=1）表示包含的IP地址或网络前缀与路由器ID关联，但可能不包含所有此类IP地址或网络前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "DELETE (ST = 2) Indicates that the included IP addresses or network prefixes are no longer associated with the router ID.",
+      "zh-CHS": "DELETE（ST=2）表示包含的IP地址或网络前缀不再与路由器ID关联。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4. TBRPF Routing Operation",
+      "section_title": true,
+      "zh-CHS": "8.4. TBRPF路由操作"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the operation of the TBRPF routing module. The operation is divided into the following subsections: periodic processing, updating the source tree and topology graph, updating the routing table, updating the reported node set, generating periodic updates, generating differential updates, processing topology updates, expiring topology information, optional reporting of redundant topology information, local topology changes, generating association messages, processing association messages, and non-relay operation. The operation is described in terms of procedures (e.g., Update_All), which may be executed periodically or in response to some event, and may be called by other procedures. In all procedures, node i is the node executing the procedure.",
+      "zh-CHS": "本节介绍TBRPF路由模块的操作。操作分为以下几个部分：定期处理、更新源树和拓扑图、更新路由表、更新报告的节点集、生成定期更新、生成差异更新、处理拓扑更新、过期拓扑信息、，可选报告冗余拓扑信息、本地拓扑更改、生成关联消息、处理关联消息和非中继操作。该操作以过程（例如，Update_All）的形式进行描述，这些过程可以周期性地执行或响应某些事件，并且可以由其他过程调用。在所有过程中，节点i是执行过程的节点。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.1. Periodic Processing",
+      "section_title": true,
+      "zh-CHS": "8.4.1. 周期处理"
+    },
+    {
+      "indent": 3,
+      "text": "Each node executes the procedure Update_All() periodically, at least once every DIFF_UPDATE_INTERVAL seconds, which is typically equal to HELLO_INTERVAL. This procedure is defined as follows:",
+      "zh-CHS": "每个节点周期性地执行Update_All（）过程，至少每DIFF_Update_INTERVAL秒执行一次，这通常等于HELLO_INTERVAL。本程序定义如下："
+    },
+    {
+      "indent": 0,
+      "text": "Update_All() 1. For each interface I, create empty message list msg_list(I). 2. For each interface I, generate a HELLO message for interface I and add it to msg_list(I). 3. Expire_Links(). 4. Update_Source_Tree(). 5. Update_Routing_Table(). 6. If REPORT_FULL_TREE = 0, execute Update_RN(); otherwise (the full source tree is reported) Update_RN_Simple(). 7. If current_time >= next_periodic: 7.1. Generate_Periodic_Update(). 7.2. Set next_periodic = current_time + PER_UPDATE_INTERVAL. 8. Else, Generate_Diff_Update(). 9. Generate_Association_Messages(). 10. For each interface I, send the msg_list(I) on interface I. 11. Set old_T = T and old_RN = RN.",
+      "zh-CHS": "更新_All（）1。对于每个接口I，创建空消息列表msg_list（I）。2.对于每个接口I，为接口I生成一条HELLO消息，并将其添加到msg_列表（I）中。3.过期链接（）。4.更新源树（）。5.更新路由表（）。6.如果REPORT_FULL_TREE=0，则执行Update_RN（）；否则（报告完整的源代码树）更新\\u RN\\u Simple（）。7.如果当前时间>=下一个周期：7.1。生成定期更新（）。7.2. 设置下一个周期=当前时间+每个更新间隔。8.否则，生成_Diff_Update（）。9生成关联消息（）。10对于每个接口I，在接口I.11上发送消息列表（I）。设置old_T=T和old_RN=RN。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.2. Updating the Source Tree and Topology Graph",
+      "section_title": true,
+      "zh-CHS": "8.4.2. 更新源树和拓扑图"
+    },
+    {
+      "indent": 3,
+      "text": "The procedure Update_Source_Tree() is a variant of Dijkstra's algorithm, which is called periodically and in response to topology changes, to update the source tree T and the topology graph TG. This algorithm computes shortest paths subject to two link cost penalties. The penalty NON_REPORT_PENALTY is added to the cost of links (u,v) that are not currently reported by the parent p(u) so that, whenever possible, a link (u,v) is included in T only if it is currently reported by the parent. To allow immediate rerouting when p(u) changes, it may be necessary to temporarily use a link (u,v) that is not currently reported by the new parent. The penalty NON_TREE_PENALTY is added to the cost of links (u,v) that are not currently in T, to reduce the number of changes to T. When there exist multiple paths of equal cost to a given node, router ID is used to break ties.",
+      "zh-CHS": "Update_Source_Tree（）过程是Dijkstra算法的一个变体，该算法定期调用以响应拓扑变化，以更新源树T和拓扑图TG。该算法计算受到两个链路代价惩罚的最短路径。非报告惩罚被添加到父级p（u）当前未报告的链接（u，v）的成本中，因此，只要有可能，链接（u，v）仅在当前由父级报告时才包括在T中。为了允许在p（u）改变时立即重新路由，可能需要临时使用新父级当前未报告的链接（u，v）。惩罚非树惩罚被添加到当前不在T中的链路（u，v）的成本中，以减少对T的更改数量。当存在到给定节点的多条成本相等的路径时，路由器ID用于断开连接。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm is defined as follows (where node i is the node executing the procedure):",
+      "zh-CHS": "算法定义如下（其中节点i是执行过程的节点）："
+    },
+    {
+      "indent": 0,
+      "text": "Update_Source_Tree() 1. For each node v in TT, set d(v) = INFINITY, pred(v) = NULL, old_p(v) = p(v), and p(v) = NULL.",
+      "zh-CHS": "更新\\u源\\u树（）1。对于TT中的每个节点v，集合d（v）=无穷大，pred（v）=NULL，old_p（v）=p（v）和p（v）=NULL。"
+    },
+    {
+      "indent": 2,
+      "text": "2. Set d(i) = 0, p(i) = i, pred(i) = i.",
+      "zh-CHS": "2. 集合d（i）=0，p（i）=i，pred（i）=i。"
+    },
+    {
+      "indent": 2,
+      "text": "3. Set S = {i}. (S is the set of labeled nodes.)",
+      "section_title": true,
+      "zh-CHS": "3. 集合S={i}。（S是标记节点的集合。）"
+    },
+    {
+      "indent": 2,
+      "text": "4. For each node j in N, set d(j) = c(i,j), pred(j) = i, and p(j) = j. (If USE_METRICS = 0, then all link costs c(i,j) are 1.)",
+      "zh-CHS": "4. 对于N中的每个节点j，集合d（j）=c（i，j）、pred（j）=i和p（j）=j。（如果USE_METRICS=0，那么所有链路成本c（i，j）都是1。）"
+    },
+    {
+      "indent": 2,
+      "text": "5. While there exists an unlabeled node u in TT such that d(u) < INFINITY: 5.1. Let u be an unlabeled node in TT with minimum d(u). (A heap should be used to find u efficiently.) 5.2. Add u to S (u becomes labeled). 5.3. If p(u) is not equal to old_p(u) (parent has changed): 5.3.1. For each link (u,v) in TG with tail u, if reported(u,v) = 1, set reported(u,v) = 0 and set nr_expire(u,v) = current_time + PER_UPDATE_INTERVAL. 5.3.2. If p(u) is in r(u) (p(u) is reporting u): 5.3.2.1. Set tg_expire(u) = rt_expire(p(u),u). 5.3.2.2. If p(u) = u (u is a neighbor), remove all links (u,v) with tail u from TG. 5.3.2.3. For each link (u,v) with p(u) in r(u,v): 5.3.2.3.1. Add (u,v) to TG and set reported(u,v) = 1. 5.3.2.3.2. Set metric(u,v) = metric(p(u),u,v). If USE_METRICS=1, set c(u,v)=metric(u,v). 5.4. For each node v such that (u,v) is in TG: 5.4.1. If reported(u,v) = 0, set cost = c(u,v) + NON_REPORT_PENALTY. (This penalizes (u,v) if not reported by p(u).) 5.4.2. Else, if p(u) = u AND u is not in r(v), set cost = c(u,v) + NON_REPORT_PENALTY. (This penalizes (u,v) if u is a neighbor and is not reporting v.) 5.4.3. If (u,v) is not in old_T and p(u) != u, set cost = cost + NON_TREE_PENALTY. 5.4.4. If (d(u) + cost, u) is lexicographically less than (d(v), pred(v)), set d(v) = d(u) + c(u,v), pred(v) = u, and p(v) = p(u).",
+      "zh-CHS": "5. 而TT中存在一个未标记的节点u，使得d（u）<无穷大：5.1。设u是TT中最小为d（u）的未标记节点。（应该使用堆来高效地查找u。）5.2。将u添加到S（u将被标记）。5.3. 如果p（u）不等于旧的p（u）（父项已更改）：5.3.1。对于带有尾部u的TG中的每个链路（u，v），如果报告（u，v）=1，则设置报告（u，v）=0，并设置nr_过期（u，v）=当前_时间+每_更新_间隔。5.3.2. 如果p（u）在r（u）（p（u）报告u）：5.3.2.1。设置tg_expire（u）=rt_expire（p（u），u）。5.3.2.2. 如果p（u）=u（u是一个邻居），则从TG中移除带有尾部u的所有链路（u，v）。5.3.2.3. 对于r（u，v）中带有p（u）的每个链路（u，v）：5.3.2.3.1。将（u，v）添加到TG中，并将报告的（u，v）=1。5.3.2.3.2. 设置度量（u，v）=度量（p（u），u，v）。如果使用度量=1，则设置c（u，v）=度量（u，v）。5.4. 对于每个节点v，使得（u，v）在TG:5.4.1中。如果报告（u，v）=0，则设置成本=c（u，v）+非报告惩罚。（如果p（u）未报告，则惩罚（u，v）。）5.4.2。否则，如果p（u）=u且u不在r（v）中，则设置成本=c（u，v）+非报告惩罚。（如果你是邻居且未报告第5.4.3条，则会对（u，v）进行处罚。如果（u，v）不在旧的T和p（u）！=u、 设置成本=成本+非树惩罚。5.4.4. 如果（d（u）+成本，u）在词典学上小于（d（v），pred（v）），则设置d（v）=d（u）+c（u，v），pred（v）=u，且p（v）=p（u）。"
+    },
+    {
+      "indent": 2,
+      "text": "6. Update the source tree T as follows: 6.1. Remove all links from T. 6.2. For each node u other than i such that pred(u) is not NULL, add the link (pred(u), u) to T.",
+      "zh-CHS": "6. 更新源树T，如下所示：6.1。从T.6.2上拆下所有连杆。对于除i之外的每个节点u，使得pred（u）不为NULL，将链接（pred（u），u）添加到T。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.3. Updating the Routing Table",
+      "section_title": true,
+      "zh-CHS": "8.4.3. 更新路由表"
+    },
+    {
+      "indent": 3,
+      "text": "The routing table is updated following any change to the source tree or the association tables (interface table, host table, or network prefix table). The routing table is updated according to procedure Update_Routing_Table(), which is defined as follows:",
+      "zh-CHS": "路由表在源树或关联表（接口表、主机表或网络前缀表）发生任何更改后更新。路由表是根据过程Update_routing_table（）更新的，其定义如下："
+    },
+    {
+      "indent": 0,
+      "text": "Update_Routing_Table()",
+      "zh-CHS": "更新路由表（）"
+    },
+    {
+      "indent": 2,
+      "text": "1. Remove all tuples from the routing table.",
+      "zh-CHS": "1. 从路由表中删除所有元组。"
+    },
+    {
+      "indent": 2,
+      "text": "2. For each node u in TT (other than this node) such that p(u) is not NULL, add the tuple (rt_dest, rt_next, rt_dist, rt_if_id) to the routing table, where: rt_dest = u, rt_if_id = local_if(p(u)), rt_next = nbr_if(p(u)), rt_dist = d(u).",
+      "zh-CHS": "2. 对于TT中的每个节点u（除此节点外），使得p（u）不为NULL，将元组（rt_dest，rt_next，rt_dist，rt_if_id）添加到路由表中，其中：rt_dest=u，rt_if_id=local_if（p（u）），rt_next=nbr_if（p（u）），rt_dist=d（u）。"
+    },
+    {
+      "indent": 2,
+      "text": "3. For each tuple (if_addr, if_rid, if_expire) in the interface table, if a routing table entry (rt_dest, rt_next, rt_dist, rt_if_id) exists such that rt_dest = if_rid, add the tuple (if_addr, rt_next, rt_dist, rt_if_id) to the routing table.",
+      "zh-CHS": "3. 对于接口表中的每个元组（if_addr、if_rid、if_expire），如果路由表条目（rt_dest、rt_next、rt_dist、rt_if_id）存在，使得rt_dest=if_rid，则将元组（if_addr、rt_next、rt_dist、rt_if_id）添加到路由表中。"
+    },
+    {
+      "indent": 2,
+      "text": "4. For each tuple (h_addr, h_rid, h_expire) in the host table, if there exists a routing table entry (rt_dest, rt_next, rt_dist, rt_if_id) such that rt_dest = h_rid, add the tuple (h_addr, rt_next, rt_dist, rt_if_id) to the routing table, unless an entry already exists with the same value for h_addr and a lexicographically smaller value for (rt_dist, rt_dest).",
+      "zh-CHS": "4. 对于主机表中的每个元组（h_addr、h_rid、h_expire），如果存在路由表条目（rt_dest、rt_next、rt_dist、rt_if_id），使得rt_dest=h_rid，则将该元组（h_addr、rt_next、rt_dist、rt_if_id）添加到路由表中，除非已经存在一个具有相同h_addr值且按词典编纂的较小值的条目（右区，右区）。"
+    },
+    {
+      "indent": 2,
+      "text": "5. For each tuple (net_prefix, net_length, net_rid, net_expire) in the network prefix table, if there exists a routing table entry (rt_dest, rt_next, rt_dist, rt_if_id) such that rt_dest = net_rid, add the tuple (net_prefix/net_length, rt_next, rt_dist, rt_if_id) to the routing table, unless an entry already exists with the same value for net_prefix/net_length and a lexicographically smaller value for (rt_dist, rt_dest).",
+      "zh-CHS": "5. 对于网络前缀表中的每个元组（net_prefix、net_length、net_rid、net_expire），如果存在路由表条目（rt_dest、rt_next、rt_dist、rt_if_id），使得rt_dest=net_rid，则将元组（net_prefix/net_length、rt_next、rt_dist、rt_if_id）添加到路由表中，除非已经存在一个条目，其净前缀/净长度的值相同，而（rt_dist，rt_dest）的值按字典顺序较小。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.4. Updating the Reported Node Set",
+      "section_title": true,
+      "zh-CHS": "8.4.4. 更新报告的节点集"
+    },
+    {
+      "indent": 3,
+      "text": "Recall that the reported subtree RT is defined to be the set of links (u,v) in T such that u is in the reported node set RN. Each node updates its RN immediately before generating periodic or differential topology updates.",
+      "zh-CHS": "回想一下，报告的子树RT被定义为T中的链接集（u，v），使得u在报告的节点集RN中。每个节点在生成定期或差异拓扑更新之前立即更新其RN。"
+    },
+    {
+      "indent": 3,
+      "text": "If REPORT_FULL_TREE = 1 (so that a node reports its entire source tree), then RN simply consists of all reachable nodes, i.e., all nodes u such that pred(u) is not NULL. The procedure that computes RN in this manner is called Update_RN_Simple(). The rest of this section describes how RN is computed assuming REPORT_FULL_TREE = 0.",
+      "zh-CHS": "如果REPORT_FULL_TREE=1（这样一个节点报告其整个源树），那么RN只包含所有可到达的节点，即所有节点u，使得pred（u）不为NULL。以这种方式计算RN的过程称为Update\\u RN\\u Simple（）。本节的其余部分描述了在假设REPORT_FULL_TREE=0的情况下如何计算RN。"
+    },
+    {
+      "indent": 3,
+      "text": "A node first determines which of its neighbors belong to RN. Node i includes a neighbor j in RN if and only if node i determines that one of its neighbors may select i to be its next hop on its shortest path to j. To make this determination, node i computes the shortest paths, up to 2 hops, from each neighbor to each other neighbor, using only neighbors (or node i itself) as an intermediate node, and using",
+      "zh-CHS": "节点首先确定它的哪个邻居属于RN。节点i在RN中包括邻居j，当且仅当节点i确定其一个邻居可以选择i作为其到j的最短路径上的下一跳时。为了进行此确定，节点i计算从每个邻居到另一个邻居的最短路径，最多2跳，仅使用邻居（或节点i本身）作为中间节点，并使用"
+    },
+    {
+      "indent": 3,
+      "text": "relay priority and router ID to break ties. If a link metric is used, then shortest paths are computed with respect to the link metric; otherwise min-hop paths are computed.",
+      "zh-CHS": "中继优先级和路由器ID以断开连接。如果使用链路度量，则相对于链路度量计算最短路径；否则，将计算最小跃点路径。"
+    },
+    {
+      "indent": 3,
+      "text": "After a node determines which neighbors are in RN, each node u (other than node i) in the topology table is included in RN if and only if the next hop p(u) to u is in RN. Equivalently, node u is included in RN if and only if u is in the subtree of T rooted at some neighbor j that is in RN. Thus, the reported subtree RT includes the subtrees of T that are rooted at neighbors in RN. Node i also includes itself in RN; thus RT also includes all local links (i,j) to neighbors j.",
+      "zh-CHS": "在节点确定哪些邻居在RN中之后，当且仅当下一跳p（u）到u在RN中时，拓扑表中的每个节点u（节点i除外）才包括在RN中。等价地，节点u包含在RN中当且仅当u位于以RN中某个邻居j为根的T的子树中。因此，报告的子树RT包括根在RN中的邻居的T的子树。节点i还包括其自身在RN中；因此，RT还包括到邻居j的所有本地链路（i，j）。"
+    },
+    {
+      "indent": 3,
+      "text": "The precise procedure for updating RN is defined as follows:",
+      "zh-CHS": "更新RN的精确程序定义如下："
+    },
+    {
+      "indent": 0,
+      "text": "Update_RN() 1. Set RN = empty. 2. For each neighbor s in N such that s is in r(s), i.e., such that s is reporting itself: (Initialize to run Dijkstra for source s, for 2 hops.) 2.1. For each node j in N+{i}, set dist(j) = INFINITY and par(j) = NULL. 2.2. Set dist(s) = 0 and par(s) = s. 2.3. For each node j in N+{i} such that (s,j) is in TG: 2.3.1. Set dist(j) = metric(s,j), par(j) = j. 2.3.2. For each node k in N such that (j,k) is in TG: 2.3.2.1. Set cost = metric(j,k). 2.3.2.2. If (dist(j) + cost, nbr_pri(j), j) is lexicographically less than (dist(k), nbr_pri(par(k)), par(k)), set dist(k) = dist(j) + cost and par(k) = j. 2.4. For each neighbor j in N, add j to RN if par(j) = i. 3. Add i to RN. (Node i is always in RN.) 4. For each node u in the topology table, add u to RN if p(u) is in RN.",
+      "zh-CHS": "更新\\u RN（）1。将RN设置为空。2.对于N中的每个邻居s，使得s在r（s）中，即，使得s报告自己：（初始化以对源s运行Dijkstra，2跳。）2.1。对于N+{i}中的每个节点j，设置dist（j）=无穷大，par（j）=NULL。2.2. 设置距离=0，标准杆=s。2.3. 对于N+{i}中的每个节点j，使得（s，j）在TG:2.3.1中。集合距离（j）=度量（s，j），par（j）=j。2.3.2. 对于N中的每个节点k，使得（j，k）在TG中：2.3.2.1。设定成本=度量（j，k）。2.3.2.2. 如果（dist（j）+cost，nbr_pri（j），j）在词典编纂上小于（dist（k），nbr_pri（par（k）），par（k）），则设置dist（k）=dist（j）+cost，par（k）=j。2.4. 对于N中的每个相邻j，如果par（j）=i，则将j添加到RN。3.将i添加到RN。（节点i始终位于RN中）。对于拓扑表中的每个节点u，如果p（u）在RN中，则将u添加到RN。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases it may be desirable to limit the radius (number of hops) that topology information is propagated. Since each TBRPF packet is sent only to immediate (1-hop) neighbors, this cannot be achieved by using a time-to-live field. Instead, the propagation of topology information can be limited to a radius of K hops by limiting RN (at all nodes) to include only nodes that are at most K-1 hops away. Assuming min-hop routing is used, so that d(u) is the number of hops to node u, this can be done by modifying Step 4 of Update_RN() as follows:",
+      "zh-CHS": "在某些情况下，可能需要限制拓扑信息传播的半径（跳数）。由于每个TBRPF数据包仅发送给直接（1跳）邻居，因此无法通过使用生存时间字段实现这一点。相反，拓扑信息的传播可以通过限制RN（在所有节点）以仅包括最多K-1跳的节点来限制为K跳的半径。假设使用了最小跳路由，因此d（u）是到节点u的跳数，这可以通过修改Update_RN（）的步骤4来完成，如下所示："
+    },
+    {
+      "indent": 2,
+      "text": "4. For each node u in the topology table, add u to RN if p(u) is in RN and d(u) <= K-1.",
+      "zh-CHS": "4. 对于拓扑表中的每个节点u，如果p（u）在RN中且d（u）<=K-1，则将u添加到RN。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.5. Generating Periodic Updates",
+      "section_title": true,
+      "zh-CHS": "8.4.5. 生成定期更新"
+    },
+    {
+      "indent": 3,
+      "text": "Every PER_UPDATE_INTERVAL seconds, each node generates and transmits, on all interfaces, a set of FULL TOPOLOGY UPDATE messages (one message for each node in RN that is not a leaf of T), which describes the reported subtree RT. Whenever possible, these messages are included in a single packet, in order to minimize the number of control packets transmitted.",
+      "zh-CHS": "每个每更新间隔秒，每个节点在所有接口上生成并传输一组完整的拓扑更新消息（RN中每个节点一条消息，不是T的叶子），该消息描述报告的子树RT。只要可能，这些消息都包含在单个数据包中，以尽量减少传输的控制数据包的数量。"
+    },
+    {
+      "indent": 3,
+      "text": "Each topology update message contains the router IDs for n+1 nodes u, v_1,...,v_n, which represent the n links (u,v_1),..., (u,v_n). The n head nodes v_1,..., v_n are divided into three lists in order to convey additional information and thus reduce the number of messages that must be generated. In particular, the first NRL head nodes are leaves of T, thus avoiding the need to generate separate topology update messages for leaf nodes u. Similarly, the last n-(NRL+NRNL) head nodes are not in RN, thus avoiding the need to generate separate topology update messages for nodes u that have been removed from RN.",
+      "zh-CHS": "每个拓扑更新消息都包含n+1节点u，v_1，…，v_n的路由器ID，它们表示n个链路（u，v_1），…，（u，v_n）。n个头部节点v_1，…，v_n被划分为三个列表，以便传递附加信息，从而减少必须生成的消息的数量。特别地，第一个NRL头部节点是T的叶，因此避免了为叶节点u生成单独的拓扑更新消息的需要。类似地，最后的n-（NRL+NRNL）头节点不在RN中，因此避免了为已经从RN中移除的节点u生成单独的拓扑更新消息的需要。"
+    },
+    {
+      "indent": 3,
+      "text": "Periodic update messages are generated according to procedure Generate_Periodic_Update(), defined as follows (where node i is the node executing the procedure):",
+      "zh-CHS": "定期更新消息根据过程Generate_Periodic_update（）生成，定义如下（其中节点i是执行该过程的节点）："
+    },
+    {
+      "indent": 3,
+      "text": "Generate_Periodic_Update() For each node u in RN (including node i) that is not a leaf of T, add the update (FULL, n, NRL, NRNL, u, v_1,..., v_n) to msg_list(I) for each interface I, where:",
+      "zh-CHS": "为RN中不是T叶的每个节点u（包括节点i）生成_Periodic_Update（），将更新（FULL，n，NRL，NRL，u，v_1，…，v_n）添加到每个接口i的消息_列表（i），其中："
+    },
+    {
+      "indent": 5,
+      "text": "(a) v_1,..., v_n are the nodes v such that (u,v) is in T, the first NRL of these are nodes in RN that are leaves of T, the next NRNL of these are nodes in RN that are not leaves of T, and the last n-(NRL+NRNL) of these are not in RN.",
+      "zh-CHS": "(a) v_1，…，v_n是节点v，使得（u，v）在T中，其中第一个NRL是在RN中的节点，它们是T的叶子，下一个NRL是在RN中的节点，它们不是T的叶子，最后的n-（NRL+NRL）不在RN中。"
+    },
+    {
+      "indent": 5,
+      "text": "(b) If USE_METRICS = 1, then the M (metrics) bit is set to 1 and the link metrics metric(u,v_1),..., metric(u,v_n) are included in the message.",
+      "zh-CHS": "(b) 如果USE_METRICS=1，则M（METRICS）位设置为1，并且链路度量（u，v_1），…，度量（u，v_n）包含在消息中。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.6. Generating Differential Updates",
+      "section_title": true,
+      "zh-CHS": "8.4.6. 生成差异更新"
+    },
+    {
+      "indent": 3,
+      "text": "Every DIFF_UPDATE_INTERVAL seconds, if it is not time to generate a periodic update, and if RT has changed since the last time a topology update was generated, a set of TOPOLOGY UPDATE messages describing the changes to RT is generated and transmitted on all interfaces. These messages are constructed according to procedure Generate_Differential_Update(), defined as follows:",
+      "zh-CHS": "如果不是生成定期更新的时间，并且如果RT自上次生成拓扑更新以来发生了更改，则每个差异更新间隔秒将生成一组描述RT更改的拓扑更新消息，并在所有接口上传输。这些消息是根据过程Generate_Differential_Update（）构造的，定义如下："
+    },
+    {
+      "indent": 0,
+      "text": "Generate_Differential_Update() For each node u in RN: 1. If u is not in old_RN (u was added to RN) and is not a leaf of T, add the update (FULL, n, NRL, NRNL, u, v_1,..., v_n) to msg_list(I) for each I, where: (a) v_1,..., v_n, NRL, and NRNL are defined as above for periodic updates. (b) If USE_METRICS = 1, then the M (metrics) bit is set to 1 and the link metrics metric(u,v_1),..., metric(u,v_n) are included in the message.",
+      "zh-CHS": "为RN:1中的每个节点u生成_Differential_Update（）。如果u不在old_RN中（u被添加到RN中），并且不是T的叶子，则为每个I将更新（FULL、n、NRL、NRL、u、v_1、…、v_n）添加到msg_列表（I），其中：（a）v_1、…、v_n、NRL和NRL的定义如上所述，用于定期更新。（b） 如果USE_METRICS=1，则M（METRICS）位设置为1，并且链路度量（u，v_1），…，度量（u，v_n）包含在消息中。"
+    },
+    {
+      "indent": 2,
+      "text": "2. Else, if u is in old_RN and is not a leaf of T: 2.1. Let v_1,..., v_n be the nodes v such that (u,v) is in T AND at least one of the following 3 conditions holds: (a) (u,v) is not in old_T, or (b) v is in old_RN but not in RN, or (c) v is a leaf and is in RN but not in old_RN. 2.2. If this set of nodes is nonempty, add the update (ADD, n, NRL, NRNL, u, v_1,..., v_n) to msg_list(I) for each interface I, where: (a) NRL and NRNL are defined as above. (b) If USE_METRICS = 1, then the M (metrics) bit is set to 1 and the link metrics metric(u,v_1),..., metric(u,v_n) are included in the message.",
+      "zh-CHS": "2. 否则，如果你在旧世界，不是T:2.1的一片叶子。设v_1，…，v_n为节点v，使得（u，v）在T中且以下3个条件中的至少一个成立：（a）（u，v）不在old_T中，或（b）v在old_RN中但不在RN中，或（c）v是叶且在RN中但不在old_RN中。2.2. 如果这组节点是非空的，则将更新（add，n，NRL，NRNL，u，v_1，…，v_n）添加到每个接口I的msg_列表（I），其中：（a）NRL和NRNL的定义如上所述。（b） 如果USE_METRICS=1，则M（METRICS）位设置为1，并且链路度量（u，v_1），…，度量（u，v_n）包含在消息中。"
+    },
+    {
+      "indent": 2,
+      "text": "3. If u is in old_RN: 3.1. Let v_1,..., v_n be the nodes v such that (u,v) is in old_T but not in TG, and either IMPLICIT_DELETION = 0 or pred(v) is not in RN (or is NULL). (If IMPLICIT_DELETION = 1 and pred(v) is in RN, then the deletion of (u,v) is implied by an ADD update for another link (w,v).) 3.2. If this set of nodes is nonempty, add the update (DELETE, n, u, v_1,..., v_n) to msg_list(I) for each I.",
+      "zh-CHS": "3. 如果你在旧世界：3.1。设v_1，…，v_n为节点v，使得（u，v）在old_T中，但不在TG中，并且隐式_删除=0或pred（v）不在RN中（或为NULL）。（如果IMPLICIT_deletation=1且pred（v）在RN中，则（u，v）的删除由另一个链接（w，v）的添加更新暗示）。如果这组节点是非空的，则为每个I向msg_列表（I）添加更新（DELETE，n，u，v_1，…，v_n）。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.7. Processing Topology Updates",
+      "section_title": true,
+      "zh-CHS": "8.4.7. 处理拓扑更新"
+    },
+    {
+      "indent": 3,
+      "text": "When a packet containing a list (msg_list) of TOPOLOGY UPDATE messages is received from node j, the list is processed according to the procedure Process_Updates(j, msg_list), defined as follows. In particular, this procedure updates TT, TG, and the reporting neighbor lists r(u) and r(u,v). If any link in T has been deleted from TG, then Update_Source_Tree() and Update_Routing_Table() are called to provide immediate rerouting.",
+      "zh-CHS": "当从节点j接收到包含拓扑更新消息的列表（msg_列表）的分组时，根据如下定义的过程Process_Updates（j，msg_list）处理该列表。特别是，此过程更新TT、TG和报告邻居列表r（u）和r（u，v）。如果T中的任何链接已从TG中删除，则会调用Update_Source_Tree（）和Update_Routing_Table（）来立即重新路由。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Updates(j, msg_list)\n  1. For each update = (subtype, n, NRL, NRNL, u, v_1,..., v_n)\n     in msg_list:",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": " 1.1. Create an entry for u in TT if it does not exist. 1.2. If subtype = FULL, Process_Full_Update(j, update). 1.3. If subtype = ADD, Process_Add_Update(j, update). 1.4. If subtype = DELETE, Process_Delete_Update(j, update). 2. If there exists any link in T that is not in TG: 2.1. Update_Source_Tree(). 2.2. Update_Routing_Table().",
+      "zh-CHS": "1.1. 在TT中为u创建一个条目（如果它不存在）。1.2. 如果子类型=完整，则处理完整更新（j，更新）。1.3. 如果subtype=ADD，则处理添加更新（j，Update）。1.4. 如果子类型=删除，则处理删除更新（j，更新）。2.如果T中存在任何不在TG中的链接：2.1。更新源树（）。2.2. 更新路由表（）。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Full_Update(j, update) 1. Add j to r(u). 2. Set rt_expire(j,u) = current_time + TOP_HOLD_TIME. 3. For each link (u,v) s.t. j is in r(u,v): 3.1. Remove j from r(u,v). 3.2. If pred(j,v) = u, set pred(j,v) = NULL. 4. If j = p(u) OR p(u) = NULL: 4.1. Set tg_expire(u) = current_time + TOP_HOLD_TIME. 4.2. For each v s.t. (u,v) is in TG, If reported(u,v) = 1, remove (u,v) from TG. 5. Process_Add_Update(j, update).",
+      "zh-CHS": "处理完整更新（j，更新）1。把j加到r（u）上。2.设置rt_expire（j，u）=当前_时间+顶部保持时间。3.对于每个链路（u，v），s.t.j在r（u，v）中为3.1。将j从r（u，v）上拆下。3.2. 如果pred（j，v）=u，则设置pred（j，v）=NULL。4.如果j=p（u）或p（u）=NULL:4.1。设置tg_expire（u）=当前时间+顶部保持时间。4.2. 对于TG中的每个v s.t.（u，v），如果报告（u，v）=1，则从TG中移除（u，v）。5.处理添加更新（j，更新）。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Add_Update(j, update)\n  For m = 1,..., n:\n     ((u,v_m) is the mth link in update.)\n     1. Let v = v_m.\n     2. Create an entry for v in TT if it does not exist.\n     3. Add j to r(u,v).\n     4. If j = p(u) OR p(u) = NULL:\n        4.1. Add (u,v) to TG.\n        4.2. Set reported(u,v) = 1.\n     5. If the M (metrics) bit in update is 1:\n        5.1. Set metric(j,u,v) to the m-th metric in the update.\n        5.2. If j = p(u) OR p(u) = NULL:\n           5.2.1. Set metric(u,v) = metric(j,u,v).\n           5.2.2. If USE_METRICS = 1, set c(u,v) = metric(u,v).\n     6. If the D (implicit deletion) bit in update is 1:\n        6.1. Set w = pred(j,v).\n        6.2. If (w != NULL AND w != u):\n           6.2.1. Remove j from r(w,v).\n           6.2.2. If j = p(w), remove (w,v) from TG.\n     7. Set pred(j,v) = u.  (Set new predecessor.)\n     8. If m <= NRL (v = v_m is a reported leaf):\n        8.1. Set leaf_update = (FULL, 0, 0, 0, v).\n        8.2. Process_Full_Update(j, leaf_update).\n     9. If m > NRL + NRNL (v = v_m is not reported by j):\n        9.1. Remove j from r(v).\n        9.2. Set rt_expire(j,v) = 0.\n        9.3. For each node w s.t. j is in r(v,w),\n             remove j from r(v,w).",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "9.4. If j = p(v), then for each node w s.t. (v,w) is in TG and reported(v,w) = 1, set reported(v,w) = 0 and set nr_expire(v,w) = current_time + PER_UPDATE_INTERVAL.",
+      "zh-CHS": "9.4. 如果j=p（v），则对于每个节点，w s.t.（v，w）在TG中并报告（v，w）=1，设置报告（v，w）=0，并设置nr_expire（v，w）=当前时间+每次更新间隔。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Delete_Update(j, update) For m = 1,..., n: ((u,v_m) is the mth link in update.) 1. Let v = v_m. 2. Remove j from r(u,v). 3. If pred(j,v) = u, set pred(j,v) = NULL. 4. If j = p(u), remove (u,v) from TG.",
+      "zh-CHS": "对于m=1，…，n:（u，v_m）是更新中的第m个链接。）1。设v=v_m。2.将j从r（u，v）上拆下。3.如果pred（j，v）=u，则设置pred（j，v）=NULL。4.如果j=p（u），从TG上移除（u，v）。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.8. Expiring Topology Information",
+      "section_title": true,
+      "zh-CHS": "8.4.8. 正在过期的拓扑信息"
+    },
+    {
+      "indent": 3,
+      "text": "Each node periodically checks for outdated topology information based on the expiration timers tg_expire(u), rt_expire(j,u), and nr_expire(u,v), and removes any expired entries from TG and from the lists r(u) and r(u,v). This is done according to the following procedure Expire_Links(), which is called periodically just before the source tree is updated.",
+      "zh-CHS": "每个节点根据过期计时器tg_expire（u）、rt_expire（j，u）和nr_expire（u，v）定期检查过期的拓扑信息，并从tg和列表r（u）和r（u，v）中删除任何过期的条目。这是根据下面的过程Expire_Links（）完成的，该过程在更新源树之前定期调用。"
+    },
+    {
+      "indent": 0,
+      "text": "Expire_Links() For each node u in TT other than node i: 1. If tg_expire(u) < current_time, then for each v s.t. (u,v) is in TG, remove (u,v) from TG. 2. Else, for each v s.t. (u,v) is in TG, if reported(u,v) = 0 AND nr_expire(u,v) < current_time, remove (u,v) from TG. 3. For each node j in r(u), if rt_expire(j,u) < current_time: 3.1. Remove j from r(u). 3.2. For each link (u,v) s.t. j is in r(u,v), remove j from r(u,v).",
+      "zh-CHS": "使TT中除节点i:1以外的每个节点u的_Links（）过期。如果tg_过期（u）<当前时间，则对于tg中的每个v s.t.（u，v），从tg中移除（u，v）。2.否则，对于TG中的每个v.s.t.（u，v），如果报告（u，v）=0且nr_过期（u，v）<当前时间，则从TG中移除（u，v）。3.对于r（u）中的每个节点j，如果rt_过期（j，u）<当前_时间：3.1。将j从r（u）上拆下。3.2. 对于r（u，v）中的每个连杆（u，v）s.t.j，从r（u，v）中移除j。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, the following cleanup steps SHOULD be executed periodically to remove unnecessary entries from the topology table TT. A link (u,v) should be removed from TT if it is not in TG and not in old_T. A node u should be removed from TT if all of the following conditions hold: r(u) is empty, r(w,u) is empty for all w, and no link of TG has u as either the head or the tail.",
+      "zh-CHS": "此外，应定期执行以下清理步骤，以从拓扑表TT中删除不必要的条目。如果链路（u，v）不在TG中且不在旧T中，则应从TT中删除该链路。如果以下所有条件均成立，则应从TT中删除节点u：r（u）为空，r（w，u）为空，且TG的任何链路都没有u作为头部或尾部。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.9. Optional Reporting of Redundant Topology Information",
+      "section_title": true,
+      "zh-CHS": "8.4.9. 冗余拓扑信息的可选报告"
+    },
+    {
+      "indent": 3,
+      "text": "Each node is required to report its reported subtree RT to neighbors. However, each node (independently of the other nodes) MAY report additional links, e.g., to provide increased robustness in highly mobile networks. For example, a node may compute any subgraph H of TG that contains T, and may report the \"reported subgraph\" RH which consists of links (u,v) of H such that u is in RN. In this case,",
+      "zh-CHS": "每个节点都需要向邻居报告其报告的子树RT。然而，每个节点（独立于其他节点）可报告附加链路，例如，以在高度移动的网络中提供增强的鲁棒性。例如，节点可以计算包含T的TG的任何子图H，并且可以报告由H的链接（u，v）组成的“报告子图”RH，使得u在RN中。在这种情况下,，"
+    },
+    {
+      "indent": 3,
+      "text": "each periodic update describes RH instead of RT, and each differential update describes changes to RH. If this option is used, then the parameter IMPLICIT_DELETION MUST be set to 0, since the deletion of a link cannot be implied by the addition of another link if redundant topology information is reported.",
+      "zh-CHS": "每个定期更新描述RH而不是RT，每个差异更新描述RH的更改。如果使用此选项，则参数IMPLICIT_DELETION必须设置为0，因为如果报告了冗余拓扑信息，则不能通过添加另一条链路来暗示链路的删除。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.10. Local Topology Changes",
+      "section_title": true,
+      "zh-CHS": "8.4.10. 局部拓扑更改"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the procedures that are followed when the neighbor discovery module detects a new link, the loss of a link, or a change in the metric for a link.",
+      "zh-CHS": "本节描述了邻居发现模块检测到新链路、链路丢失或链路度量变化时所遵循的过程。"
+    },
+    {
+      "indent": 3,
+      "text": "When a link (I,J) from a local interface I to a neighbor interface J is discovered via the neighbor discovery module, the procedure Link_Up(I,J) is executed, as defined below. Letting j be the neighbor node associated with interface J, Link_Up(I,J) adds j to N (if it does not already belong), updates the preferred local interface local_if(j) and neighbor interface nbr_if(j) so that the link from local_if(j) to nbr_if(j) has the minimum metric among all links from i to j, and updates metric(i,j) to be this minimum metric.",
+      "zh-CHS": "当经由邻居发现模块发现从本地接口I到邻居接口J的链路（I，J）时，执行如下定义的过程link_Up（I，J）。假设j是与接口j相关联的邻居节点，Link_Up（I，j）将j添加到N（如果它不属于），更新首选本地接口local_if（j）和邻居接口nbr_if（j），以便从local_if（j）到nbr_if（j）的链路在从I到j的所有链路中具有最小度量，并更新度量（I，j）这是最小的度量。"
+    },
+    {
+      "indent": 0,
+      "text": "Link_Up(I,J) 1. Let j = nbr_rid(I,J). 2. If j is not in N: 2.1. Add j to N. 2.2. Add (i,j) to TG. 2.3. Set reported(i,j) = 1. 3. If nbr_metric(I,J) < metric(i,j), set local_if(j) = I, nbr_if(j) = J, and metric(i,j) = nbr_metric(I,J). 4. If USE_METRICS = 1, set cost(i,j) = metric(i,j).",
+      "zh-CHS": "连接（I，J）1。设j=nbr_rid（I，j）。2.如果j不在N:2.1中。将j添加到第2.2条中。在TG中加入（i，j）。2.3. 集合报告（i，j）=1。3.如果nbr_度量（I，J）<度量（I，J），则设置局部_如果（J）=I，nbr_如果（J）=J，以及度量（I，J）=nbr_度量（I，J）。4.如果使用度量=1，则设置成本（i，j）=度量（i，j）。"
+    },
+    {
+      "indent": 3,
+      "text": "When the loss of a link (I,J) from a local interface I to a neighbor interface J is detected via the neighbor discovery module, the procedure Link_Down(I,J) is executed, as defined below. Note that routes are updated immediately when a link is lost, and if the lost link is due to a link-layer failure notification, a differential topology update is sent immediately.",
+      "zh-CHS": "当经由邻居发现模块检测到从本地接口I到邻居接口J的链路（I，J）的丢失时，执行如下定义的过程link_Down（I，J）。请注意，当链路丢失时，路由会立即更新，如果丢失的链路是由于链路层故障通知引起的，则会立即发送差异拓扑更新。"
+    },
+    {
+      "indent": 0,
+      "text": "Link_Down(I,J) 1. Let j = nbr_rid(I,J). 2. If there does not exist a link (K,L) from node i to node j with nbr_status(K,L) = 2-WAY: 2.1. Remove j from N. 2.2. Remove (i,j) from TG. 3. If j is in N: 3.1. Let (K,L) be a link from i to j such that nbr_metric(K,L) is the minimum metric among all links from i to j.",
+      "zh-CHS": "连接（I，J）1。设j=nbr_rid（I，j）。2.如果不存在从节点i到节点j的链路（K，L），nbr_状态（K，L）=双向：2.1。将j从N.2.2上拆下。从TG上移除（i，j）。3.如果j在N:3.1。设（K，L）是从i到j的链路，使得nbr_度量（K，L）是从i到j的所有链路中的最小度量。"
+    },
+    {
+      "indent": 3,
+      "text": " 3.2. Set local_if(j) = K, nbr_if(j) = L, and metric(i,j) = nbr_metric(K,L). 3.3. If USE_METRICS = 1, set cost(i,j) = metric(i,j). 5. Update_Source_Tree(). 6. Update_Routing_Table(). 7. If j is not in N and lost link is due to link-layer failure notification: 7.1. If (REPORT_FULL_TREE = 0) Update_RN(). 7.2. Else, Update_RN_Simple(). 7.3. Set msg_list = empty. 7.4. Generate_Diff_Update(). 7.5. Send msg_list on all interfaces. 7.6. Set old_T = T and old_RN = RN.",
+      "zh-CHS": "3.2. 如果（j）=K，则设置局部度量（i，j）=n，如果（j）=L，则设置局部度量（i，j）=n，则设置度量（K，L）。3.3. 如果使用度量=1，则设置成本（i，j）=度量（i，j）。5.更新源树（）。6.更新路由表（）。7.如果j不在N中，且链路丢失是由于链路层故障通知：7.1。如果（报告\\u完整\\u树=0）更新\\u RN（）。7.2. 否则，请更新\\u RN\\u Simple（）。7.3. 设置消息列表=空。7.4. 生成差异更新（）。7.5. 在所有接口上发送消息列表。7.6. 设置old_T=T和old_RN=RN。"
+    },
+    {
+      "indent": 3,
+      "text": "If the metric of a link (I,J) from a local interface I to a neighbor interface J changes via the neighbor discovery module, the following procedure Link_Change(I,J) is executed.",
+      "zh-CHS": "如果从本地接口I到邻居接口J的链路（I，J）的度量经由邻居发现模块改变，则执行以下过程link_Change（I，J）。"
+    },
+    {
+      "indent": 0,
+      "text": "Link_Change(I,J) 1. Let j = nbr_rid(I,J). 2. Let (K,L) be a link from i to j such that nbr_metric(K,L) is the minimum metric among all links from i to j. 3. Set local_if(j) = K, nbr_if(j) = L, and metric(i,j) = nbr_metric(K,L). 4. If USE_METRICS = 1, set cost(i,j) = metric(i,j).",
+      "zh-CHS": "链接改变（I，J）1。设j=nbr_rid（I，j）。2.设（K，L）是从i到j的链路，使得nbr_度量（K，L）是从i到j的所有链路中的最小度量。3.如果（j）=K，则设置局部度量（i，j）=n，如果（j）=L，则设置局部度量（i，j）=n，则设置度量（K，L）。4.如果使用度量=1，则设置成本（i，j）=度量（i，j）。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.11. Generating Association Messages",
+      "section_title": true,
+      "zh-CHS": "8.4.11. 生成关联消息"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the procedures used to generate INTERFACE ASSOCIATION, HOST ASSOCIATION, and NETWORK PREFIX ASSOCIATION messages. Addresses or prefixes in the interface table, host table, and network prefix table are reported to neighbors periodically every IA_INTERVAL, HA_INTERVAL, and NPA_INTERVAL seconds, respectively. In addition, differential changes to the tables are reported every DIFF_UPDATE_INTERVAL seconds if it is not time for a periodic update (similar to differential topology updates). Each node reports only addresses or prefixes that are associated with nodes in the reported node set RN; this ensures the efficient broadcast of all associated addresses and prefixes to all nodes in the network.",
+      "zh-CHS": "本节介绍用于生成接口关联、主机关联和网络前缀关联消息的过程。接口表、主机表和网络前缀表中的地址或前缀分别每隔IA_间隔、HA_间隔和NPA_间隔秒定期报告给邻居。此外，如果不是定期更新的时间（类似于差分拓扑更新），则每差分更新间隔秒报告一次对表的差分更改。每个节点仅报告与所报告节点集中的节点关联的地址或前缀；这确保了将所有相关地址和前缀高效广播到网络中的所有节点。"
+    },
+    {
+      "indent": 3,
+      "text": "The generated messages are sent on each interface. Whenever possible, these messages are combined into the same packet, in order to minimize the number of control packets transmitted.",
+      "zh-CHS": "生成的消息在每个接口上发送。只要可能，将这些消息组合到同一数据包中，以尽量减少传输的控制数据包的数量。"
+    },
+    {
+      "indent": 0,
+      "text": "Generate_Association_Messages() 1. Generate_Interface_Association_Messages(). 2. Generate_Host_Association_Messages().",
+      "zh-CHS": "生成关联消息（）1。生成\\接口\\关联\\消息（）。2.生成\\主机\\关联\\消息（）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Generate_Network_Prefix_Association_Messages().",
+      "zh-CHS": "3. 生成\\网络\\前缀\\关联\\消息（）。"
+    },
+    {
+      "indent": 0,
+      "text": "Generate_Interface_Association_Messages() 1. If current_time > next_ia_time: 1.1. Set next_ia_time = current_time + IA_INTERVAL. 1.2. For each node u in RN: 1.2.1. Let addr_1,..., addr_n be the interface IP addresses associated with RID u in the current interface table. 1.2.2. If this list is nonempty, add the INTERFACE ASSOCIATION message (FULL, n, u, addr_1,..., addr_n) to msg_list(I) for each I.",
+      "zh-CHS": "生成\\接口\\关联\\消息（）1。如果当前时间>下一个时间：1.1。设置下一次检查时间=当前检查时间+检查间隔。1.2. 对于RN中的每个节点u:1.2.1。让addr_1，…，addr_n为当前接口表中与RID u关联的接口IP地址。1.2.2. 如果此列表为非空，则将接口关联消息（FULL、n、u、addr_1、…、addr_n）添加到每个I的msg_列表（I）中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Else, for each node u in RN: 2.1. Add the INTERFACE ASSOCIATION message (ADD, n, u, addr_1,..., addr_n) to msg_list(I) for each I, where addr_1,..., addr_n are the interface IP addresses that are associated with RID u in the current interface table but not in the old interface table. 2.2. Add the INTERFACE ASSOCIATION message (DELETE, n, u, addr_1,..., addr_n) to msg_list(I) for each I, where addr_1,..., addr_n are the interface IP addresses that are associated with RID u in the old interface table but not in the current interface table.",
+      "zh-CHS": "2. 否则，对于RN中的每个节点u:2.1。将接口关联消息（Add，n，u，addr_1，…，addr_n）添加到每个I的msg_列表（I）中，其中addr_1，…，addr_n是当前接口表中与RID u关联但不在旧接口表中的接口IP地址。2.2. 将接口关联消息（DELETE，n，u，addr_1，…，addr_n）添加到每个I的msg_列表（I）中，其中addr_1，…，addr_n是与旧接口表中的RID u关联但不在当前接口表中的接口IP地址。"
+    },
+    {
+      "indent": 0,
+      "text": "Generate_Host_Association_Messages() 1. If current_time > next_ha_time: 1.1. Set next_ha_time = current_time + HA_INTERVAL. 1.2. For each node u in RN: 1.2.1. Let addr_1,..., addr_n be the host IP addresses associated with RID u in the current host table. 1.2.2. If this list is nonempty, add the HOST ASSOCIATION message (FULL, n, u, addr_1,..., addr_n) to msg_list(I) for each I.",
+      "zh-CHS": "生成\\u主机\\u关联\\u消息（）1。如果当前时间>下一个时间：1.1。设置下一个时间=当前时间+时间间隔。1.2. 对于RN中的每个节点u:1.2.1。让addr_1，…，addr_n为当前主机表中与RID u关联的主机IP地址。1.2.2. 如果此列表为非空，请将主机关联消息（FULL、n、u、addr_1、…、addr_n）添加到每个I的msg_列表（I）中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Else, for each node u in RN: 2.1. Add the HOST ASSOCIATION message (ADD, n, u, addr_1,..., addr_n) to msg_list(I) for each I, where addr_1,..., addr_n are the host IP addresses that are associated with RID u in the current host table but not in the old host table. 2.2. Add the HOST ASSOCIATION message (DELETE, n, u, addr_1,..., addr_n) to msg_list(I) for each I, where addr_1,..., addr_n are the host IP addresses that are associated with RID u in the old host table but not in the current host table.",
+      "zh-CHS": "2. 否则，对于RN中的每个节点u:2.1。将主机关联消息（Add，n，u，addr_1，…，addr_n）添加到每个I的msg_列表（I）中，其中addr_1，…，addr_n是与当前主机表中的RID u关联但不与旧主机表中的RID u关联的主机IP地址。2.2. 将主机关联消息（DELETE，n，u，addr_1，…，addr_n）添加到每个I的msg_列表（I），其中addr_1，…，addr_n是与旧主机表中的RID u关联但不与当前主机表中的RID u关联的主机IP地址。"
+    },
+    {
+      "indent": 0,
+      "text": "Generate_Network_Prefix_Association_Messages() 1. If current_time > next_npa_time: 1.1. Set next_npa_time = current_time + NPA_INTERVAL. 1.2. For each node u in RN: 1.2.1. Let length_1, prefix_1,..., length_n, prefix_n be the network prefix lengths and prefixes associated with RID u in the current network prefix table. 1.2.2. If this list is nonempty, add the NETWORK PREFIX ASSOCIATION message (FULL, n, u, length_1, prefix_1, ..., length_n, prefix_n) to msg_list(I) for each I.",
+      "zh-CHS": "生成网络前缀关联消息（）1。如果当前时间>下一次时间：1.1。设置下一次\\u npa\\u时间=当前\\u时间+npa\\u间隔。1.2. 对于RN中的每个节点u:1.2.1。设length_1，prefix_1，…，length_n，prefix_n为当前网络前缀表中与RID u关联的网络前缀长度和前缀。1.2.2. 如果此列表为非空，请将网络前缀关联消息（FULL、n、u、length_1、PREFIX_1、…、length_n、PREFIX_n）添加到每个I的msg_列表（I）中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Else, for each node u in RN: 2.1. Add the NETWORK PREFIX ASSOCIATION message (ADD, n, u, prefix_1,..., prefix_n) to msg_list(I) for each I, where prefix_1,..., prefix_n are the network prefixes that are associated with RID u in the current prefix table but not in the old prefix table.",
+      "zh-CHS": "2. 否则，对于RN中的每个节点u:2.1。将网络前缀关联消息（Add，n，u，PREFIX_1，…，PREFIX_n）添加到每个I的msg_列表（I）中，其中PREFIX_1，…，PREFIX_n是与当前前缀表中的RID u关联但不与旧前缀表中的RID u关联的网络前缀。"
+    },
+    {
+      "indent": 6,
+      "text": "2.1. Add the NETWORK PREFIX ASSOCIATION message (DELETE, n, u, prefix_1,..., prefix_n) to msg_list(I) for each I, where prefix_1,..., prefix_n are the network prefixes that are associated with RID u in the old prefix table but not in the current prefix table.",
+      "zh-CHS": "2.1. 将网络前缀关联消息（DELETE，n，u，PREFIX_1，…，PREFIX_n）添加到每个I的msg_列表（I）中，其中PREFIX_1，…，PREFIX_n是与旧前缀表中的RID u关联但不与当前前缀表中的RID u关联的网络前缀。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.12. Processing Association Messages",
+      "section_title": true,
+      "zh-CHS": "8.4.12. 处理关联消息"
+    },
+    {
+      "indent": 3,
+      "text": "When an INTERFACE ASSOCIATION, HOST ASSOCIATION, or NETWORK PREFIX ASSOCIATION message is received from node j, the interface table, host table, or network prefix table, respectively, is updated as described in the following three procedures.",
+      "zh-CHS": "当从节点j接收到接口关联、主机关联或网络前缀关联消息时，按照以下三个过程中的描述分别更新接口表、主机表或网络前缀表。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Interface_Association_Messages(j, msg_list) For each message (subtype, n, u, addr_1,..., addr_n) in msg_list such that j = p(u): 1. If subtype = FULL, remove all entries with if_rid = u from the interface table. 2. If subtype = FULL or ADD, then for m = 1,..., n, add the tuple (if_addr, if_rid, if_expire) to the interface table, where: if_addr = addr_m, if_rid = u, if_expire = current_time + IA_HOLD_TIME. 3. If subtype = DELETE, then for m = 1,..., n, remove the tuple (if_addr, if_rid, if_expire) from the interface table, where if_addr = addr_m and if_rid = u.",
+      "zh-CHS": "为消息列表中的每个消息（子类型，n，u，addr\\u 1，…，addr\\u n）处理接口关联消息（j，消息列表），使j=p（u）：1。如果subtype=FULL，则从接口表中删除If_rid=u的所有条目。2.如果subtype=FULL或ADD，那么对于m=1，…，n，将元组（If_addr，If_rid，If_expire）添加到接口表中，其中：If_addr=addr_m，If_rid=u，If_expire=current_time+IA_HOLD_time。3.如果subtype=DELETE，那么对于m=1，…，n，从接口表中删除元组（If_addr，If_rid，If_expire），其中If_addr=addr_m和If_rid=u。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Host_Association_Messages(j, msg_list) For each message (subtype, n, u, addr_1,..., addr_n) in msg_list such that j = p(u): 1. If subtype = FULL, remove all entries with h_rid = u from the host table. 2. If subtype = FULL or ADD, then for m = 1,..., n, add the tuple (h_addr, h_rid, h_expire) to the host table, where: h_addr = addr_m, h_rid = u, h_expire = current_time + HA_HOLD_TIME. 3. If subtype = DELETE, then for m = 1,..., n, remove the tuple (h_addr, h_rid, h_expire) from the host table, where h_addr = addr_m and h_rid = u.",
+      "zh-CHS": "处理消息列表中每个消息（子类型，n，u，addr\\u 1，…，addr\\u n）的消息（j，消息列表），使j=p（u）：1。如果subtype=FULL，则从主机表中删除h_rid=u的所有条目。2.如果subtype=FULL或ADD，那么对于m=1，…，n，将元组（h_addr，h_rid，h_expire）添加到主机表中，其中：h_addr=addr_m，h_rid=u，h_expire=current_time+HA_HOLD_time。3.如果subtype=DELETE，那么对于m=1，…，n，从主机表中删除元组（h_addr，h_rid，h_expire），其中h_addr=addr_m和h_rid=u。"
+    },
+    {
+      "indent": 0,
+      "text": "Process_Network_Prefix_Association_Messages(j, msg_list) For each message (subtype, n, u, length_1, prefix_1, ..., length_n, prefix_n) in msg_list such that j = p(u): 1. If subtype = FULL, remove all entries with net_rid = u from the prefix table. 2. If subtype = FULL or ADD, then for m = 1,..., n, add the tuple (net_prefix, net_length, net_rid, net_expire) to the network prefix table, where: net_prefix = prefix_m, net_length = length_m, net_rid = u, net_expire = current_time + NPA_HOLD_TIME. 3. If subtype = DELETE, then for m = 1,..., n, remove the tuple (net_prefix, net_length, net_rid, net_expire) from the network prefix table, where net_prefix = prefix_m, net_length = length_m, and net_rid = u.",
+      "zh-CHS": "处理msg_列表中每个消息（子类型，n，u，长度_1，前缀_1，…，长度_n，前缀_n）的网络前缀_关联_消息（j，msg_列表），使j=p（u）：1。如果subtype=FULL，则从前缀表中删除net_rid=u的所有条目。2.如果subtype=FULL或ADD，则对于m=1，…，n，将元组（net_prefix，net_length，net_rid，net_expire）添加到网络前缀表中，其中：net_prefix=prefix_m，net_length=length_m，net_rid=u，net_expire=current_time+NPA_HOLD_time。3.如果subtype=DELETE，则对于m=1，…，n，从网络前缀表中删除元组（net_prefix，net_length，net_rid，net_expire），其中net_prefix=prefix_m，net_length=length_m，net_rid=u。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4.13. Non-Relay Operation",
+      "section_title": true,
+      "zh-CHS": "8.4.13. 非继电器操作"
+    },
+    {
+      "indent": 3,
+      "text": "Nodes with relay priority equal to zero are called non-relay nodes, and do not forward packets (of any type) that are received from other nodes. A non-relay node is implemented simply by not generating or transmitting any TOPOLOGY UPDATE messages. A non-relay node may report (in association messages) addresses or prefixes that are associated with itself, but not those associated with other nodes. HELLO messages must be transmitted in order to establish links with neighbor nodes. The following procedures can be omitted in non-relay nodes: Update_RN(), Generate_Periodic_Update(), and Generate_Diff_Update().",
+      "zh-CHS": "中继优先级等于零的节点称为非中继节点，不转发从其他节点接收的数据包（任何类型）。非中继节点仅通过不生成或传输任何拓扑更新消息来实现。非中继节点可以报告（在关联消息中）与自身关联的地址或前缀，但不报告与其他节点关联的地址或前缀。为了与邻居节点建立链接，必须传输HELLO消息。在非中继节点中可以省略以下过程：Update_RN（）、Generate_Periodic_Update（）和Generate_Diff_Update（）。"
+    },
+    {
+      "indent": 0,
+      "text": "8.5. Configurable Parameters",
+      "section_title": true,
+      "zh-CHS": "8.5. 可配置参数"
+    },
+    {
+      "indent": 3,
+      "text": "This section lists the configurable parameters used by the routing module, and their proposed default values. All nodes MUST have the same value for all of the following parameters except REPORT_FULL_TREE and IMPLICIT_DELETION.",
+      "zh-CHS": "本节列出了路由模块使用的可配置参数及其建议的默认值。所有节点对于以下所有参数都必须具有相同的值，但“报告\\完整\\树”和“隐式\\删除”除外。"
+    },
+    {
+      "indent": 6,
+      "text": "Parameter Name          Default Value\n--------------          -------------\nDIFF_UPDATE_INTERVAL    1 second\nPER_UPDATE_INTERVAL     5 seconds\nTOP_HOLD_TIME           15 seconds\nNON_REPORT_PENALTY      1.01\nNON_TREE_PENALTY        0.01\nIA_INTERVAL             10 seconds\nIA_HOLD_TIME            3 * IA_INTERVAL\nHA_INTERVAL             10 seconds\nHA_HOLD_TIME            3 * HA_INTERVAL\nNPA_INTERVAL            10 seconds\nNPA_HOLD_TIME           3 * NPA_INTERVAL\nUSE_METRICS             0\nREPORT_FULL_TREE        0\nIMPLICIT_DELETION       1",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "9. TBRPF Flooding Mechanism",
+      "section_title": true,
+      "zh-CHS": "9. TBRPF驱油机理"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes a mechanism for the efficient best-effort flooding (or network-wide broadcast) of packets to all nodes of a connected ad-hoc network. This mechanism can be considered an optimization of the classical flooding algorithm in which each packet is transmitted by every node of the network. In TBRPF flooding, information provided by TBRPF is used to decide whether a given received flooded packet should be forwarded. As a result, each packet is transmitted by only a relatively small subset of nodes, thus consuming much less bandwidth than classical flooding.",
+      "zh-CHS": "本节描述了一种将数据包有效地最大努力泛洪（或网络范围的广播）到连接的自组织网络的所有节点的机制。这种机制可以看作是对经典泛洪算法的优化，其中每个包由网络的每个节点发送。在TBRPF泛洪中，TBRPF提供的信息用于决定是否应转发给定的接收到的泛洪数据包。因此，每个数据包仅由相对较小的节点子集传输，因此消耗的带宽比传统的泛洪要少得多。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies that the flooding mechanism use the IPv4 multicast address 224.0.1.20 (currently assigned by IANA for \"any private experiment\"). Every node maintains a duplicate cache to keep track of which flooded packets have already been received. The duplicate cache contains, for each received flooded packet, the flooded packet identifier (FPI), which for IPv4 is composed of the source IP address, the IP identification, and the fragment offset values obtained from the IP header [14].",
+      "zh-CHS": "本文档规定泛洪机制使用IPv4多播地址224.0.1.20（目前由IANA分配用于“任何私人实验”）。每个节点都维护一个重复缓存，以跟踪已接收到的泛洪数据包。对于每个接收到的泛洪数据包，重复缓存包含泛洪数据包标识符（FPI），对于IPv4，该标识符由源IP地址、IP标识和从IP报头获得的片段偏移值组成[14]。"
+    },
+    {
+      "indent": 3,
+      "text": "When a node receives a packet whose destination IP address is the flooding address (224.0.1.20), it checks its duplicate cache for an entry that matches the packet. If such an entry exists, the node",
+      "zh-CHS": "当节点接收到目的IP地址为泛洪地址（224.0.1.20）的数据包时，它会检查其重复缓存中是否有与该数据包匹配的条目。如果存在这样的条目，则节点"
+    },
+    {
+      "indent": 3,
+      "text": "silently discards the flooded packet since it has already been received. Otherwise, the node retransmits the packet on all interfaces (see the exception below) if and only if the following conditions hold:",
+      "zh-CHS": "由于已接收到被淹没的数据包，因此会以静默方式丢弃该数据包。否则，当且仅当以下条件成立时，节点才会在所有接口上重新传输数据包（参见下面的例外情况）："
+    },
+    {
+      "indent": 3,
+      "text": "1. The TBRPF node associated with the source IP address of the packet belongs to the set RN of reported nodes computed by TBRPF.",
+      "zh-CHS": "1. 与包的源IP地址关联的TBRPF节点属于由TBRPF计算的报告节点集RN。"
+    },
+    {
+      "indent": 3,
+      "text": "2. When decremented, the 'ip_ttl' in the IPv4 packet header (respectively, the 'hop_count' in the IPv6 packet header) is greater than zero.",
+      "zh-CHS": "2. 当递减时，IPv4数据包头中的“ip_ttl”（分别是IPv6数据包头中的“hop_计数”）大于零。"
+    },
+    {
+      "indent": 3,
+      "text": "If the packet is to be retransmitted, it is sent after a small random time interval in order to avoid collisions. If the interface on which the packet was received is not a MANET interface (see the Terminology section), then the packet should not be retransmitted on that interface.",
+      "zh-CHS": "如果要重新传输数据包，则在一个小的随机时间间隔后发送，以避免冲突。如果接收数据包的接口不是MANET接口（参见术语部分），则不应在该接口上重新传输数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Operation of TBRPF in Mobile Ad-Hoc Networks",
+      "section_title": true,
+      "zh-CHS": "10. 移动adhoc网络中TBRPF的运行"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF is particularly well suited to MANETs consisting of mobile nodes with wireless network interfaces operating in peer-to-peer fashion over a multiple access communications channel. Although applicable across a much broader field of use, TBRPF is particularly well suited for supporting the standard DARPA Internet protocols [3][2]. In the following sections, we discuss practical considerations for the operation of TBRPF on MANETs.",
+      "zh-CHS": "TBRPF特别适合于由具有无线网络接口的移动节点组成的移动自组网，这些移动节点在多址通信信道上以对等方式运行。尽管TBRPF适用于更广泛的使用领域，但它特别适合于支持标准DARPA互联网协议[3][2]。在以下章节中，我们将讨论在MANET上运行TBRPF的实际考虑因素。"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Data Link Layer Assumptions",
+      "section_title": true,
+      "zh-CHS": "10.1. 数据链路层假设"
+    },
+    {
+      "indent": 3,
+      "text": "We assume a MANET data link layer that supports broadcast, multicast and unicast addressing with best-effort (not guaranteed) delivery services between neighbors (i.e., a pair of nodes within operational communications range of one another). We further assume that each interface belonging to a node in the MANET is assigned a unicast data link layer address that is unique within the MANET's scope. While such uniqueness is not strictly guaranteed, the assumption of uniqueness is consistent with current practices for deployment of the Internet protocols on specific link layers. Methods for duplicate link layer address detection and deconfliction are beyond the scope of this document.",
+      "zh-CHS": "我们假设MANET数据链路层支持广播、多播和单播寻址，并在邻居（即，在彼此的操作通信范围内的一对节点）之间尽最大努力（不保证）提供服务。我们进一步假设属于MANET中的节点的每个接口被分配一个单播数据链路层地址，该地址在MANET的范围内是唯一的。虽然不能严格保证这种唯一性，但唯一性的假设与在特定链路层上部署Internet协议的当前实践是一致的。重复链路层地址检测和消除冲突的方法超出了本文档的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Network Layer Assumptions",
+      "section_title": true,
+      "zh-CHS": "10.2. 网络层假设"
+    },
+    {
+      "indent": 3,
+      "text": "MANETs are formed as collections of routers and non-routing nodes that use network layer addresses when calculating the MANET topology. We assume that each node has at least one data link layer interface (described above) and that each such interface is assigned a network",
+      "zh-CHS": "MANET由路由器和非路由节点组成，在计算MANET拓扑时使用网络层地址。我们假设每个节点至少有一个数据链路层接口（如上所述），并且每个这样的接口被分配一个网络"
+    },
+    {
+      "indent": 3,
+      "text": "layer address that is unique within the MANET. (Methods for network layer address assignment and duplicate address detection are beyond the scope of this document.) We further assume that each node will select a unique Router ID (RID) for use in TBRPF protocol messages, whether or not the node acts as a MANET router. Finally, we assume that each MANET router supports the multi-hop relay paradigm at the network layer; i.e., each router provides an inter-node forwarding service via network layer host routes which reflect the current MANET topology as perceived by TBRPF.",
+      "zh-CHS": "MANET中唯一的层地址。（网络层地址分配和重复地址检测的方法超出了本文的范围。）我们进一步假设，无论节点是否充当MANET路由器，每个节点都将选择一个唯一的路由器ID（RID）用于TBRPF协议消息。最后，我们假设每个MANET路由器在网络层支持多跳中继模式；i、 例如，每个路由器通过网络层主机路由提供节点间转发服务，网络层主机路由反映TBRPF感知的当前MANET拓扑。"
+    },
+    {
+      "indent": 0,
+      "text": "10.3. Optional Automatic Address Resolution",
+      "section_title": true,
+      "zh-CHS": "10.3. 可选自动地址解析"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF employs a proactive neighbor discovery protocol at the network layer that maintains bi-directional link state for neighboring nodes through the periodic transmission of messages. Since TBRPF neighbor discovery messages contain both the data link and network layer address of the sender, implementations MAY perform automatic network-to-data link layer address resolution for the nodes with which they form links. An implementation may use such a mechanism to avoid additional message overhead and potential for packet loss associated with on-demand address resolution mechanisms such as ARP [15] or IPv6 Neighbor Discovery [16]. Implementations MUST respond to on-demand address resolution requests in the normal manner.",
+      "zh-CHS": "TBRPF在网络层采用主动邻居发现协议，通过定期传输消息为相邻节点保持双向链路状态。由于TBRPF邻居发现消息同时包含发送方的数据链路和网络层地址，因此实现可以对与之形成链路的节点执行自动网络到数据链路层地址解析。实现可以使用这种机制来避免额外的消息开销和与按需地址解析机制（如ARP[15]或IPv6邻居发现[16]）相关联的分组丢失的可能性。实现必须以正常方式响应按需地址解析请求。"
+    },
+    {
+      "indent": 0,
+      "text": "10.4. Support for Multiple Interfaces and/or Alias Addresses",
+      "section_title": true,
+      "zh-CHS": "10.4. 支持多个接口和/或别名地址"
+    },
+    {
+      "indent": 3,
+      "text": "MANET nodes may comprise multiple interfaces; each with a unique network layer address. Additionally, MANET nodes may wish to publish alias addresses such as when multiple network layer addresses are assigned to the same interface or when the MANET node is serving as a Mobile IP [17] home agent. Multiple interfaces and alias addresses are advertised in INTERFACE ASSOCIATION messages, which bind each such address to the node's RID.",
+      "zh-CHS": "MANET节点可以包括多个接口；每个都具有唯一的网络层地址。此外，MANET节点可能希望发布别名地址，例如当多个网络层地址分配给同一接口时，或者当MANET节点用作移动IP[17]归属代理时。在接口关联消息中公布多个接口和别名地址，这些消息将每个此类地址绑定到节点的RID。"
+    },
+    {
+      "indent": 0,
+      "text": "10.5. Support for Network Prefixes",
+      "section_title": true,
+      "zh-CHS": "10.5. 支持网络前缀"
+    },
+    {
+      "indent": 3,
+      "text": "MANET routers may advertise network prefixes which the router discovered via attached networks, external routes advertised by other protocols, or other means. Network prefixes are advertised in NETWORK PREFIX ASSOCIATION messages, which bind each such prefix to the node's RID.",
+      "zh-CHS": "MANET路由器可以公布路由器通过连接的网络、其他协议公布的外部路由或其他方式发现的网络前缀。网络前缀在网络前缀关联消息中公布，该消息将每个这样的前缀绑定到节点的RID。"
+    },
+    {
+      "indent": 0,
+      "text": "10.6. Support for non-MANET Hosts",
+      "section_title": true,
+      "zh-CHS": "10.6. 支持非MANET主机"
+    },
+    {
+      "indent": 3,
+      "text": "Non-MANET hosts may establish connections to MANET routers through on-demand mechanisms such as ARP or IPv6 Neighbor Discovery. Such connections do not constitute a MANET link and therefore are not reported in TBRPF topology updates. Non-MANET hosts are advertised",
+      "zh-CHS": "非MANET主机可以通过按需机制（如ARP或IPv6邻居发现）与MANET路由器建立连接。此类连接不构成MANET链路，因此不会在TBRPF拓扑更新中报告。非MANET主机被广告"
+    },
+    {
+      "indent": 3,
+      "text": "in HOST ASSOCIATION messages, which bind the IP address of each host to the node's RID.",
+      "zh-CHS": "在主机关联消息中，将每个主机的IP地址绑定到节点的RID。"
+    },
+    {
+      "indent": 0,
+      "text": "10.7. Internet Protocol Considerations",
+      "section_title": true,
+      "zh-CHS": "10.7. 因特网协议考虑事项"
+    },
+    {
+      "indent": 3,
+      "text": "TBRPF packets are communicated using UDP/IP. Port 712 has been assigned by IANA for exclusive use by TBRPF. Implementations in private networks MAY employ alternate data delivery services (i.e., raw IP or local data-link encapsulation). The selection of an alternate data delivery service MUST be consistent among all MANET routers in the private network. In all implementations, the data delivery service MUST provide a checksum facility.",
+      "zh-CHS": "TBRPF数据包使用UDP/IP进行通信。IANA已将712端口分配给TBRPF专用。专用网络中的实现可采用替代数据交付服务（即，原始IP或本地数据链路封装）。备用数据传送服务的选择必须在专用网络中的所有MANET路由器之间保持一致。在所有实现中，数据交付服务都必须提供校验和功能。"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections specify the operation of TBRPF over UDP/IP.",
+      "zh-CHS": "以下各节指定了UDP/IP上TBRPF的操作。"
+    },
+    {
+      "indent": 0,
+      "text": "10.7.1. IPv4 Operation",
+      "section_title": true,
+      "zh-CHS": "10.7.1. IPv4操作"
+    },
+    {
+      "indent": 3,
+      "text": "When IPv4 is used, TBRPF nodes obey IPv4 host and router requirements [4][5]. TBRPF packets are sent to the multicast address 224.0.0.2 (All Routers) and thus reach all TBRPF routers within single-hop transmission range of the sender. TBRPF routers MUST NOT forward packets sent to this multicast address.",
+      "zh-CHS": "使用IPv4时，TBRPF节点遵守IPv4主机和路由器要求[4][5]。TBRPF包被发送到多播地址224.0.0.2（所有路由器），从而到达发送方单跳传输范围内的所有TBRPF路由器。TBRPF路由器不得转发发送到此多播地址的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Since non-negligible packet loss due to link failure, interference, etc. can occur, implementations SHOULD avoid IPv4 fragmentation/ reassembly whenever possible, by splitting large TBRPF protocol packets into multiple smaller packets at the application layer. When fragmentation is unavoidable, senders SHOULD NOT send TBRPF packets that exceed the minimum reassembly buffer size ([4], section 3.3.2) for all receivers in the network.",
+      "zh-CHS": "由于可能发生由于链路故障、干扰等导致的不可忽略的数据包丢失，因此实现应尽可能避免IPv4碎片化/重组，方法是在应用层将大型TBRPF协议数据包拆分为多个较小的数据包。当碎片不可避免时，发送方不应发送超过网络中所有接收方的最小重组缓冲区大小（[4]，第3.3.2节）的TBRPF数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "10.7.2. IPv6 Operation",
+      "section_title": true,
+      "zh-CHS": "10.7.2. IPv6操作"
+    },
+    {
+      "indent": 3,
+      "text": "The specification of TBRPF for IPv6 is the same as for IPv4, except that 32-bit IPv4 addresses are replaced by 128-bit IPv6 addresses. However, to minimize overhead, router IDs remain at 32 bits, similar to OSPF for IPv6 [18].",
+      "zh-CHS": "IPv6的TBRPF规范与IPv4相同，只是32位IPv4地址被128位IPv6地址替换。然而，为了最小化开销，路由器ID保持在32位，类似于IPv6的OSPF[18]。"
+    },
+    {
+      "indent": 0,
+      "text": "11. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "11. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The IANA has assigned port number 712 for TBRPF.",
+      "zh-CHS": "IANA已为TBRPF分配端口号712。"
+    },
+    {
+      "indent": 3,
+      "text": "The TBRPF flooding mechanism specified in this document uses the IPv4 multicast address 224.0.1.20, which is currently assigned by IANA for \"any private experiment\". In the event that this specification is advanced to standards track, a new multicast address assignment would be requested for this purpose.",
+      "zh-CHS": "本文档中指定的TBRPF洪泛机制使用IPv4多播地址224.0.1.20，该地址目前由IANA分配用于“任何私人实验”。如果此规范被提升到标准轨道，则将为此请求新的多播地址分配。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "12. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Wireless networks are vulnerable to a variety of attacks, including denial-of-service attacks (e.g., flooding and jamming), man-in-the-middle attacks (e.g., interception, insertion, deletion, modification, replaying) and service theft. To counter such attacks, it is important to prevent the spoofing (impersonation) of TBRPF nodes, and to prevent unauthorized nodes from joining the network via neighbor discovery. To achieve this, TBRPF packets can be authenticated using the IP Authentication Header [19][20]. In addition, the Encapsulating Security Payload (ESP) header [21] can be used to provide confidentiality (encryption) of TBRPF packets.",
+      "zh-CHS": "无线网络容易受到各种攻击，包括拒绝服务攻击（如洪水和干扰）、中间人攻击（如拦截、插入、删除、修改、重放）和服务盗窃。为了应对此类攻击，必须防止对TBRPF节点的欺骗（模拟），并防止未经授权的节点通过邻居发现加入网络。为了实现这一点，可以使用IP认证头[19][20]对TBRPF数据包进行认证。此外，封装安全有效载荷（ESP）报头[21]可用于提供TBRPF数据包的机密性（加密）。"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF SEcuring Neighbor Discovery (SEND) Working Group analyzes trust models and threats for ad hoc networks [22]. TBRPF can be extended in a straightforward manner to use SEND mechanisms, e.g., [23].",
+      "zh-CHS": "IETF安全邻居发现（SEND）工作组分析了adhoc网络的信任模型和威胁[22]。TBRPF可以以一种简单的方式进行扩展，以使用发送机制，例如[23]。"
+    },
+    {
+      "indent": 0,
+      "text": "13. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "13. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank the Army Systems Engineering Office (ASEO) for funding part of this work.",
+      "zh-CHS": "作者要感谢陆军系统工程办公室（ASEO）为这项工作的一部分提供资金。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank several members of the MANET working group for many helpful comments and suggestions, including Thomas Clausen, Philippe Jacquet, and Joe Macker.",
+      "zh-CHS": "作者要感谢MANET工作组的一些成员提出了许多有益的意见和建议，包括托马斯·克劳森、菲利普·雅克和乔·麦克尔。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Bhargav Bellur for major contributions to the original (full-topology) version of TBRPF, Ambatipudi Sastry for his support and advice, and Julie S. Wong for developing a new implementation of TBRPF and suggesting several clarifications to the TBRPF Routing Operation section.",
+      "zh-CHS": "作者要感谢Bhargav Bellur对TBRPF原始（完整拓扑）版本的重大贡献，感谢Ambatipudi Sastry的支持和建议，感谢Julie S.Wong开发了TBRPF的新实现，并向TBRPF路由操作部分提出了一些澄清建议。"
+    },
+    {
+      "indent": 0,
+      "text": "14. References",
+      "section_title": true,
+      "zh-CHS": "14. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "14.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "14.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[1] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Deering, S. and R. Hinden, \"Internet Protocol, Version 6 (IPv6) Specification\", RFC 2460, December 1998.",
+      "zh-CHS": "[2] Deering，S.和R.Hinden，“互联网协议，第6版（IPv6）规范”，RFC 2460，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Postel, J., \"Internet Protocol\", STD 5, RFC 791, September 1981.",
+      "zh-CHS": "[3] Postel，J.，“互联网协议”，STD 5，RFC 7911981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Braden, R., Ed., \"Requirements for Internet Hosts - Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[4] Braden，R.，Ed.“互联网主机的要求-通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Baker, F., Ed., \"Requirements for IP Version 4 Routers\", RFC 1812, June 1995.",
+      "zh-CHS": "[5] Baker，F.，Ed.，“IP版本4路由器的要求”，RFC 1812，1995年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "14.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "14.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998.",
+      "zh-CHS": "[6] Moy，J.，“OSPF版本2”，STD 54，RFC 23281998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Ogier, R., Message in IETF email archive for MANET, ftp://ftp.ietf.org/ietf-mail-archive/manet/2002-02.mail, February 2002.",
+      "zh-CHS": "[7] Ogier，R.，IETF电子邮件存档中针对MANET的消息，ftp://ftp.ietf.org/ietf-mail-archive/manet/2002-02.mail，2002年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Ogier, R., \"Topology Dissemination Based on Reverse-Path Forwarding (TBRPF): Correctness and Simulation Evaluation\", Technical Report, SRI International, October 2003.",
+      "zh-CHS": "[8] Ogier，R.，“基于反向路径转发（TBRPF）的拓扑传播：正确性和模拟评估”，技术报告，SRI国际，2003年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Ogier, R., Message in IETF email archive for MANET, ftp://ftp.ietf.org/ietf-mail-archive/manet/2002-03.mail, March 2002.",
+      "zh-CHS": "[9] Ogier，R.，IETF电子邮件存档中针对MANET的消息，ftp://ftp.ietf.org/ietf-mail-archive/manet/2002-03.mail，2002年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Ogier, R., \"Efficient Routing Protocols for Packet-Radio Networks Based on Tree Sharing\", Proc. Sixth IEEE Intl. Workshop on Mobile Multimedia Communications (MOMUC'99), November 1999.",
+      "zh-CHS": "[10] Ogier，R.，“基于树共享的分组无线网络高效路由协议”，Proc。第六届IEEE移动多媒体通信国际研讨会（MOMUC'99），1999年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Bellur, B. and R. Ogier, \"A Reliable, Efficient Topology Broadcast Protocol for Dynamic Networks\", Proc. IEEE INFOCOM '99, New York\", March 1999.",
+      "zh-CHS": "[11] Bellur，B.和R.Ogier，“一种可靠、高效的动态网络拓扑广播协议”，Proc。IEEE INFOCOM'99，纽约，1999年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Clausen, T. and P. Jacquet, Eds., \"Optimized Link State Routing Protocol (OLSR)\", RFC 3626, October 2003.",
+      "zh-CHS": "[12] Clausen，T.和P.Jacquet，编辑，“优化链路状态路由协议（OLSR）”，RFC3626，2003年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Bertsekas, D. and R. Gallager, \"Data Networks\", Prentice-Hall, 1987.",
+      "zh-CHS": "[13] Bertsekas，D.和R.Gallager，“数据网络”，Prentice Hall，1987年。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Perkins, C., Belding-Royer, E. and S. Das, \"IP Flooding in Ad Hoc Mobile Networks\", Work in Progress, November 2001.",
+      "zh-CHS": "[14] Perkins，C.，Belding Royer，E.和S.Das，“特设移动网络中的IP泛滥”，正在进行的工作，2001年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[15] Plummer, D., \"Ethernet Address Resolution Protocol: Or converting network protocol addresses to 48.bit Ethernet address for transmission on Ethernet hardware\", STD 37, RFC 826, November 1982.",
+      "zh-CHS": "[15] Plummer，D.，“以太网地址解析协议：或将网络协议地址转换为48位以太网地址，以便在以太网硬件上传输”，STD 37，RFC 826，1982年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[16] Narten, T., Nordmark, E. and W. Simpson, \"Neighbor Discovery for IP Version 6 (IPv6)\", RFC 2461, December 1998.",
+      "zh-CHS": "[16] Narten，T.，Nordmark，E.和W.Simpson，“IP版本6（IPv6）的邻居发现”，RFC24611998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[17] Perkins, C., Ed., \"IP Mobility Support for IPv4\", RFC 3344, August 2002.",
+      "zh-CHS": "[17] Perkins，C.，编辑，“IPv4的IP移动支持”，RFC 3344，2002年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[18] Coltun, R., Ferguson, D. and J. Moy, \"OSPF for IPv6\", RFC 2740, December 1999.",
+      "zh-CHS": "[18] Coltun，R.，Ferguson，D.和J.Moy，“IPv6的OSPF”，RFC 27401999年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[19] Kent, S. and R. Atkinson, \"Security Architecture for the Internet Protocol\", RFC 2401, November 1998.",
+      "zh-CHS": "[19] Kent，S.和R.Atkinson，“互联网协议的安全架构”，RFC 2401，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[20] Kent, S. and R. Atkinson, \"IP Authentication Header\", RFC 2402, November 1998.",
+      "zh-CHS": "[20] Kent，S.和R.Atkinson，“IP认证头”，RFC 2402，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[21] Kent, S. and R. Atkinson, \"IP Encapsulating Security Payload (ESP)\", RFC 2406, November 1998.",
+      "zh-CHS": "[21] Kent，S.和R.Atkinson，“IP封装安全有效载荷（ESP）”，RFC 2406，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[22] Nikander, P., \"IPv6 Neighbor Discovery Trust Models and Threats\", Work in Progress, April 2003.",
+      "zh-CHS": "[22] Nikander，P.，“IPv6邻居发现信任模型和威胁”，进展中的工作，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[23] Arkko, J., \"SEcure Neighbor Discovery (SEND)\", Work in Progress, June 2003.",
+      "zh-CHS": "[23] Arkko，J.，“安全邻居发现（SEND）”，正在进行的工作，2003年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Richard G. Ogier SRI International 333 Ravenswood Ave. Menlo Park, CA 94025 USA",
+      "zh-CHS": "Richard G.Ogier SRI International美国加利福尼亚州门罗公园瑞文斯伍德大道333号，邮编94025"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 650 859-4216\nFax:   +1 650 859-4812\nEMail: ogier@erg.sri.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Fred L. Templin Nokia 313 Fairchild Drive Mountain View, CA 94043 USA",
+      "zh-CHS": "Fred L.Templin诺基亚313飞兆半导体山景大道，加利福尼亚州94043"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 650 625 2331\nFax:   +1 650 625 2502\nEMail: ftemplin@iprg.nokia.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Mark G. Lewis SRI International 333 Ravenswood Ave. Menlo Park, CA 94025 USA",
+      "zh-CHS": "美国加利福尼亚州门罗公园瑞文斯伍德大道333号马克·G·刘易斯·斯里国际酒店，邮编94025"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 650 859-4302\nFax:   +1 650 859-4812\nEMail: lewis@erg.sri.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2004). This document is subject to the rights, licenses and restrictions contained in BCP 78 and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "版权所有（C）互联网协会（2004年）。本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

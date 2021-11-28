@@ -1,0 +1,485 @@
+{
+  "title": {
+    "text": "RFC 4531: Lightweight Directory Access Protocol (LDAP) Turn Operation",
+    "zh-CHS": "RFC 4531"
+  },
+  "number": 4531,
+  "created_at": "2021-11-14 05:17:34.184695+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        K. Zeilenga\nRequest for Comments: 4531                           OpenLDAP Foundation\nCategory: Experimental                                         June 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Lightweight Directory Access Protocol (LDAP) Turn Operation",
+      "zh-CHS": "轻型目录访问协议（LDAP）Turn操作"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines an Experimental Protocol for the Internet community. It does not specify an Internet standard of any kind. Discussion and suggestions for improvement are requested. Distribution of this memo is unlimited.",
+      "zh-CHS": "这份备忘录为互联网社区定义了一个实验性协议。它没有规定任何类型的互联网标准。要求进行讨论并提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This specification describes a Lightweight Directory Access Protocol (LDAP) extended operation to reverse (or \"turn\") the roles of client and server for subsequent protocol exchanges in the session, or to enable each peer to act as both client and server with respect to the other.",
+      "zh-CHS": "本规范描述了一种轻量级目录访问协议（LDAP）扩展操作，用于反转（或“翻转”）会话中后续协议交换的客户端和服务器角色，或使每个对等方都可以充当另一方的客户端和服务器。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Background and Intent of Use ....................................2\n   1.1. Terminology ................................................2\n2. Turn Operation ..................................................2\n   2.1. Turn Request ...............................................3\n   2.2. Turn Response ..............................................3\n3. Authentication ..................................................3\n   3.1. Use with TLS and Simple Authentication .....................4\n   3.2. Use with TLS and SASL EXTERNAL .............................4\n   3.3. Use of Mutual Authentication and SASL EXTERNAL .............4\n4. TLS and SASL Security Layers ....................................5\n5. Security Considerations .........................................6\n6. IANA Considerations .............................................6\n   6.1. Object Identifier ..........................................6\n   6.2. LDAP Protocol Mechanism ....................................7\n7. References ......................................................7\n   7.1. Normative References .......................................7\n   7.2. Informative References .....................................8",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Background and Intent of Use",
+      "section_title": true,
+      "zh-CHS": "1. 使用背景和意图"
+    },
+    {
+      "indent": 3,
+      "text": "The Lightweight Directory Access Protocol (LDAP) [RFC4510][RFC4511] is a client-server protocol that typically operates over reliable octet-stream transports, such as the Transport Control Protocol (TCP). Generally, the client initiates the stream by connecting to the server's listener at some well-known address.",
+      "zh-CHS": "轻量级目录访问协议（LDAP）[RFC4510][RFC4511]是一种客户机-服务器协议，通常在可靠的八位字节流传输（如传输控制协议（TCP））上运行。通常，客户机通过在某个已知地址连接到服务器的侦听器来启动流。"
+    },
+    {
+      "indent": 3,
+      "text": "There are cases where it is desirable for the server to initiate the stream. Although it certainly is possible to write a technical specification detailing how to implement server-initiated LDAP sessions, this would require the design of new authentication and other security mechanisms to support server-initiated LDAP sessions.",
+      "zh-CHS": "在某些情况下，服务器需要启动流。尽管可以编写一份详细说明如何实现服务器启动的LDAP会话的技术规范，但这需要设计新的身份验证和其他安全机制来支持服务器启动的LDAP会话。"
+    },
+    {
+      "indent": 3,
+      "text": "Instead, this document introduces an operation, the Turn operation, which may be used to reverse the client-server roles of the protocol peers. This allows the initiating protocol peer to become the server (after the reversal).",
+      "zh-CHS": "相反，本文引入了一个操作，即Turn操作，该操作可用于反转协议对等方的客户机-服务器角色。这允许发起协议的对等方成为服务器（在反转之后）。"
+    },
+    {
+      "indent": 3,
+      "text": "As an additional feature, the Turn operation may be used to allow both peers to act in both roles. This is useful where both peers are directory servers that desire to request, as LDAP clients, that operations be performed by the other. This may be useful in replicated and/or distributed environments.",
+      "zh-CHS": "作为一项附加功能，转弯操作可用于允许两个对等方同时扮演两个角色。当两个对等方都是目录服务器，希望请求由另一方执行操作（如LDAP客户端）时，这非常有用。这在复制和/或分布式环境中可能很有用。"
+    },
+    {
+      "indent": 3,
+      "text": "This operation is intended to be used between protocol peers that have established a mutual agreement, by means outside of the protocol, that requires reversal of client-server roles, or allows both peers to act both as client and server.",
+      "zh-CHS": "此操作旨在用于通过协议之外的方式建立相互协议的协议对等方之间，该协议对等方需要反转客户端-服务器角色，或允许两个对等方同时充当客户端和服务器。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Terminology",
+      "section_title": true,
+      "zh-CHS": "1.1. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "Protocol elements are described using ASN.1 [X.680] with implicit tags. The term \"BER-encoded\" means the element is to be encoded using the Basic Encoding Rules [X.690] under the restrictions detailed in Section 5.1 of [RFC4511].",
+      "zh-CHS": "协议元素使用带有隐式标记的ASN.1[X.680]进行描述。术语“BER编码”是指根据[RFC4511]第5.1节详述的限制，使用基本编码规则[X.690]对元素进行编码。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Turn Operation",
+      "section_title": true,
+      "zh-CHS": "2. 转弯操作"
+    },
+    {
+      "indent": 3,
+      "text": "The Turn operation is defined as an LDAP-Extended Operation [Protocol, Section 4.12] identified by the 1.3.6.1.1.19 OID. The function of the Turn Operation is to request that the client-server roles be reversed, or, optionally, to request that both protocol peers be able to act both as client and server in respect to the other.",
+      "zh-CHS": "Turn操作定义为1.3.6.1.1.19 OID标识的LDAP扩展操作[协议，第4.12节]。Turn操作的功能是请求反转客户机-服务器角色，或者，可选地，请求两个协议对等方能够同时充当另一个的客户机和服务器。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Turn Request",
+      "section_title": true,
+      "zh-CHS": "2.1. 轮换请求"
+    },
+    {
+      "indent": 3,
+      "text": "The Turn request is an ExtendedRequest where the requestName field contains the 1.3.6.1.1.19 OID and the requestValue field is a BER-encoded turnValue:",
+      "zh-CHS": "转向请求是一个扩展请求，其中requestName字段包含1.3.6.1.1.19 OID，requestValue字段是BER编码的转向值："
+    },
+    {
+      "indent": 8,
+      "text": "turnValue ::= SEQUENCE {\n     mutual         BOOLEAN DEFAULT FALSE,\n     identifier     LDAPString\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A TRUE mutual field value indicates a request to allow both peers to act both as client and server. A FALSE mutual field value indicates a request to reserve the client and server roles.",
+      "zh-CHS": "TRUE mutual字段值表示允许两个对等方同时充当客户端和服务器的请求。错误的相互字段值表示保留客户端和服务器角色的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "The value of the identifier field is a locally defined policy identifier (typically associated with a mutual agreement for which this turn is be executed as part of).",
+      "zh-CHS": "标识符字段的值是本地定义的策略标识符（通常与作为其一部分执行此回合的共同协议相关联）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Turn Response",
+      "section_title": true,
+      "zh-CHS": "2.2. 转向反应"
+    },
+    {
+      "indent": 3,
+      "text": "A Turn response is an ExtendedResponse where the responseName and responseValue fields are absent. A resultCode of success is returned if and only if the responder is willing and able to turn the session as requested. Otherwise, a different resultCode is returned.",
+      "zh-CHS": "Turn响应是一种扩展响应，其中responseName和responseValue字段不存在。当且仅当响应者愿意并且能够根据请求打开会话时，才会返回resultCode of success。否则，将返回不同的resultCode。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Authentication",
+      "section_title": true,
+      "zh-CHS": "3. 认证"
+    },
+    {
+      "indent": 3,
+      "text": "This extension's authentication model assumes separate authentication of the peers in each of their roles. A separate Bind exchange is expected between the peers in their new roles to establish identities in these roles.",
+      "zh-CHS": "此扩展的身份验证模型假定对等方在各自的角色中进行单独的身份验证。新角色中的对等方之间需要进行单独的绑定交换，以在这些角色中建立身份。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon completion of the Turn, the responding peer in its new client role has an anonymous association at the initiating peer in its new server role. If the turn was mutual, the authentication association of the initiating peer in its pre-existing client role is left intact at the responding peer in its pre-existing server role. If the turn was not mutual, this association is void.",
+      "zh-CHS": "完成回合后，处于新客户端角色的响应对等方在其新服务器角色的发起对等方处具有匿名关联。如果该回合是相互的，则处于其预先存在的客户端角色的发起对等方的身份验证关联在处于其预先存在的服务器角色的响应对等方处保持不变。如果回合不是双方的，那么这种联系是无效的。"
+    },
+    {
+      "indent": 3,
+      "text": "The responding peer may establish its identity in its client role by requesting and successfully completing a Bind operation.",
+      "zh-CHS": "响应对等方可通过请求并成功完成绑定操作，在其客户端角色中建立其身份。"
+    },
+    {
+      "indent": 3,
+      "text": "The remainder of this section discusses some authentication scenarios. In the protocol exchange illustrations, A refers to the initiating peer (the original client) and B refers to the responding peer (the original server).",
+      "zh-CHS": "本节的其余部分将讨论一些身份验证场景。在协议交换图示中，A表示发起对等方（原始客户端），B表示响应对等方（原始服务器）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Use with TLS and Simple Authentication",
+      "section_title": true,
+      "zh-CHS": "3.1. 与TLS和简单身份验证一起使用"
+    },
+    {
+      "indent": 7,
+      "text": "A->B: StartTLS Request\nB->A: StartTLS(success) Response\nA->B: Bind(Simple(cn=B,dc=example,dc=net,B's secret)) Request\nB->A: Bind(success) Response\nA->B: Turn(TRUE,\"XXYYZ\") Request\nB->A: Turn(success) Response\nB->A: Bind(Simple(cn=A,dc=example,dc=net,A's secret)) Request\nA->B: Bind(success) Response",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In this scenario, TLS (Transport Layer Security) [RFC4346] is started and the initiating peer (the original client) establishes its identity with the responding peer prior to the Turn using the DN/password mechanism of the Simple method of the Bind operation. After the turn, the responding peer, in its new client role, establishes its identity with the initiating peer in its new server role.",
+      "zh-CHS": "在此场景中，TLS（传输层安全）[RFC4346]启动，发起对等方（原始客户端）使用绑定操作的简单方法的DN/密码机制在轮到之前与响应对等方建立其身份。在该回合之后，处于新客户端角色的响应对等方将与处于新服务器角色的发起对等方建立其身份。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Use with TLS and SASL EXTERNAL",
+      "section_title": true,
+      "zh-CHS": "3.2. 与TLS和SASL外部设备一起使用"
+    },
+    {
+      "indent": 7,
+      "text": "A->B: StartTLS Request\nB->A: StartTLS(success) Response\nA->B: Bind(SASL(EXTERNAL)) Request\nB->A: Bind(success) Response\nA->B: Turn(TRUE,\"XXYYZ\") Request\nB->A: Turn(success) Response\nB->A: Bind(SASL(EXTERNAL)) Request\nA->B: Bind(success) Response",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In this scenario, TLS is started (with each peer providing a valid certificate), and the initiating peer (the original client) establishes its identity through the use of the EXTERNAL mechanism of the SASL (Simple Authentication and Security Layer) [RFC4422] method of the Bind operation prior to the Turn. After the turn, the responding peer, in its new client role, establishes its identity with the initiating peer in its new server role.",
+      "zh-CHS": "在此场景中，启动TLS（每个对等方提供有效的证书），启动对等方（原始客户机）通过使用回合前绑定操作的SASL（简单身份验证和安全层）[RFC4422]方法的外部机制来建立其身份。在该回合之后，处于新客户端角色的响应对等方将与处于新服务器角色的发起对等方建立其身份。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Use of Mutual Authentication and SASL EXTERNAL",
+      "section_title": true,
+      "zh-CHS": "3.3. 使用相互身份验证和SASL外部"
+    },
+    {
+      "indent": 3,
+      "text": "A number of SASL mechanisms, such as GSSAPI [SASL-K5], support mutual authentication. The initiating peer, in its new server role, may use the identity of the responding peer, established by a prior authentication exchange, as its source for \"external\" identity in subsequent EXTERNAL exchange.",
+      "zh-CHS": "许多SASL机制，例如GSSAPI[SASL-K5]，支持相互认证。处于新服务器角色的发起对等方可以使用由先前身份验证交换建立的响应对等方的标识作为其在后续外部交换中的“外部”标识的源。"
+    },
+    {
+      "indent": 7,
+      "text": "A->B: Bind(SASL(GSSAPI)) Request\n<intermediate messages>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "B->A: Bind(success) Response\nA->B: Turn(TRUE,\"XXYYZ\") Request\nB->A: Turn(success) Response\nB->A: Bind(SASL(EXTERNAL)) Request\nA->B: Bind(success) Response",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In this scenario, a GSSAPI mutual-authentication exchange is completed between the initiating peer (the original client) and the responding server (the original server) prior to the turn. After the turn, the responding peer, in its new client role, requests that the initiating peer utilize an \"external\" identity to establish its LDAP authorization identity.",
+      "zh-CHS": "在这种情况下，GSSAPI相互身份验证交换在轮换之前在发起对等方（原始客户端）和响应服务器（原始服务器）之间完成。在轮次之后，响应的对等方以其新的客户端角色请求发起的对等方使用“外部”标识来建立其LDAP授权标识。"
+    },
+    {
+      "indent": 0,
+      "text": "4. TLS and SASL Security Layers",
+      "section_title": true,
+      "zh-CHS": "4. TLS和SASL安全层"
+    },
+    {
+      "indent": 3,
+      "text": "As described in [RFC4511], LDAP supports both Transport Layer Security (TLS) [RFC4346] and Simple Authentication and Security Layer (SASL) [RFC4422] security frameworks. The following table illustrates the relationship between the LDAP message layer, SASL layer, TLS layer, and transport connection within an LDAP session.",
+      "zh-CHS": "如[RFC4511]中所述，LDAP支持传输层安全（TLS）[RFC4346]和简单身份验证和安全层（SASL）[RFC4422]安全框架。下表说明了LDAP会话中LDAP消息层、SASL层、TLS层和传输连接之间的关系。"
+    },
+    {
+      "indent": 6,
+      "text": "            +----------------------+\n            |  LDAP message layer  |\n            +----------------------+ > LDAP PDUs\n            +----------------------+ < data\n            |      SASL layer      |\n            +----------------------+ > SASL-protected data\n            +----------------------+ < data\n            |       TLS layer      |\nApplication +----------------------+ > TLS-protected data\n------------+----------------------+ < data\n  Transport | transport connection |\n            +----------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This extension does not alter this relationship, nor does it remove the general restriction against multiple TLS layers, nor does it remove the general restriction against multiple SASL layers.",
+      "zh-CHS": "此扩展不会改变此关系，也不会删除针对多个TLS层的常规限制，也不会删除针对多个SASL层的常规限制。"
+    },
+    {
+      "indent": 3,
+      "text": "As specified in [RFC4511], the StartTLS operation is used to initiate negotiation of a TLS layer. If a TLS is already installed, the StartTLS operation must fail. Upon establishment of the TLS layer, regardless of which peer issued the request to start TLS, the peer that initiated the LDAP session (the original client) performs the \"server identity check\", as described in Section 3.1.5 of [RFC4513], treating itself as the \"client\" and its peer as the \"server\".",
+      "zh-CHS": "如[RFC4511]所述，StartTLS操作用于启动TLS层的协商。如果已安装TLS，则StartTLS操作必须失败。TLS层建立后，无论哪个对等方发出启动TLS的请求，启动LDAP会话的对等方（原始客户端）执行“服务器身份检查”，如[RFC4513]第3.1.5节所述，将其自身视为“客户端”，将其对等方视为“服务器”。"
+    },
+    {
+      "indent": 3,
+      "text": "As specified in [RFC4422], a newly negotiated SASL security layer replaces the installed SASL security layer. Though the client/server",
+      "zh-CHS": "如[RFC4422]中所述，新协商的SASL安全层将替换已安装的SASL安全层。通过客户端/服务器"
+    },
+    {
+      "indent": 3,
+      "text": "roles in LDAP, and hence SASL, may be reversed in subsequent exchanges, only one SASL security layer may be installed at any instance.",
+      "zh-CHS": "LDAP和SASL中的角色可以在后续交换中颠倒，在任何情况下都只能安装一个SASL安全层。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Implementors should be aware that the reversing of client/server roles and/or allowing both peers to act as client and server likely introduces security considerations not foreseen by the authors of this document. In particular, the security implications of the design choices made in the authentication and data security models for this extension (discussed in Sections 3 and 4, respectively) are not fully studied. It is hoped that experimentation with this extension will lead to better understanding of the security implications of these models and other aspects of this extension, and that appropriate considerations will be documented in a future document. The following security considerations are apparent at this time.",
+      "zh-CHS": "实施者应该意识到，客户机/服务器角色的逆转和/或允许两个对等方充当客户机和服务器可能会引入本文档作者无法预见的安全考虑。特别是，在该扩展的身份验证和数据安全模型（分别在第3节和第4节中讨论）中做出的设计选择的安全含义没有得到充分研究。希望对该扩展的实验将有助于更好地理解这些模型的安全影响以及该扩展的其他方面，并在未来的文档中记录适当的注意事项。此时，以下安全注意事项显而易见。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementors should take special care to process LDAP, SASL, TLS, and other events in the appropriate roles for the peers. Note that while the Turn reverses the client/server roles with LDAP, and in SASL authentication exchanges, it does not reverse the roles within the TLS layer or the transport connection.",
+      "zh-CHS": "实现者应该特别注意以适当的角色为对等方处理LDAP、SASL、TLS和其他事件。请注意，虽然Turn使用LDAP反转客户机/服务器角色，并且在SASL身份验证交换中，但它不会反转TLS层或传输连接中的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "The responding server (the original server) should restrict use of this operation to authorized clients. Client knowledge of a valid identifier should not be the sole factor in determining authorization to turn.",
+      "zh-CHS": "响应服务器（原始服务器）应将此操作的使用限制为授权客户端。客户对有效标识符的了解不应是决定转向授权的唯一因素。"
+    },
+    {
+      "indent": 3,
+      "text": "Where the peers except to establish TLS, TLS should be started prior to the Turn and any request to authenticate via the Bind operation.",
+      "zh-CHS": "如果对等方未建立TLS，则TLS应在轮次和任何通过绑定操作进行身份验证的请求之前启动。"
+    },
+    {
+      "indent": 3,
+      "text": "LDAP security considerations [RFC4511][RFC4513] generally apply to this extension.",
+      "zh-CHS": "LDAP安全注意事项[RFC4511][RFC4513]通常适用于此扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The following values [RFC4520] have been registered by the IANA.",
+      "zh-CHS": "IANA已注册了以下值[RFC4520]。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Object Identifier",
+      "section_title": true,
+      "zh-CHS": "6.1. 对象标识符"
+    },
+    {
+      "indent": 3,
+      "text": "The IANA has assigned an LDAP Object Identifier to identify the LDAP Turn Operation, as defined in this document.",
+      "zh-CHS": "IANA已分配一个LDAP对象标识符，以标识本文档中定义的LDAP Turn操作。"
+    },
+    {
+      "indent": 7,
+      "text": "Subject: Request for LDAP Object Identifier Registration\nPerson & email address to contact for further information:\n     Kurt Zeilenga <kurt@OpenLDAP.org>\nSpecification: RFC 4531\nAuthor/Change Controller: Author\nComments:\n     Identifies the LDAP Turn Operation",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6.2. LDAP Protocol Mechanism",
+      "section_title": true,
+      "zh-CHS": "6.2. LDAP协议机制"
+    },
+    {
+      "indent": 3,
+      "text": "The IANA has registered the LDAP Protocol Mechanism described in this document.",
+      "zh-CHS": "IANA已经注册了本文档中描述的LDAP协议机制。"
+    },
+    {
+      "indent": 7,
+      "text": "Subject: Request for LDAP Protocol Mechanism Registration\nObject Identifier: 1.3.6.1.1.19\nDescription: LDAP Turn Operation\nPerson & email address to contact for further information:\n     Kurt Zeilenga <kurt@openldap.org>\nUsage: Extended Operation\nSpecification: RFC 4531\nAuthor/Change Controller: Author\nComments: none",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4346] Dierks, T. and, E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.1\", RFC 4346, April 2006.",
+      "zh-CHS": "[RFC4346]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.1”，RFC 4346，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4422] Melnikov, A., Ed. and K. Zeilenga, Ed., \"Simple Authentication and Security Layer (SASL)\", RFC 4422, June 2006.",
+      "zh-CHS": "[RFC4422]Melnikov，A.，Ed.和K.Zeilenga，Ed.，“简单身份验证和安全层（SASL）”，RFC 4422，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4510] Zeilenga, K., Ed., \"Lightweight Directory Access Protocol (LDAP): Technical Specification Road Map\", RFC 4510, June 2006.",
+      "zh-CHS": "[RFC4510]Zeilenga，K.，Ed.“轻量级目录访问协议（LDAP）：技术规范路线图”，RFC45102006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4511] Sermersheim, J., Ed., \"Lightweight Directory Access Protocol (LDAP): The Protocol\", RFC 4511, June 2006.",
+      "zh-CHS": "[RFC4511]Sermersheim，J.，Ed.，“轻量级目录访问协议（LDAP）：协议”，RFC4511，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4513] Harrison, R., Ed., \"Lightweight Directory Access Protocol (LDAP): Authentication Methods and Security Mechanisms\", RFC 4513, June 2006.",
+      "zh-CHS": "[RFC4513]Harrison，R.，Ed.“轻量级目录访问协议（LDAP）：身份验证方法和安全机制”，RFC4513，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[X.680] International Telecommunication Union - Telecommunication Standardization Sector, \"Abstract Syntax Notation One (ASN.1) - Specification of Basic Notation\", X.680(2002) (also ISO/IEC 8824-1:2002).",
+      "zh-CHS": "[X.680]国际电信联盟-电信标准化部门，“抽象语法符号1（ASN.1）-基本符号规范”，X.680（2002）（也称ISO/IEC 8824-1:2002）。"
+    },
+    {
+      "indent": 3,
+      "text": "[X.690] International Telecommunication Union - Telecommunication Standardization Sector, \"Specification of ASN.1 encoding rules: Basic Encoding Rules (BER), Canonical Encoding Rules (CER), and Distinguished Encoding Rules (DER)\", X.690(2002) (also ISO/IEC 8825-1:2002).",
+      "zh-CHS": "[X.690]国际电信联盟-电信标准化部门，“ASN.1编码规则规范：基本编码规则（BER）、规范编码规则（CER）和区分编码规则（DER）”，X.690（2002）（另见ISO/IEC 8825-1:2002）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4520] Zeilenga, K., \"Internet Assigned Numbers Authority (IANA) Considerations for the Lightweight Directory Access Protocol (LDAP)\", BCP 64, RFC 4520, June 2006.",
+      "zh-CHS": "[RFC4520]Zeilenga，K.，“轻量级目录访问协议（LDAP）的互联网分配号码管理局（IANA）注意事项”，BCP 64，RFC 4520，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SASL-K5] Melnikov, A., Ed., \"The Kerberos V5 (\"GSSAPI\") SASL Mechanism\", Work in Progress, May 2006.",
+      "zh-CHS": "[SASL-K5]Melnikov，A.，编辑，“Kerberos V5（“GSSAPI”）SASL机制”，正在进行的工作，2006年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Kurt D. Zeilenga OpenLDAP Foundation",
+      "zh-CHS": "库尔特D.Zeeliga OpenLDAP基金会"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Kurt@OpenLDAP.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

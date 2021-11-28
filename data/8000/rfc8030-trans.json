@@ -1,0 +1,1706 @@
+{
+  "title": {
+    "text": "RFC 8030: Generic Event Delivery Using HTTP Push",
+    "zh-CHS": "RFC 8030"
+  },
+  "number": 8030,
+  "created_at": "2021-10-28 12:58:55.280504+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                        M. Thomson\nRequest for Comments: 8030                                       Mozilla\nCategory: Standards Track                                    E. Damaggio\nISSN: 2070-1721                                           B. Raymor, Ed.\n                                                               Microsoft\n                                                           December 2016",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Generic Event Delivery Using HTTP Push",
+      "zh-CHS": "使用HTTP推送的通用事件传递"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a simple protocol for the delivery of real-time events to user agents. This scheme uses HTTP/2 server push.",
+      "zh-CHS": "本文档描述了一个向用户代理传递实时事件的简单协议。此方案使用HTTP/2服务器推送。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc8030.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc8030."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2016 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2016 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3\n  1.1.  Conventions and Terminology . . . . . . . . . . . . . . .   4\n2.  Overview  . . . . . . . . . . . . . . . . . . . . . . . . . .   6\n  2.1.  HTTP Resources  . . . . . . . . . . . . . . . . . . . . .   7\n3.  Connecting to the Push Service  . . . . . . . . . . . . . . .   8\n4.  Subscribing for Push Messages . . . . . . . . . . . . . . . .   8\n  4.1.  Collecting Subscriptions into Sets  . . . . . . . . . . .   9\n5.  Requesting Push Message Delivery  . . . . . . . . . . . . . .  10\n  5.1.  Requesting Push Message Receipts  . . . . . . . . . . . .  10\n  5.2.  Push Message Time-To-Live . . . . . . . . . . . . . . . .  11\n  5.3.  Push Message Urgency  . . . . . . . . . . . . . . . . . .  13\n  5.4.  Replacing Push Messages . . . . . . . . . . . . . . . . .  14\n6.  Receiving Push Messages for a Subscription  . . . . . . . . .  15\n  6.1.  Receiving Push Messages for a Subscription Set  . . . . .  17\n  6.2.  Acknowledging Push Messages . . . . . . . . . . . . . . .  18\n  6.3.  Receiving Push Message Receipts . . . . . . . . . . . . .  19\n7.  Operational Considerations  . . . . . . . . . . . . . . . . .  20\n  7.1.  Load Management . . . . . . . . . . . . . . . . . . . . .  20\n  7.2.  Push Message Expiration . . . . . . . . . . . . . . . . .  20\n  7.3.  Subscription Expiration . . . . . . . . . . . . . . . . .  21\n    7.3.1.  Subscription Set Expiration . . . . . . . . . . . . .  21\n  7.4.  Implications for Application Reliability  . . . . . . . .  22\n  7.5.  Subscription Sets and Concurrent HTTP/2 Streams . . . . .  22\n8.  Security Considerations . . . . . . . . . . . . . . . . . . .  22\n  8.1.  Confidentiality from Push Service Access  . . . . . . . .  23\n  8.2.  Privacy Considerations  . . . . . . . . . . . . . . . . .  23\n  8.3.  Authorization . . . . . . . . . . . . . . . . . . . . . .  24\n  8.4.  Denial-of-Service Considerations  . . . . . . . . . . . .  25\n  8.5.  Logging Risks . . . . . . . . . . . . . . . . . . . . . .  25\n9.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  26\n  9.1.  Header Field Registrations  . . . . . . . . . . . . . . .  26\n  9.2.  Link Relation URNs  . . . . . . . . . . . . . . . . . . .  26\n  9.3.  Service Name and Port Number Registration . . . . . . . .  28\n10. References  . . . . . . . . . . . . . . . . . . . . . . . . .  28\n  10.1.  Normative References . . . . . . . . . . . . . . . . . .  28\n  10.2.  Informative References . . . . . . . . . . . . . . . . .  30\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  31\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  31",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Many applications on mobile and embedded devices require continuous access to network communications so that real-time events -- such as incoming calls or messages -- can be delivered (or \"pushed\") in a timely fashion. These devices typically have limited power reserves, so finding more efficient ways to serve application requirements greatly benefits the application ecosystem.",
+      "zh-CHS": "移动和嵌入式设备上的许多应用程序需要连续访问网络通信，以便实时事件（如来电或消息）能够及时传递（或“推送”）。这些设备通常具有有限的电源储备，因此找到更有效的方法来满足应用程序需求将大大有利于应用程序生态系统。"
+    },
+    {
+      "indent": 3,
+      "text": "One significant contributor to power usage is the radio. Radio communications consume a significant portion of the energy budget on a wireless device.",
+      "zh-CHS": "收音机是影响电力使用的一个重要因素。无线通信消耗了无线设备能量预算的很大一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "Uncoordinated use of persistent connections or sessions from multiple applications can contribute to unnecessary use of the device radio, since each independent session can incur its own overhead. In particular, keep-alive traffic used to ensure that middleboxes do not prematurely time out sessions can result in significant waste. Maintenance traffic tends to dominate over the long term, since events are relatively rare.",
+      "zh-CHS": "来自多个应用程序的持续连接或会话的不协调使用可能会导致设备无线电的不必要使用，因为每个独立会话都会产生自己的开销。特别是，用于确保中间盒不会过早超时会话的保持活动的流量可能会导致严重浪费。由于事件相对较少，维护交通往往在长期占据主导地位。"
+    },
+    {
+      "indent": 3,
+      "text": "Consolidating all real-time events into a single session ensures more efficient use of network and radio resources. A single service consolidates all events, distributing those events to applications as they arrive. This requires just one session, avoiding duplicated overhead costs.",
+      "zh-CHS": "将所有实时事件整合到单个会话中可确保更高效地使用网络和无线电资源。单个服务整合所有事件，在事件到达时将这些事件分发给应用程序。这只需要一个会话，避免重复的开销。"
+    },
+    {
+      "indent": 3,
+      "text": "The W3C Push API [API] describes an API that enables the use of a consolidated push service from web applications. This document expands on that work by describing a protocol that can be used to:",
+      "zh-CHS": "W3C推送API[API]描述了一种支持使用web应用程序的整合推送服务的API。本文件通过描述可用于以下目的的协议对该工作进行了扩展："
+    },
+    {
+      "indent": 3,
+      "text": "o request the delivery of a push message to a user agent,",
+      "zh-CHS": "o 请求向用户代理传递推送消息，"
+    },
+    {
+      "indent": 3,
+      "text": "o create new push message delivery subscriptions, and",
+      "zh-CHS": "o 创建新的推送邮件传递订阅，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o monitor for new push messages.",
+      "zh-CHS": "o 监视新的推送消息。"
+    },
+    {
+      "indent": 3,
+      "text": "A standardized method of event delivery is particularly important for the W3C Push API, where application servers might need to use multiple push services. The subscription, management, and monitoring functions are currently fulfilled by proprietary protocols; these are adequate, but do not offer any of the advantages that standardization affords.",
+      "zh-CHS": "标准化的事件传递方法对于W3C推送API尤其重要，因为应用服务器可能需要使用多个推送服务。订阅、管理和监控功能目前由专有协议实现；这些是足够的，但没有提供标准化所提供的任何优势。"
+    },
+    {
+      "indent": 3,
+      "text": "This document intentionally does not describe how a push service is discovered. Discovery of push services is left for future efforts, if it turns out to be necessary at all. User agents are expected to be configured with a URL for a push service.",
+      "zh-CHS": "本文档无意描述如何发现推送服务。如果发现推送服务是必要的，则留给未来的工作。用户代理需要配置推送服务的URL。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Conventions and Terminology",
+      "section_title": true,
+      "zh-CHS": "1.1. 公约和术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the following terms:",
+      "zh-CHS": "本文件定义了以下术语："
+    },
+    {
+      "indent": 3,
+      "text": "application: Both the sender and the ultimate consumer of push messages. Many applications have components that are run on a user agent and other components that run on servers.",
+      "zh-CHS": "应用：推送消息的发送者和最终消费者。许多应用程序都有在用户代理上运行的组件和在服务器上运行的其他组件。"
+    },
+    {
+      "indent": 3,
+      "text": "application server: The component of an application that usually runs on a server and requests the delivery of a push message.",
+      "zh-CHS": "应用服务器：应用程序的组件，通常在服务器上运行并请求推送消息的传递。"
+    },
+    {
+      "indent": 3,
+      "text": "push message subscription: A message delivery context that is established between the user agent and the push service, and shared with the application server. All push messages are associated with a push message subscription.",
+      "zh-CHS": "推送消息订阅：在用户代理和推送服务之间建立并与应用程序服务器共享的消息传递上下文。所有推送消息都与推送消息订阅关联。"
+    },
+    {
+      "indent": 3,
+      "text": "push message subscription set: A message delivery context that is established between the user agent and the push service that collects multiple push message subscriptions into a set.",
+      "zh-CHS": "推送消息订阅集：在用户代理和将多个推送消息订阅收集到一个集中的推送服务之间建立的消息传递上下文。"
+    },
+    {
+      "indent": 3,
+      "text": "push message: A message sent from an application server to a user agent via a push service.",
+      "zh-CHS": "推送消息：通过推送服务从应用服务器发送到用户代理的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "push message receipt: A message delivery confirmation sent from the push service to the application server.",
+      "zh-CHS": "推送消息接收：从推送服务发送到应用服务器的消息传递确认。"
+    },
+    {
+      "indent": 3,
+      "text": "push service: A service that delivers push messages to user agents.",
+      "zh-CHS": "推送服务：向用户代理发送推送消息的服务。"
+    },
+    {
+      "indent": 3,
+      "text": "user agent: A device and software that is the recipient of push messages.",
+      "zh-CHS": "用户代理：接收推送消息的设备和软件。"
+    },
+    {
+      "indent": 3,
+      "text": "Examples in this document use the HTTP/1.1 message format [RFC7230]. Many of the exchanges can be completed using HTTP/1.1:",
+      "zh-CHS": "本文档中的示例使用HTTP/1.1消息格式[RFC7230]。许多交换可以使用HTTP/1.1完成："
+    },
+    {
+      "indent": 3,
+      "text": "o Subscribing for Push Messages (Section 4)",
+      "zh-CHS": "o 订阅推送消息（第4节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Requesting Push Message Delivery (Section 5)",
+      "zh-CHS": "o 请求推送消息传递（第5节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Replacing Push Messages (Section 5.4)",
+      "zh-CHS": "o 更换推送消息（第5.4节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Acknowledging Push Messages (Section 6.2)",
+      "zh-CHS": "o 确认推送消息（第6.2节）"
+    },
+    {
+      "indent": 3,
+      "text": "When an example depends on HTTP/2 server push, the more verbose frame format from [RFC7540] is used:",
+      "zh-CHS": "如果示例依赖于HTTP/2服务器推送，则使用[RFC7540]中更详细的帧格式："
+    },
+    {
+      "indent": 3,
+      "text": "o Receiving Push Messages for a Subscription (Section 6)",
+      "zh-CHS": "o 接收订阅的推送消息（第6节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Receiving Push Messages for a Subscription Set (Section 6.1)",
+      "zh-CHS": "o 接收订阅集的推送消息（第6.1节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Receiving Push Message Receipts (Section 6.3)",
+      "zh-CHS": "o 接收推送消息接收（第6.3节）"
+    },
+    {
+      "indent": 3,
+      "text": "All examples use HTTPS over the default port (443) rather than the registered port (1001). A push service deployment might prefer this configuration to maximize chances for user agents to reach the service. A push service might use HTTP alternative services to redirect a user agent to the registered port (1001) to gain the benefits of the standardized HTTPS port without sacrificing reachability (see Section 3). This would only be apparent in the examples through the inclusion of the Alt-Used header field [RFC7838] in requests from the user agent to the push service.",
+      "zh-CHS": "所有示例都在默认端口（443）而不是注册端口（1001）上使用HTTPS。推送服务部署可能更喜欢这种配置，以最大限度地提高用户代理访问服务的机会。推送服务可以使用HTTP替代服务将用户代理重定向到注册端口（1001），以在不牺牲可访问性的情况下获得标准化HTTPS端口的好处（参见第3节）。这只有通过在从用户代理到推送服务的请求中包含Alt Used头字段[RFC7838]的示例中才会明显。"
+    },
+    {
+      "indent": 3,
+      "text": "Examples do not include specific methods for push message encryption or application server authentication because the protocol does not define a mandatory system. The examples in Voluntary Application Server Identification [VAPID] and Message Encryption for WebPush [ENCRYPT] demonstrate the approach adopted by the W3C Push API [API] for its requirements.",
+      "zh-CHS": "示例不包括推送消息加密或应用程序服务器身份验证的特定方法，因为协议未定义强制系统。自愿应用服务器标识[VAPID]和WebPush消息加密[ENCRYPT]中的示例演示了W3C Push API[API]为满足其需求而采用的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Overview",
+      "section_title": true,
+      "zh-CHS": "2. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "A general model for push services includes three basic actors: a user agent, a push service, and an application (server).",
+      "zh-CHS": "推送服务的通用模型包括三个基本参与者：用户代理、推送服务和应用程序（服务器）。"
+    },
+    {
+      "indent": 4,
+      "text": "+-------+           +--------------+       +-------------+\n|  UA   |           | Push Service |       | Application |\n+-------+           +--------------+       |   Server    |\n    |                      |               +-------------+\n    |      Subscribe       |                      |\n    |--------------------->|                      |\n    |       Monitor        |                      |\n    |<====================>|                      |\n    |                      |                      |\n    |          Distribute Push Resource           |\n    |-------------------------------------------->|\n    |                      |                      |\n    :                      :                      :\n    |                      |     Push Message     |\n    |    Push Message      |<---------------------|\n    |<---------------------|                      |\n    |                      |                      |",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 22,
+      "text": "Figure 1: WebPush Architecture",
+      "zh-CHS": "图1:WebPush体系结构"
+    },
+    {
+      "indent": 3,
+      "text": "At the very beginning of the process, a new message subscription is created by the user agent and then distributed to its application server. This subscription is the basis of all future interactions between the actors. A subscription is used by the application server to send messages to the push service for delivery to the user agent. The user agent uses the subscription to monitor the push service for any incoming message.",
+      "zh-CHS": "在流程的一开始，用户代理创建一个新的消息订阅，然后将其分发到应用程序服务器。此订阅是参与者之间所有未来交互的基础。应用程序服务器使用订阅将消息发送到推送服务，以便传递到用户代理。用户代理使用订阅监视推送服务中的任何传入消息。"
+    },
+    {
+      "indent": 3,
+      "text": "To offer more control for authorization, a message subscription is modeled as two resources with different capabilities:",
+      "zh-CHS": "为了提供更多的授权控制，消息订阅被建模为具有不同功能的两个资源："
+    },
+    {
+      "indent": 3,
+      "text": "o A subscription resource is used to receive messages from a subscription and to delete a subscription. It is private to the user agent.",
+      "zh-CHS": "o 订阅资源用于接收来自订阅的消息和删除订阅。它对用户代理是私有的。"
+    },
+    {
+      "indent": 3,
+      "text": "o A push resource is used to send messages to a subscription. It is public and shared by the user agent with its application server.",
+      "zh-CHS": "o 推送资源用于向订阅发送消息。它是公共的，由用户代理与其应用服务器共享。"
+    },
+    {
+      "indent": 3,
+      "text": "It is expected that a unique subscription will be distributed to each application; however, there are no inherent cardinality constraints in the protocol. Multiple subscriptions might be created for the",
+      "zh-CHS": "预计将向每个应用程序分发唯一的订阅；然而，协议中没有固有的基数约束。可能会为服务器创建多个订阅"
+    },
+    {
+      "indent": 3,
+      "text": "same application, or multiple applications could use the same subscription. Note, however, that sharing subscriptions has security and privacy implications.",
+      "zh-CHS": "同一应用程序或多个应用程序可以使用同一订阅。但是，请注意，共享订阅具有安全性和隐私影响。"
+    },
+    {
+      "indent": 3,
+      "text": "Subscriptions have a limited lifetime. They can also be terminated by either the push service or the user agent at any time. User agents and application servers must be prepared to manage changes in the subscription state.",
+      "zh-CHS": "订阅的生存期有限。推送服务或用户代理也可以随时终止它们。用户代理和应用程序服务器必须准备好管理订阅状态的更改。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. HTTP Resources",
+      "section_title": true,
+      "zh-CHS": "2.1. HTTP资源"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol uses HTTP resources [RFC7230] and link relations [RFC5988]. The following resources are defined:",
+      "zh-CHS": "此协议使用HTTP资源[RFC7230]和链接关系[RFC5988]。定义了以下资源："
+    },
+    {
+      "indent": 3,
+      "text": "push service: This resource is used to create push message subscriptions (Section 4). A URL for the push service is configured into user agents.",
+      "zh-CHS": "推送服务：此资源用于创建推送消息订阅（第4节）。推送服务的URL配置到用户代理中。"
+    },
+    {
+      "indent": 3,
+      "text": "push message subscription: This resource provides read and delete access for a message subscription. A user agent receives push messages (Section 6) using a push message subscription. Every push message subscription has exactly one push resource associated with it.",
+      "zh-CHS": "推送消息订阅：此资源为消息订阅提供读取和删除访问权限。用户代理使用推送消息订阅接收推送消息（第6节）。每个推送消息订阅只有一个与之关联的推送资源。"
+    },
+    {
+      "indent": 3,
+      "text": "push message subscription set: This resource provides read and delete access for a collection of push message subscriptions. A user agent receives push messages (Section 6.1) for all the push message subscriptions in the set. A link relation of type \"urn:ietf:params:push:set\" identifies a push message subscription set.",
+      "zh-CHS": "推送消息订阅集：此资源提供对推送消息订阅集合的读取和删除访问。用户代理接收集合中所有推送消息订阅的推送消息（第6.1节）。“urn:ietf:params:push:set”类型的链接关系标识推送消息订阅集。"
+    },
+    {
+      "indent": 3,
+      "text": "push: An application server requests the delivery (Section 5) of a push message using a push resource. A link relation of type \"urn:ietf:params:push\" identifies a push resource.",
+      "zh-CHS": "推送：应用服务器使用推送资源请求推送消息的传递（第5节）。“urn:ietf:params:push”类型的链接关系标识推送资源。"
+    },
+    {
+      "indent": 3,
+      "text": "push message: The push service creates a push message resource to identify push messages that have been accepted for delivery (Section 5). The push message resource is also deleted by the user agent to acknowledge receipt (Section 6.2) of a push message.",
+      "zh-CHS": "推送消息：推送服务创建一个推送消息资源，以标识已接受传递的推送消息（第5节）。用户代理也会删除推送消息资源，以确认收到推送消息（第6.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "receipt subscription: An application server receives delivery confirmations (Section 5.1) for push messages using a receipt subscription. A link relation of type \"urn:ietf:params:push:receipt\" identifies a receipt subscription.",
+      "zh-CHS": "回执订阅：应用服务器使用回执订阅接收推送消息的传递确认（第5.1节）。“urn:ietf:params:push:receive”类型的链接关系标识接收订阅。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Connecting to the Push Service",
+      "section_title": true,
+      "zh-CHS": "3. 连接到推送服务"
+    },
+    {
+      "indent": 3,
+      "text": "The push service MUST use HTTP over Transport Layer Security (TLS) [RFC2818] following the recommendations in [RFC7525]. The push service shares the same default port number (443/TCP) with HTTPS, but MAY also advertise the IANA-allocated TCP System Port (1001) using HTTP alternative services [RFC7838].",
+      "zh-CHS": "推送服务必须按照[RFC7525]中的建议使用HTTP over Transport Layer Security（TLS）[RFC2818]。推送服务与HTTPS共享相同的默认端口号（443/TCP），但也可以使用HTTP替代服务[RFC7838]公布IANA分配的TCP系统端口（1001）。"
+    },
+    {
+      "indent": 3,
+      "text": "While the default port (443) offers broad reachability characteristics, it is most often used for web-browsing scenarios with a lower idle timeout than other ports configured in middleboxes. For WebPush scenarios, this would contribute to unnecessary radio communications to maintain the connection on battery-powered devices.",
+      "zh-CHS": "虽然默认端口（443）提供了广泛的可访问性特征，但它最常用于web浏览场景，其空闲超时低于在中间盒中配置的其他端口。对于WebPush场景，这将导致不必要的无线电通信，以维持电池供电设备上的连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Advertising the alternate port (1001) allows middleboxes to optimize idle timeouts for connections specific to push scenarios with the expectation that data exchange will be infrequent.",
+      "zh-CHS": "公布备用端口（1001）允许中间盒优化特定于推送场景的连接的空闲超时，预期数据交换将不频繁。"
+    },
+    {
+      "indent": 3,
+      "text": "Middleboxes SHOULD comply with REQ-5 in [RFC5382], which states that \"the value of the 'established connection idle-timeout' MUST NOT be less than 2 hours 4 minutes\".",
+      "zh-CHS": "中间盒应符合[RFC5382]中的REQ-5，其中规定“已建立连接空闲超时”的值不得小于2小时4分钟”。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Subscribing for Push Messages",
+      "section_title": true,
+      "zh-CHS": "4. 订阅推送消息"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent sends a POST request to its configured push service resource to create a new subscription.",
+      "zh-CHS": "用户代理向其配置的推送服务资源发送POST请求以创建新订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "POST /subscribe HTTP/1.1 Host: push.example.net",
+      "zh-CHS": "发布/订阅HTTP/1.1主机：push.example.net"
+    },
+    {
+      "indent": 3,
+      "text": "A 201 (Created) response indicates that the push subscription was created. A URI for the push message subscription resource that was created in response to the request MUST be returned in the Location header field.",
+      "zh-CHS": "201（已创建）响应表示已创建推送订阅。必须在Location header字段中返回为响应请求而创建的推送消息订阅资源的URI。"
+    },
+    {
+      "indent": 3,
+      "text": "The push service MUST provide a URI for the push resource corresponding to the push message subscription in a link relation of type \"urn:ietf:params:push\".",
+      "zh-CHS": "推送服务必须为推送资源提供URI，该资源对应于“urn:ietf:params:push”类型链接关系中的推送消息订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "An application-specific method is used to distribute the push URI to the application server. Confidentiality protection and application server authentication MUST be used to ensure that this URI is not disclosed to unauthorized recipients (Section 8.3).",
+      "zh-CHS": "使用特定于应用程序的方法将推送URI分发到应用程序服务器。必须使用保密保护和应用程序服务器身份验证，以确保此URI不会泄露给未经授权的收件人（第8.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP/1.1 201 Created\nDate: Thu, 11 Dec 2014 23:56:52 GMT\nLink: </push/JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV>;\n        rel=\"urn:ietf:params:push\"\nLink: </subscription-set/4UXwi2Rd7jGS7gp5cuutF8ZldnEuvbOy>;\n        rel=\"urn:ietf:params:push:set\"\nLocation: https://push.example.net/subscription/LBhhw0OohO-Wl4Oi971UG",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Collecting Subscriptions into Sets",
+      "section_title": true,
+      "zh-CHS": "4.1. 将订阅收集到集合中"
+    },
+    {
+      "indent": 3,
+      "text": "Collecting multiple push message subscriptions into a subscription set can represent a significant efficiency improvement for push services and user agents. The push service MAY provide a URI for a subscription set resource in a link relation of type \"urn:ietf:params:push:set\".",
+      "zh-CHS": "将多个推送消息订阅收集到订阅集中可以显著提高推送服务和用户代理的效率。推送服务可以在“urn:ietf:params:push:set”类型的链接关系中为订阅集资源提供URI。"
+    },
+    {
+      "indent": 3,
+      "text": "When a subscription set is returned in a push message subscription response, the user agent SHOULD include this subscription set in a link relation of type \"urn:ietf:params:push:set\" in subsequent requests to create new push message subscriptions.",
+      "zh-CHS": "在推送消息订阅响应中返回订阅集时，用户代理应在创建新推送消息订阅的后续请求中，将此订阅集包含在“urn:ietf:params:push:set”类型的链接关系中。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent MAY omit the subscription set if it is unable to receive push messages in an aggregated way for the lifetime of the subscription. This might be necessary if the user agent is monitoring subscriptions on behalf of other push message receivers.",
+      "zh-CHS": "如果用户代理无法在订阅的生存期内以聚合方式接收推送消息，则可以忽略订阅集。如果用户代理代表其他推送消息接收器监视订阅，则这可能是必需的。"
+    },
+    {
+      "indent": 3,
+      "text": "POST /subscribe HTTP/1.1\nHost: push.example.net\nLink: </subscription-set/4UXwi2Rd7jGS7gp5cuutF8ZldnEuvbOy>;\n        rel=\"urn:ietf:params:push:set\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The push service SHOULD return the same subscription set in its response, although it MAY return a new subscription set if it is unable to reuse the one provided by the user agent.",
+      "zh-CHS": "推送服务应在其响应中返回相同的订阅集，但如果无法重用用户代理提供的订阅集，推送服务可能会返回新的订阅集。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP/1.1 201 Created\nDate: Thu, 11 Dec 2014 23:56:52 GMT\nLink: </push/YBJNBIMwwA_Ag8EtD47J4A>;\n        rel=\"urn:ietf:params:push\"\nLink: </subscription-set/4UXwi2Rd7jGS7gp5cuutF8ZldnEuvbOy>;\n        rel=\"urn:ietf:params:push:set\"\nLocation: https://push.example.net/subscription/i-nQ3A9Zm4kgSWg8_ZijV",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A push service MUST return a 400 (Bad Request) status code for requests that contain an invalid subscription set. A push service MAY return a 429 (Too Many Requests) status code [RFC6585] to reject requests that omit a subscription set.",
+      "zh-CHS": "对于包含无效订阅集的请求，推送服务必须返回400（错误请求）状态代码。推送服务可能返回429（太多请求）状态代码[RFC6585]，以拒绝忽略订阅集的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "How a push service detects that requests originate from the same user agent is implementation-specific but could take ambient information into consideration, such as the TLS connection, source IP address, and port. Implementers are reminded that some heuristics can produce false positives and hence, cause requests to be rejected incorrectly.",
+      "zh-CHS": "推送服务如何检测来自同一用户代理的请求是特定于实现的，但可以考虑环境信息，例如TLS连接、源IP地址和端口。提醒实现者，某些试探法可能会产生误报，从而导致请求被错误地拒绝。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Requesting Push Message Delivery",
+      "section_title": true,
+      "zh-CHS": "5. 请求推送消息传递"
+    },
+    {
+      "indent": 3,
+      "text": "An application server requests the delivery of a push message by sending an HTTP POST request to a push resource distributed to the application server by a user agent. The content of the push message is included in the body of the request.",
+      "zh-CHS": "应用服务器通过向用户代理分发给应用服务器的推送资源发送HTTP POST请求来请求推送消息的传递。推送消息的内容包含在请求主体中。"
+    },
+    {
+      "indent": 3,
+      "text": "POST /push/JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV HTTP/1.1\nHost: push.example.net\nTTL: 15\nContent-Type: text/plain;charset=utf8\nContent-Length: 36",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB",
+      "zh-CHS": "iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB"
+    },
+    {
+      "indent": 3,
+      "text": "A 201 (Created) response indicates that the push message was accepted. A URI for the push message resource that was created in response to the request MUST be returned in the Location header field. This does not indicate that the message was delivered to the user agent.",
+      "zh-CHS": "201（已创建）响应表示已接受推送消息。必须在Location标头字段中返回为响应请求而创建的推送消息资源的URI。这并不表示消息已传递给用户代理。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP/1.1 201 Created\nDate: Thu, 11 Dec 2014 23:56:55 GMT\nLocation: https://push.example.net/message/qDIYHNcfAIPP_5ITvURr-d6BGt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Requesting Push Message Receipts",
+      "section_title": true,
+      "zh-CHS": "5.1. 请求推送消息接收"
+    },
+    {
+      "indent": 3,
+      "text": "An application server can include the Prefer header field [RFC7240] with the \"respond-async\" preference to request confirmation from the push service when a push message is delivered and then acknowledged by the user agent. The push service MUST support delivery confirmations.",
+      "zh-CHS": "应用程序服务器可以包括带有“respond async”首选项的首选标头字段[RFC7240]，以便在推送消息被传递并随后由用户代理确认时请求推送服务确认。推送服务必须支持传递确认。"
+    },
+    {
+      "indent": 3,
+      "text": "POST /push/JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV HTTP/1.1\nHost: push.example.net\nPrefer: respond-async\nTTL: 15\nContent-Type: text/plain;charset=utf8\nContent-Length: 36",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB",
+      "zh-CHS": "iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB"
+    },
+    {
+      "indent": 3,
+      "text": "When the push service accepts the message for delivery with confirmation, it MUST return a 202 (Accepted) response. A URI for the push message resource that was created in response to the request MUST be returned in the Location header field. The push service MUST also provide a URI for the receipt subscription resource in a link relation of type \"urn:ietf:params:push:receipt\".",
+      "zh-CHS": "当推送服务接受消息并进行确认时，它必须返回202（已接受）响应。必须在Location标头字段中返回为响应请求而创建的推送消息资源的URI。推送服务还必须为“urn:ietf:params:push:receipt”类型的链接关系中的回执订阅资源提供URI。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP/1.1 202 Accepted\nDate: Thu, 11 Dec 2014 23:56:55 GMT\nLink: </receipt-subscription/3ZtI4YVNBnUUZhuoChl6omUvG4ZM>;\n        rel=\"urn:ietf:params:push:receipt\"\nLocation: https://push.example.net/message/qDIYHNcfAIPP_5ITvURr-d6BGt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "For subsequent receipt requests to the same origin [RFC6454], the application server SHOULD include the returned receipt subscription in a link relation of type \"urn:ietf:params:push:receipt\". This gives the push service the option to aggregate the receipts. The push service SHOULD return the same receipt subscription in its response, although it MAY return a new receipt subscription if it is unable to reuse the one provided by the application server.",
+      "zh-CHS": "对于对同一来源[RFC6454]的后续接收请求，应用服务器应在“urn:ietf:params:push:receive”类型的链接关系中包含返回的接收订阅。这为推送服务提供了聚合收据的选项。推送服务应在其响应中返回相同的回执订阅，尽管如果无法重用应用程序服务器提供的回执订阅，推送服务可能会返回新的回执订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "An application server MAY omit the receipt subscription if it is unable to receive receipts in an aggregated way for the lifetime of the receipt subscription. This might be necessary if the application server is monitoring receipt subscriptions on behalf of the other push message senders.",
+      "zh-CHS": "如果应用程序服务器无法在收据订阅的生存期内以聚合方式接收收据，则可以省略收据订阅。如果应用程序服务器代表其他推送消息发送者监视接收订阅，则这可能是必需的。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service MUST return a 400 (Bad Request) status code for requests that contain an invalid receipt subscription. If a push service wishes to limit the number of receipt subscriptions that it maintains, it MAY return a 429 (Too Many Requests) status code [RFC6585] to reject receipt requests that omit a receipt subscription.",
+      "zh-CHS": "对于包含无效回执订阅的请求，推送服务必须返回400（错误请求）状态代码。如果推送服务希望限制其维护的回执订阅的数量，它可能会返回429（太多请求）状态代码[RFC6585]，以拒绝忽略回执订阅的回执请求。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Push Message Time-To-Live",
+      "section_title": true,
+      "zh-CHS": "5.2. 推送消息的生存时间"
+    },
+    {
+      "indent": 3,
+      "text": "A push service can improve the reliability of push message delivery considerably by storing push messages for a period. User agents are often only intermittently connected, and so benefit from having short-term message storage at the push service.",
+      "zh-CHS": "推送服务通过将推送消息存储一段时间，可以显著提高推送消息传递的可靠性。用户代理通常只是间歇性连接，因此在推送服务中使用短期消息存储会带来好处。"
+    },
+    {
+      "indent": 3,
+      "text": "Delaying delivery might also be used to batch communication with the user agent, thereby conserving radio resources.",
+      "zh-CHS": "延迟交付还可用于与用户代理进行批处理通信，从而节省无线电资源。"
+    },
+    {
+      "indent": 3,
+      "text": "Some push messages are not useful once a certain period of time elapses. Delivery of messages after they have ceased to be relevant is wasteful. For example, if the push message contains a call notification, receiving a message after the caller has abandoned the",
+      "zh-CHS": "某些推送消息在经过一段时间后不再有用。在信息不再相关之后再传递信息是浪费。例如，如果推送消息包含呼叫通知，则在呼叫者放弃呼叫后接收消息"
+    },
+    {
+      "indent": 3,
+      "text": "call is of no value; the application at the user agent is forced to suppress the message so that it does not generate a useless alert.",
+      "zh-CHS": "电话是没有价值的；用户代理处的应用程序将被迫抑制该消息，以便它不会生成无用的警报。"
+    },
+    {
+      "indent": 3,
+      "text": "An application server MUST include the TTL (Time-To-Live) header field in its request for push message delivery. The TTL header field contains a value in seconds that suggests how long a push message is retained by the push service.",
+      "zh-CHS": "应用程序服务器必须在其推送消息传递请求中包含TTL（生存时间）头字段。TTL header字段包含一个以秒为单位的值，该值表示推送服务保留推送消息的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "The TTL rule specifies a non-negative integer, representing time in seconds. A recipient parsing and converting a TTL value to binary form SHOULD use an arithmetic type of at least 31 bits of non-negative integer range. If a recipient receives a TTL value greater than the greatest integer it can represent, or if any of its subsequent calculations overflows, it MUST consider the value to be 2147483648 (2^31).",
+      "zh-CHS": "TTL规则指定一个非负整数，以秒为单位表示时间。收件人解析TTL值并将其转换为二进制形式时，应使用至少31位非负整数范围的算术类型。如果接收方接收到TTL值大于其所能表示的最大整数，或者如果其后续计算中的任何一个溢出，则必须将其值设为2147483648（2 ^ 31）。"
+    },
+    {
+      "indent": 3,
+      "text": "TTL = 1*DIGIT",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A push service MUST return a 400 (Bad Request) status code in response to requests that omit the TTL header field.",
+      "zh-CHS": "推送服务必须返回400（错误请求）状态代码，以响应忽略TTL头字段的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service MAY retain a push message for a shorter duration than requested. It indicates this by returning a TTL header field in its response with the actual TTL. This TTL value MUST be less than or equal to the value provided by the application server.",
+      "zh-CHS": "推送服务可以将推送消息保留的时间短于请求的时间。它通过在其响应中返回带有实际TTL的TTL头字段来表示这一点。此TTL值必须小于或等于应用程序服务器提供的值。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the TTL period elapses, the push service MUST NOT attempt to deliver the push message to the user agent. A push service might adjust the TTL value to account for time accounting errors in processing. For instance, distributing a push message within a server cluster might accrue errors due to clock skew or propagation delays.",
+      "zh-CHS": "一旦TTL周期过去，推送服务不得尝试将推送消息传递给用户代理。推送服务可能会调整TTL值以考虑处理过程中的时间记帐错误。例如，在服务器集群内分发推送消息可能会由于时钟偏移或传播延迟而产生错误。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service is not obligated to account for time spent by the application server in sending a push message to the push service, or delays incurred while sending a push message to the user agent. An application server needs to account for transit delays in selecting a TTL header field value.",
+      "zh-CHS": "推送服务没有义务说明应用程序服务器向推送服务发送推送消息所花费的时间，或向用户代理发送推送消息时产生的延迟。应用服务器在选择TTL头字段值时需要考虑传输延迟。"
+    },
+    {
+      "indent": 3,
+      "text": "A Push message with a zero TTL is immediately delivered if the user agent is available to receive the message. After delivery, the push service is permitted to immediately remove a push message with a zero TTL. This might occur before the user agent acknowledges receipt of the message by performing an HTTP DELETE on the push message resource. Consequently, an application server cannot rely on receiving acknowledgement receipts for zero TTL push messages.",
+      "zh-CHS": "如果用户代理可以接收消息，则会立即传递TTL为零的推送消息。交付后，允许推送服务立即删除TTL为零的推送消息。这可能发生在用户代理通过对推送消息资源执行HTTP删除来确认收到消息之前。因此，应用服务器不能依赖于接收零TTL推送消息的确认收据。"
+    },
+    {
+      "indent": 3,
+      "text": "If the user agent is unavailable, a push message with a zero TTL expires and is never delivered.",
+      "zh-CHS": "如果用户代理不可用，则TTL为零的推送消息将过期且永远不会传递。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Push Message Urgency",
+      "section_title": true,
+      "zh-CHS": "5.3. 推送消息紧急性"
+    },
+    {
+      "indent": 3,
+      "text": "For a device that is battery-powered, it is often critical that it remains dormant for extended periods. Radio communication in particular consumes significant power and limits the length of time that the device can operate.",
+      "zh-CHS": "对于由电池供电的设备，长时间处于休眠状态通常是至关重要的。无线电通信尤其会消耗大量功率，并限制设备的工作时间。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid consuming resources to receive trivial messages, it is helpful if an application server can communicate the urgency of a message and if the user agent can request that the push server only forwards messages of a specific urgency.",
+      "zh-CHS": "为了避免花费资源来接收琐碎的消息，如果应用程序服务器可以传达消息的紧急性，并且如果用户代理可以请求推送服务器仅转发特定紧急性的消息，这将非常有用。"
+    },
+    {
+      "indent": 3,
+      "text": "An application server MAY include an Urgency header field in its request for push message delivery. This header field indicates the message urgency. The push service MUST NOT forward the Urgency header field to the user agent. A push message without the Urgency header field defaults to a value of \"normal\".",
+      "zh-CHS": "应用服务器可以在其推送消息传递请求中包含紧急消息头字段。此标题字段表示消息的紧急程度。推送服务不得将紧急报头字段转发给用户代理。没有紧急报头字段的推送消息默认值为“正常”。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent MAY include the Urgency header field when monitoring for push messages to indicate the lowest urgency of push messages that it is willing to receive. A push service MUST NOT deliver push messages with lower urgency than the value indicated by the user agent in its monitoring request. Push messages of any urgency are delivered to a user agent that does not include an Urgency header field when monitoring for messages.",
+      "zh-CHS": "用户代理在监视推送消息时可以包括紧急报头字段，以指示其愿意接收的推送消息的最低紧急度。推送服务传递的推送消息的紧急程度不得低于用户代理在其监视请求中指示的值。监视消息时，任何紧急推送消息都会传递到不包含紧急消息头字段的用户代理。"
+    },
+    {
+      "indent": 3,
+      "text": "The grammar for the Urgency header field is as follows:",
+      "zh-CHS": "紧急标题字段的语法如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "Urgency = urgency-option\nurgency-option = (\"very-low\" / \"low\" / \"normal\" / \"high\")",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In order of increasing urgency:",
+      "zh-CHS": "按照日益紧迫的顺序："
+    },
+    {
+      "indent": 3,
+      "text": "+----------+-----------------------------+--------------------------+\n| Urgency  | Device State                | Example Application      |\n|          |                             | Scenario                 |\n+----------+-----------------------------+--------------------------+\n| very-low | On power and Wi-Fi          | Advertisements           |\n| low      | On either power or Wi-Fi    | Topic updates            |\n| normal   | On neither power nor Wi-Fi  | Chat or Calendar Message |\n| high     | Low battery                 | Incoming phone call or   |\n|          |                             | time-sensitive alert     |\n+----------+-----------------------------+--------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Table 1: Illustrative Urgency Values",
+      "zh-CHS": "表1：说明性紧急值"
+    },
+    {
+      "indent": 3,
+      "text": "Multiple values for the Urgency header field MUST NOT be included in requests; otherwise, the push service MUST return a 400 (Bad Request) status code.",
+      "zh-CHS": "请求中不得包含紧急标头字段的多个值；否则，推送服务必须返回400（错误请求）状态代码。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Replacing Push Messages",
+      "section_title": true,
+      "zh-CHS": "5.4. 替换推送消息"
+    },
+    {
+      "indent": 3,
+      "text": "A push message that has been stored by the push service can be replaced with new content. If the user agent is offline during the time that the push messages are sent, updating a push message avoids the situation where outdated or redundant messages are sent to the user agent.",
+      "zh-CHS": "推送服务存储的推送消息可以替换为新内容。如果用户代理在发送推送消息期间处于脱机状态，则更新推送消息可避免向用户代理发送过时或冗余消息的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Only push messages that have been assigned a topic can be replaced. A push message with a topic replaces any outstanding push message with an identical topic.",
+      "zh-CHS": "只能替换已分配主题的推送消息。带有主题的推送消息将用相同的主题替换任何未完成的推送消息。"
+    },
+    {
+      "indent": 3,
+      "text": "A push message topic is a string carried in a Topic header field. A topic is used to correlate push messages sent to the same subscription and does not convey any other semantics.",
+      "zh-CHS": "推送消息主题是主题标题字段中包含的字符串。主题用于关联发送到同一订阅的推送消息，不传递任何其他语义。"
+    },
+    {
+      "indent": 3,
+      "text": "The grammar for the Topic header field uses the \"token\" rule defined in [RFC7230].",
+      "zh-CHS": "主题标题字段的语法使用[RFC7230]中定义的“标记”规则。"
+    },
+    {
+      "indent": 3,
+      "text": "Topic = token",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "For use with this protocol, the Topic header field MUST be restricted to no more than 32 characters from the URL and a filename-safe Base 64 alphabet [RFC4648]. A push service that receives a request with a Topic header field that does not meet these constraints MUST return a 400 (Bad Request) status code to the application server.",
+      "zh-CHS": "要与此协议一起使用，主题标题字段必须限制为URL中不超过32个字符和文件名安全的基本64字母[RFC4648]。接收带有不满足这些约束的主题标头字段的请求的推送服务必须向应用程序服务器返回400（错误请求）状态代码。"
+    },
+    {
+      "indent": 3,
+      "text": "A push message replacement request creates a new push message resource and simultaneously deletes any existing message resource that has a matching topic. If an attempt was made to deliver the deleted push message, an acknowledgment could arrive at the push service after the push message has been replaced. Delivery receipts for such deleted messages SHOULD be suppressed.",
+      "zh-CHS": "推送消息替换请求创建新的推送消息资源，同时删除具有匹配主题的任何现有消息资源。如果试图传递已删除的推送消息，则推送消息被替换后，推送服务可能会收到确认。应抑制此类已删除邮件的送达回执。"
+    },
+    {
+      "indent": 3,
+      "text": "The replacement request also replaces the stored TTL, Urgency, and any receipt subscription associated with the previous message in the matching topic.",
+      "zh-CHS": "替换请求还替换存储的TTL、紧迫性以及与匹配主题中的上一条消息关联的任何收据订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "A push message with a topic that is not shared by an outstanding message to the same subscription is stored or delivered as normal.",
+      "zh-CHS": "主题未被未完成消息共享到同一订阅的推送消息将按正常方式存储或传递。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, the following message could cause an existing message to be replaced:",
+      "zh-CHS": "例如，以下消息可能导致替换现有消息："
+    },
+    {
+      "indent": 3,
+      "text": "POST /push/JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV HTTP/1.1\nHost: push.example.net\nTTL: 600\nTopic: upd\nContent-Type: text/plain;charset=utf8\nContent-Length: 36",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ZuHSZPKa2b1jtOKLGpWrcrn8cNqt0iVQyroF",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the push service identifies an outstanding push message with a topic of \"upd\", then that message resource is deleted. A 201 (Created) response indicates that the push message replacement was accepted. A URI for the new push message resource that was created in response to the request is included in the Location header field.",
+      "zh-CHS": "如果推送服务识别出主题为“upd”的未完成推送消息，则该消息资源将被删除。201（已创建）响应表示已接受推送消息替换。Location标头字段中包含响应请求而创建的新推送消息资源的URI。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP/1.1 201 Created\nDate: Thu, 11 Dec 2014 23:57:02 GMT\nLocation: https://push.example.net/message/qDIYHNcfAIPP_5ITvURr-d6BGt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The value of the Topic header field MUST NOT be forwarded to user agents. Its value is neither encrypted nor authenticated.",
+      "zh-CHS": "不得将主题标题字段的值转发给用户代理。它的值既不加密也不经过身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Receiving Push Messages for a Subscription",
+      "section_title": true,
+      "zh-CHS": "6. 接收订阅的推送消息"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent requests the delivery of new push messages by making a GET request to a push message subscription resource. The push service does not respond to this request; instead, it uses HTTP/2 server push [RFC7540] to send the contents of push messages as they are sent by application servers.",
+      "zh-CHS": "用户代理通过向推送消息订阅资源发出GET请求来请求新推送消息的传递。推送服务不响应此请求；相反，它使用HTTP/2服务器推送[RFC7540]来发送应用服务器发送的推送消息的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent MAY include an Urgency header field in its request. The push service MUST NOT deliver messages with lower urgency than the value of the header field as defined in Table 1 (Illustrative Urgency Values).",
+      "zh-CHS": "用户代理可以在其请求中包括紧急报头字段。推送服务不能以低于表1中定义的标题字段值（说明性紧急值）的紧急度传递消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Each push message is pushed as the response to a synthesized GET request sent in a PUSH_PROMISE. This GET request is made to the push message resource that was created by the push service when the application server requested message delivery. The response headers SHOULD provide a URI for the push resource corresponding to the push message subscription in a link relation of type \"urn:ietf:params:push\". The response body is the entity body from the most recent request sent to the push resource by the application server.",
+      "zh-CHS": "每个推送消息作为对以推送承诺发送的合成GET请求的响应被推送。此GET请求是向推送消息资源发出的，该推送消息资源是在应用程序服务器请求消息传递时由推送服务创建的。响应头应为推送资源提供URI，该推送资源对应于“urn:ietf:params:push”类型链接关系中的推送消息订阅。响应主体是应用服务器发送到推送资源的最新请求的实体主体。"
+    },
+    {
+      "indent": 3,
+      "text": "The following example request is made over HTTP/2:",
+      "zh-CHS": "通过HTTP/2发出以下示例请求："
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 7] +END_STREAM +END_HEADERS\n  :method        = GET\n  :path          = /subscription/LBhhw0OohO-Wl4Oi971UG\n  :authority     = push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The push service permits the request to remain outstanding. When a push message is sent by an application server, a server push is generated in association with the initial request. The response for the server push includes the push message.",
+      "zh-CHS": "推送服务允许请求保持未完成状态。当应用服务器发送推送消息时，将与初始请求关联生成服务器推送。服务器推送的响应包括推送消息。"
+    },
+    {
+      "indent": 3,
+      "text": "PUSH_PROMISE [stream 7; promised stream 4] +END_HEADERS\n  :method        = GET\n  :path          = /message/qDIYHNcfAIPP_5ITvURr-d6BGt\n  :authority     = push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 4] +END_HEADERS\n  :status        = 200\n  date           = Thu, 11 Dec 2014 23:56:56 GMT\n  last-modified  = Thu, 11 Dec 2014 23:56:55 GMT\n  cache-control  = private\n  link           = </push/JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV>;\n                    rel=\"urn:ietf:params:push\"\n  content-type   = text/plain;charset=utf8\n  content-length = 36",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "DATA [stream 4] +END_STREAM iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB",
+      "zh-CHS": "数据[流4]+结束流iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB"
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 7] +END_STREAM +END_HEADERS\n  :status        = 200",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A user agent can also request the contents of the push message subscription resource immediately by including a Prefer header field [RFC7240] with a \"wait\" preference set to \"0\". In response to this request, the push service MUST generate a server push for all push messages that have not yet been delivered.",
+      "zh-CHS": "用户代理还可以通过将“等待”首选项设置为“0”的首选项字段[RFC7240]包括在内，立即请求推送消息订阅资源的内容。为了响应此请求，推送服务必须为所有尚未传递的推送消息生成服务器推送。"
+    },
+    {
+      "indent": 3,
+      "text": "A 204 (No Content) status code with no associated server pushes indicates that no messages are presently available. This could be because push messages have expired.",
+      "zh-CHS": "204（无内容）状态代码没有关联的服务器推送，表示当前没有可用的消息。这可能是因为推送消息已过期。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Receiving Push Messages for a Subscription Set",
+      "section_title": true,
+      "zh-CHS": "6.1. 接收订阅集的推送消息"
+    },
+    {
+      "indent": 3,
+      "text": "There are minor differences between receiving push messages for a subscription and a subscription set. If a subscription set is available, the user agent SHOULD use the subscription set to monitor for push messages rather than individual push message subscriptions.",
+      "zh-CHS": "接收订阅和订阅集的推送消息之间存在细微差异。如果订阅集可用，则用户代理应使用订阅集监视推送消息，而不是单个推送消息订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent requests the delivery of new push messages for a collection of push message subscriptions by making a GET request to a push message subscription set resource. The push service does not respond to this request; instead, it uses HTTP/2 server push [RFC7540] to send the contents of push messages as they are sent by application servers.",
+      "zh-CHS": "用户代理通过向推送消息订阅集资源发出GET请求，请求传递推送消息订阅集合的新推送消息。推送服务不响应此请求；相反，它使用HTTP/2服务器推送[RFC7540]来发送应用服务器发送的推送消息的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent MAY include an Urgency header field in its request. The push service MUST NOT deliver messages with lower urgency than the value of the header field as defined in Table 1 (Illustrative Urgency Values).",
+      "zh-CHS": "用户代理可以在其请求中包括紧急报头字段。推送服务不能以低于表1中定义的标题字段值（说明性紧急值）的紧急度传递消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Each push message is pushed as the response to a synthesized GET request sent in a PUSH_PROMISE. This GET request is made to the push message resource that was created by the push service when the application server requested message delivery. The synthetic request MUST provide a URI for the push resource corresponding to the push message subscription in a link relation of type \"urn:ietf:params:push\". This enables the user agent to differentiate the source of the message. The response body is the entity body from the most recent request sent to the push resource by an application server.",
+      "zh-CHS": "每个推送消息作为对以推送承诺发送的合成GET请求的响应被推送。此GET请求是向推送消息资源发出的，该推送消息资源是在应用程序服务器请求消息传递时由推送服务创建的。合成请求必须为与“urn:ietf:params:push”类型的链接关系中的推送消息订阅相对应的推送资源提供URI。这使用户代理能够区分消息的来源。响应主体是应用服务器发送到推送资源的最新请求的实体主体。"
+    },
+    {
+      "indent": 3,
+      "text": "The following example request is made over HTTP/2.",
+      "zh-CHS": "下面的示例请求是通过HTTP/2发出的。"
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 7] +END_STREAM +END_HEADERS\n  :method        = GET\n  :path          = /subscription-set/4UXwi2Rd7jGS7gp5cuutF8ZldnEuvbOy\n  :authority     = push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The push service permits the request to remain outstanding. When a push message is sent by an application server, a server push is generated in association with the initial request. The server push's response includes the push message.",
+      "zh-CHS": "推送服务允许请求保持未完成状态。当应用服务器发送推送消息时，将与初始请求关联生成服务器推送。服务器推送的响应包括推送消息。"
+    },
+    {
+      "indent": 3,
+      "text": "PUSH_PROMISE [stream 7; promised stream 4] +END_HEADERS\n  :method        = GET\n  :path          = /message/qDIYHNcfAIPP_5ITvURr-d6BGt\n  :authority     = push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 4] +END_HEADERS\n  :status        = 200\n  date           = Thu, 11 Dec 2014 23:56:56 GMT\n  last-modified  = Thu, 11 Dec 2014 23:56:55 GMT\n  link           = </push/JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV>;\n                    rel=\"urn:ietf:params:push\"\n  cache-control  = private\n  content-type   = text/plain;charset=utf8\n  content-length = 36",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "DATA [stream 4] +END_STREAM iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB",
+      "zh-CHS": "数据[流4]+结束流iChYuI3jMzt3ir20P8r_jgRR-dSuN182x7iB"
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 7] +END_STREAM +END_HEADERS\n  :status        = 200",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A user agent can request the contents of the push message subscription set resource immediately by including a Prefer header field [RFC7240] with a \"wait\" preference set to \"0\". In response to this request, the push service MUST generate a server push for all push messages that have not yet been delivered.",
+      "zh-CHS": "用户代理可以通过将“等待”首选项设置为“0”的首选项字段[RFC7240]包括在内，立即请求推送消息订阅集资源的内容。为了响应此请求，推送服务必须为所有尚未传递的推送消息生成服务器推送。"
+    },
+    {
+      "indent": 3,
+      "text": "A 204 (No Content) status code with no associated server pushes indicates that no messages are presently available. This could be because push messages have expired.",
+      "zh-CHS": "204（无内容）状态代码没有关联的服务器推送，表示当前没有可用的消息。这可能是因为推送消息已过期。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Acknowledging Push Messages",
+      "section_title": true,
+      "zh-CHS": "6.2. 确认推送消息"
+    },
+    {
+      "indent": 3,
+      "text": "To ensure that a push message is properly delivered to the user agent at least once, the user agent MUST acknowledge receipt of the message by performing an HTTP DELETE on the push message resource.",
+      "zh-CHS": "为确保推送消息至少正确传递给用户代理一次，用户代理必须通过对推送消息资源执行HTTP删除来确认收到消息。"
+    },
+    {
+      "indent": 3,
+      "text": "DELETE /message/qDIYHNcfAIPP_5ITvURr-d6BGt HTTP/1.1\nHost: push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the push service receives the acknowledgement and the application has requested a delivery receipt, the push service MUST return a 204 (No Content) response to the application server monitoring the receipt subscription.",
+      "zh-CHS": "如果推送服务接收到确认并且应用程序请求了送达回执，则推送服务必须向监控回执订阅的应用程序服务器返回204（无内容）响应。"
+    },
+    {
+      "indent": 3,
+      "text": "If the push service does not receive the acknowledgement within a reasonable amount of time, then the message is considered to be not yet delivered. The push service SHOULD continue to retry delivery of the message until its advertised expiration.",
+      "zh-CHS": "如果推送服务在合理的时间内没有收到确认，则认为消息尚未传递。推送服务应继续重试邮件的传递，直到其公告过期。"
+    },
+    {
+      "indent": 3,
+      "text": "The push service MAY cease to retry delivery of the message prior to its advertised expiration due to scenarios such as an unresponsive user agent or operational constraints. If the application has",
+      "zh-CHS": "推送服务可能会由于诸如无响应的用户代理或操作限制等情况而在消息的播发过期之前停止重试传递消息。如果应用程序"
+    },
+    {
+      "indent": 3,
+      "text": "requested a delivery receipt, then the push service MUST return a 410 (Gone) response to the application server monitoring the receipt subscription.",
+      "zh-CHS": "请求传递回执后，推送服务必须向监控回执订阅的应用程序服务器返回410（Gone）响应。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. Receiving Push Message Receipts",
+      "section_title": true,
+      "zh-CHS": "6.3. 接收推送消息接收"
+    },
+    {
+      "indent": 3,
+      "text": "The application server requests the delivery of receipts from the push service by making an HTTP GET request to the receipt subscription resource. The push service does not respond to this request; instead, it uses HTTP/2 server push [RFC7540] to send push receipts when messages are acknowledged (Section 6.2) by the user agent.",
+      "zh-CHS": "应用服务器通过向收据订阅资源发出HTTP GET请求，从推送服务请求收据的传递。推送服务不响应此请求；相反，当用户代理确认消息时（第6.2节），它使用HTTP/2服务器推送[RFC7540]发送推送回执。"
+    },
+    {
+      "indent": 3,
+      "text": "Each receipt is pushed as the response to a synthesized GET request sent in a PUSH_PROMISE. This GET request is made to the same push message resource that was created by the push service when the application server requested message delivery. The response includes a status code indicating the result of the message delivery and carries no data.",
+      "zh-CHS": "每个收据都被推送，作为对在推送承诺中发送的合成GET请求的响应。此GET请求与应用程序服务器请求消息传递时推送服务创建的推送消息资源相同。响应包括指示消息传递结果的状态代码，不携带任何数据。"
+    },
+    {
+      "indent": 3,
+      "text": "The following example request is made over HTTP/2.",
+      "zh-CHS": "下面的示例请求是通过HTTP/2发出的。"
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 13] +END_STREAM +END_HEADERS\n  :method        = GET\n  :path          = /receipt-subscription/3ZtI4YVNBnUUZhuoChl6omUvG4ZM\n  :authority     = push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The push service permits the request to remain outstanding. When the user agent acknowledges the message, the push service pushes a delivery receipt to the application server. A 204 (No Content) status code confirms that the message was delivered and acknowledged.",
+      "zh-CHS": "推送服务允许请求保持未完成状态。当用户代理确认消息时，推送服务将传递回执推送到应用服务器。204（无内容）状态代码确认消息已传递和确认。"
+    },
+    {
+      "indent": 3,
+      "text": "PUSH_PROMISE [stream 13; promised stream 82] +END_HEADERS\n  :method        = GET\n  :path          = /message/qDIYHNcfAIPP_5ITvURr-d6BGt\n  :authority     = push.example.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "HEADERS      [stream 82] +END_STREAM\n                        +END_HEADERS\n  :status        = 204\n  date           = Thu, 11 Dec 2014 23:56:56 GMT",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the user agent fails to acknowledge the receipt of the push message and the push service ceases to retry delivery of the message prior to its advertised expiration, then the push service MUST push a failure response with a status code of 410 (Gone).",
+      "zh-CHS": "如果用户代理未能确认推送消息的接收，并且推送服务在消息的播发到期之前停止重试消息的传递，则推送服务必须推送状态代码为410（已消失）的失败响应。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Operational Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 业务考虑"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Load Management",
+      "section_title": true,
+      "zh-CHS": "7.1. 负荷管理"
+    },
+    {
+      "indent": 3,
+      "text": "A push service is likely to have to maintain a very large number of open TCP connections. Effective management of those connections can depend on being able to move connections between server instances.",
+      "zh-CHS": "推送服务可能必须维护大量打开的TCP连接。这些连接的有效管理取决于能否在服务器实例之间移动连接。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent MUST support the 307 (Temporary Redirect) status code [RFC7231], which can be used by a push service to redistribute load at the time that a new subscription is requested.",
+      "zh-CHS": "用户代理必须支持307（临时重定向）状态代码[RFC7231]，推送服务可以使用该代码在请求新订阅时重新分配负载。"
+    },
+    {
+      "indent": 3,
+      "text": "A server that wishes to redistribute load can do so using HTTP alternative services [RFC7838]. HTTP alternative services allows for redistribution of load while maintaining the same URIs for various resources. A user agent can ensure a graceful transition by using the GOAWAY frame once it has established a replacement connection.",
+      "zh-CHS": "希望重新分配负载的服务器可以使用HTTP替代服务[RFC7838]来实现。HTTP替代服务允许重新分配负载，同时为各种资源维护相同的URI。一旦建立了替换连接，用户代理就可以使用GOAWAY框架来确保优雅的转换。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Push Message Expiration",
+      "section_title": true,
+      "zh-CHS": "7.2. 推送消息过期"
+    },
+    {
+      "indent": 3,
+      "text": "Storage of push messages based on the TTL header field comprises a potentially significant amount of storage for a push service. A push service is not obligated to store messages indefinitely. A push service is able to indicate how long it intends to retain a message to an application server using the TTL header field (Section 5.2).",
+      "zh-CHS": "基于TTL报头字段的推送消息的存储包括推送服务的潜在大量存储。推送服务没有义务无限期地存储消息。推送服务能够使用TTL头字段（第5.2节）指示它打算将消息保留到应用服务器的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent that does not actively monitor for push messages will not receive messages that expire during that interval.",
+      "zh-CHS": "不主动监视推送消息的用户代理将不会接收在此间隔期间过期的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Push messages that are stored and have not been delivered to a user agent are delivered when the user agent recommences monitoring. Stored push messages SHOULD include a Last-Modified header field (Section 2.2 of [RFC7232]) indicating when delivery was requested by an application server.",
+      "zh-CHS": "当用户代理重新开始监视时，将传递已存储但尚未传递给用户代理的推送消息。存储的推送消息应包括最后修改的标题字段（RFC7232的第2.2节），指示应用程序服务器请求交付的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "A GET request to a push message subscription resource with only expired messages results in a response as though no push message was ever sent.",
+      "zh-CHS": "对仅包含过期消息的推送消息订阅资源的GET请求会导致响应，就像从未发送过推送消息一样。"
+    },
+    {
+      "indent": 3,
+      "text": "Push services might need to limit the size and number of stored push messages to avoid overloading. To limit the size of messages, the push service MAY return a 413 (Payload Too Large) status code [RFC7231] in response to requests that include an entity body that is too large. Push services MUST NOT return a 413 status code in responses to an entity body that is 4096 bytes or less in size.",
+      "zh-CHS": "推送服务可能需要限制存储的推送消息的大小和数量，以避免过载。为了限制消息的大小，推送服务可以返回413（有效负载过大）状态代码[RFC7231]，以响应包括过大实体主体的请求。推送服务在响应4096字节或更小的实体正文时不得返回413状态代码。"
+    },
+    {
+      "indent": 3,
+      "text": "To limit the number of stored push messages, the push service MAY respond with a shorter Time-To-Live than proposed by the application server in its request for push message delivery (Section 5.2). Once a message has been accepted, the push service MAY later expire the message prior to its advertised Time-To-Live. If the application server requested a delivery receipt, the push service MUST return a failure response (Section 6.2).",
+      "zh-CHS": "为了限制存储的推送消息的数量，推送服务的响应时间可能比应用服务器在其推送消息传递请求中建议的更短（第5.2节）。一旦消息被接受，推送服务可能会在消息发布的生存时间之前使消息过期。如果应用程序服务器请求传送回执，推送服务必须返回故障响应（第6.2节）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Subscription Expiration",
+      "section_title": true,
+      "zh-CHS": "7.3. 订阅到期"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, it may be necessary to terminate subscriptions so that they can be refreshed. This applies to both push message subscriptions and receipt subscriptions.",
+      "zh-CHS": "在某些情况下，可能需要终止订阅以便刷新订阅。这适用于推送邮件订阅和回执订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service MAY expire a subscription at any time. If there are outstanding requests to an expired push message subscription resource (Section 6) from a user agent or to an expired receipt subscription resource (Section 6.3) from an application server, this MUST be signaled by returning a 404 (Not Found) status code.",
+      "zh-CHS": "推送服务可随时使订阅过期。如果用户代理对过期推送消息订阅资源（第6节）或应用程序服务器对过期回执订阅资源（第6.3节）有未完成的请求，则必须通过返回404（未找到）状态代码来通知。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service MUST return a 404 (Not Found) status code if an application server attempts to send a push message to an expired push message subscription.",
+      "zh-CHS": "如果应用服务器试图向过期的推送消息订阅发送推送消息，则推送服务必须返回404（未找到）状态代码。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent can remove its push message subscription by sending a DELETE request to the corresponding URI. An application server can remove its receipt subscription by sending a DELETE request to the corresponding URI.",
+      "zh-CHS": "用户代理可以通过向相应的URI发送删除请求来删除其推送消息订阅。应用服务器可以通过向相应的URI发送删除请求来删除其收据订阅。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3.1. Subscription Set Expiration",
+      "section_title": true,
+      "zh-CHS": "7.3.1. 订阅集过期"
+    },
+    {
+      "indent": 3,
+      "text": "A push service MAY expire a subscription set at any time and MUST also expire all push message subscriptions in the set. If a user agent has an outstanding request to a push subscription set (Section 6.1), this MUST be signaled by returning a 404 (Not Found) status code.",
+      "zh-CHS": "推送服务可以在任何时候使订阅集过期，还必须使订阅集中的所有推送消息订阅过期。如果用户代理对推送订阅集（第6.1节）有未完成的请求，则必须通过返回404（未找到）状态代码来通知。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent can request that a subscription set be removed by sending a DELETE request to the subscription set URI. This MUST also remove all push message subscriptions in the set.",
+      "zh-CHS": "用户代理可以通过向订阅集URI发送删除请求来请求删除订阅集。这还必须删除集合中的所有推送消息订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "If a specific push message subscription that is a member of a subscription set is expired or removed, then it MUST also be removed from its subscription set.",
+      "zh-CHS": "如果作为订阅集成员的特定推送消息订阅已过期或已删除，则还必须将其从其订阅集中删除。"
+    },
+    {
+      "indent": 0,
+      "text": "7.4. Implications for Application Reliability",
+      "section_title": true,
+      "zh-CHS": "7.4. 对应用程序可靠性的影响"
+    },
+    {
+      "indent": 3,
+      "text": "A push service that does not support reliable delivery over intermittent network connections or failing applications on devices, forces the device to acknowledge receipt directly to the application server, incurring additional power drain in order to establish and maintain (usually secure) connections to the individual application servers.",
+      "zh-CHS": "推送服务不支持通过间歇性网络连接或设备上出现故障的应用程序进行可靠传送，迫使设备直接向应用程序服务器确认接收，从而导致额外的功耗，以便建立和维护（通常是安全的）到各个应用程序服务器的连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Push message reliability can be important if messages contain information critical to the state of an application. Repairing the state can be expensive, particularly for devices with limited communications capacity. Knowing that a push message has been correctly received avoids retransmissions, polling, and state resynchronization.",
+      "zh-CHS": "如果消息包含对应用程序状态至关重要的信息，则推送消息的可靠性可能很重要。修复状态可能代价高昂，特别是对于通信容量有限的设备。知道已正确接收推送消息可以避免重新传输、轮询和状态重新同步。"
+    },
+    {
+      "indent": 3,
+      "text": "The availability of push message delivery receipts ensures that the application developer is not tempted to create alternative mechanisms for message delivery in case the push service fails to deliver a critical message. Setting up a polling mechanism or a backup messaging channel in order to compensate for these shortcomings negates almost all of the advantages a push service provides.",
+      "zh-CHS": "推送消息交付收据的可用性确保了应用程序开发人员在推送服务无法交付关键消息的情况下不会尝试创建其他消息交付机制。为了弥补这些缺点而设置轮询机制或备份消息传递通道几乎否定了推送服务提供的所有优势。"
+    },
+    {
+      "indent": 3,
+      "text": "However, reliability might not be necessary for messages that are transient (e.g., an incoming call) or messages that are quickly superseded (e.g., the current number of unread emails).",
+      "zh-CHS": "但是，对于短暂的消息（如来电）或被迅速取代的消息（如当前未读电子邮件的数量），可靠性可能不是必需的。"
+    },
+    {
+      "indent": 0,
+      "text": "7.5. Subscription Sets and Concurrent HTTP/2 Streams",
+      "section_title": true,
+      "zh-CHS": "7.5. 订阅集和并发HTTP/2流"
+    },
+    {
+      "indent": 3,
+      "text": "If the push service requires that the user agent use push message subscription sets, then it MAY limit the number of concurrently active streams with the SETTINGS_MAX_CONCURRENT_STREAMS parameter within an HTTP/2 SETTINGS frame [RFC7540]. The user agent MAY be limited to one concurrent stream to manage push message subscriptions and one concurrent stream for each subscription set returned by the push service. This could force the user agent to serialize subscription requests to the push service.",
+      "zh-CHS": "如果推送服务要求用户代理使用推送消息订阅集，则它可以在HTTP/2设置帧[RFC7540]内使用设置\\u MAX\\u CONCURRENT\\u streams参数限制并发活动流的数量。用户代理可以被限制为一个并发流来管理推送消息订阅，以及一个并发流来管理推送服务返回的每个订阅集。这可能会强制用户代理将订阅请求序列化到推送服务。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol MUST use HTTP over TLS [RFC2818] following the recommendations in [RFC7525]. This includes any communications between the user agent and the push service, plus communications between the application server and the push service. All URIs therefore use the \"https\" scheme. This provides confidentiality and integrity protection for subscriptions and push messages from external parties.",
+      "zh-CHS": "此协议必须按照[RFC7525]中的建议使用TLS上的HTTP[RFC2818]。这包括用户代理和推送服务之间的任何通信，以及应用程序服务器和推送服务之间的通信。因此，所有URI都使用“https”方案。这为来自外部各方的订阅和推送消息提供了机密性和完整性保护。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Confidentiality from Push Service Access",
+      "section_title": true,
+      "zh-CHS": "8.1. 推送服务访问的保密性"
+    },
+    {
+      "indent": 3,
+      "text": "The protection afforded by TLS does not protect content from the push service. Without additional safeguards, a push service can inspect and modify the message content.",
+      "zh-CHS": "TLS提供的保护不保护推送服务中的内容。如果没有额外的保护措施，推送服务可以检查和修改消息内容。"
+    },
+    {
+      "indent": 3,
+      "text": "Applications using this protocol MUST use mechanisms that provide end-to-end confidentiality, integrity, and data origin authentication. The application server sending the push message and the application on the user agent that receives it are frequently just different instances of the same application, so no standardized protocol is needed to establish a proper security context. The distribution of subscription information from the user agent to its application server also offers a convenient medium for key agreement.",
+      "zh-CHS": "使用此协议的应用程序必须使用提供端到端机密性、完整性和数据源身份验证的机制。发送推送消息的应用程序服务器和接收推送消息的用户代理上的应用程序通常只是同一应用程序的不同实例，因此不需要标准化协议来建立适当的安全上下文。将订阅信息从用户代理分发到其应用程序服务器也为密钥协商提供了方便的媒介。"
+    },
+    {
+      "indent": 3,
+      "text": "For this requirement, the W3C Push API [API] has adopted Message Encryption for WebPush [ENCRYPT] to secure the content of messages from the push service. Other scenarios can be addressed by similar policies.",
+      "zh-CHS": "为了满足这一要求，W3C Push API[API]采用了WebPush[ENCRYPT]的消息加密，以保护来自推送服务的消息内容。其他情况可以通过类似的政策解决。"
+    },
+    {
+      "indent": 3,
+      "text": "The Topic header field exposes information that allows more granular correlation of push messages on the same subject. This might be used to aid traffic analysis of push messages by the push service.",
+      "zh-CHS": "Topic header字段公开允许对同一主题的推送消息进行更细粒度关联的信息。这可用于帮助推送服务对推送消息进行流量分析。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Privacy Considerations",
+      "section_title": true,
+      "zh-CHS": "8.2. 隐私考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Push message confidentiality does not ensure that the identity of who is communicating and when they are communicating is protected. However, the amount of information that is exposed can be limited.",
+      "zh-CHS": "推送消息机密性不能确保通信者的身份以及通信时间受到保护。然而，公开的信息量是有限的。"
+    },
+    {
+      "indent": 3,
+      "text": "The URIs provided for push resources MUST NOT provide any basis to correlate communications for a given user agent. It MUST NOT be possible to correlate any two push resource URIs based solely on their contents. This allows a user agent to control correlation across different applications or over time. Of course, this does not prevent correlation using other information that a user agent might expose.",
+      "zh-CHS": "为推送资源提供的URI不得为关联给定用户代理的通信提供任何基础。不能仅基于任何两个推送资源URI的内容来关联它们。这允许用户代理控制不同应用程序之间或一段时间内的相关性。当然，这并不妨碍使用用户代理可能公开的其他信息进行关联。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, the URIs provided by the push service to identify a push message MUST NOT provide any information that allows for correlation across subscriptions. Push message URIs for the same subscription MAY contain information that would allow correlation with the associated subscription or other push messages for that subscription.",
+      "zh-CHS": "类似地，推送服务提供的用于标识推送消息的URI不得提供任何允许跨订阅关联的信息。同一订阅的推送消息URI可能包含允许与关联订阅或该订阅的其他推送消息关联的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "User and device information MUST NOT be exposed through a push or push message URI.",
+      "zh-CHS": "用户和设备信息不得通过推送或推送消息URI公开。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, push URIs established by the same user agent or push message URIs for the same subscription MUST NOT include any information that allows them to be correlated with the user agent.",
+      "zh-CHS": "此外，由同一用户代理建立的推送URI或用于同一订阅的推送消息URI不得包含任何允许它们与用户代理关联的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: This need not be perfect as long as the resulting anonymity set ([RFC6973], Section 6.1.1) is sufficiently large. A push URI necessarily identifies a push service or a single server instance. It is also possible that traffic analysis could be used to correlate subscriptions.",
+      "zh-CHS": "注：只要生成的匿名集（[RFC6973]，第6.1.1节）足够大，这不一定是完美的。推送URI必须标识推送服务或单个服务器实例。还可以使用流量分析来关联订阅。"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent MUST be able to create new subscriptions with new identifiers at any time.",
+      "zh-CHS": "用户代理必须能够随时使用新标识符创建新订阅。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3. Authorization",
+      "section_title": true,
+      "zh-CHS": "8.3. 批准"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol does not define how a push service establishes whether a user agent is permitted to create a subscription, or whether push messages can be delivered to the user agent. A push service MAY choose to authorize requests based on any HTTP-compatible authorization method available, of which there are multiple options (including experimental options) with varying levels of security. The authorization process and any associated credentials are expected to be configured in the user agent along with the URI for the push service.",
+      "zh-CHS": "此协议不定义推送服务如何确定是否允许用户代理创建订阅，或者推送消息是否可以传递给用户代理。推送服务可以选择基于任何可用的HTTP兼容授权方法对请求进行授权，其中有多个选项（包括实验选项）具有不同的安全级别。授权过程和任何相关的凭证都将与推送服务的URI一起在用户代理中配置。"
+    },
+    {
+      "indent": 3,
+      "text": "Authorization is managed using capability URLs for the push message subscription, push, and receipt subscription resources ([CAP-URI]). A capability URL grants access to a resource based solely on knowledge of the URL.",
+      "zh-CHS": "使用推送消息订阅、推送和接收订阅资源（[CAP-URI]）的功能URL管理授权。功能URL仅基于URL的知识授予对资源的访问权。"
+    },
+    {
+      "indent": 3,
+      "text": "Capability URLs are used for their \"easy onward sharing\" and \"easy client API\" properties. These properties make it possible to avoid relying on prearranged relationships or additional protocols between push services and application servers.",
+      "zh-CHS": "功能URL用于其“轻松继续共享”和“轻松客户端API”属性。这些属性使推送服务和应用服务器之间避免依赖预先安排的关系或附加协议成为可能。"
+    },
+    {
+      "indent": 3,
+      "text": "Capability URLs act as bearer tokens. Knowledge of a push message subscription URI implies authorization to either receive push messages or delete the subscription. Knowledge of a push URI implies authorization to send push messages. Knowledge of a push message URI allows for reading and acknowledging that specific message. Knowledge of a receipt subscription URI implies authorization to receive push receipts.",
+      "zh-CHS": "功能URL充当承载令牌。了解推送消息订阅URI意味着有权接收推送消息或删除订阅。了解推送URI意味着有权发送推送消息。了解推送消息URI允许读取和确认特定消息。了解收据订阅URI意味着有权接收推送收据。"
+    },
+    {
+      "indent": 3,
+      "text": "Encoding a large amount of random entropy (at least 120 bits) in the path component ensures that it is difficult to successfully guess a valid capability URL.",
+      "zh-CHS": "在路径组件中编码大量随机熵（至少120位）可确保难以成功猜测有效的功能URL。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4. Denial-of-Service Considerations",
+      "section_title": true,
+      "zh-CHS": "8.4. 拒绝服务注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "A user agent can control where valid push messages originate by limiting the distribution of push URIs to authorized application servers. Ensuring that push URIs are hard to guess ensures that only application servers that have received a push URI can use it.",
+      "zh-CHS": "用户代理可以通过将推送URI的分发限制到授权的应用程序服务器来控制有效推送消息的来源。确保推送URI难以猜测可以确保只有接收到推送URI的应用程序服务器才能使用它。"
+    },
+    {
+      "indent": 3,
+      "text": "Push messages that are not successfully authenticated by the user agent will not be delivered, but this can present a denial-of-service risk. Even a relatively small volume of push messages can cause battery-powered devices to exhaust power reserves.",
+      "zh-CHS": "未通过用户代理成功验证的推送消息将不会被传递，但这可能会带来拒绝服务风险。即使是相对较小的推送消息量也会导致电池供电的设备耗尽电源储备。"
+    },
+    {
+      "indent": 3,
+      "text": "To address this case, the W3C Push API [API] has adopted Voluntary Application Server Identification [VAPID], which allows a user agent to restrict a subscription to a specific application server. The push service can then identify and reject unwanted messages without contacting the user agent.",
+      "zh-CHS": "为了解决这种情况，W3C推送API[API]采用了自愿应用程序服务器标识[VAPID]，这允许用户代理限制对特定应用程序服务器的订阅。推送服务随后可以识别和拒绝不需要的消息，而无需联系用户代理。"
+    },
+    {
+      "indent": 3,
+      "text": "A malicious application with a valid push URI could use the greater resources of a push service to mount a denial-of-service attack on a user agent. Push services SHOULD limit the rate at which push messages are sent to individual user agents.",
+      "zh-CHS": "具有有效推送URI的恶意应用程序可能会使用推送服务的更多资源在用户代理上发起拒绝服务攻击。推送服务应限制推送消息发送到单个用户代理的速率。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service MAY return a 429 (Too Many Requests) status code [RFC6585] when an application server has exceeded its rate limit for push message delivery to a push resource. The push service SHOULD also include a Retry-After header [RFC7231] to indicate how long the application server is requested to wait before it makes another request to the push resource.",
+      "zh-CHS": "当应用服务器超过其向推送资源发送推送消息的速率限制时，推送服务可能返回429（太多请求）状态代码[RFC6585]。推送服务还应包括一个Retry After标头[RFC7231]，以指示在应用程序服务器向推送资源发出另一个请求之前，它需要等待多长时间。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service or user agent MAY also terminate subscriptions (Section 7.3) that receive too many push messages.",
+      "zh-CHS": "推送服务或用户代理也可以终止接收过多推送消息的订阅（第7.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "A push service is also able to deny service to user agents. Intentional failure to deliver messages is difficult to distinguish from faults, which might occur due to transient network errors, interruptions in user agent availability, or genuine service outages.",
+      "zh-CHS": "推送服务还能够拒绝向用户代理提供服务。传递消息的故意失败很难与故障区分开来，故障可能是由于短暂的网络错误、用户代理可用性中断或真正的服务中断造成的。"
+    },
+    {
+      "indent": 0,
+      "text": "8.5. Logging Risks",
+      "section_title": true,
+      "zh-CHS": "8.5. 伐木风险"
+    },
+    {
+      "indent": 3,
+      "text": "Server request logs can reveal subscription-related URIs or relationships between subscription-related URIs for the same user agent. Limitations on log retention and strong access control mechanisms can ensure that URIs are not revealed to unauthorized entities.",
+      "zh-CHS": "服务器请求日志可以显示与订阅相关的URI或同一用户代理的订阅相关URI之间的关系。对日志保留的限制和强大的访问控制机制可以确保URI不会泄露给未经授权的实体。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol defines new HTTP header fields in Section 9.1. New link relation types are identified using the URNs defined in Section 9.2. Port registration is defined in Section 9.3",
+      "zh-CHS": "该协议在第9.1节中定义了新的HTTP头字段。使用第9.2节中定义的URN识别新的链接关系类型。第9.3节定义了港口注册"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Header Field Registrations",
+      "section_title": true,
+      "zh-CHS": "9.1. 标题字段注册"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP header fields are registered within the \"Message Headers\" registry maintained at <https://www.iana.org/assignments/message-headers/>.",
+      "zh-CHS": "HTTP头字段在“消息头”注册表中注册，该注册表维护在<https://www.iana.org/assignments/message-headers/>."
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the following HTTP header fields, and the following entries have been added to the \"Permanent Message Header Field Names\" registry ([RFC3864]):",
+      "zh-CHS": "本文档定义了以下HTTP头字段，并且已将以下条目添加到“永久消息头字段名称”注册表（[RFC3864]）："
+    },
+    {
+      "indent": 3,
+      "text": "+-------------------+----------+----------+--------------+\n| Header Field Name | Protocol | Status   | Reference    |\n+-------------------+----------+----------+--------------+\n| TTL               | http     | standard | Section 5.2  |\n| Urgency           | http     | standard | Section 5.3  |\n| Topic             | http     | standard | Section 5.4  |\n+-------------------+----------+----------+--------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The change controller is: \"IETF (iesg@ietf.org) - Internet Engineering Task Force\".",
+      "zh-CHS": "变更控制者是：“IETF(iesg@ietf.org)-互联网工程工作队”。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Link Relation URNs",
+      "section_title": true,
+      "zh-CHS": "9.2. 链接关系URN"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers URNs for use in identifying link relation types. These have been added to a new \"Web Push Identifiers\" registry according to the procedures in Section 4 of [RFC3553]; the corresponding \"push\" sub-namespace has been entered in the \"IETF URN Sub-namespace for Registered Protocol Parameter Identifiers\" registry.",
+      "zh-CHS": "本文档注册URN以用于标识链接关系类型。已根据[RFC3553]第4节中的程序将其添加到新的“Web推送标识符”注册表中；相应的“推送”子名称空间已输入“IETF URN子名称空间用于注册的协议参数标识符”注册表中。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"Web Push Identifiers\" registry operates under the IETF Review policy [RFC5226].",
+      "zh-CHS": "“Web推送标识符”注册表在IETF审查政策[RFC5226]下运行。"
+    },
+    {
+      "indent": 3,
+      "text": "Registry name: Web Push Identifiers",
+      "zh-CHS": "注册表名：Web推送标识符"
+    },
+    {
+      "indent": 3,
+      "text": "URN Prefix:  urn:ietf:params:push",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Specification: RFC 8030 (this document)",
+      "zh-CHS": "规格：RFC 8030（本文件）"
+    },
+    {
+      "indent": 3,
+      "text": "Repository:  http://www.iana.org/assignments/webpush-parameters/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Index Value: Values in this registry are URNs or URN prefixes that start with the prefix \"urn:ietf:params:push\". Each is registered independently.",
+      "zh-CHS": "索引值：此注册表中的值是以前缀“URN:ietf:params:push”开头的URN或URN前缀。每个都是独立注册的。"
+    },
+    {
+      "indent": 3,
+      "text": "Registrations in the \"Web Push Identifiers\" registry include the following information:",
+      "zh-CHS": "“Web推送标识符”注册表中的注册包括以下信息："
+    },
+    {
+      "indent": 3,
+      "text": "URN: A complete URN or URN prefix.",
+      "zh-CHS": "URN：完整的URN或URN前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "Description: A summary description.",
+      "zh-CHS": "描述：概要描述。"
+    },
+    {
+      "indent": 3,
+      "text": "Contact: Email for the person or group making the registration.",
+      "zh-CHS": "联系人：进行注册的个人或团体的电子邮件。"
+    },
+    {
+      "indent": 3,
+      "text": "Index Value: As described in [RFC3553]",
+      "zh-CHS": "索引值：如[RFC3553]所述"
+    },
+    {
+      "indent": 3,
+      "text": "Reference: A reference to a specification describing the semantics of the URN or URN prefix.",
+      "zh-CHS": "引用：对描述URN或URN前缀语义的规范的引用。"
+    },
+    {
+      "indent": 6,
+      "text": "URN prefixes that are registered include a description of how the URN is constructed. This is not applicable for specific URNs.",
+      "zh-CHS": "注册的URN前缀包括URN构造方式的说明。这不适用于特定的骨灰盒。"
+    },
+    {
+      "indent": 3,
+      "text": "These values are entered as the initial content of the \"Web Push Identifiers\" registry.",
+      "zh-CHS": "这些值作为“Web推送标识符”注册表的初始内容输入。"
+    },
+    {
+      "indent": 3,
+      "text": "URN:  urn:ietf:params:push",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Description: This link relation type is used to identify a resource for sending push messages.",
+      "zh-CHS": "描述：此链接关系类型用于标识用于发送推送消息的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "Contact: The WEBPUSH WG of the IETF (webpush@ietf.org)",
+      "zh-CHS": "联系人：IETF的WEBPUSH工作组(webpush@ietf.org)"
+    },
+    {
+      "indent": 3,
+      "text": "Reference: RFC 8030 (this document)",
+      "zh-CHS": "参考：RFC 8030（本文件）"
+    },
+    {
+      "indent": 3,
+      "text": "URN:  urn:ietf:params:push:set",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Description: This link relation type is used to identify a collection of push message subscriptions.",
+      "zh-CHS": "描述：此链接关系类型用于标识推送消息订阅的集合。"
+    },
+    {
+      "indent": 3,
+      "text": "Contact: The WEBPUSH WG of the IETF (webpush@ietf.org)",
+      "zh-CHS": "联系人：IETF的WEBPUSH工作组(webpush@ietf.org)"
+    },
+    {
+      "indent": 3,
+      "text": "Reference: RFC 8030 (this document)",
+      "zh-CHS": "参考：RFC 8030（本文件）"
+    },
+    {
+      "indent": 3,
+      "text": "URN:  urn:ietf:params:push:receipt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Description: This link relation type is used to identify a resource for receiving delivery confirmations for push messages.",
+      "zh-CHS": "描述：此链接关系类型用于标识用于接收推送消息的传递确认的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "Contact: The WEBPUSH WG of the IETF (webpush@ietf.org)",
+      "zh-CHS": "联系人：IETF的WEBPUSH工作组(webpush@ietf.org)"
+    },
+    {
+      "indent": 3,
+      "text": "Reference: RFC 8030 (this document)",
+      "zh-CHS": "参考：RFC 8030（本文件）"
+    },
+    {
+      "indent": 0,
+      "text": "9.3. Service Name and Port Number Registration",
+      "section_title": true,
+      "zh-CHS": "9.3. 服务名称和端口号注册"
+    },
+    {
+      "indent": 3,
+      "text": "Service names and port numbers are registered within the \"Service Name and Transport Protocol Port Number Registry\" maintained at <https://www.iana.org/assignments/service-names-port-numbers/>.",
+      "zh-CHS": "服务名称和端口号在维护于的“服务名称和传输协议端口号注册表”中注册<https://www.iana.org/assignments/service-names-port-numbers/>."
+    },
+    {
+      "indent": 3,
+      "text": "In accordance with [RFC6335], IANA has assigned the System Port number 1001 and the service name \"webpush\".",
+      "zh-CHS": "根据[RFC6335]，IANA已分配系统端口号1001和服务名称“webpush”。"
+    },
+    {
+      "indent": 3,
+      "text": "Service Name: webpush",
+      "zh-CHS": "服务名称：webpush"
+    },
+    {
+      "indent": 3,
+      "text": "Port Number: 1001",
+      "zh-CHS": "端口号：1001"
+    },
+    {
+      "indent": 3,
+      "text": "Transport Protocol: tcp",
+      "zh-CHS": "传输协议：tcp"
+    },
+    {
+      "indent": 3,
+      "text": "Description: HTTP Web Push",
+      "zh-CHS": "描述：HTTP Web推送"
+    },
+    {
+      "indent": 3,
+      "text": "Assignee: The IESG (iesg@ietf.org)",
+      "zh-CHS": "受让人：IESG(iesg@ietf.org)"
+    },
+    {
+      "indent": 3,
+      "text": "Contact: The IETF Chair (chair@ietf.org)",
+      "zh-CHS": "联系人：IETF主席(chair@ietf.org)"
+    },
+    {
+      "indent": 3,
+      "text": "Reference: RFC 8030 (this document)",
+      "zh-CHS": "参考：RFC 8030（本文件）"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[CAP-URI] Tennison, J., \"Good Practices for Capability URLs\", W3C First Public Working Draft capability-urls, February 2014, <http://www.w3.org/TR/capability-urls/>.",
+      "zh-CHS": "[CAP-URI]Tennison，J.，“能力URL的良好实践”，W3C第一份公共工作草案能力URL，2014年2月<http://www.w3.org/TR/capability-urls/>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2818] Rescorla, E., \"HTTP Over TLS\", RFC 2818, DOI 10.17487/RFC2818, May 2000, <http://www.rfc-editor.org/info/rfc2818>.",
+      "zh-CHS": "[RFC2818]Rescorla，E.，“TLS上的HTTP”，RFC 2818，DOI 10.17487/RFC2818，2000年5月<http://www.rfc-editor.org/info/rfc2818>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3553] Mealling, M., Masinter, L., Hardie, T., and G. Klyne, \"An IETF URN Sub-namespace for Registered Protocol Parameters\", BCP 73, RFC 3553, DOI 10.17487/RFC3553, June 2003, <http://www.rfc-editor.org/info/rfc3553>.",
+      "zh-CHS": "[RFC3553]Mealling，M.，Masinter，L.，Hardie，T.，和G.Klyne，“注册协议参数的IETF URN子命名空间”，BCP 73，RFC 3553，DOI 10.17487/RFC3553，2003年6月<http://www.rfc-editor.org/info/rfc3553>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3864] Klyne, G., Nottingham, M., and J. Mogul, \"Registration Procedures for Message Header Fields\", BCP 90, RFC 3864, DOI 10.17487/RFC3864, September 2004, <http://www.rfc-editor.org/info/rfc3864>.",
+      "zh-CHS": "[RFC3864]Klyne，G.，Nottingham，M.和J.Mogul，“消息头字段的注册程序”，BCP 90，RFC 3864，DOI 10.17487/RFC3864，2004年9月<http://www.rfc-editor.org/info/rfc3864>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4648] Josefsson, S., \"The Base16, Base32, and Base64 Data Encodings\", RFC 4648, DOI 10.17487/RFC4648, October 2006, <http://www.rfc-editor.org/info/rfc4648>.",
+      "zh-CHS": "[RFC4648]Josefsson，S.，“Base16、Base32和Base64数据编码”，RFC 4648，DOI 10.17487/RFC4648，2006年10月<http://www.rfc-editor.org/info/rfc4648>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5226] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 5226, DOI 10.17487/RFC5226, May 2008, <http://www.rfc-editor.org/info/rfc5226>.",
+      "zh-CHS": "[RFC5226]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 5226，DOI 10.17487/RFC5226，2008年5月<http://www.rfc-editor.org/info/rfc5226>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5382] Guha, S., Ed., Biswas, K., Ford, B., Sivakumar, S., and P. Srisuresh, \"NAT Behavioral Requirements for TCP\", BCP 142, RFC 5382, DOI 10.17487/RFC5382, October 2008, <http://www.rfc-editor.org/info/rfc5382>.",
+      "zh-CHS": "[RFC5382]Guha，S.，Ed.，Biswas，K.，Ford，B.，Sivakumar，S.，和P.Srisuresh，“TCP的NAT行为要求”，BCP 142，RFC 5382，DOI 10.17487/RFC5382，2008年10月<http://www.rfc-editor.org/info/rfc5382>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5988] Nottingham, M., \"Web Linking\", RFC 5988, DOI 10.17487/RFC5988, October 2010, <http://www.rfc-editor.org/info/rfc5988>.",
+      "zh-CHS": "[RFC5988]诺丁汉，M.，“网络链接”，RFC 5988，DOI 10.17487/RFC5988，2010年10月<http://www.rfc-editor.org/info/rfc5988>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6335] Cotton, M., Eggert, L., Touch, J., Westerlund, M., and S. Cheshire, \"Internet Assigned Numbers Authority (IANA) Procedures for the Management of the Service Name and Transport Protocol Port Number Registry\", BCP 165, RFC 6335, DOI 10.17487/RFC6335, August 2011, <http://www.rfc-editor.org/info/rfc6335>.",
+      "zh-CHS": "[RFC6335]Cotton，M.，Eggert，L.，Touch，J.，Westerlund，M.，和S.Cheshire，“互联网分配号码管理局（IANA）服务名称和传输协议端口号注册管理程序”，BCP 165，RFC 6335，DOI 10.17487/RFC6335，2011年8月<http://www.rfc-editor.org/info/rfc6335>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6454] Barth, A., \"The Web Origin Concept\", RFC 6454, DOI 10.17487/RFC6454, December 2011, <http://www.rfc-editor.org/info/rfc6454>.",
+      "zh-CHS": "[RFC6454]Barth，A.，“网络起源概念”，RFC 6454，DOI 10.17487/RFC6454，2011年12月<http://www.rfc-editor.org/info/rfc6454>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6585] Nottingham, M. and R. Fielding, \"Additional HTTP Status Codes\", RFC 6585, DOI 10.17487/RFC6585, April 2012, <http://www.rfc-editor.org/info/rfc6585>.",
+      "zh-CHS": "[RFC6585]诺丁汉，M.和R.菲尔丁，“附加HTTP状态代码”，RFC 6585，DOI 10.17487/RFC6585，2012年4月<http://www.rfc-editor.org/info/rfc6585>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7230] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing\", RFC 7230, DOI 10.17487/RFC7230, June 2014, <http://www.rfc-editor.org/info/rfc7230>.",
+      "zh-CHS": "[RFC7230]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：消息语法和路由”，RFC 7230，DOI 10.17487/RFC7230，2014年6月<http://www.rfc-editor.org/info/rfc7230>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7231] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content\", RFC 7231, DOI 10.17487/RFC7231, June 2014, <http://www.rfc-editor.org/info/rfc7231>.",
+      "zh-CHS": "[RFC7231]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：语义和内容”，RFC 7231，DOI 10.17487/RFC72312014年6月<http://www.rfc-editor.org/info/rfc7231>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7232] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Conditional Requests\", RFC 7232, DOI 10.17487/RFC7232, June 2014, <http://www.rfc-editor.org/info/rfc7232>.",
+      "zh-CHS": "[RFC7232]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：有条件请求”，RFC 7232，DOI 10.17487/RFC72322014年6月<http://www.rfc-editor.org/info/rfc7232>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7240] Snell, J., \"Prefer Header for HTTP\", RFC 7240, DOI 10.17487/RFC7240, June 2014, <http://www.rfc-editor.org/info/rfc7240>.",
+      "zh-CHS": "[RFC7240]Snell，J.，“HTTP的首选标头”，RFC 7240，DOI 10.17487/RFC7240，2014年6月<http://www.rfc-editor.org/info/rfc7240>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7525] Sheffer, Y., Holz, R., and P. Saint-Andre, \"Recommendations for Secure Use of Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS)\", BCP 195, RFC 7525, DOI 10.17487/RFC7525, May 2015, <http://www.rfc-editor.org/info/rfc7525>.",
+      "zh-CHS": "[RFC7525]Sheffer，Y.，Holz，R.，和P.Saint Andre，“安全使用传输层安全性（TLS）和数据报传输层安全性（DTLS）的建议”，BCP 195，RFC 7525，DOI 10.17487/RFC7525，2015年5月<http://www.rfc-editor.org/info/rfc7525>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7540] Belshe, M., Peon, R., and M. Thomson, Ed., \"Hypertext Transfer Protocol Version 2 (HTTP/2)\", RFC 7540, DOI 10.17487/RFC7540, May 2015, <http://www.rfc-editor.org/info/rfc7540>.",
+      "zh-CHS": "[RFC7540]Belshe，M.，Paon，R.，和M.Thomson，编辑，“超文本传输协议版本2（HTTP/2）”，RFC 7540，DOI 10.17487/RFC7540，2015年5月<http://www.rfc-editor.org/info/rfc7540>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7838] Nottingham, M., McManus, P., and J. Reschke, \"HTTP Alternative Services\", RFC 7838, DOI 10.17487/RFC7838, April 2016, <http://www.rfc-editor.org/info/rfc7838>.",
+      "zh-CHS": "[RFC7838]诺丁汉，M.，McManus，P.，和J.Reschke，“HTTP替代服务”，RFC 7838，DOI 10.17487/RFC7838，2016年4月<http://www.rfc-editor.org/info/rfc7838>."
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[API] Beverloo, P., Thomson, M., van Ouwerkerk, M., Sullivan, B., and E. Fullea, \"Push API\", W3C Editor's Draft push-api, November 2016, <https://w3c.github.io/push-api/>.",
+      "zh-CHS": "[API]Beverloo，P.，Thomson，M.，van Ouwerkerk，M.，Sullivan，B.，和E.Fullea，“推送API”，W3C编辑稿推送API，2016年11月<https://w3c.github.io/push-api/>."
+    },
+    {
+      "indent": 3,
+      "text": "[ENCRYPT] Thomson, M., \"Message Encryption for Web Push\", Work in Progress, draft-ietf-webpush-encryption-06, October 2016.",
+      "zh-CHS": "[ENCRYPT]Thomson，M.，“Web推送的消息加密”，正在进行的工作，草稿-ietf-webpush-Encryption-062016年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6973] Cooper, A., Tschofenig, H., Aboba, B., Peterson, J., Morris, J., Hansen, M., and R. Smith, \"Privacy Considerations for Internet Protocols\", RFC 6973, DOI 10.17487/RFC6973, July 2013, <http://www.rfc-editor.org/info/rfc6973>.",
+      "zh-CHS": "[RFC6973]Cooper，A.，Tschofenig，H.，Aboba，B.，Peterson，J.，Morris，J.，Hansen，M.，和R.Smith，“互联网协议的隐私考虑”，RFC 6973，DOI 10.17487/RFC6973，2013年7月<http://www.rfc-editor.org/info/rfc6973>."
+    },
+    {
+      "indent": 3,
+      "text": "[VAPID] Thomson, M. and P. Beverloo, \"Voluntary Application Server Identification for Web Push\", Work in Progress, draft-ietf-webpush-vapid-01, June 2016.",
+      "zh-CHS": "[VAPID]Thomson，M.和P.Beverloo，“Web推送的自愿应用服务器识别”，正在进行的工作，草稿-ietf-webpush-VAPID-01，2016年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Significant technical input to this document has been provided by Ben Bangert, Peter Beverloo, Kit Cambridge, JR Conlin, Lucas Jenss, Matthew Kaufman, Costin Manolache, Mark Nottingham, Idel Pivnitskiy, Robert Sparks, Darshak Thakore, and many others.",
+      "zh-CHS": "本文件的重要技术输入由Ben Bangert、Peter Beverloo、Kit Cambridge、JR Conlin、Lucas Jenss、Matthew Kaufman、Costin Manolache、Mark Nottingham、Idel Pivnitskiy、Robert Sparks、Darshak Thakore和许多其他人提供。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Martin Thomson Mozilla 331 E Evelyn Street Mountain View, CA 94041 United States of America",
+      "zh-CHS": "马丁·汤姆森·莫兹拉美国加利福尼亚州伊夫林街山景大道331 E号，邮编94041"
+    },
+    {
+      "indent": 3,
+      "text": "Email: martin.thomson@gmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Elio Damaggio Microsoft One Microsoft Way Redmond, WA 98052 United States of America",
+      "zh-CHS": "Elio Damaggio Microsoft One Microsoft Way Redmond，WA 98052美利坚合众国"
+    },
+    {
+      "indent": 3,
+      "text": "Email: elioda@microsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Brian Raymor (editor) Microsoft One Microsoft Way Redmond, WA 98052 United States of America",
+      "zh-CHS": "Brian Raymor（编辑）美国华盛顿州雷蒙德市微软一路微软98052"
+    },
+    {
+      "indent": 3,
+      "text": "Email: brian.raymor@microsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

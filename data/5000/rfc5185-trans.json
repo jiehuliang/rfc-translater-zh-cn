@@ -1,0 +1,510 @@
+{
+  "title": {
+    "text": "RFC 5185: OSPF Multi-Area Adjacency",
+    "zh-CHS": "RFC 5185"
+  },
+  "number": 5185,
+  "created_at": "2021-11-10 09:49:46.191931+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       S. Mirtorabi\nRequest for Comments: 5185                                 Nuova Systems\nCategory: Standards Track                                      P. Psenak\n                                                           Cisco Systems\n                                                          A. Lindem, Ed.\n                                                                A. Oswal\n                                                        Redback Networks\n                                                                May 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "OSPF Multi-Area Adjacency",
+      "zh-CHS": "多区域邻接"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an extension to the Open Shortest Path First (OSPF) protocol to allow a single physical link to be shared by multiple areas. This is necessary to allow the link to be considered an intra-area link in multiple areas. This would create an intra-area path in each of the corresponding areas sharing the same link.",
+      "zh-CHS": "本文档描述了开放最短路径优先（OSPF）协议的扩展，以允许多个区域共享单个物理链路。这对于允许将链路视为多个区域中的区域内链路是必要的。这将在共享相同链接的每个相应区域中创建区域内路径。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 3\n  1.1.  Motivation  . . . . . . . . . . . . . . . . . . . . . . . . 3\n  1.2.  Possible Solutions  . . . . . . . . . . . . . . . . . . . . 3\n  1.3.  Proposed Solution . . . . . . . . . . . . . . . . . . . . . 4\n  1.4.  Requirements Notation . . . . . . . . . . . . . . . . . . . 4\n2.  Functional Specifications . . . . . . . . . . . . . . . . . . . 4\n  2.1.  Multi-Area Adjacency Configuration and Neighbor\n        Discovery . . . . . . . . . . . . . . . . . . . . . . . . . 4\n  2.2.  Multi-Area Adjacency Packet Transmission  . . . . . . . . . 5\n  2.3.  Multi-Area Adjacency Control Packet Reception Changes . . . 5\n  2.4.  Interface Data Structure  . . . . . . . . . . . . . . . . . 6\n  2.5.  Interface FSM . . . . . . . . . . . . . . . . . . . . . . . 6\n  2.6.  Neighbor Data Structure and Neighbor FSM  . . . . . . . . . 6\n  2.7.  Advertising Multi-Area Adjacencies  . . . . . . . . . . . . 6\n3.  Compatibility . . . . . . . . . . . . . . . . . . . . . . . . . 7\n  3.1.  Adjacency Endpoint Compatibility  . . . . . . . . . . . . . 7\n4.  OSPFv3 Applicability  . . . . . . . . . . . . . . . . . . . . . 7\n5.  Security Considerations . . . . . . . . . . . . . . . . . . . . 7\n6.  References  . . . . . . . . . . . . . . . . . . . . . . . . . . 8\n  6.1.  Normative References  . . . . . . . . . . . . . . . . . . . 8\n  6.2.  Informative References  . . . . . . . . . . . . . . . . . . 8\nAppendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 9",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Motivation",
+      "section_title": true,
+      "zh-CHS": "1.1. 动机"
+    },
+    {
+      "indent": 3,
+      "text": "It is often a requirement to have an Open Shortest Path First (OSPF) [OSPF] link in multiple areas. This will allow the link to be considered as an intra-area path in each area and be preferred over higher cost links. A simple example of this requirement is to use a high-speed link between two Area Border Routers (ABRs)in multiple areas.",
+      "zh-CHS": "通常要求在多个区域中具有开放的最短路径优先（OSPF）[OSPF]链路。这将允许将链路视为每个区域中的区域内路径，并优先于成本较高的链路。此要求的一个简单示例是在多个区域的两个区域边界路由器（ABR）之间使用高速链路。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the following topology:",
+      "zh-CHS": "考虑下面的拓扑结构："
+    },
+    {
+      "indent": 25,
+      "text": " R1-------Backbone------R2\n  |                      |\nArea 1                 Area 1\n  |                      |\n R3--------Area 1--------R4",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 28,
+      "text": "Multi-Link Topology",
+      "zh-CHS": "多链路拓扑"
+    },
+    {
+      "indent": 3,
+      "text": "The backbone area link between R1 and R2 is a high-speed link, and it is desirable to forward Area 1's traffic between R1 and R2 over that link. In the current OSPF specification [OSPF], intra-area paths are preferred over inter-area paths. As a result, R1 will always route traffic to R4 through Area 1 over the lower speed links. R1 will even use the intra-area Area 1 path though R3 to get to Area 1 networks connected to R2. An OSPF virtual link cannot be used to solve this problem without moving the link between R1 and R2 to Area 1. This is not desirable if the physical link is, in fact, part of the network's backbone topology.",
+      "zh-CHS": "R1和R2之间的主干区域链路是高速链路，需要通过该链路转发R1和R2之间的区域1的流量。在当前的OSPF规范[OSPF]中，区域内路径优先于区域间路径。因此，R1将始终通过区域1通过低速链路将流量路由到R4。R1甚至会通过R3使用区域内的区域1路径到达连接到R2的区域1网络。如果不将R1和R2之间的链路移动到区域1，则无法使用OSPF虚拟链路来解决此问题。如果物理链路实际上是网络主干拓扑的一部分，则这是不可取的。"
+    },
+    {
+      "indent": 3,
+      "text": "The protocol extension described herein will rectify this problem by allowing the link between R1 and R2 to be part of both the backbone area and Area 1.",
+      "zh-CHS": "本文描述的协议扩展将通过允许R1和R2之间的链路成为主干区域和区域1的一部分来纠正此问题。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Possible Solutions",
+      "section_title": true,
+      "zh-CHS": "1.2. 可能的解决方案"
+    },
+    {
+      "indent": 3,
+      "text": "For numbered interfaces, the OSPF (Open Shortest Path First) specification [OSPF] allows a separate OSPF interface to be configured in each area using a secondary address. The disadvantages of this approach are that it requires additional IP address configuration, it doesn't apply to unnumbered interfaces, and advertising secondary addresses will result in a larger overall routing table.",
+      "zh-CHS": "对于编号的接口，OSPF（开放最短路径优先）规范[OSPF]允许使用辅助地址在每个区域配置单独的OSPF接口。这种方法的缺点是，它需要额外的IP地址配置，不适用于未编号的接口，并且公布辅助地址将导致更大的总体路由表。"
+    },
+    {
+      "indent": 3,
+      "text": "Allowing a link with a single address to simply be configured in multiple areas would also solve the problem. However, this would result in the subnet corresponding to the interface residing in multiple areas that is contrary to the definition of an OSPF area as a collection of subnets.",
+      "zh-CHS": "允许在多个区域中简单地配置具有单个地址的链接也可以解决此问题。然而，这将导致与驻留在多个区域中的接口相对应的子网，这与OSPF区域作为子网集合的定义相反。"
+    },
+    {
+      "indent": 3,
+      "text": "Another approach is to simply allow unnumbered links to be configured in multiple areas. Section 8.2. of the OSPF specification [OSPF] already specifies that the OSPF area ID should be used to de-multiplex received OSPF packets. One limitation of this approach is that multi-access networks are not supported. Although this limitation may be overcome for LAN media with support of \"Point-to-Point operation over LAN in link-state routing protocols\" [P2PLAN], it may not be acceptable to configure the link as unnumbered due to network management policies. Many popular network management applications individually test the path to each interface by pinging its IP address.",
+      "zh-CHS": "另一种方法是简单地允许在多个区域中配置未编号的链接。第8.2节。OSPF规范的定义[OSPF]已经指定OSPF区域ID应用于对接收到的OSPF数据包进行解复用。这种方法的一个限制是不支持多址网络。尽管支持“链路状态路由协议中LAN上的点对点操作”[P2PLAN]可以克服LAN介质的这一限制，但由于网络管理策略的原因，将链路配置为无编号可能是不可接受的。许多流行的网络管理应用程序通过ping每个接口的IP地址来单独测试其路径。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Proposed Solution",
+      "section_title": true,
+      "zh-CHS": "1.3. 提议的解决办法"
+    },
+    {
+      "indent": 3,
+      "text": "ABRs will simply establish multiple adjacencies belonging to different areas. Each multi-area adjacency is announced as a point-to-point link in the configured area. However, unlike numbered point-to-point links, no type 3 link is advertised for multi-area adjacencies. This point-to-point link will provide a topological path for that area. The first or primary adjacency using the link will operate and advertise the link in a manner consistent with RFC 2328 [OSPF].",
+      "zh-CHS": "ABR将简单地建立属于不同区域的多个邻接。每个多区域邻接将作为配置区域中的点对点链接进行宣布。但是，与编号的点到点链接不同，没有针对多区域邻接发布类型3链接。此点到点链接将为该区域提供拓扑路径。使用该链路的第一或主要邻接将以与RFC 2328[OSPF]一致的方式操作和通告该链路。"
+    },
+    {
+      "indent": 0,
+      "text": "1.4. Requirements Notation",
+      "section_title": true,
+      "zh-CHS": "1.4. 需求符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC-KEYWORDS].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC-关键词]中的描述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Functional Specifications",
+      "section_title": true,
+      "zh-CHS": "2. 功能规格"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Multi-Area Adjacency Configuration and Neighbor Discovery",
+      "section_title": true,
+      "zh-CHS": "2.1. 多区域邻接配置与邻居发现"
+    },
+    {
+      "indent": 3,
+      "text": "Multi-area adjacencies are configured between two routers having a common interface. On point-to-point interfaces, there is no need to configure the neighbor's address since there can be only one neighbor. For all other network types, the neighbor address of each multi-area adjacency must be configured or automatically discovered via a mechanism external to OSPF.",
+      "zh-CHS": "多区域邻接配置在具有公共接口的两个路由器之间。在点对点接口上，不需要配置邻居的地址，因为只能有一个邻居。对于所有其他网络类型，必须通过OSPF外部的机制配置或自动发现每个多区域邻接的邻居地址。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Multi-Area Adjacency Packet Transmission",
+      "section_title": true,
+      "zh-CHS": "2.2. 多区域邻接分组传输"
+    },
+    {
+      "indent": 3,
+      "text": "On point-to-point interfaces, OSPF control packets are sent to the AllSPFRouters address. For all other network types, OSPF control packets are unicast to the remote neighbor's IP address.",
+      "zh-CHS": "在点对点接口上，OSPF控制数据包被发送到AllSPFRouters地址。对于所有其他网络类型，OSPF控制数据包单播到远程邻居的IP地址。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Multi-Area Adjacency Control Packet Reception Changes",
+      "section_title": true,
+      "zh-CHS": "2.3. 多区域邻接控制数据包接收变化"
+    },
+    {
+      "indent": 3,
+      "text": "Receiving protocol packets is described in Section 8.2 of [OSPF]. The text starting with the second paragraph and continuing through the third bullet beneath that paragraph is changed as follows:",
+      "zh-CHS": "[OSPF]的第8.2节描述了接收协议包。案文从第二段开始，一直到该段下的第三个项目符号，修改如下："
+    },
+    {
+      "indent": 3,
+      "text": "Next, the OSPF packet header is verified. The fields specified in the header must match those configured for the receiving interface. If they do not, the packet should be discarded:",
+      "zh-CHS": "接下来，验证OSPF分组报头。标头中指定的字段必须与为接收接口配置的字段匹配。如果没有，则应丢弃数据包："
+    },
+    {
+      "indent": 3,
+      "text": "o The version number field must specify protocol version 2.",
+      "zh-CHS": "o 版本号字段必须指定协议版本2。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Area ID found in the OSPF header must be verified. If all of the following cases fail, the packet should be discarded. The Area ID specified in the header must either:",
+      "zh-CHS": "o 必须验证在OSPF标头中找到的区域ID。如果以下所有情况均失败，则应丢弃数据包。标头中指定的区域ID必须："
+    },
+    {
+      "indent": 6,
+      "text": "1. Match the Area ID of the receiving interface. In this case, the packet has been sent over a single hop. Therefore, the packet's IP source address is required to be on the same network as the receiving interface. This can be verified by comparing the packet's IP source address to the interface's IP address, after masking both addresses with the interface mask. This comparison should not be performed on point-to-point networks. On point-to-point networks, the interface addresses of each end of the link are assigned independently, if they are assigned at all.",
+      "zh-CHS": "1. 匹配接收接口的区域ID。在这种情况下，数据包是通过单跳发送的。因此，数据包的IP源地址要求与接收接口位于同一网络上。在用接口掩码屏蔽两个地址之后，可以通过比较数据包的IP源地址和接口的IP地址来验证这一点。不应在点到点网络上执行此比较。在点到点网络上，链路每一端的接口地址都是独立分配的（如果分配的话）。"
+    },
+    {
+      "indent": 6,
+      "text": "2. Indicate a non-backbone area. In this case, the packet has been sent over a multi-area adjacency. If the area-id matches the configured area for a multi-area adjacency, the packet is accepted and is from now on associated with the multi-area adjacency for that area.",
+      "zh-CHS": "2. 指示非主干区域。在这种情况下，数据包已通过多区域邻接发送。如果区域id与为多区域邻接配置的区域相匹配，则接受该数据包，并从现在起与该区域的多区域邻接相关联。"
+    },
+    {
+      "indent": 6,
+      "text": "3. Indicate the backbone. In this case, the packet has been sent over a virtual link or a multi-area adjacency.",
+      "zh-CHS": "3. 表示主干。在这种情况下，数据包已通过虚拟链路或多区域邻接发送。"
+    },
+    {
+      "indent": 3,
+      "text": "o For virtual links, the receiving router must be an ABR, and the Router ID specified in the packet (the source router) must be the other end of a configured virtual link. The receiving interface must also attach to the virtual link's configured transit area. If all of these checks succeed, the packet is accepted and is from now on associated with the virtual link.",
+      "zh-CHS": "o 对于虚拟链路，接收路由器必须是ABR，并且包中指定的路由器ID（源路由器）必须是配置的虚拟链路的另一端。接收接口还必须连接到虚拟链路的配置传输区域。如果所有这些检查都成功，则数据包将被接受，并从现在起与虚拟链路关联。"
+    },
+    {
+      "indent": 3,
+      "text": "o For multi-area adjacencies, if the area-id matches the configured area for the multi-area adjacency, the packet is accepted and is from now on associated with the multi-area adjacency for that area.",
+      "zh-CHS": "o 对于多区域邻接，如果区域id与为多区域邻接配置的区域匹配，则接受该数据包，并且从现在起与该区域的多区域邻接相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "o Note that if there is a match for both a virtual link and a multi-area adjacency then this is a configuration error that should be handled at the configuration level.",
+      "zh-CHS": "o 请注意，如果虚拟链路和多区域邻接都匹配，则这是一个配置错误，应在配置级别处理。"
+    },
+    {
+      "indent": 3,
+      "text": "o Packets whose IP destination is AllDRouters should only be accepted if the state of the receiving interface is DR or Backup (see Section 9.1 of [OSPF]).",
+      "zh-CHS": "o 仅当接收接口的状态为DR或Backup（参见[OSPF]第9.1节）时，才应接受IP目的地为AllDrooters的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "o [...] The remainder of Section 8.2 of [OSPF] is unchanged.",
+      "zh-CHS": "o [……]OSPF第8.2节的其余部分未变。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Interface Data Structure",
+      "section_title": true,
+      "zh-CHS": "2.4. 接口数据结构"
+    },
+    {
+      "indent": 3,
+      "text": "An OSPF interface data structure is built for each configured multi-area adjacency as specified in Section 9 of [OSPF]. The interface type will always be point-to-point.",
+      "zh-CHS": "按照[OSPF]第9节的规定，为每个配置的多区域邻接构建OSPF接口数据结构。接口类型将始终为点对点。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Interface FSM",
+      "section_title": true,
+      "zh-CHS": "2.5. 接口有限状态机"
+    },
+    {
+      "indent": 3,
+      "text": "The interface Finite State Machine (FSM) will be the same as a point-to-point link irrespective of the underlying physical link.",
+      "zh-CHS": "接口有限状态机（FSM）将与点到点链路相同，而与底层物理链路无关。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Neighbor Data Structure and Neighbor FSM",
+      "section_title": true,
+      "zh-CHS": "2.6. 邻居数据结构与邻居有限状态机"
+    },
+    {
+      "indent": 3,
+      "text": "Both the neighbor data structure and neighbor FSM are the same as for standard OSPF, specified in Section 10 of [OSPF].",
+      "zh-CHS": "相邻数据结构和相邻FSM均与[OSPF]第10节中规定的标准OSPF相同。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7. Advertising Multi-Area Adjacencies",
+      "section_title": true,
+      "zh-CHS": "2.7. 广告多区域邻接"
+    },
+    {
+      "indent": 3,
+      "text": "Multi-area adjacencies are announced as point-to-point links. Once the router's multi-area adjacency reaches the FULL state, it will be added as a link type 1 to the Router Link State Advertisement (LSA) with:",
+      "zh-CHS": "多区域邻接宣布为点到点链接。一旦路由器的多区域邻接达到完全状态，它将作为链路类型1添加到路由器链路状态公告（LSA），其中包括："
+    },
+    {
+      "indent": 6,
+      "text": "Link ID = Remote's Router ID",
+      "zh-CHS": "链路ID=远程设备的路由器ID"
+    },
+    {
+      "indent": 6,
+      "text": "Link Data = Neighbor's IP Address or IfIndex (if the underlying interface is unnumbered).",
+      "zh-CHS": "链路数据=邻居的IP地址或IfIndex（如果基础接口未编号）。"
+    },
+    {
+      "indent": 3,
+      "text": "Unlike numbered point-to-point links, no type 3 link is advertised for multi-area adjacencies.",
+      "zh-CHS": "与编号的点到点链接不同，没有针对多区域邻接发布类型3链接。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Compatibility",
+      "section_title": true,
+      "zh-CHS": "3. 兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "All mechanisms described in this document are backward compatible with standard OSPF implementations [OSPF].",
+      "zh-CHS": "本文档中描述的所有机制都与标准OSPF实现[OSPF]向后兼容。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Adjacency Endpoint Compatibility",
+      "section_title": true,
+      "zh-CHS": "3.1. 邻接端点兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "Since multi-area adjacencies are modeled as point-to-point links, it is only necessary for the router at the other end of the adjacency to model the adjacency as a point-to-point link. However, the network topology will be easier to represent and troubleshoot if both neighbors are symmetrically configured as multi-area adjacencies.",
+      "zh-CHS": "由于多区域邻接被建模为点到点链路，因此仅需要邻接另一端的路由器将邻接建模为点到点链路。但是，如果两个邻居对称配置为多区域邻接，则网络拓扑将更易于表示和故障排除。"
+    },
+    {
+      "indent": 0,
+      "text": "4. OSPFv3 Applicability",
+      "section_title": true,
+      "zh-CHS": "4. OSPFv3适用性"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanisms defined in this document also apply to OSPFv3 [OSPFV3]. As in OSPF, a multi-area adjacency is advertised as a point-to-point link in the advertising router's router-LSA. Since OSPFv3 router-LSA links are independent of addressing semantics and unambiguously identify OSPFv3 neighbors (refer to Section 3.4.3.1 of [OSPFV3]), the change to router-LSA links described in Section 2.7 is not applicable to OSPFv3. Furthermore, no prefixes corresponding to the multi-area adjacency are advertised in the router's intra-area-prefix-LSA.",
+      "zh-CHS": "本文件中定义的机制也适用于OSPFv3[OSPFv3]。与在OSPF中一样，多区域邻接在广告路由器的路由器LSA中被广告为点对点链路。由于OSPFv3路由器LSA链路独立于寻址语义，并明确标识OSPFv3邻居（参考[OSPFv3]第3.4.3.1节），因此第2.7节中描述的对路由器LSA链路的更改不适用于OSPFv3。此外，在路由器的区域内前缀LSA中不广告对应于多区域邻接的前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "A link-LSA SHOULD NOT be advertised for a multi-area adjacency. The neighbor's IPv6 link local address can be learned in other ways, e.g., it can be extracted from the IPv6 header of Hello packets received over the multi-area adjacency. The neighbor IPv6 link local address is required for the OSPFv3 route next-hop calculation on multi-access networks (refer to Section 3.8.1.1 of [OSPFV3]).",
+      "zh-CHS": "链路LSA不应为多区域邻接发布广告。邻居的IPv6链路本地地址可以通过其他方式学习，例如，可以从通过多区域邻接接收的Hello数据包的IPv6报头中提取。多址网络上的OSPFv3路由下一跳计算需要邻居IPv6链路本地地址（请参阅[OSPFv3]第3.8.1.1节）。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not raise any security issues that are not already covered in [OSPF] or [OSPFV3].",
+      "zh-CHS": "本文件不涉及[OSPF]或[OSPFV3]中未涉及的任何安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "6. References",
+      "section_title": true,
+      "zh-CHS": "6. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "6.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPF] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998.",
+      "zh-CHS": "[OSPF]Moy，J.，“OSPF版本2”，STD 54，RFC 23281998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPFV3] Coltun, R., Ferguson, D., and J. Moy, \"OSPF for IPv6\", RFC 2740, December 1999.",
+      "zh-CHS": "[OSPFV3]Coltun，R.，Ferguson，D.，和J.Moy，“IPv6的OSPF”，RFC 27401999年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC-KEYWORDS] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC-关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "6.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[P2PLAN] Shen, N. and A. Zinin, \"Point-to-point operation over LAN in link-state routing protocols\", Work in Progress.",
+      "zh-CHS": "[P2PLAN]Shen，N.和A.Zinin，“链路状态路由协议中局域网上的点对点操作”，正在进行中。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to acknowledge Pat Murphy for convincing the OSPF WG to address the requirement.",
+      "zh-CHS": "作者希望感谢Pat Murphy说服OSPF工作组满足该要求。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Mitchell Erblich's for his last call review and comments.",
+      "zh-CHS": "感谢Mitchell Erblich的最后一次通话回顾和评论。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Padma Pillay-Esnault for her last call review and comments. Also, thanks to Padma for comments on the OSPFv3 applicability section that was last called separately.",
+      "zh-CHS": "感谢Padma Pillay Esnault的最后一次通话回顾和评论。另外，感谢Padma对上次单独调用的OSPFv3适用性部分的评论。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Nischal Seth for pointing out that the document inadvertently precluded point-to-point over LAN interfaces.",
+      "zh-CHS": "感谢Nischal Seth指出该文档无意中排除了LAN上的点对点接口。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Ben Campbell for performing the General Area review.",
+      "zh-CHS": "感谢Ben Campbell执行一般区域审查。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Jari Arkko for comments during the IESG review.",
+      "zh-CHS": "感谢Jari Arkko在IESG审查期间的评论。"
+    },
+    {
+      "indent": 3,
+      "text": "The RFC text was produced using Marshall Rose's xml2rfc tool.",
+      "zh-CHS": "RFC文本是使用Marshall Rose的xml2rfc工具生成的。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Sina Mirtorabi Nuova Systems 3 West Plumeria Drive San Jose, CA 95134 USA",
+      "zh-CHS": "新浪Mirtorabi Nuova Systems 3美国加利福尼亚州圣何塞西普洛玛丽亚大道95134号"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: sina@nuovasystems.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Peter Psenak Cisco Systems Apollo Business Center Mlynske nivy 43 821 09 Bratislava Slovakia",
+      "zh-CHS": "Peter Psenak思科系统阿波罗商业中心Mlynske nivy 43 821 09斯洛伐克布拉迪斯拉发"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: ppsenak@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Acee Lindem (editor) Redback Networks 102 Carric Bend Court Cary, NC 27519 USA",
+      "zh-CHS": "Acee Lindem（编辑）Redback Networks 102美国北卡罗来纳州卡里克本德法院，邮编27519"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: acee@redback.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Anand Oswal Redback Networks 300 Holger Way San Jose, CA 95134 USA",
+      "zh-CHS": "美国加利福尼亚州圣何塞霍尔格路300号阿南德·奥斯瓦尔红背网络公司，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: aoswal@redback.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

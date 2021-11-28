@@ -1,0 +1,644 @@
+{
+  "title": {
+    "text": "RFC 5613: OSPF Link-Local Signaling",
+    "zh-CHS": "RFC 5613"
+  },
+  "number": 5613,
+  "created_at": "2021-11-08 04:24:31.989641+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                           A. Zinin\nRequest for Comments: 5613                                Alcatel-Lucent\nObsoletes: 4813                                                   A. Roy\nCategory: Standards Track                                      L. Nguyen\n                                                           Cisco Systems\n                                                             B. Friedman\n                                                            Google, Inc.\n                                                                D. Yeung\n                                                           Cisco Systems\n                                                             August 2009",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "OSPF Link-Local Signaling",
+      "zh-CHS": "链路本地信令"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "OSPF is a link-state intra-domain routing protocol. OSPF routers exchange information on a link using packets that follow a well-defined fixed format. The format is not flexible enough to enable new features that need to exchange arbitrary data. This document describes a backward-compatible technique to perform link-local signaling, i.e., exchange arbitrary data on a link. This document replaces the experimental specification published in RFC 4813 to bring it on the Standards Track.",
+      "zh-CHS": "OSPF是一种链路状态域内路由协议。OSPF路由器使用遵循明确定义的固定格式的数据包在链路上交换信息。格式不够灵活，无法启用需要交换任意数据的新功能。本文档描述了执行链路本地信令的向后兼容技术，即在链路上交换任意数据。本文件取代RFC 4813中发布的实验规范，使其走上标准轨道。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2009 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2009 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents in effect on the date of publication of this document (http://trustee.ietf.org/license-info). Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托在本文件出版之日生效的与IETF文件有关的法律规定的约束(http://trustee.ietf.org/license-info). 请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2\n  1.1.  Requirements Notation  . . . . . . . . . . . . . . . . . .  2\n2.  Proposed Solution  . . . . . . . . . . . . . . . . . . . . . .  3\n  2.1.  L-Bit in Options Field . . . . . . . . . . . . . . . . . .  4\n  2.2.  LLS Data Block . . . . . . . . . . . . . . . . . . . . . .  4\n  2.3.  LLS TLVs . . . . . . . . . . . . . . . . . . . . . . . . .  5\n  2.4.  Extended Options and Flags TLV . . . . . . . . . . . . . .  5\n  2.5.  Cryptographic Authentication TLV (OSPFv2 ONLY) . . . . . .  6\n  2.6.  Private TLVs . . . . . . . . . . . . . . . . . . . . . . .  7\n3.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . .  7\n4.  Compatibility Issues . . . . . . . . . . . . . . . . . . . . .  9\n5.  Security Considerations  . . . . . . . . . . . . . . . . . . .  9\n6.  References . . . . . . . . . . . . . . . . . . . . . . . . . .  9\n  6.1.  Normative References . . . . . . . . . . . . . . . . . . .  9\n  6.2.  Informative References . . . . . . . . . . . . . . . . . . 10\nAppendix A.  Acknowledgements  . . . . . . . . . . . . . . . . . . 11\nAppendix B.  Changes from RFC 4813 . . . . . . . . . . . . . . . . 11",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an extension to OSPFv2 [OSPFV2] and OSPFv3 [OSPFV3] allowing additional information to be exchanged between routers on the same link. OSPFv2 and OSPFv3 packet formats are fixed and do not allow for extension. This document proposes appending an optional data block composed of Type/Length/Value (TLV) triplets to existing OSPFv2 and OSPFv3 packets to carry this additional information. Throughout this document, OSPF will be used when the specification is applicable to both OSPFv2 and OSPFv3. Similarly, OSPFv2 or OSPFv3 will be used when the text is protocol specific.",
+      "zh-CHS": "本文档描述了OSPFv2[OSPFv2]和OSPFv3[OSPFv3]的扩展，允许在同一链路上的路由器之间交换附加信息。OSPFv2和OSPFv3数据包格式是固定的，不允许扩展。本文档建议在现有OSPFv2和OSPFv3数据包中附加一个由类型/长度/值（TLV）三元组组成的可选数据块，以携带此附加信息。在本文件中，当规范同时适用于OSPFv2和OSPFv3时，将使用OSPF。类似地，当文本特定于协议时，将使用OSPFv2或OSPFv3。"
+    },
+    {
+      "indent": 3,
+      "text": "One potential way of solving this task could be introducing a new packet type. However, that would mean introducing extra packets on the network that may not be desirable and may cause backward compatibility issues. This document describes how to exchange data using standard OSPF packet types.",
+      "zh-CHS": "解决此任务的一个潜在方法是引入一种新的数据包类型。然而，这将意味着在网络上引入额外的数据包，这可能不可取，并可能导致向后兼容性问题。本文档描述了如何使用标准OSPF数据包类型交换数据。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Requirements Notation",
+      "section_title": true,
+      "zh-CHS": "1.1. 需求符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [KEY].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[关键]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Proposed Solution",
+      "section_title": true,
+      "zh-CHS": "2. 提议的解决办法"
+    },
+    {
+      "indent": 3,
+      "text": "To perform link-local signaling (LLS), OSPF routers add a special data block to the end of OSPF packets or right after the authentication data block when cryptographic authentication is used. The length of the LLS block is not included into the length of the OSPF packet, but is included in the IPv4/IPv6 packet length. Figure 1 illustrates how the LLS data block is attached.",
+      "zh-CHS": "为了执行链路本地信令（LLS），OSPF路由器在OSPF数据包的末尾或在使用加密身份验证时在身份验证数据块的后面添加一个特殊的数据块。LLS块的长度不包括在OSPF数据包的长度中，而是包括在IPv4/IPv6数据包的长度中。图1说明了如何连接LLS数据块。"
+    },
+    {
+      "indent": 3,
+      "text": "+---------------------+ --              --  +---------------------+\n| IP Header           | ^               ^   | IPv6 Header         |\n| Length = HL+X+Y+Z   | | Header Length |   | Length = HL+X+Y     |\n|                     | v               v   |                     |\n+---------------------+ --              --  +---------------------+\n| OSPF Header         | ^               ^   | OSPFv3 Header       |\n| Length = X          | |               |   | Length = X          |\n|.....................| | X             | X |.....................|\n|                     | |               |   |                     |\n| OSPFv2 Data         | |               |   | OSPFv3 Data         |\n|                     | v               v   |                     |\n+---------------------+ --              --  +---------------------+\n|                     | ^               ^   |                     |\n| Authentication Data | | Y             | Y |  LLS Data           |\n|                     | v               v   |                     |\n+---------------------+ --              --  +---------------------+\n|                     | ^\n|  LLS Data           | | Z\n|                     | v\n+---------------------+ --",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "Figure 1: LLS Data Block in OSPFv2 and OSPFv3",
+      "zh-CHS": "图1:OSPFv2和OSPFv3中的LLS数据块"
+    },
+    {
+      "indent": 3,
+      "text": "The LLS block MAY be attached to OSPF Hello and Database Description (DD) packets. The LLS block MUST NOT be attached to any other OSPF packet types on generation and MUST be ignored on reception.",
+      "zh-CHS": "LLS块可以附加到OSPF Hello和数据库描述（DD）分组。LLS块在生成时不得连接到任何其他OSPF数据包类型，在接收时必须忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "The data included in the LLS block attached to a Hello packet MAY be used for dynamic signaling since Hello packets may be sent at any time. However, delivery of LLS data in Hello packets is not guaranteed. The data sent with DD packets is guaranteed to be delivered as part of the adjacency forming process.",
+      "zh-CHS": "附加到Hello分组的LLS块中包括的数据可用于动态信令，因为Hello分组可随时发送。然而，Hello数据包中的LLS数据的传递是不保证的。与DD包一起发送的数据保证作为邻接形成过程的一部分被传递。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not specify how the data transmitted by the LLS mechanism should be interpreted by OSPF routers. As routers that do not understand LLS may receive these packets, changes made due to LLS block TLV's do not affect the basic routing when interacting with non-LLS routers.",
+      "zh-CHS": "本文件未规定OSPF路由器应如何解释LLS机制传输的数据。由于不了解LLS的路由器可能会接收这些数据包，因此在与非LLS路由器交互时，由于LLS阻塞TLV而进行的更改不会影响基本路由。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. L-Bit in Options Field",
+      "section_title": true,
+      "zh-CHS": "2.1. 选项字段中的L位"
+    },
+    {
+      "indent": 3,
+      "text": "A new L-bit (L stands for LLS) is introduced into the OSPF Options field (see Figures 2a and 2b). Routers set the L-bit in Hello and DD packets to indicate that the packet contains an LLS data block. In other words, the LLS data block is only examined if the L-bit is set.",
+      "zh-CHS": "OSPF选项字段中引入了一个新的L位（L代表LLS）（见图2a和2b）。路由器在Hello和DD数据包中设置L位，以指示数据包包含LLS数据块。换句话说，仅当设置了L位时才检查LLS数据块。"
+    },
+    {
+      "indent": 13,
+      "text": "+---+---+---+---+---+---+---+---+\n| * | O | DC| L |N/P| MC| E | * |\n+---+---+---+---+---+---+---+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Figure 2a: OSPFv2 Options Field",
+      "zh-CHS": "图2a:OSPFv2选项字段"
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                       2\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4  5 6 7  8  9  0  1  2  3\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+--+-+-+--+--+--+--+--+--+\n| | | | | | | | | | | | | | |L|AF|*|*|DC| R| N|MC| E|V6|\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+--+-+-+--+--+--+--+--+--+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Figure 2b: OSPFv3 Options Field",
+      "zh-CHS": "图2b:OSPFv3选项字段"
+    },
+    {
+      "indent": 3,
+      "text": "The L-bit MUST NOT be set except in Hello and DD packets that contain an LLS block.",
+      "zh-CHS": "除非在包含LLS块的Hello和DD数据包中，否则不得设置L位。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. LLS Data Block",
+      "section_title": true,
+      "zh-CHS": "2.2. LLS数据块"
+    },
+    {
+      "indent": 3,
+      "text": "The data block used for link-local signaling is formatted as described below (see Figure 3 for illustration).",
+      "zh-CHS": "用于链路本地信令的数据块的格式如下所述（见图3）。"
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|            Checksum           |       LLS Data Length         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|                           LLS TLVs                            |\n.                                                               .\n.                                                               .\n.                                                               .\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Figure 3: Format of LLS Data Block",
+      "zh-CHS": "图3:LLS数据块的格式"
+    },
+    {
+      "indent": 3,
+      "text": "The Checksum field contains the standard IP checksum for the entire contents of the LLS block. Before computing the checksum, the checksum field is set to 0. If the checksum is incorrect, the OSPF packet MUST be processed, but the LLS block MUST be discarded.",
+      "zh-CHS": "校验和字段包含LLS块全部内容的标准IP校验和。在计算校验和之前，校验和字段设置为0。如果校验和不正确，则必须处理OSPF数据包，但必须丢弃LLS块。"
+    },
+    {
+      "indent": 3,
+      "text": "The 16-bit LLS Data Length field contains the length (in 32-bit words) of the LLS block including the header and payload.",
+      "zh-CHS": "16位LLS数据长度字段包含LLS块的长度（32位字），包括标头和有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that if the OSPF packet is cryptographically authenticated, the LLS data block MUST also be cryptographically authenticated. In this case, the regular LLS checksum is not calculated, but is instead set to 0.",
+      "zh-CHS": "请注意，如果OSPF数据包经过加密身份验证，则LLS数据块也必须经过加密身份验证。在这种情况下，不计算常规LLS校验和，而是将其设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "The rest of the block contains a set of Type/Length/Value (TLV) triplets as described in Section 2.3. All TLVs MUST be 32-bit aligned (with padding if necessary).",
+      "zh-CHS": "块的其余部分包含一组类型/长度/值（TLV）三元组，如第2.3节所述。所有TLV必须32位对齐（如有必要，使用填充）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. LLS TLVs",
+      "section_title": true,
+      "zh-CHS": "2.3. LLS TLV"
+    },
+    {
+      "indent": 3,
+      "text": "The contents of an LLS data block are constructed using TLVs. See Figure 4 for the TLV format.",
+      "zh-CHS": "LLS数据块的内容是使用TLV构造的。TLV格式见图4。"
+    },
+    {
+      "indent": 3,
+      "text": "The Type field contains the TLV ID, which is unique for each type of TLV. The Length field contains the length of the Value field (in bytes). The Value field is variable and contains arbitrary data.",
+      "zh-CHS": "类型字段包含TLV ID，该ID对于每种类型的TLV都是唯一的。长度字段包含值字段的长度（以字节为单位）。值字段是可变的，包含任意数据。"
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|            Type               |           Length              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n.                                                               .\n.                             Value                             .\n.                                                               .\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 22,
+      "text": "Figure 4: Format of LLS TLVs",
+      "zh-CHS": "图4:LLS TLV的格式"
+    },
+    {
+      "indent": 3,
+      "text": "Note that TLVs are always padded to a 32-bit boundary, but padding bytes are not included in the TLV Length field (though they are included in the LLS Data Length field in the LLS block header). Unrecognized TLV types are ignored.",
+      "zh-CHS": "请注意，TLV始终填充到32位边界，但填充字节不包括在TLV长度字段中（尽管它们包括在LLS块头的LLS数据长度字段中）。将忽略无法识别的TLV类型。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Extended Options and Flags TLV",
+      "section_title": true,
+      "zh-CHS": "2.4. 扩展选项和标志TLV"
+    },
+    {
+      "indent": 3,
+      "text": "This subsection describes a TLV called the Extended Options and Flags (EOF) TLV. The format of the EOF-TLV is shown in Figure 5.",
+      "zh-CHS": "本小节描述了一种称为扩展选项和标志（EOF）TLV的TLV。EOF-TLV的格式如图5所示。"
+    },
+    {
+      "indent": 3,
+      "text": "Bits in the Value field do not have any semantics from the point of view of the LLS mechanism. Bits MAY be allocated to announce OSPF link-local capabilities. Bits MAY also be allocated to perform boolean link-local signaling.",
+      "zh-CHS": "从LLS机制的角度来看，值字段中的位没有任何语义。可以分配位来宣布OSPF链路本地能力。还可以分配位来执行布尔链路本地信令。"
+    },
+    {
+      "indent": 3,
+      "text": "The length of the Value field in the EOF-TLV is 4 bytes.",
+      "zh-CHS": "EOF-TLV中的值字段长度为4字节。"
+    },
+    {
+      "indent": 3,
+      "text": "The value of the Type field in the EOF-TLV is 1. The EOF-TLV MUST only appear once in the LLS data block.",
+      "zh-CHS": "EOF-TLV中类型字段的值为1。EOF-TLV在LLS数据块中只能出现一次。"
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             1                 |            4                  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                  Extended Options and Flags                   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "Figure 5: Format of the EOF-TLV",
+      "zh-CHS": "图5:EOF-TLV的格式"
+    },
+    {
+      "indent": 3,
+      "text": "Currently, [OOB] and [RESTART] use bits in the Extended Options field of the EOF-TLV.",
+      "zh-CHS": "目前，[OOB]和[RESTART]使用EOF-TLV的扩展选项字段中的位。"
+    },
+    {
+      "indent": 3,
+      "text": "The Extended Options and Flags bits are defined in Section 3.",
+      "zh-CHS": "扩展选项和标志位在第3节中定义。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Cryptographic Authentication TLV (OSPFv2 ONLY)",
+      "section_title": true,
+      "zh-CHS": "2.5. 加密身份验证TLV（仅限OSPFv2）"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a special TLV that is used for cryptographic authentication (CA-TLV) of the LLS data block. This TLV MUST only be included in the LLS block when cryptographic authentication is enabled on the corresponding interface. The message digest of the LLS block MUST be calculated using the same key and authentication algorithm as used for the OSPFv2 packet. The cryptographic sequence number is included in the TLV and MUST be the same as the one in the OSPFv2 authentication data for the LLS block to be considered authentic.",
+      "zh-CHS": "本文档定义了用于LLS数据块加密身份验证（CA-TLV）的特殊TLV。只有在相应接口上启用加密身份验证时，此TLV才能包含在LLS块中。必须使用与OSPFv2数据包相同的密钥和身份验证算法计算LLS数据块的消息摘要。加密序列号包含在TLV中，并且必须与OSPFv2身份验证数据中的序列号相同，才能将LLS块视为真实的。"
+    },
+    {
+      "indent": 3,
+      "text": "The TLV is constructed as shown in Figure 6.",
+      "zh-CHS": "TLV的构造如图6所示。"
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|              2                |         AuthLen               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         Sequence Number                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n.                                                               .\n.                           AuthData                            .\n.                                                               .\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "Figure 6: Format of Cryptographic Authentication TLV",
+      "zh-CHS": "图6：加密身份验证TLV的格式"
+    },
+    {
+      "indent": 3,
+      "text": "The value of the Type field for the CA-TLV is 2.",
+      "zh-CHS": "CA-TLV的类型字段的值为2。"
+    },
+    {
+      "indent": 3,
+      "text": "The Length field in the header contains the length of the data portion of the TLV including 4 bytes for Sequence Number and the length of the message digest block for the whole LLS block in bytes.",
+      "zh-CHS": "报头中的长度字段包含TLV数据部分的长度，包括序列号的4字节和整个LLS块的消息摘要块的长度（以字节为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "The Sequence Number field contains the cryptographic sequence number that is used to prevent simple replay attacks. For the LLS block to be considered authentic, the Sequence Number in the CA-TLV MUST match the Sequence Number in the OSPFv2 packet header Authentication field (which MUST be present). In the event of Sequence Number mismatch or Authentication failure, the whole LLS block MUST be ignored.",
+      "zh-CHS": "序列号字段包含用于防止简单重播攻击的加密序列号。为了使LLS块被认为是可信的，CA-TLV中的序列号必须与OSPFv2数据包头身份验证字段（必须存在）中的序列号匹配。如果序列号不匹配或身份验证失败，则必须忽略整个LLS块。"
+    },
+    {
+      "indent": 3,
+      "text": "The CA-TLV MUST NOT appear more than once in the LLS block. Also, when present, this TLV MUST be the last TLV in the LLS block. If it appears more than once, only the first occurrence is processed and any others MUST be ignored.",
+      "zh-CHS": "CA-TLV在LLS块中不得出现多次。此外，当存在时，此TLV必须是LLS块中的最后一个TLV。如果它出现多次，则只处理第一次出现的内容，而必须忽略任何其他内容。"
+    },
+    {
+      "indent": 3,
+      "text": "The AuthData field contains the message digest calculated for the LLS data block up to the CA-TLV AuthData field (i.e., excludes the CA-TLV AuthData).",
+      "zh-CHS": "AuthData字段包含为LLS数据块计算的消息摘要，直到CA-TLV AuthData字段（即，不包括CA-TLV AuthData）。"
+    },
+    {
+      "indent": 3,
+      "text": "The CA-TLV is not applicable to OSPFv3 and it MUST NOT be added to any OSPFv3 packet. If found on reception, this TLV MUST be ignored.",
+      "zh-CHS": "CA-TLV不适用于OSPFv3，不得添加到任何OSPFv3数据包中。如果在接收时发现，则必须忽略此TLV。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Private TLVs",
+      "section_title": true,
+      "zh-CHS": "2.6. 私人TLV"
+    },
+    {
+      "indent": 3,
+      "text": "LLS type values in the range of 32768-65536 are reserved for private use. The first four octets of the Value field MUST be the private enterprise code [ENTNUM]. This allows multiple vendor private extensions to coexist in a network.",
+      "zh-CHS": "32768-65536范围内的LLS类型值保留供私人使用。值字段的前四个八位字节必须是私有企业代码[ENTNUM]。这允许多个供应商专用扩展在网络中共存。"
+    },
+    {
+      "indent": 0,
+      "text": "3. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "3. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the registry that was originally created in [RFC4813]. IANA updated the following registry to point to this document instead:",
+      "zh-CHS": "本文档使用最初在[RFC4813]中创建的注册表。IANA更新了以下注册表以指向此文档："
+    },
+    {
+      "indent": 3,
+      "text": "o \"Open Shortest Path First (OSPF) Link-Local Signalling (LLS) - Type/Length/Value Identifiers (TLV)\"",
+      "zh-CHS": "o “开放最短路径优先（OSPF）链路本地信令（LLS）-类型/长度/值标识符（TLV）”"
+    },
+    {
+      "indent": 3,
+      "text": "IANA allocated L-bit in the \"OSPFv2 Options Registry\" and \"OSPFv3 Options Registry\" as per Section 2.1.",
+      "zh-CHS": "IANA根据第2.1节在“OSPFv2选项注册表”和“OSPFv3选项注册表”中分配了L位。"
+    },
+    {
+      "indent": 3,
+      "text": "LLS TLV types are maintained by the IANA. Extensions to OSPF that require a new LLS TLV type MUST be reviewed by a Designated Expert from the routing area.",
+      "zh-CHS": "LLS TLV类型由IANA维护。需要新LLS TLV类型的OSPF扩展必须由路由区域的指定专家审查。"
+    },
+    {
+      "indent": 3,
+      "text": "The criteria for allocating LLS TLVs are:",
+      "zh-CHS": "分配LLS TLV的标准为："
+    },
+    {
+      "indent": 3,
+      "text": "o LLS should not be used for information that would be better suited to be advertised in a link-local link state advertisement (LSA).",
+      "zh-CHS": "o LLS不应用于更适合在链路本地链路状态广告（LSA）中进行广告的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "o LLS should be confined to signaling between direct neighbors.",
+      "zh-CHS": "o LLS应仅限于直接邻居之间的信令。"
+    },
+    {
+      "indent": 3,
+      "text": "o Discretion should be used in the volume of information signaled using LLS due to the obvious MTU and performance implications.",
+      "zh-CHS": "o 由于明显的MTU和性能影响，应在使用LLS发出信号的信息量中使用自由裁量权。"
+    },
+    {
+      "indent": 3,
+      "text": "Following the policies outlined in [IANA], LLS type values in the range of 0-32767 are allocated through an IETF Review and LLS type values in the range of 32768-65535 are reserved for private use.",
+      "zh-CHS": "按照[IANA]中概述的政策，通过IETF审查分配0-32767范围内的LLS类型值，32768-65535范围内的LLS类型值保留供私人使用。"
+    },
+    {
+      "indent": 3,
+      "text": "This document assigns the following LLS TLV types in OSPFv2/OSPFv3.",
+      "zh-CHS": "本文件在OSPFv2/OSPFv3中分配以下LLS TLV类型。"
+    },
+    {
+      "indent": 3,
+      "text": "TLV Type Name Reference 0 Reserved 1 Extended Options and Flags [RFC5613] 2 Cryptographic Authentication+ [RFC5613] 3-32767 Reserved for assignment by the IANA 32768-65535 Private Use",
+      "zh-CHS": "TLV类型名称参考0保留1扩展选项和标志[RFC5613]2加密身份验证+[RFC5613]3-32767保留供IANA 32768-65535专用分配"
+    },
+    {
+      "indent": 3,
+      "text": "+ Cryptographic Authentication TLV is only defined for OSPFv2",
+      "zh-CHS": "+ 加密身份验证TLV仅为OSPFv2定义"
+    },
+    {
+      "indent": 3,
+      "text": "IANA renamed the sub-registry from \"LLS Type 1 Extended Options\" to \"LLS Type 1 Extended Options and Flags\".",
+      "zh-CHS": "IANA将子注册表从“LLS类型1扩展选项”重命名为“LLS类型1扩展选项和标志”。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also assigns the following bits in the EOF-TLV outlined in Section 2.5:",
+      "zh-CHS": "本文件还分配了第2.5节概述的EOF-TLV中的以下位："
+    },
+    {
+      "indent": 3,
+      "text": "Bit Name Reference 0x00000001 LSDB Resynchronization (LR) [RFC4811] 0x00000002 Restart Signal (RS-bit) [RFC4812]",
+      "zh-CHS": "位名称参考0x00000001 LSDB重新同步（LR）[RFC4811]0x00000002重新启动信号（RS位）[RFC4812]"
+    },
+    {
+      "indent": 3,
+      "text": "Future allocation of Extended Options and Flags bits MUST be reviewed by a Designated Expert from the routing area.",
+      "zh-CHS": "扩展选项和标志位的未来分配必须由路由区域的指定专家审查。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Compatibility Issues",
+      "section_title": true,
+      "zh-CHS": "4. 兼容性问题"
+    },
+    {
+      "indent": 3,
+      "text": "The modifications to OSPF packet formats are compatible with standard OSPF since OSPF routers not supporting LLS will ignore the LLS data block after the OSPF packet or cryptographic message digest. As of this writing, there are implementations deployed with [RFC4813]- compliant software. Routers not implementing [RFC4813] ignore the LLS data at the end of the OSPF packet.",
+      "zh-CHS": "对OSPF包格式的修改与标准OSPF兼容，因为不支持LLS的OSPF路由器将在OSPF包或加密消息摘要之后忽略LLS数据块。在撰写本文时，已经部署了与[RFC4813]兼容的软件。未实现[RFC4813]的路由器忽略OSPF数据包末尾的LLS数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Careful consideration should be given to carrying additional LLS data, as it may affect the OSPF adjacency bring-up time due to additional propagation delay and/or processing time.",
+      "zh-CHS": "应仔细考虑携带额外的LLS数据，因为它可能会由于额外的传播延迟和/或处理时间而影响OSPF邻接启动时间。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations inherited from OSPFv2 are described in [OSPFV2]. This technique provides the same level of security as the basic OSPFv2 protocol by allowing LLS data to be authenticated using the same cryptographic authentication that OSPFv2 uses (see Section 2.5 for more details).",
+      "zh-CHS": "[OSPFv2]中描述了从OSPFv2继承的安全注意事项。该技术通过允许LLS数据使用OSPFv2使用的相同加密身份验证进行身份验证，从而提供与基本OSPFv2协议相同的安全级别（有关更多详细信息，请参阅第2.5节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations inherited from OSPFv3 are described in [OSPFV3] and [OSPFV3AUTH]. OSPFv3 utilizes IPsec for authentication and encryption. With IPsec, the AH (Authentication Header), ESP (Encapsulating Security Payload), or both are applied to the entire OSPFv3 payload including the LLS block.",
+      "zh-CHS": "[OSPFv3]和[OSPFV3AUTH]中描述了从OSPFv3继承的安全注意事项。OSPFv3利用IPsec进行身份验证和加密。对于IPsec，AH（身份验证头）、ESP（封装安全有效负载）或两者都应用于整个OSPFv3有效负载，包括LLS块。"
+    },
+    {
+      "indent": 0,
+      "text": "6. References",
+      "section_title": true,
+      "zh-CHS": "6. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "6.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[IANA] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 5226, May 2008.",
+      "zh-CHS": "[IANA]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 5226，2008年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KEY] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPFV2] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998.",
+      "zh-CHS": "[OSPFV2]Moy，J.，“OSPF版本2”，STD 54，RFC 23281998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPFV3] Coltun, R., Ferguson, D., Moy, J., and A. Lindem, \"OSPF for IPv6\", RFC 5340, July 2008.",
+      "zh-CHS": "[OSPFV3]Coltun，R.，Ferguson，D.，Moy，J.，和A.Lindem，“IPv6的OSPF”，RFC 53402008年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPFV3AUTH] Gupta, M. and N. Melam, \"Authentication/Confidentiality for OSPFv3\", RFC 4552, June 2006.",
+      "zh-CHS": "[OSPFV3AUTH]Gupta，M.和N.Melam，“OSPFv3的认证/保密”，RFC 45522006年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "6.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ENTNUM] IANA, \"PRIVATE ENTERPRISE NUMBERS\", http://www.iana.org.",
+      "zh-CHS": "[ENTNUM]IANA，“私营企业编号”，http://www.iana.org."
+    },
+    {
+      "indent": 3,
+      "text": "[OOB] Nguyen, L., Roy, A., and A. Zinin, \"OSPF Out-of-Band Link State Database (LSDB) Resynchronization\", RFC 4811, March 2007.",
+      "zh-CHS": "[OOB]Nguyen，L.，Roy，A.，和A.Zinin，“OSPF带外链路状态数据库（LSDB）再同步”，RFC 48112007年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RESTART] Nguyen, L., Roy, A., and A. Zinin, \"OSPF Restart Signaling\", RFC 4812, March 2007.",
+      "zh-CHS": "[重启]Nguyen，L.，Roy，A.和A.Zinin，“OSPF重启信号”，RFC 4812，2007年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4813] Friedman, B., Nguyen, L., Roy, A., Yeung, D., and A. Zinin, \"OSPF Link-Local Signaling\", RFC 4813, March 2007.",
+      "zh-CHS": "[RFC4813]Friedman，B.，Nguyen，L.，Roy，A.，Yeung，D.，和A.Zinin，“OSPF链路本地信令”，RFC 48132007年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to acknowledge Russ White, Acee Lindem, and Manral Vishwas for their review of this document.",
+      "zh-CHS": "作者感谢Russ White、Acee Lindem和Manral Vishwas对本文件的审查。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Changes from RFC 4813",
+      "section_title": true,
+      "zh-CHS": "附录B.RFC 4813的变更"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the substantive change from [RFC4813].",
+      "zh-CHS": "本节描述了[RFC4813]的实质性变更。"
+    },
+    {
+      "indent": 3,
+      "text": "o Added OSPFv3 support",
+      "zh-CHS": "o 增加了OSPFv3支持"
+    },
+    {
+      "indent": 3,
+      "text": "o Private TLVs MUST use private enterprise code",
+      "zh-CHS": "o 私有TLV必须使用私有企业代码"
+    },
+    {
+      "indent": 3,
+      "text": "o Clarified requirement levels at several places",
+      "zh-CHS": "o 明确了几个地方的需求水平"
+    },
+    {
+      "indent": 3,
+      "text": "o Changed from Experimental to Standards Track",
+      "zh-CHS": "o 从实验轨道改为标准轨道"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Alex Zinin Alcatel-Lucent Singapore",
+      "zh-CHS": "阿尔卡特朗讯新加坡有限公司"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: alex.zinin@alcatel-lucent.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Abhay Roy Cisco Systems 170 West Tasman Drive San Jose, CA 95134 USA",
+      "zh-CHS": "美国加利福尼亚州圣何塞市西塔斯曼大道170号，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: akr@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Liem Nguyen Cisco Systems 170 West Tasman Drive San Jose, CA 95134 USA",
+      "zh-CHS": "Liem Nguyen Cisco Systems 170美国加利福尼亚州圣何塞西塔斯曼大道95134号"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: lhnguyen@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Barry Friedman Google, Inc. 1600 Amphitheatre Parkway Mountain View, CA 94043 USA",
+      "zh-CHS": "巴里·弗里德曼谷歌公司，美国加利福尼亚州山景大道1600号圆形剧场，邮编94043"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: barryf@google.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Derek Yeung Cisco Systems 170 West Tasman Drive San Jose, CA 95134 USA",
+      "zh-CHS": "美国加利福尼亚州圣何塞西塔斯曼大道170号Derek Yang Cisco Systems，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: myeung@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

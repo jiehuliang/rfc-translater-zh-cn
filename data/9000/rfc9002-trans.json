@@ -1,0 +1,322 @@
+{
+  "title": {
+    "text": "RFC 9002: QUIC Loss Detection and Congestion Control",
+    "zh-CHS": "RFC 9002"
+  },
+  "number": 9002,
+  "created_at": "2021-10-28 02:50:20.152363+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "latest_rtt = ack_time - send_time_of_largest_acked",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "smoothed_rtt = kInitialRtt rttvar = kInitialRtt / 2",
+      "zh-CHS": "平滑的\\u rtt=kInitialRtt rttvar=kInitialRtt/2"
+    },
+    {
+      "indent": 0,
+      "text": "smoothed_rtt = latest_rtt rttvar = latest_rtt / 2",
+      "zh-CHS": "平滑\\u rtt=最新\\u rtt rttvar=最新\\u rtt/2"
+    },
+    {
+      "indent": 0,
+      "text": "ack_delay = decoded acknowledgment delay from ACK frame\nif (handshake confirmed):\n  ack_delay = min(ack_delay, max_ack_delay)\nadjusted_rtt = latest_rtt\nif (latest_rtt >= min_rtt + ack_delay):\n  adjusted_rtt = latest_rtt - ack_delay\nsmoothed_rtt = 7/8 * smoothed_rtt + 1/8 * adjusted_rtt\nrttvar_sample = abs(smoothed_rtt - adjusted_rtt)\nrttvar = 3/4 * rttvar + 1/4 * rttvar_sample",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "max(kTimeThreshold * max(smoothed_rtt, latest_rtt), kGranularity)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "                New path or      +------------+\n           persistent congestion |   Slow     |\n       (O)---------------------->|   Start    |\n                                 +------------+\n                                       |\n                               Loss or |\n                       ECN-CE increase |\n                                       v\n+------------+     Loss or       +------------+\n| Congestion |  ECN-CE increase  |  Recovery  |\n| Avoidance  |------------------>|   Period   |\n+------------+                   +------------+\n          ^                            |\n          |                            |\n          +----------------------------+\n             Acknowledgment of packet\n               sent during recovery",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "(smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay) *\n    kPersistentCongestionThreshold",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay = 2\nkPersistentCongestionThreshold = 3",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "rate = N * congestion_window / smoothed_rtt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "interval = ( smoothed_rtt * packet_size / congestion_window ) / N",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "enum kPacketNumberSpace {\n  Initial,\n  Handshake,\n  ApplicationData,\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "loss_detection_timer.reset() pto_count = 0 latest_rtt = 0 smoothed_rtt = kInitialRtt rttvar = kInitialRtt / 2 min_rtt = 0 first_rtt_sample = 0 for pn_space in [ Initial, Handshake, ApplicationData ]: largest_acked_packet[pn_space] = infinite time_of_last_ack_eliciting_packet[pn_space] = 0 loss_time[pn_space] = 0",
+      "zh-CHS": "丢失检测\\u timer.reset（）pto\\u count=0最新\\u rtt=0平滑\\u rtt=kInitialRtt rttvar=kInitialRtt/2分钟\\u rtt=0首次\\u rtt\\u采样=0用于[Initial，Handshake，ApplicationData]中的pn\\u空间：最大确认的数据包[pn\\u空间]=最后一次确认的无限时间\\u引出数据包[pn\\u空间]=0丢失时间[pn\\u空间]=0"
+    },
+    {
+      "indent": 0,
+      "text": "OnPacketSent(packet_number, pn_space, ack_eliciting, in_flight, sent_bytes): sent_packets[pn_space][packet_number].packet_number = packet_number sent_packets[pn_space][packet_number].time_sent = now() sent_packets[pn_space][packet_number].ack_eliciting = ack_eliciting sent_packets[pn_space][packet_number].in_flight = in_flight sent_packets[pn_space][packet_number].sent_bytes = sent_bytes if (in_flight): if (ack_eliciting): time_of_last_ack_eliciting_packet[pn_space] = now() OnPacketSentCC(sent_bytes) SetLossDetectionTimer()",
+      "zh-CHS": "OnPacketSent（数据包编号，pn空间，确认引出，飞行中，发送字节）：发送数据包[pn空间][数据包编号]。数据包编号=数据包编号发送数据包[pn空间][数据包编号]。时间发送=现在（）发送数据包[pn空间][数据包编号]。确认引出=确认引出发送数据包[pn空间][数据包编号]。飞行中=飞行中发送数据包[pn_space][packet_number].sent_bytes=sent_bytes if（在飞行中）：if（ack_eliciting）：上次ack_eliciting_数据包的时间[pn_space]=now（）OnPacketSentCC（sent_bytes）SetLossDetectionTimer（）"
+    },
+    {
+      "indent": 0,
+      "text": "OnDatagramReceived(datagram):\n  // If this datagram unblocks the server, arm the\n  // PTO timer to avoid deadlock.\n  if (server was at anti-amplification limit):\n    SetLossDetectionTimer()\n    if loss_detection_timer.timeout < now():\n      // Execute PTO if it would have expired\n      // while the amplification limit applied.\n      OnLossDetectionTimeout()",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "IncludesAckEliciting(packets): for packet in packets: if (packet.ack_eliciting): return true return false",
+      "zh-CHS": "IncludesAckEliciting（数据包）：对于数据包中的数据包：if（packet.ack\\u eliciting）：返回true返回false"
+    },
+    {
+      "indent": 0,
+      "text": "OnAckReceived(ack, pn_space):\n  if (largest_acked_packet[pn_space] == infinite):\n    largest_acked_packet[pn_space] = ack.largest_acked\n  else:\n    largest_acked_packet[pn_space] =\n        max(largest_acked_packet[pn_space], ack.largest_acked)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// DetectAndRemoveAckedPackets finds packets that are newly\n// acknowledged and removes them from sent_packets.\nnewly_acked_packets =\n    DetectAndRemoveAckedPackets(ack, pn_space)\n// Nothing to do if there are no newly acked packets.\nif (newly_acked_packets.empty()):\n  return",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Update the RTT if the largest acknowledged is newly acked\n// and at least one ack-eliciting was newly acked.\nif (newly_acked_packets.largest().packet_number ==\n        ack.largest_acked &&\n    IncludesAckEliciting(newly_acked_packets)):\n  latest_rtt =\n    now() - newly_acked_packets.largest().time_sent\n  UpdateRtt(ack.ack_delay)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Process ECN information if present. if (ACK frame contains ECN information): ProcessECN(ack, pn_space)",
+      "zh-CHS": "//处理ECN信息（如果存在）。if（ACK帧包含ECN信息）：ProcessECN（ACK，pn_空间）"
+    },
+    {
+      "indent": 2,
+      "text": "lost_packets = DetectAndRemoveLostPackets(pn_space)\nif (!lost_packets.empty()):\n  OnPacketsLost(lost_packets)\nOnPacketsAcked(newly_acked_packets)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Reset pto_count unless the client is unsure if\n// the server has validated the client's address.\nif (PeerCompletedAddressValidation()):\n  pto_count = 0\nSetLossDetectionTimer()",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "UpdateRtt(ack_delay):\n  if (first_rtt_sample == 0):\n    min_rtt = latest_rtt\n    smoothed_rtt = latest_rtt\n    rttvar = latest_rtt / 2\n    first_rtt_sample = now()\n    return",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// min_rtt ignores acknowledgment delay.\nmin_rtt = min(min_rtt, latest_rtt)\n// Limit ack_delay by max_ack_delay after handshake\n// confirmation.\nif (handshake confirmed):\n  ack_delay = min(ack_delay, max_ack_delay)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Adjust for acknowledgment delay if plausible.\nadjusted_rtt = latest_rtt\nif (latest_rtt >= min_rtt + ack_delay):\n  adjusted_rtt = latest_rtt - ack_delay",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "rttvar = 3/4 * rttvar + 1/4 * abs(smoothed_rtt - adjusted_rtt)\nsmoothed_rtt = 7/8 * smoothed_rtt + 1/8 * adjusted_rtt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "GetLossTimeAndSpace():\n  time = loss_time[Initial]\n  space = Initial\n  for pn_space in [ Handshake, ApplicationData ]:\n    if (time == 0 || loss_time[pn_space] < time):\n      time = loss_time[pn_space];\n      space = pn_space\n  return time, space",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "GetPtoTimeAndSpace():\n  duration = (smoothed_rtt + max(4 * rttvar, kGranularity))\n      * (2 ^ pto_count)\n  // Anti-deadlock PTO starts from the current time\n  if (no ack-eliciting packets in flight):\n    assert(!PeerCompletedAddressValidation())\n    if (has handshake keys):\n      return (now() + duration), Handshake\n    else:\n      return (now() + duration), Initial\n  pto_timeout = infinite\n  pto_space = Initial\n  for space in [ Initial, Handshake, ApplicationData ]:\n    if (no ack-eliciting packets in flight in space):\n        continue;\n    if (space == ApplicationData):\n      // Skip Application Data until handshake confirmed.\n      if (handshake is not confirmed):\n        return pto_timeout, pto_space\n      // Include max_ack_delay and backoff for Application Data.\n      duration += max_ack_delay * (2 ^ pto_count)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": " t = time_of_last_ack_eliciting_packet[space] + duration if (t < pto_timeout): pto_timeout = t pto_space = space return pto_timeout, pto_space",
+      "zh-CHS": "t=最后一次确认获取数据包的时间\\u[空间]+持续时间if（t<pto\\u超时）：pto\\u超时=t pto\\u空间=空间返回pto\\u超时，pto\\u空间"
+    },
+    {
+      "indent": 0,
+      "text": "PeerCompletedAddressValidation():\n  // Assume clients validate the server's address implicitly.\n  if (endpoint is server):\n    return true\n  // Servers complete address validation when a\n  // protected packet is received.\n  return has received Handshake ACK ||\n       handshake confirmed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "SetLossDetectionTimer():\n  earliest_loss_time, _ = GetLossTimeAndSpace()\n  if (earliest_loss_time != 0):\n    // Time threshold loss detection.\n    loss_detection_timer.update(earliest_loss_time)\n    return",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "if (server is at anti-amplification limit): // The server's timer is not set if nothing can be sent. loss_detection_timer.cancel() return",
+      "zh-CHS": "if（服务器处于反放大限制）：//如果无法发送任何内容，则未设置服务器的计时器。丢失检测计时器。取消（）返回"
+    },
+    {
+      "indent": 2,
+      "text": "if (no ack-eliciting packets in flight &&\n    PeerCompletedAddressValidation()):\n  // There is nothing to detect lost, so no timer is set.\n  // However, the client needs to arm the timer if the\n  // server might be blocked by the anti-amplification limit.\n  loss_detection_timer.cancel()\n  return",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "timeout, _ = GetPtoTimeAndSpace() loss_detection_timer.update(timeout)",
+      "zh-CHS": "超时，\\\\u=GetPtoTimeAndSpace（）丢失\\u检测\\u timer.update（超时）"
+    },
+    {
+      "indent": 0,
+      "text": "OnLossDetectionTimeout():\n  earliest_loss_time, pn_space = GetLossTimeAndSpace()\n  if (earliest_loss_time != 0):\n    // Time threshold loss Detection\n    lost_packets = DetectAndRemoveLostPackets(pn_space)\n    assert(!lost_packets.empty())\n    OnPacketsLost(lost_packets)\n    SetLossDetectionTimer()\n    return",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "if (no ack-eliciting packets in flight):\n  assert(!PeerCompletedAddressValidation())\n  // Client sends an anti-deadlock packet: Initial is padded\n  // to earn more anti-amplification credit,\n  // a Handshake packet proves address ownership.\n  if (has Handshake keys):\n    SendOneAckElicitingHandshakePacket()\n  else:\n    SendOneAckElicitingPaddedInitialPacket()\nelse:\n  // PTO. Send new data if available, else retransmit old data.\n  // If neither is available, send a single PING frame.\n  _, pn_space = GetPtoTimeAndSpace()\n  SendOneOrTwoAckElicitingPackets(pn_space)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "pto_count++ SetLossDetectionTimer()",
+      "zh-CHS": "pto_计数++设置丢失检测计时器（）"
+    },
+    {
+      "indent": 0,
+      "text": "DetectAndRemoveLostPackets(pn_space):\n  assert(largest_acked_packet[pn_space] != infinite)\n  loss_time[pn_space] = 0\n  lost_packets = []\n  loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Minimum time of kGranularity before packets are deemed lost.\nloss_delay = max(loss_delay, kGranularity)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Packets sent before this time are deemed lost.\nlost_send_time = now() - loss_delay",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "foreach unacked in sent_packets[pn_space]: if (unacked.packet_number > largest_acked_packet[pn_space]): continue",
+      "zh-CHS": "foreach unacked in sent_packets[pn_space]：如果（unacked.packet_number>最大已确认的_packet[pn_space]）：继续"
+    },
+    {
+      "indent": 2,
+      "text": "  // Mark packet as lost, or set time when it should be marked.\n  // Note: The use of kPacketThreshold here assumes that there\n  // were no sender-induced gaps in the packet number space.\n  if (unacked.time_sent <= lost_send_time ||\n      largest_acked_packet[pn_space] >=\n        unacked.packet_number + kPacketThreshold):\n    sent_packets[pn_space].remove(unacked.packet_number)\n    lost_packets.insert(unacked)\n  else:\n    if (loss_time[pn_space] == 0):\n      loss_time[pn_space] = unacked.time_sent + loss_delay\n    else:\n      loss_time[pn_space] = min(loss_time[pn_space],\n                                unacked.time_sent + loss_delay)\nreturn lost_packets",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "OnPacketNumberSpaceDiscarded(pn_space):\n  assert(pn_space != ApplicationData)\n  RemoveFromBytesInFlight(sent_packets[pn_space])\n  sent_packets[pn_space].clear()\n  // Reset the loss detection and PTO timer\n  time_of_last_ack_eliciting_packet[pn_space] = 0\n  loss_time[pn_space] = 0\n  pto_count = 0\n  SetLossDetectionTimer()",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "congestion_window = kInitialWindow bytes_in_flight = 0 congestion_recovery_start_time = 0 ssthresh = infinite for pn_space in [ Initial, Handshake, ApplicationData ]: ecn_ce_counters[pn_space] = 0",
+      "zh-CHS": "拥塞\\u窗口=kInitialWindow字节\\u在\\u飞行中=0拥塞\\u恢复\\u开始\\u时间=0 ssthresh=无限的pn\\u空间在[初始、握手、应用数据]：ecn\\u ce\\u计数器[pn\\u空间]=0"
+    },
+    {
+      "indent": 0,
+      "text": "OnPacketSentCC(sent_bytes):\n  bytes_in_flight += sent_bytes",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "InCongestionRecovery(sent_time):\n  return sent_time <= congestion_recovery_start_time",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "OnPacketsAcked(acked_packets): for acked_packet in acked_packets: OnPacketAcked(acked_packet)",
+      "zh-CHS": "OnPacketsAcked（acked_packets）：对于acked_包中的acked_包：OnPacketAcked（acked_packet）"
+    },
+    {
+      "indent": 0,
+      "text": "OnPacketAcked(acked_packet):\n  if (!acked_packet.in_flight):\n    return;\n  // Remove from bytes_in_flight.\n  bytes_in_flight -= acked_packet.sent_bytes\n  // Do not increase congestion_window if application\n  // limited or flow control limited.\n  if (IsAppOrFlowControlLimited())\n    return\n  // Do not increase congestion window in recovery period.\n  if (InCongestionRecovery(acked_packet.time_sent)):\n    return\n  if (congestion_window < ssthresh):\n    // Slow start.\n    congestion_window += acked_packet.sent_bytes\n  else:\n    // Congestion avoidance.\n    congestion_window +=\n      max_datagram_size * acked_packet.sent_bytes\n      / congestion_window",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "OnCongestionEvent(sent_time):\n  // No reaction if already in a recovery period.\n  if (InCongestionRecovery(sent_time)):\n    return",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Enter recovery period.\ncongestion_recovery_start_time = now()\nssthresh = congestion_window * kLossReductionFactor\ncongestion_window = max(ssthresh, kMinimumWindow)\n// A packet can be sent to speed up loss recovery.\nMaybeSendOnePacket()",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "ProcessECN(ack, pn_space):\n  // If the ECN-CE counter reported by the peer has increased,\n  // this could be a new congestion event.\n  if (ack.ce_counter > ecn_ce_counters[pn_space]):\n    ecn_ce_counters[pn_space] = ack.ce_counter\n    sent_time = sent_packets[ack.largest_acked].time_sent\n    OnCongestionEvent(sent_time)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "OnPacketsLost(lost_packets):\n  sent_time_of_last_loss = 0\n  // Remove lost packets from bytes_in_flight.\n  for lost_packet in lost_packets:\n    if lost_packet.in_flight:\n      bytes_in_flight -= lost_packet.sent_bytes\n      sent_time_of_last_loss =\n        max(sent_time_of_last_loss, lost_packet.time_sent)\n  // Congestion event if in-flight packets were lost\n  if (sent_time_of_last_loss != 0):\n    OnCongestionEvent(sent_time_of_last_loss)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "// Reset the congestion window if the loss of these\n// packets indicates persistent congestion.\n// Only consider packets sent after getting an RTT sample.\nif (first_rtt_sample == 0):\n  return\npc_lost = []\nfor lost in lost_packets:\n  if lost.time_sent > first_rtt_sample:\n    pc_lost.insert(lost)\nif (InPersistentCongestion(pc_lost)):\n  congestion_window = kMinimumWindow\n  congestion_recovery_start_time = 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "RemoveFromBytesInFlight(discarded_packets):\n  // Remove any unacknowledged packets from flight.\n  foreach packet in discarded_packets:\n    if packet.in_flight\n      bytes_in_flight -= size",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

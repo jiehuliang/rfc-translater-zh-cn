@@ -1,0 +1,717 @@
+{
+  "title": {
+    "text": "RFC 5532: Network File System (NFS) Remote Direct Memory Access (RDMA) Problem Statement",
+    "zh-CHS": "RFC 5532"
+  },
+  "number": 5532,
+  "created_at": "2021-11-07 21:14:59.799735+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          T. Talpey\nRequest for Comments: 5532                                   C. Juszczak\nCategory: Informational                                         May 2009",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Network File System (NFS) Remote Direct Memory Access (RDMA) Problem Statement",
+      "zh-CHS": "网络文件系统（NFS）远程直接内存访问（RDMA）问题声明"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2009 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2009 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents in effect on the date of publication of this document (http://trustee.ietf.org/license-info). Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托在本文件出版之日生效的与IETF文件有关的法律规定的约束(http://trustee.ietf.org/license-info). 请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 3,
+      "text": "This document may contain material from IETF Documents or IETF Contributions published or made publicly available before November 10, 2008. The person(s) controlling the copyright in some of this material may not have granted the IETF Trust the right to allow modifications of such material outside the IETF Standards Process. Without obtaining an adequate license from the person(s) controlling the copyright in such materials, this document may not be modified outside the IETF Standards Process, and derivative works of it may not be created outside the IETF Standards Process, except to format it for publication as an RFC or to translate it into languages other than English.",
+      "zh-CHS": "本文件可能包含2008年11月10日之前发布或公开的IETF文件或IETF贡献中的材料。控制某些材料版权的人员可能未授予IETF信托允许在IETF标准流程之外修改此类材料的权利。在未从控制此类材料版权的人员处获得充分许可的情况下，不得在IETF标准流程之外修改本文件，也不得在IETF标准流程之外创建其衍生作品，除了将其格式化以RFC形式发布或将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document addresses enabling the use of Remote Direct Memory Access (RDMA) by the Network File System (NFS) protocols. NFS implementations historically incur significant overhead due to data copies on end-host systems, as well as other processing overhead. This document explores the potential benefits of RDMA to these implementations and evaluates the reasons why RDMA is especially well-suited to NFS and network file protocols in general.",
+      "zh-CHS": "本文档介绍通过网络文件系统（NFS）协议启用远程直接内存访问（RDMA）。由于终端主机系统上的数据拷贝以及其他处理开销，NFS实现在历史上会产生巨大的开销。本文档探讨RDMA对这些实现的潜在好处，并评估RDMA通常特别适合NFS和网络文件协议的原因。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Background .................................................3\n2. Problem Statement ...............................................4\n3. File Protocol Architecture ......................................5\n4. Sources of Overhead .............................................7\n   4.1. Savings from TOE ...........................................8\n   4.2. Savings from RDMA ..........................................9\n5. Application of RDMA to NFS .....................................10\n6. Conclusions ....................................................10\n7. Security Considerations ........................................11\n8. Acknowledgments ................................................12\n9. References .....................................................12\n   9.1. Normative References ......................................12\n   9.2. Informative References ....................................13",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Network File System (NFS) protocol (as described in [RFC1094], [RFC1813], and [RFC3530]) is one of several remote file access protocols used in the class of processing architecture sometimes called Network-Attached Storage (NAS).",
+      "zh-CHS": "网络文件系统（NFS）协议（如[RFC1094]、[RFC1813]和[RFC3530]中所述）是有时称为网络连接存储（NAS）的处理体系结构中使用的几种远程文件访问协议之一。"
+    },
+    {
+      "indent": 3,
+      "text": "Historically, remote file access has proven to be a convenient, cost-effective way to share information over a network, a concept proven over time by the popularity of the NFS protocol. However, there are issues in such a deployment.",
+      "zh-CHS": "从历史上看，远程文件访问已被证明是通过网络共享信息的一种方便、经济高效的方式，NFS协议的普及证明了这一概念。但是，这种部署存在一些问题。"
+    },
+    {
+      "indent": 3,
+      "text": "As compared to a local (direct-attached) file access architecture, NFS removes the overhead of managing the local on-disk file system state and its metadata, but interposes at least a transport network and two network endpoints between an application process and the files it is accessing. To date, this trade-off has usually resulted in a net performance loss as a result of reduced bandwidth, increased application server CPU utilization, and other overheads.",
+      "zh-CHS": "与本地（直连）文件访问体系结构相比，NFS消除了管理本地磁盘上文件系统状态及其元数据的开销，但至少在应用程序进程与其正在访问的文件之间插入了一个传输网络和两个网络端点。到目前为止，由于带宽减少、应用服务器CPU利用率增加以及其他开销，这种权衡通常会导致净性能损失。"
+    },
+    {
+      "indent": 3,
+      "text": "Several classes of applications, including those directly supporting enterprise activities in high-performance domains such as database applications and shared clusters, have therefore encountered issues with moving to NFS architectures. While this has been due principally to the performance costs of NFS versus direct-attached files, other reasons are relevant, such as the lack of strong consistency guarantees being provided by NFS implementations.",
+      "zh-CHS": "因此，几类应用程序（包括那些直接支持高性能领域（如数据库应用程序和共享集群）中的企业活动的应用程序）在迁移到NFS体系结构时遇到了问题。虽然这主要是由于NFS相对于直连文件的性能成本，但其他原因也是相关的，例如NFS实现缺乏强大的一致性保证。"
+    },
+    {
+      "indent": 3,
+      "text": "Replication of local file access performance on NAS using traditional network protocol stacks has proven difficult, not because of protocol processing overheads, but because of data copy costs in the network",
+      "zh-CHS": "事实证明，使用传统网络协议栈在NAS上复制本地文件访问性能很困难，这不是因为协议处理开销，而是因为网络中的数据复制成本"
+    },
+    {
+      "indent": 3,
+      "text": "endpoints. This is especially true since host buses are now often the main bottleneck in NAS architectures [MOG03] [CHA+01].",
+      "zh-CHS": "端点。这一点尤其正确，因为主机总线现在通常是NAS体系结构中的主要瓶颈[MOG03][CHA+01]。"
+    },
+    {
+      "indent": 3,
+      "text": "The External Data Representation [RFC4506] employed beneath NFS and the Remote Procedure Call (RPC) [RFC5531] can add more data copies, exacerbating the problem.",
+      "zh-CHS": "NFS下使用的外部数据表示[RFC4506]和远程过程调用（RPC）[RFC5531]可以添加更多的数据副本，从而加剧问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Data copy-avoidance designs have not been widely adopted for a variety of reasons. [BRU99] points out that \"many copy avoidance techniques for network I/O are not applicable or may even backfire if applied to file I/O\". Other designs that eliminate unnecessary copies, such as [PAI+00], are incompatible with existing APIs and therefore force application changes.",
+      "zh-CHS": "由于各种原因，数据拷贝避免设计没有被广泛采用。[BRU99]指出，“网络I/O的许多拷贝避免技术不适用，如果应用于文件I/O，甚至可能适得其反”。其他消除不必要副本的设计，如[PAI+00]，与现有API不兼容，因此会强制更改应用程序。"
+    },
+    {
+      "indent": 3,
+      "text": "In recent years, an effort to standardize a set of protocols for Remote Direct Memory Access (RDMA) over the standard Internet Protocol Suite has been chartered [RDDP]. A complete IP-based RDMA protocol suite is available in the published Standards Track specifications.",
+      "zh-CHS": "近年来，一项通过标准互联网协议套件实现远程直接内存访问（RDMA）协议集标准化的努力已经得到了特许[RDDP]。发布的标准轨道规范中提供了完整的基于IP的RDMA协议套件。"
+    },
+    {
+      "indent": 3,
+      "text": "RDMA is a general solution to the problem of CPU overhead incurred due to data copies, primarily at the receiver. Substantial research has addressed this and has borne out the efficacy of the approach. An overview of this is the \"Remote Direct Memory Access (RDMA) over IP Problem Statement\" [RFC4297].",
+      "zh-CHS": "RDMA是解决由于数据拷贝（主要在接收器）而产生的CPU开销问题的通用解决方案。大量研究已经解决了这一问题，并证明了该方法的有效性。这方面的概述是“IP远程直接内存访问（RDMA）问题声明”[RFC4297]。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the per-byte savings of offloading data copies, RDMA-enabled NICs (RNICS) offload the underlying protocol layers as well (e.g., TCP), further reducing CPU overhead due to NAS processing.",
+      "zh-CHS": "除了卸载数据拷贝所节省的每字节成本外，支持RDMA的NIC（RNIC）还卸载了底层协议层（如TCP），进一步减少了NAS处理带来的CPU开销。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Background",
+      "section_title": true,
+      "zh-CHS": "1.1. 出身背景"
+    },
+    {
+      "indent": 3,
+      "text": "The RDDP Problem Statement [RFC4297] asserts:",
+      "zh-CHS": "RDDP问题声明[RFC4297]断言："
+    },
+    {
+      "indent": 6,
+      "text": "High costs associated with copying are an issue primarily for large scale systems ... with high bandwidth feeds, usually multiprocessors and clusters, that are adversely affected by copying overhead. Examples of such machines include all varieties of servers: database servers, storage servers, application servers for transaction processing, for e-commerce, and web serving, content distribution, video distribution, backups, data mining and decision support, and scientific computing.",
+      "zh-CHS": "与复制相关的高成本主要是大型系统的一个问题。。。使用高带宽馈送，通常是多处理器和群集，这些馈送会受到复制开销的不利影响。这类机器的例子包括各种各样的服务器：数据库服务器、存储服务器、用于事务处理、用于电子商务和web服务、内容分发、视频分发、备份、数据挖掘和决策支持以及科学计算的应用服务器。"
+    },
+    {
+      "indent": 6,
+      "text": "Note that such servers almost exclusively service many concurrent sessions (transport connections), which, in aggregate, are responsible for > 1 Gbits/s of communication. Nonetheless, the cost of copying overhead for a particular load is the same whether from few or many sessions.",
+      "zh-CHS": "请注意，此类服务器几乎专门为许多并发会话（传输连接）提供服务，这些会话总共负责>1 Gbit/s的通信。尽管如此，复制特定负载的开销的成本是相同的，无论是从几个会话还是从多个会话。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that each of the servers listed above could be accessing their file data as an NFS client, or as NFS serving the data to such clients, or acting as both.",
+      "zh-CHS": "请注意，上面列出的每台服务器都可以作为NFS客户机访问其文件数据，或者作为NFS将数据提供给这些客户机，或者两者兼有。"
+    },
+    {
+      "indent": 3,
+      "text": "The CPU overhead of the NFS and TCP/IP protocol stacks (including data copies or reduced copy workarounds) becomes a significant matter in these clients and servers. File access using locally attached disks imposes relatively low overhead due to the highly optimized I/O path and direct memory access afforded to the storage controller. This is not the case with NFS, which must pass data to, and especially from, the network and network processing stack to the NFS stack. Frequently, data copies are imposed on this transfer; in some cases, several such copies are imposed in each direction.",
+      "zh-CHS": "NFS和TCP/IP协议栈的CPU开销（包括数据拷贝或减少拷贝的变通方法）在这些客户机和服务器中变得非常重要。由于为存储控制器提供了高度优化的I/O路径和直接内存访问，因此使用本地连接的磁盘进行文件访问的开销相对较低。NFS的情况并非如此，它必须将数据传递到网络和网络处理堆栈，尤其是从网络和网络处理堆栈传递到NFS堆栈。通常情况下，数据副本被强制用于此传输；在某些情况下，在每个方向上都施加了几个这样的副本。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies are potentially encountered in an NFS implementation exchanging data to and from user address spaces, within kernel buffer caches, in eXternal Data Representation (XDR) marshalling and unmarshalling, and within network stacks and network drivers. Other overheads such as serialization among multiple threads of execution sharing a single NFS mount point and transport connection are additionally encountered.",
+      "zh-CHS": "在NFS实现中，在内核缓冲区缓存、外部数据表示（XDR）封送和解封以及网络堆栈和网络驱动程序中，在与用户地址空间交换数据和从用户地址空间交换数据时，可能会遇到拷贝。此外，还会遇到其他开销，如共享单个NFS装载点和传输连接的多个执行线程之间的序列化。"
+    },
+    {
+      "indent": 3,
+      "text": "Numerous upper-layer protocols achieve extremely high bandwidth and low overhead through the use of RDMA. [MAF+02] shows that the RDMA-based Direct Access File System (with a user-level implementation of the file system client) can outperform even a zero-copy implementation of NFS [CHA+01] [CHA+99] [GAL+99] [KM02]. Also, file data access implies the use of large Unequal Loss Protection (ULP) messages. These large messages tend to amortize any increase in per-message costs due to the offload of protocol processing incurred when using RNICs while gaining the benefits of reduced per-byte costs. Finally, the direct memory addressing afforded by RDMA avoids many sources of contention on network resources.",
+      "zh-CHS": "许多上层协议通过使用RDMA实现极高的带宽和较低的开销。[MAF+02]表明，基于RDMA的直接访问文件系统（具有文件系统客户端的用户级实现）甚至可以优于NFS的零拷贝实现[CHA+01][CHA+99][GAL+99][KM02]。此外，文件数据访问意味着使用大型不平等丢失保护（ULP）消息。这些大型消息倾向于分摊由于使用RNIC时产生的协议处理卸载而增加的每消息成本，同时获得每字节成本降低的好处。最后，RDMA提供的直接内存寻址避免了网络资源上的许多争用源。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Problem Statement",
+      "section_title": true,
+      "zh-CHS": "2. 问题陈述"
+    },
+    {
+      "indent": 3,
+      "text": "The principal performance problem encountered by NFS implementations is the CPU overhead required to implement the protocol. Primary among the sources of this overhead is the movement of data from NFS protocol messages to its eventual destination in user buffers or aligned kernel buffers. Due to the nature of the RPC and XDR protocols, the NFS data payload arrives at arbitrary alignment, necessitating a copy at the receiver, and the NFS requests are completed in an arbitrary sequence.",
+      "zh-CHS": "NFS实现遇到的主要性能问题是实现协议所需的CPU开销。这种开销的主要来源是将数据从NFS协议消息移动到用户缓冲区或对齐的内核缓冲区中的最终目的地。由于RPC和XDR协议的性质，NFS数据有效负载到达任意对齐，需要在接收器处进行拷贝，并且NFS请求以任意顺序完成。"
+    },
+    {
+      "indent": 3,
+      "text": "The data copies consume system bus bandwidth and CPU time, reducing the available system capacity for applications [RFC4297]. To date, achieving zero-copy with NFS has required sophisticated, version-",
+      "zh-CHS": "数据拷贝会消耗系统总线带宽和CPU时间，从而减少应用程序的可用系统容量[RFC4297]。到目前为止，使用NFS实现零拷贝需要复杂的版本-"
+    },
+    {
+      "indent": 3,
+      "text": "specific \"header cracking\" hardware and/or extensive platform-specific virtual memory mapping tricks. Such approaches become even more difficult for NFS version 4 due to the existence of the COMPOUND operation and presence of Kerberos and other security information, which further reduce alignment and greatly complicate ULP offload.",
+      "zh-CHS": "特定的“头破解”硬件和/或广泛的平台特定虚拟内存映射技巧。由于复合操作的存在以及Kerberos和其他安全信息的存在，这种方法对于NFS版本4变得更加困难，这进一步减少了对齐，并使ULP卸载变得非常复杂。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, NFS is challenged by high-speed network fabrics such as 10 Gbits/s Ethernet. Performing even raw network I/O such as TCP is an issue at such speeds with today's hardware. The problem is fundamental in nature and has led the IETF to explore RDMA [RFC4297].",
+      "zh-CHS": "此外，NFS还受到高速网络结构（如10 Gbits/s以太网）的挑战。在今天的硬件中，以这样的速度执行原始网络I/O（如TCP）也是一个问题。这个问题本质上是根本性的，并导致IETF探索RDMA[RFC4297]。"
+    },
+    {
+      "indent": 3,
+      "text": "Zero-copy techniques benefit file protocols extensively, as they enable direct user I/O, reduce the overhead of protocol stacks, provide perfect alignment into caches, etc. Many studies have already shown the performance benefits of such techniques [SKE+01] [DCK+03] [FJNFS] [FJDAFS] [KM02] [MAF+02].",
+      "zh-CHS": "零拷贝技术使文件协议受益匪浅，因为它们支持直接用户I/O、减少协议栈的开销、提供与缓存的完美对齐等。许多研究已经显示了此类技术的性能优势[SKE+01][DCK+03][FJNFS][FJDAFS][KM02][MAF+02]。"
+    },
+    {
+      "indent": 3,
+      "text": "RDMA is compelling here for another reason; hardware-offloaded networking support in itself does not avoid data copies, without resorting to implementing part of the NFS protocol in the Network Interface Card (NIC). Support of RDMA by NFS enables the highest performance at the architecture level rather than by implementation; this enables ubiquitous and interoperable solutions.",
+      "zh-CHS": "RDMA之所以引人注目还有另一个原因；硬件卸载网络支持本身不会避免数据拷贝，而不会在网络接口卡（NIC）中实现部分NFS协议。NFS对RDMA的支持实现了体系结构级别的最高性能，而不是通过实现；这使得解决方案无所不在且可互操作。"
+    },
+    {
+      "indent": 3,
+      "text": "By providing file access performance equivalent to that of local file systems, NFS over RDMA will enable applications running on a set of client machines to interact through an NFS file system, just as applications running on a single machine might interact through a local file system.",
+      "zh-CHS": "通过提供与本地文件系统相当的文件访问性能，NFS over RDMA将使运行在一组客户机上的应用程序能够通过NFS文件系统进行交互，就像运行在一台机器上的应用程序可能通过本地文件系统进行交互一样。"
+    },
+    {
+      "indent": 0,
+      "text": "3. File Protocol Architecture",
+      "section_title": true,
+      "zh-CHS": "3. 文件协议体系结构"
+    },
+    {
+      "indent": 3,
+      "text": "NFS runs as an Open Network Computing (ONC) RPC [RFC5531] application. Being a file access protocol, NFS is very \"rich\" in data content (versus control information).",
+      "zh-CHS": "NFS作为开放网络计算（ONC）RPC[RFC5531]应用程序运行。作为一种文件访问协议，NFS的数据内容（相对于控制信息）非常“丰富”。"
+    },
+    {
+      "indent": 3,
+      "text": "NFS messages can range from very small (under 100 bytes) to very large (from many kilobytes to a megabyte or more). They are all contained within an RPC message and follow a variable-length RPC header. This layout provides an alignment challenge for the data items contained in an NFS call (request) or reply (response) message.",
+      "zh-CHS": "NFS消息的范围从非常小（小于100字节）到非常大（从许多KB到一兆字节或更多）。它们都包含在RPC消息中，并遵循可变长度的RPC头。此布局为NFS调用（请求）或应答（响应）消息中包含的数据项提供对齐挑战。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the control information in each NFS call or reply message, sometimes there are large \"chunks\" of application file data, for example, read and write requests. With NFS version 4 (due to the existence of the COMPOUND operation), there can be several of these data chunks interspersed with control information.",
+      "zh-CHS": "除了每个NFS调用或回复消息中的控制信息之外，有时还会有大量的应用程序文件数据，例如读和写请求。对于NFS版本4（由于复合操作的存在），其中可能有几个数据块散布着控制信息。"
+    },
+    {
+      "indent": 3,
+      "text": "ONC RPC is a remote procedure call protocol that has been run over a variety of transports. Most implementations today use UDP or TCP. RPC messages are defined in terms of an eXternal Data Representation (XDR) [RFC4506], which provides a canonical data representation across a variety of host architectures. An XDR data stream is conveyed differently on each type of transport. On UDP, RPC messages are encapsulated inside datagrams, while on a TCP byte stream, RPC messages are delineated by a record-marking protocol. An RDMA transport also conveys RPC messages in a unique fashion that must be fully described if client and server implementations are to interoperate.",
+      "zh-CHS": "ONC-RPC是一种远程过程调用协议，已在多种传输上运行。今天的大多数实现都使用UDP或TCP。RPC消息是根据外部数据表示（XDR）[RFC4506]定义的，它提供了跨各种主机体系结构的规范数据表示。XDR数据流在每种传输类型上的传输方式不同。在UDP上，RPC消息封装在数据报中，而在TCP字节流上，RPC消息由记录标记协议描述。RDMA传输还以一种独特的方式传递RPC消息，如果客户端和服务器实现要进行互操作，则必须充分描述这种方式。"
+    },
+    {
+      "indent": 3,
+      "text": "The RPC transport is responsible for conveying an RPC message from a sender to a receiver. An RPC message is either an RPC call from a client to a server, or an RPC reply from the server back to the client. An RPC message contains an RPC call header followed by arguments if the message is an RPC call, or an RPC reply header followed by results if the message is an RPC reply. The call header contains a transaction ID (XID) followed by the program and procedure number as well as a security credential. An RPC reply header begins with an XID that matches that of the RPC call message, followed by a security verifier and results. All data in an RPC message is XDR encoded.",
+      "zh-CHS": "RPC传输负责将RPC消息从发送方传输到接收方。RPC消息是从客户端到服务器的RPC调用，或从服务器返回到客户端的RPC回复。如果消息是RPC调用，则RPC消息包含后跟参数的RPC调用标头；如果消息是RPC应答，则RPC应答标头后跟结果。调用头包含一个事务ID（XID），后跟程序和过程号以及一个安全凭据。RPC应答头以与RPC调用消息的XID匹配的XID开头，后跟安全验证器和结果。RPC消息中的所有数据都是XDR编码的。"
+    },
+    {
+      "indent": 3,
+      "text": "The encoding of XDR data into transport buffers is referred to as \"marshalling\", and the decoding of XDR data contained within transport buffers and into destination RPC procedure result buffers, is referred to as \"unmarshalling\". Therefore, the process of marshalling takes place at the sender of any particular message, be it an RPC request or an RPC response. Unmarshalling, of course, takes place at the receiver.",
+      "zh-CHS": "将XDR数据编码到传输缓冲区称为“编组”，将包含在传输缓冲区内的XDR数据解码到目标RPC过程结果缓冲区称为“解编组”。因此，编组过程发生在任何特定消息的发送方，无论是RPC请求还是RPC响应。当然，解组是在接收方进行的。"
+    },
+    {
+      "indent": 3,
+      "text": "Normally, any bulk data is moved (copied) as a result of the unmarshalling process, because the destination address is not known until the RPC code receives control and subsequently invokes the XDR unmarshalling routine. In other words, XDR-encoded data is not self-describing, and it carries no placement information. This results in a data copy in most NFS implementations.",
+      "zh-CHS": "通常，解组过程会移动（复制）任何大容量数据，因为在RPC代码收到控制并随后调用XDR解组例程之前，目标地址是未知的。换句话说，XDR编码的数据不是自描述的，它不携带任何位置信息。在大多数NFS实现中，这会导致数据拷贝。"
+    },
+    {
+      "indent": 3,
+      "text": "One mechanism by which the RPC layer may overcome this is for each request to include placement information, to be used for direct placement during XDR encode. This \"write chunk\" can avoid sending bulk data inline in an RPC message and generally results in one or more RDMA Write operations.",
+      "zh-CHS": "RPC层可以克服这一问题的一种机制是，每个请求都包含放置信息，用于XDR编码期间的直接放置。这种“写块”可以避免在RPC消息中内联发送大容量数据，通常会导致一个或多个RDMA写操作。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, a \"read chunk\", where placement information referring to bulk data that may be directly fetched via one or more RDMA Read operations during XDR decode, may be conveyed. The \"read chunk\" will",
+      "zh-CHS": "类似地，可以传送“读取块”，其中，可以传送在XDR解码期间通过一个或多个RDMA读取操作直接获取的涉及批量数据的放置信息。“读取块”将"
+    },
+    {
+      "indent": 3,
+      "text": "therefore be useful in both RPC calls and replies, while the \"write chunk\" is used solely in replies.",
+      "zh-CHS": "因此，它在RPC调用和应答中都很有用，而“写块”仅用于应答。"
+    },
+    {
+      "indent": 3,
+      "text": "These \"chunks\" are the key concept in an existing proposal [RPCRDMA]. They convey what are effectively pointers to remote memory across the network. They allow cooperating peers to exchange data outside of XDR encodings but still use XDR for describing the data to be transferred. And, finally, through use of XDR they maintain a large degree of on-the-wire compatibility.",
+      "zh-CHS": "这些“块”是现有提案[RPCRDMA]中的关键概念。它们通过网络传递指向远程内存的有效指针。它们允许合作的对等方在XDR编码之外交换数据，但仍然使用XDR描述要传输的数据。最后，通过使用XDR，它们保持了很大程度的在线兼容性。"
+    },
+    {
+      "indent": 3,
+      "text": "The central concept of the RDMA transport is to provide the additional encoding conventions to convey this placement information in transport-specific encoding, and to modify the XDR handling of bulk data.",
+      "zh-CHS": "RDMA传输的核心概念是提供额外的编码约定，以在特定于传输的编码中传递此位置信息，并修改大容量数据的XDR处理。"
+    },
+    {
+      "indent": 27,
+      "text": "Block Diagram",
+      "zh-CHS": "方框图"
+    },
+    {
+      "indent": 3,
+      "text": "+------------------------+-----------------------------------+\n|         NFS            |            NFS + RDMA             |\n+------------------------+----------------------+------------+\n|           Operations / Procedures             |            |\n+-----------------------------------------------+            |\n|                   RPC/XDR                     |            |\n+--------------------------------+--------------+            |\n|       Stream Transport         |      RDMA Transport       |\n+--------------------------------+---------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4. Sources of Overhead",
+      "section_title": true,
+      "zh-CHS": "4. 间接费用的来源"
+    },
+    {
+      "indent": 3,
+      "text": "Network and file protocol costs can be categorized as follows:",
+      "zh-CHS": "网络和文件协议成本可分为以下几类："
+    },
+    {
+      "indent": 3,
+      "text": "o per-byte costs - data touching costs such as checksum or data copy. Today's network interface hardware commonly offloads the checksum, which leaves the other major source of per-byte overhead, data copy.",
+      "zh-CHS": "o 每字节成本-数据接触成本，如校验和或数据复制。今天的网络接口硬件通常会卸载校验和，这会留下另一个每字节开销的主要来源，即数据拷贝。"
+    },
+    {
+      "indent": 3,
+      "text": "o per-packet costs - interrupts and lower-layer processing (LLP). Today's network interface hardware also commonly coalesce interrupts to reduce per-packet costs.",
+      "zh-CHS": "o 每包成本-中断和低层处理（LLP）。今天的网络接口硬件通常也会合并中断以降低每包的成本。"
+    },
+    {
+      "indent": 3,
+      "text": "o per-message (request or response) costs - LLP and ULP processing.",
+      "zh-CHS": "o 每条消息（请求或响应）成本-LLP和ULP处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Improvement from optimization becomes more important if the overhead it targets is a larger share of the total cost. As other sources of overhead, such as the checksumming and interrupt handling above are eliminated, the remaining overheads (primarily data copy) loom larger.",
+      "zh-CHS": "如果it目标的管理费用占总成本的比例更大，则优化带来的改进就变得更为重要。由于消除了上面的校验和和中断处理等其他开销来源，剩余的开销（主要是数据拷贝）将变得更大。"
+    },
+    {
+      "indent": 3,
+      "text": "With copies crossing the bus twice per copy, network processing overhead is high whenever network bandwidth is large in comparison to CPU and memory bandwidths. Generally, with today's end-systems, the effects are observable at network speeds at or above 1 Gbit/s.",
+      "zh-CHS": "由于每个拷贝跨总线两次，与CPU和内存带宽相比，只要网络带宽较大，网络处理开销就会很高。通常，对于今天的终端系统，在网络速度为或高于1 Gbit/s时，可以观察到影响。"
+    },
+    {
+      "indent": 3,
+      "text": "A common question is whether an increase in CPU processing power alleviates the problem of high processing costs of network I/O. The answer is no, it is the memory bandwidth that is the issue. Faster CPUs do not help if the CPU spends most of its time waiting for memory [RFC4297].",
+      "zh-CHS": "A common question is whether an increase in CPU processing power alleviates the problem of high processing costs of network I/O. The answer is no, it is the memory bandwidth that is the issue. Faster CPUs do not help if the CPU spends most of its time waiting for memory [RFC4297].translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "TCP offload engine (TOE) technology aims to offload the CPU by moving TCP/IP protocol processing to the NIC. However, TOE technology by itself does nothing to avoid necessary data copies within upper-layer protocols. [MOG03] provides a description of the role TOE can play in reducing per-packet and per-message costs. Beyond the offloads commonly provided by today's network interface hardware, TOE alone (without RDMA) helps in protocol header processing, but this has been shown to be a minority component of the total protocol processing overhead. [CHA+01]",
+      "zh-CHS": "TCP卸载引擎（TOE）技术旨在通过将TCP/IP协议处理移动到NIC来卸载CPU。然而，TOE技术本身并不能避免上层协议中必要的数据拷贝。[MOG03]描述了TOE在降低每个数据包和每条消息成本方面可以发挥的作用。除了今天的网络接口硬件通常提供的卸载之外，单独使用TOE（不使用RDMA）有助于协议头处理，但这已被证明是总协议处理开销的一小部分。[CHA+01]"
+    },
+    {
+      "indent": 3,
+      "text": "Numerous software approaches to the optimization of network throughput have been made. Experience has shown that network I/O interacts with other aspects of system processing such as file I/O and disk I/O [BRU99] [CHU96]. Zero-copy optimizations based on page remapping [CHU96] can be dependent upon machine architecture, and are not scalable to multi-processor architectures. Correct buffer alignment and sizing together are needed to optimize the performance of zero-copy movement mechanisms [SKE+01]. The NFS message layout described above does not facilitate the splitting of headers from data nor does it facilitate providing correct data buffer alignment.",
+      "zh-CHS": "许多优化网络吞吐量的软件方法已经被提出。经验表明，网络I/O与系统处理的其他方面相互作用，如文件I/O和磁盘I/O[BRU99][CHU96]。基于页面重新映射[CHU96]的零拷贝优化可能依赖于机器体系结构，并且不能扩展到多处理器体系结构。要优化零拷贝移动机制的性能，需要同时进行正确的缓冲区对齐和大小调整[SKE+01]。上面描述的NFS消息布局不利于从数据中拆分头，也不利于提供正确的数据缓冲区对齐。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Savings from TOE",
+      "section_title": true,
+      "zh-CHS": "4.1. 脚趾的节余"
+    },
+    {
+      "indent": 3,
+      "text": "The expected improvement of TOE specifically for NFS protocol processing can be quantified and shown to be fundamentally limited. [SHI+03] presents a set of \"LAWS\" parameters that serve to illustrate the issues. In the TOE case, the copy cost can be viewed as part of the application processing \"a\". Application processing increases the LAWS \"gamma\", which is shown by the paper to result in a diminished benefit for TOE.",
+      "zh-CHS": "专门针对NFS协议处理的预期TOE改进可以量化，并且从根本上说是有限的。[SHI+03]提出了一组“定律”参数，用于说明这些问题。在这种情况下，复制成本可以被视为应用程序处理“a”的一部分。应用程序处理增加了定律“gamma”，这一点在论文中被证明会降低TOE的效益。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, if the overhead is 20% TCP/IP, 30% copy, and 50% real application work, then gamma is 80/20 or 4, which means the maximum benefit of TOE is 1/gamma, or only 25%.",
+      "zh-CHS": "例如，如果开销为20%的TCP/IP、30%的复制和50%的实际应用程序工作，则gamma为80/20或4，这意味着TOE的最大好处是1/gamma，或仅为25%。"
+    },
+    {
+      "indent": 3,
+      "text": "For RDMA (with embedded TOE) and the same example, the \"overhead\" (o) offloaded or eliminated is 50% (20% + 30%). Therefore, in the RDMA",
+      "zh-CHS": "对于RDMA（带嵌入式TOE）和同一示例，卸载或消除的“开销”（o）为50%（20%+30%）。因此，在RDMA中"
+    },
+    {
+      "indent": 3,
+      "text": "case, gamma is 50/50 or 1, and the inverse gives the potential benefit of 1 (100%), a factor of two.",
+      "zh-CHS": "在这种情况下，伽马值为50/50或1，反之则为1（100%）的潜在收益，为2倍。"
+    },
+    {
+      "indent": 20,
+      "text": "CPU Overhead Reduction Factor",
+      "zh-CHS": "CPU开销缩减系数"
+    },
+    {
+      "indent": 15,
+      "text": "No Offload   TCP Offload   RDMA Offload\n-----------+-------------+-------------\n   1.00x        1.25x         2.00x",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The analysis in the paper shows that RDMA could improve throughput by the same factor of two, even when the host is (just) powerful enough to drive the full network bandwidth without RDMA. It can also be shown that the speedup may be higher if network bandwidth grows faster than Moore's Law, although the higher benefits will apply to a narrow range of applications.",
+      "zh-CHS": "本文中的分析表明，RDMA可以将吞吐量提高两倍，即使主机的功能足够强大，可以在没有RDMA的情况下驱动整个网络带宽。还可以证明，如果网络带宽的增长速度快于摩尔定律，则加速比可能会更高，尽管更高的效益将适用于狭窄的应用范围。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Savings from RDMA",
+      "section_title": true,
+      "zh-CHS": "4.2. RDMA带来的节省"
+    },
+    {
+      "indent": 3,
+      "text": "Performance measurements directly comparing an NFS-over-RDMA prototype with conventional network-based NFS processing are described in [CAL+03]. Comparisons of Read throughput and CPU overhead were performed on two types of Gigabit Ethernet adapters, one type being a conventional adapter, and another type with RDMA capability. The prototype RDMA protocol performed all transfers via RDMA Read. The NFS layer in the study was measured while performing read transfers, varying the transfer size and readahead depth across ranges used by typical NFS deployments.",
+      "zh-CHS": "[CAL+03]中描述了直接比较NFS over RDMA原型与传统基于网络的NFS处理的性能度量。比较了两种千兆以太网适配器的读取吞吐量和CPU开销，一种是传统适配器，另一种是具有RDMA功能的适配器。原型RDMA协议通过RDMA Read执行所有传输。研究中的NFS层是在执行读取传输时测量的，在典型NFS部署使用的范围内改变传输大小和预读深度。"
+    },
+    {
+      "indent": 3,
+      "text": "In these results, conventional network-based throughput was severely limited by the client's CPU being saturated at 100% for all transfers. Read throughput reached no more than 60 MBytes/s.",
+      "zh-CHS": "在这些结果中，传统的基于网络的吞吐量受到严重限制，因为客户端的CPU在所有传输中都处于100%的饱和状态。读取吞吐量不超过60 MBytes/s。"
+    },
+    {
+      "indent": 6,
+      "text": "I/O Type Size Read Throughput CPU Utilization Conventional 2 KB 20 MB/s 100% Conventional 16 KB 40 MB/s 100% Conventional 256 KB 60 MB/s 100%",
+      "zh-CHS": "I/O类型大小读取吞吐量CPU利用率常规2 KB 20 MB/s 100%常规16 KB 40 MB/s 100%常规256 KB 60 MB/s 100%"
+    },
+    {
+      "indent": 3,
+      "text": "However, over RDMA, throughput rose to the theoretical maximum throughput of the platform, while saturating the single-CPU system only at maximum throughput.",
+      "zh-CHS": "然而，在RDMA上，吞吐量上升到平台的理论最大吞吐量，而单CPU系统仅在最大吞吐量时饱和。"
+    },
+    {
+      "indent": 6,
+      "text": " I/O Type Size Read Throughput CPU Utilization RDMA 2 KB 10 MB/s 45% RDMA 16 KB 40 MB/s 70% RDMA 256 KB 100 MB/s 100%",
+      "zh-CHS": "I/O类型大小读取吞吐量CPU利用率RDMA 2 KB 10 MB/s 45%RDMA 16 KB 40 MB/s 70%RDMA 256 KB 100 MB/s 100%"
+    },
+    {
+      "indent": 3,
+      "text": "The lower relative throughput of the RDMA prototype at the small blocksize may be attributable to the RDMA Read imposed by the",
+      "zh-CHS": "在较小的块大小下，RDMA原型的相对吞吐量较低，这可能是由于"
+    },
+    {
+      "indent": 3,
+      "text": "prototype protocol, which reduced the operation rate since it introduces additional latency. As well, it may reflect the relative increase of per-packet setup costs within the DMA portion of the transfer.",
+      "zh-CHS": "原型协议，由于引入了额外的延迟，因此降低了操作速率。同样，它可以反映在传输的DMA部分内每个分组设置成本的相对增加。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Application of RDMA to NFS",
+      "section_title": true,
+      "zh-CHS": "5. RDMA在NFS中的应用"
+    },
+    {
+      "indent": 3,
+      "text": "Efficient file protocols require efficient data positioning and movement. The client system knows the client memory address where the application has data to be written or wants read data deposited. The server system knows the server memory address where the local file system will accept write data or has data to be read. Neither peer however is aware of the others' data destination in the current NFS, RPC, or XDR protocols. Existing NFS implementations have struggled with the performance costs of data copies when using traditional Ethernet transports.",
+      "zh-CHS": "高效的文件协议需要高效的数据定位和移动。客户机系统知道客户机内存地址，应用程序将在其中写入数据或希望存储读取数据。服务器系统知道本地文件系统将在其中接受写入数据或具有要读取的数据的服务器内存地址。但是，在当前NFS、RPC或XDR协议中，两个对等方都不知道其他方的数据目的地。在使用传统以太网传输时，现有NFS实现一直在与数据拷贝的性能成本作斗争。"
+    },
+    {
+      "indent": 3,
+      "text": "With the onset of faster networks, the network I/O bottleneck will worsen. Fortunately, new transports that support RDMA have emerged. RDMA excels at bulk transfer efficiency; it is an efficient way to deliver direct data placement and remove a major part of the problem: data copies. RDMA also addresses other overheads, e.g., underlying protocol offload, and offers separation of control information from data.",
+      "zh-CHS": "随着更快网络的出现，网络I/O瓶颈将进一步恶化。幸运的是，支持RDMA的新传输已经出现。RDMA在批量传输效率方面表现出色；这是一种提供直接数据放置并消除问题主要部分（数据拷贝）的有效方法。RDMA还解决了其他开销，例如底层协议卸载，并提供了控制信息与数据的分离。"
+    },
+    {
+      "indent": 3,
+      "text": "The current NFS message layout provides the performance-enhancing opportunity for an NFS-over-RDMA protocol that separates the control information from data chunks while meeting the alignment needs of both. The data chunks can be copied \"directly\" between the client and server memory addresses above (with a single occurrence on each memory bus) while the control information can be passed \"inline\". [RPCRDMA] describes such a protocol.",
+      "zh-CHS": "当前的NFS消息布局为NFS over RDMA协议提供了性能增强机会，该协议将控制信息与数据块分离，同时满足两者的对齐需求。数据块可以在上面的客户机和服务器内存地址之间“直接”复制（每个内存总线上只出现一次），而控制信息可以“内联”传递。[RPCRDMA]描述了这样一种协议。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Conclusions",
+      "section_title": true,
+      "zh-CHS": "6. 结论"
+    },
+    {
+      "indent": 3,
+      "text": "NFS version 4 [RFC3530] has been granted \"Proposed Standard\" status. The NFSv4 protocol was developed along several design points, important among them: effective operation over wide-area networks, including the Internet itself; strong security integrated into the protocol; extensive cross-platform interoperability including integrated locking semantics compatible with multiple operating systems; and (this is key), protocol extension.",
+      "zh-CHS": "NFS版本4[RFC3530]已被授予“拟议标准”状态。NFSv4协议是沿着几个设计点开发的，其中很重要的一个设计点是：在广域网（包括互联网本身）上的有效运行；协议中集成了强大的安全性；广泛的跨平台互操作性，包括与多个操作系统兼容的集成锁定语义；和（这是关键），协议扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "NFS version 4 is an excellent base on which to add the needed performance enhancements and improved semantics described above. The minor versioning support defined in NFS version 4 was designed to support protocol improvements without disruption to the installed base [NFSv4.1]. Evolutionary improvement of the protocol via minor",
+      "zh-CHS": "NFS版本4是一个很好的基础，可以在此基础上添加上述所需的性能增强和改进的语义。NFS版本4中定义的次要版本控制支持旨在支持协议改进，而不会中断安装基础[NFSv4.1]。基于minor的协议进化改进"
+    },
+    {
+      "indent": 3,
+      "text": "versioning is a conservative and cautious approach to current and future problems and shortcomings.",
+      "zh-CHS": "版本控制是解决当前和未来问题和缺点的保守而谨慎的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Many arguments can be made as to the efficacy of the file abstraction in meeting the future needs of enterprise data service and the Internet. Fine grained Quality of Service (QoS) policies (e.g., data delivery, retention, availability, security, etc.) are high among them.",
+      "zh-CHS": "对于文件抽象在满足企业数据服务和互联网未来需求方面的有效性，可以进行许多争论。其中，细粒度服务质量（QoS）策略（例如，数据交付、保留、可用性、安全性等）非常重要。"
+    },
+    {
+      "indent": 3,
+      "text": "It is vital that the NFS protocol continue to provide these benefits to a wide range of applications, without its usefulness being compromised by concerns about performance and semantic inadequacies. This can reasonably be addressed in the existing NFS protocol framework. A cautious evolutionary improvement of performance and semantics allows building on the value already present in the NFS protocol, while addressing new requirements that have arisen from the application of networking technology.",
+      "zh-CHS": "NFS协议必须继续为广泛的应用程序提供这些好处，而不会因为性能和语义不足而影响其有用性。这可以在现有的NFS协议框架中合理地解决。性能和语义的谨慎进化改进允许在NFS协议中已有价值的基础上进行构建，同时满足网络技术应用中出现的新需求。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The NFS protocol, in conjunction with its layering on RPC, provides a rich and widely interoperable security model to applications and systems. Any layering of NFS-over-RDMA transports must address the NFS security requirements, and additionally must ensure that no new vulnerabilities are introduced. For RDMA, the integrity, and any privacy, of the data stream are of particular importance.",
+      "zh-CHS": "NFS协议及其在RPC上的分层为应用程序和系统提供了丰富且广泛可互操作的安全模型。任何基于RDMA传输的NFS分层都必须满足NFS安全要求，此外还必须确保不会引入新的漏洞。对于RDMA，数据流的完整性和任何隐私都是特别重要的。"
+    },
+    {
+      "indent": 3,
+      "text": "The core goals of an NFS-to-RDMA binding are to reduce overhead and to enable high performance. To support these goals while maintaining required NFS security protection presents a special challenge. Historically, the provision of integrity and privacy have been implemented within the RPC layer, and their operation requires local processing of messages exchanged with the RPC peer. This processing imposes memory and processing overhead on a per-message basis, exactly the overhead that RDMA is designed to avoid.",
+      "zh-CHS": "NFS到RDMA绑定的核心目标是减少开销和实现高性能。在维护所需的NFS安全保护的同时支持这些目标是一项特殊的挑战。历史上，完整性和隐私的提供都是在RPC层中实现的，它们的操作需要本地处理与RPC对等方交换的消息。这种处理在每条消息的基础上增加了内存和处理开销，这正是RDMA旨在避免的开销。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, it is a requirement that the RDMA transport binding provide a means to delegate the integrity and privacy processing to the RDMA hardware, in order to maintain the high level of performance desired from the approach, while simultaneously providing the existing highest levels of security required by the NFS protocol. This in turn requires a means by which the RPC layer may invoke these services from the RDMA provider, and for the NFS layer to negotiate their use end-to-end.",
+      "zh-CHS": "因此，要求RDMA传输绑定提供将完整性和隐私处理委托给RDMA硬件的方法，以保持该方法所需的高性能水平，同时提供NFS协议所需的现有最高安全级别。这反过来需要一种方法，通过这种方法，RPC层可以从RDMA提供程序调用这些服务，NFS层可以协商端到端使用这些服务。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"Channel Binding\" concept [RFC5056] together with \"IPsec Channel Connection Latching\" [BTNSLATCH] provide a means by which the RPC and NFS layers may delegate their session protection to the lower RDMA",
+      "zh-CHS": "“通道绑定”概念[RFC5056]和“IPsec通道连接锁存”[BTNSLATCH]提供了一种方法，通过这种方法，RPC和NFS层可以将其会话保护委托给较低的RDMA"
+    },
+    {
+      "indent": 3,
+      "text": "layers. An extension to the RPCSEC_GSS protocol [RFC5403] may be employed to negotiate the use of these bindings, and to establish the shared secrets necessary to protect the sessions.",
+      "zh-CHS": "层。RPCSEC_GSS协议[RFC5403]的扩展可用于协商这些绑定的使用，并建立保护会话所需的共享秘密。"
+    },
+    {
+      "indent": 3,
+      "text": "The protocol described in [RPCRDMA] specifies the use of these mechanisms, and they are required to implement the protocol.",
+      "zh-CHS": "[RPCRDMA]中描述的协议指定了这些机制的使用，并且它们是实现该协议所必需的。"
+    },
+    {
+      "indent": 3,
+      "text": "An additional consideration is protection of the integrity and privacy of local memory by the RDMA transport itself. The use of RDMA by NFS must not introduce any vulnerabilities to system memory contents, or to memory owned by user processes. These protections are provided by the RDMA layer specifications, and specifically their security models. It is required that any RDMA provider used for NFS transport be conformant to the requirements of [RFC5042] in order to satisfy these protections.",
+      "zh-CHS": "另外一个考虑事项是通过RDMA传输本身保护本地内存的完整性和隐私。NFS使用RDMA不得给系统内存内容或用户进程拥有的内存带来任何漏洞。这些保护由RDMA层规范提供，特别是其安全模型。要求用于NFS传输的任何RDMA提供程序符合[RFC5042]的要求，以满足这些保护要求。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to thank Jeff Chase who provided many useful suggestions.",
+      "zh-CHS": "作者希望感谢Jeff Chase，他提供了许多有用的建议。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3530] Shepler, S., Callaghan, B., Robinson, D., Thurlow, R., Beame, C., Eisler, M., and D. Noveck, \"Network File System (NFS) version 4 Protocol\", RFC 3530, April 2003.",
+      "zh-CHS": "[RFC3530]Shepler，S.，Callaghan，B.，Robinson，D.，Thurlow，R.，Beame，C.，Eisler，M.，和D.Noveck，“网络文件系统（NFS）版本4协议”，RFC 3530，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5531] Thurlow, R., \"RPC: Remote Procedure Call Protocol Specification Version 2\", RFC 5531, May 2009.",
+      "zh-CHS": "[RFC5531]Thurlow，R.，“RPC:远程过程调用协议规范版本2”，RFC 55312009年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4506] Eisler, M., Ed., \"XDR: External Data Representation Standard\", STD 67, RFC 4506, May 2006.",
+      "zh-CHS": "[RFC4506]艾斯勒，M.，编辑，“XDR：外部数据表示标准”，STD 67，RFC 4506，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1813] Callaghan, B., Pawlowski, B., and P. Staubach, \"NFS Version 3 Protocol Specification\", RFC 1813, June 1995.",
+      "zh-CHS": "[RFC1813]Callaghan，B.，Pawlowski，B.，和P.Staubach，“NFS版本3协议规范”，RFC 1813，1995年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5403] Eisler, M., \"RPCSEC_GSS Version 2\", RFC 5403, February 2009.",
+      "zh-CHS": "[RFC5403]Eisler，M.，“RPCSEC_GSS版本2”，RFC 5403，2009年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5056] Williams, N., \"On the Use of Channel Bindings to Secure Channels\", RFC 5056, November 2007.",
+      "zh-CHS": "[RFC5056]Williams，N.，“关于使用通道绑定保护通道”，RFC 5056，2007年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5042] Pinkerton, J. and E. Deleganes, \"Direct Data Placement Protocol (DDP) / Remote Direct Memory Access Protocol (RDMAP) Security\", RFC 5042, October 2007.",
+      "zh-CHS": "[RFC5042]Pinkerton，J.和E.Deleganes，“直接数据放置协议（DDP）/远程直接内存访问协议（RDMAP）安全”，RFC 50422007年10月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[BRU99] J. Brustoloni, \"Interoperation of copy avoidance in network and file I/O\", in Proc. INFOCOM '99, pages 534- 542, New York, NY, Mar. 1999., IEEE. Also available from http://www.cs.pitt.edu/~jcb/publs.html.",
+      "zh-CHS": "[BRU99]J.Brustoloni，“网络中避免复制的互操作和文件I/O”，在Proc。INFOCOM'99，第534-542页，纽约州纽约市，1999年3月，IEEE。也可从http://www.cs.pitt.edu/~jcb/publs.html。"
+    },
+    {
+      "indent": 3,
+      "text": "[BTNSLATCH] Williams, N., \"IPsec Channels: Connection Latching\", Work in Progress, November 2008.",
+      "zh-CHS": "[BTNSLATCH]Williams，N.，“IPsec通道：连接锁定”，正在进行的工作，2008年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CAL+03] B. Callaghan, T. Lingutla-Raj, A. Chiu, P. Staubach, O. Asad, \"NFS over RDMA\", in Proceedings of ACM SIGCOMM Summer 2003 NICELI Workshop.",
+      "zh-CHS": "[CAL+03]B.Callaghan，T.Lingutla Raj，A.Chiu，P.Staubach，O.Asad，“NFS对RDMA的影响”，2003年ACM SIGCOMM夏季NICELI研讨会论文集。"
+    },
+    {
+      "indent": 3,
+      "text": "[CHA+01] J. S. Chase, A. J. Gallatin, K. G. Yocum, \"Endsystem optimizations for high-speed TCP\", IEEE Communications, 39(4):68-74, April 2001.",
+      "zh-CHS": "[CHA+01]J.S.Chase，A.J.Gallatin，K.G.Yocum，“高速TCP终端系统优化”，IEEE通信，39（4）：68-742001年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CHA+99] J. S. Chase, D. C. Anderson, A. J. Gallatin, A. R. Lebeck, K. G. Yocum, \"Network I/O with Trapeze\", in 1999 Hot Interconnects Symposium, August 1999.",
+      "zh-CHS": "[CHA+99]J.S.Chase，D.C.Anderson，A.J.Gallatin，A.R.Lebeck，K.G.Yocum，“带吊架的网络I/O”，1999年热互连研讨会，1999年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CHU96] H.K. Chu, \"Zero-copy TCP in Solaris\", Proc. of the USENIX 1996 Annual Technical Conference, San Diego, CA, January 1996.",
+      "zh-CHS": "[CHU96]H.K.Chu，“Solaris中的零拷贝TCP”，过程。1996年1月在加利福尼亚州圣地亚哥举行的USENIX 1996年年度技术会议。"
+    },
+    {
+      "indent": 3,
+      "text": "[DCK+03] M. DeBergalis, P. Corbett, S. Kleiman, A. Lent, D. Noveck, T. Talpey, M. Wittle, \"The Direct Access File System\", in Proceedings of 2nd USENIX Conference on File and Storage Technologies (FAST '03), San Francisco, CA, March 31 - April 2, 2003.",
+      "zh-CHS": "[DCK + 03 ] M. DeBergalis，P. Corbett，S. Kleiman，A. Lent，D. Noveck，T. Talpey，M. Wittle，“直接访问文件系统”，在第二届USENIX会议文件和存储技术（FAST’03），旧金山，CA，3月31日- 2003年4月2日。"
+    },
+    {
+      "indent": 3,
+      "text": "[FJDAFS] Fujitsu Prime Software Technologies, \"Meet the DAFS Performance with DAFS/VI Kernel Implementation using cLAN\", available from http://www.pst.fujitsu.com/english/dafsdemo/index.html, 2001.",
+      "zh-CHS": "[FJDAFS]富士通Prime软件技术，“使用cLAN实现DAFS/VI内核以满足DAFS性能”，可从http://www.pst.fujitsu.com/english/dafsdemo/index.html, 2001."
+    },
+    {
+      "indent": 3,
+      "text": "[FJNFS] Fujitsu Prime Software Technologies, \"An Adaptation of VIA to NFS on Linux\", available from http://www.pst.fujitsu.com/english/nfs/index.html, 2000.",
+      "zh-CHS": "[FJNFS]Fujitsu Prime Software Technologies，“Linux上VIA到NFS的自适应”，可从http://www.pst.fujitsu.com/english/nfs/index.html, 2000."
+    },
+    {
+      "indent": 3,
+      "text": "[GAL+99] A. Gallatin, J. Chase, K. Yocum, \"Trapeze/IP: TCP/IP at Near-Gigabit Speeds\", 1999 USENIX Technical Conference (Freenix Track), June 1999.",
+      "zh-CHS": "[GAL+99]A.Gallatin，J.Chase，K.Yocum，“吊架/IP：近千兆速度下的TCP/IP”，1999年USENIX技术会议（Freenix轨道），1999年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KM02] K. Magoutis, \"Design and Implementation of a Direct Access File System (DAFS) Kernel Server for FreeBSD\", in Proceedings of USENIX BSDCon 2002 Conference, San Francisco, CA, February 11-14, 2002.",
+      "zh-CHS": "[KM02] K.MangouTIS，“FreeBSD的直接访问文件系统（DAFS）内核服务器的设计和实现”，在USENIX BSDCON 2002会议录，旧金山，CA，二月，11-14，2002。"
+    },
+    {
+      "indent": 3,
+      "text": "[MAF+02] K. Magoutis, S. Addetia, A. Fedorova, M. Seltzer, J. Chase, D. Gallatin, R. Kisley, R. Wickremesinghe, E. Gabber, \"Structure and Performance of the Direct Access File System (DAFS)\", in Proceedings of 2002 USENIX Annual Technical Conference, Monterey, CA, June 9-14, 2002.",
+      "zh-CHS": "[MAF+02]K.Magoutis，S.Addetia，A.Fedorova，M.Seltzer，J.Chase，D.Gallatin，R.Kisley，R.Wickremesinghe，E.Gabber，“直接访问文件系统（DAFS）的结构和性能”，《2002年USENIX年度技术会议记录》，加利福尼亚州蒙特利，2002年6月9日至14日。"
+    },
+    {
+      "indent": 3,
+      "text": "[MOG03] J. Mogul, \"TCP offload is a dumb idea whose time has come\", 9th Workshop on Hot Topics in Operating Systems (HotOS IX), Lihue, HI, May 2003. USENIX.",
+      "zh-CHS": "[MOG03]J.Mogul，“TCP卸载是一个愚蠢的想法，它的时代已经到来”，第9期操作系统热点研讨会（HotOS IX），HI，Lihue，2003年5月。USENIX。"
+    },
+    {
+      "indent": 3,
+      "text": "[NFSv4.1] Shepler, S., Eisler, M., and D. Noveck, \"NFSv4 Minor Version 1\", Work in Progress, September 2008.",
+      "zh-CHS": "[NFSv4.1]Shepler，S.，Eisler，M.，和D.Noveck，“NFSv4小调版本1”，正在进行的工作，2008年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[PAI+00] V. S. Pai, P. Druschel, W. Zwaenepoel, \"IO-Lite: a unified I/O buffering and caching system\", ACM Trans. Computer Systems, 18(1):37-66, Feb. 2000.",
+      "zh-CHS": "[PAI+00]V.S.PAI，P.Druschel，W.Zwaenepoel，“IO Lite：统一的I/O缓冲和缓存系统”，ACM Trans。计算机系统，18（1）：37-662000年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RDDP] RDDP Working Group charter, http://www.ietf.org/html.charters/rddpcharter.html.",
+      "zh-CHS": "[RDDP]RDDP工作组章程，http://www.ietf.org/html.charters/rddpcharter.html."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4297] Romanow, A., Mogul, J., Talpey, T., and S. Bailey, \"Remote Direct Memory Access (RDMA) over IP Problem Statement\", RFC 4297, December 2005.",
+      "zh-CHS": "[RFC4297]Romanow，A.，Mogul，J.，Talpey，T.，和S.Bailey，“IP上的远程直接内存访问（RDMA）问题陈述”，RFC 42972005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1094] Sun Microsystems, \"NFS: Network File System Protocol specification\", RFC 1094, March 1989.",
+      "zh-CHS": "[RFC1094]Sun Microsystems，“NFS：网络文件系统协议规范”，RFC10941989年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RPCRDMA] Talpey, T. and B. Callaghan, \"Remote Direct Memory Access Transport for Remote Procedure Call\", Work in Progress, April 2008.",
+      "zh-CHS": "[RPCRDMA]Talpey，T.和B.Callaghan，“远程过程调用的远程直接内存访问传输”，正在进行的工作，2008年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SHI+03] P. Shivam, J. Chase, \"On the Elusive Benefits of Protocol Offload\", Proceedings of ACM SIGCOMM Summer 2003 NICELI Workshop, also available from http://issg.cs.duke.edu/publications/niceli03.pdf.",
+      "zh-CHS": "[SHI+03]P.Shivam，J.Chase，“协议卸载的难以捉摸的好处”，ACM SIGCOMM 2003年夏季NICELI研讨会论文集，也可从http://issg.cs.duke.edu/publications/niceli03.pdf."
+    },
+    {
+      "indent": 3,
+      "text": "[SKE+01] K.-A. Skevik, T. Plagemann, V. Goebel, P. Halvorsen, \"Evaluation of a Zero-Copy Protocol Implementation\", in Proceedings of the 27th Euromicro Conference - Multimedia and Telecommunications Track (MTT'2001), Warsaw, Poland, September 2001.",
+      "zh-CHS": "[SKE+01]K.-A.Skevik，T.Plagemann，V.Goebel，P.Halvorsen，“零拷贝协议实施的评估”，载于第27届欧洲微企业会议记录-多媒体和电信轨道（MTT'2001），波兰华沙，2001年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Tom Talpey 170 Whitman St. Stow, MA 01775 USA",
+      "zh-CHS": "美国马萨诸塞州惠特曼街170号汤姆·塔尔佩01775"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 978 821-8577\nEMail: tmtalpey@gmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Chet Juszczak P.O. Box 1467 Merrimack, NH 03054",
+      "zh-CHS": "新罕布什尔州梅里马克市切特朱兹扎克邮政信箱1467号，邮编03054"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 603 253-6602\nEMail: chetnh@earthlink.net",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

@@ -1,0 +1,446 @@
+{
+  "title": {
+    "text": "RFC 4742: Using the NETCONF Configuration Protocol over Secure SHell (SSH)",
+    "zh-CHS": "RFC 4742"
+  },
+  "number": 4742,
+  "created_at": "2021-11-14 21:53:31.301534+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       M. Wasserman\nRequest for Comments: 4742                                    ThingMagic\nCategory: Standards Track                                     T. Goddard\n                                              ICEsoft Technologies, Inc.\n                                                           December 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "Using the NETCONF Configuration Protocol over Secure SHell (SSH)",
+      "zh-CHS": "通过安全SHell（SSH）使用NETCONF配置协议"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a method for invoking and running the Network Configuration Protocol (NETCONF) within a Secure Shell (SSH) session as an SSH subsystem.",
+      "zh-CHS": "本文档描述了在安全Shell（SSH）会话中作为SSH子系统调用和运行网络配置协议（NETCONF）的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Requirements Terminology ........................................2\n3. Starting NETCONF over SSH .......................................2\n   3.1. Capabilities Exchange ......................................3\n4. Using NETCONF over SSH ..........................................5\n5. Exiting the NETCONF Subsystem ...................................6\n6. Security Considerations .........................................6\n7. IANA Considerations .............................................7\n8. Acknowledgements ................................................7\n9. References ......................................................8\n   9.1. Normative References .......................................8\n   9.2. Informative References .....................................8",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The NETCONF protocol [RFC4721] is an XML-based protocol used to manage the configuration of networking equipment. NETCONF is defined to be session-layer and transport independent, allowing mappings to be defined for multiple session-layer or transport protocols. This document defines how NETCONF can be used within a Secure Shell (SSH) session, using the SSH connection protocol [RFC4254] over the SSH transport protocol [RFC4253]. This mapping will allow NETCONF to be executed from a secure shell session by a user or application.",
+      "zh-CHS": "NETCONF协议[RFC4721]是一种基于XML的协议，用于管理网络设备的配置。NETCONF被定义为会话层和传输独立，允许为多个会话层或传输协议定义映射。本文档定义了如何在安全Shell（SSH）会话中使用NETCONF，通过SSH传输协议[RFC4253]使用SSH连接协议[RFC4254]。此映射将允许用户或应用程序从安全shell会话执行NETCONF。"
+    },
+    {
+      "indent": 3,
+      "text": "Throughout this document, the terms \"client\" and \"server\" are used to refer to the two ends of the SSH transport connection. The client actively opens the SSH connection, and the server passively listens for the incoming SSH connection. The terms \"manager\" and \"agent\" are used to refer to the two ends of the NETCONF protocol session. The manager issues NETCONF remote procedure call (RPC) commands, and the agent replies to those commands. When NETCONF is run over SSH using the mapping defined in this document, the client is always the manager, and the server is always the agent.",
+      "zh-CHS": "在本文档中，术语“客户机”和“服务器”用于表示SSH传输连接的两端。客户端主动打开SSH连接，服务器被动侦听传入的SSH连接。术语“管理器”和“代理”用于表示NETCONF协议会话的两端。管理器发出NETCONF远程过程调用（RPC）命令，代理对这些命令进行响应。当使用本文档中定义的映射在SSH上运行NETCONF时，客户机始终是管理器，服务器始终是代理。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 需求术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Starting NETCONF over SSH",
+      "section_title": true,
+      "zh-CHS": "3. 通过SSH启动NETCONF"
+    },
+    {
+      "indent": 3,
+      "text": "To run NETCONF over SSH, the client will first establish an SSH transport connection using the SSH transport protocol, and the client and server will exchange keys for message integrity and encryption. The client will then invoke the \"ssh-userauth\" service to authenticate the user, as described in the SSH authentication protocol [RFC4252]. Once the user has been successfully authenticated, the client will invoke the \"ssh-connection\" service, also known as the SSH connection protocol.",
+      "zh-CHS": "要通过SSH运行NETCONF，客户端将首先使用SSH传输协议建立SSH传输连接，客户端和服务器将交换消息完整性和加密的密钥。然后，客户端将调用“ssh userauth”服务对用户进行身份验证，如ssh身份验证协议[RFC4252]中所述。一旦用户成功通过身份验证，客户端将调用“ssh连接”服务，也称为ssh连接协议。"
+    },
+    {
+      "indent": 3,
+      "text": "After the ssh-connection service is established, the client will open a channel of type \"session\", which will result in an SSH session.",
+      "zh-CHS": "建立ssh连接服务后，客户端将打开一个类型为“session”的通道，这将导致一个ssh会话。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the SSH session has been established, the user (or application) will invoke NETCONF as an SSH subsystem called \"netconf\". Subsystem support is a feature of SSH version 2 (SSHv2) and is not included in SSHv1. Running NETCONF as an SSH subsystem avoids the need for the script to recognize shell prompts or skip over extraneous information, such as a system message that is sent at shell start-up. However, even when a subsystem is used, some extraneous messages may",
+      "zh-CHS": "一旦建立了SSH会话，用户（或应用程序）将调用NETCONF作为名为“NETCONF”的SSH子系统。子系统支持是SSH版本2（SSHv2）的一项功能，不包含在SSHv1中。将NETCONF作为SSH子系统运行，避免了脚本识别shell提示或跳过无关信息（如shell启动时发送的系统消息）的需要。但是，即使使用子系统，也可能会出现一些无关的消息"
+    },
+    {
+      "indent": 3,
+      "text": "be printed by the user's start-up scripts. Implementations MUST skip over these messages by searching for an 'xml' start directive, which MUST be followed by a <hello> element in the 'NETCONF' namespace.",
+      "zh-CHS": "由用户的启动脚本打印。实现必须通过搜索“xml”start指令跳过这些消息，该指令后面必须有“NETCONF”命名空间中的<hello>元素。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to allow NETCONF traffic to be easily identified and filtered by firewalls and other network devices, NETCONF servers MUST default to providing access to the \"netconf\" SSH subsystem only when the SSH session is established using the IANA-assigned TCP port <830>. Servers SHOULD be configurable to allow access to the netconf SSH subsystem over other ports.",
+      "zh-CHS": "为了允许防火墙和其他网络设备轻松识别和过滤NETCONF流量，NETCONF服务器必须默认为仅在使用IANA分配的TCP端口<830>建立SSH会话时提供对“NETCONF”SSH子系统的访问。服务器应可配置为允许通过其他端口访问netconf SSH子系统。"
+    },
+    {
+      "indent": 3,
+      "text": "A user (or application) could use the following command line to invoke NETCONF as an SSH subsystem on the IANA-assigned port:",
+      "zh-CHS": "用户（或应用程序）可以使用以下命令行调用NETCONF作为IANA分配端口上的SSH子系统："
+    },
+    {
+      "indent": 3,
+      "text": "[user@client]$ ssh -s server.example.org -p <830> netconf",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that the -s option causes the command (\"netconf\") to be invoked as an SSH subsystem.",
+      "zh-CHS": "注意，-s选项导致命令（“netconf”）作为SSH子系统调用。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Capabilities Exchange",
+      "section_title": true,
+      "zh-CHS": "3.1. 能力交换"
+    },
+    {
+      "indent": 3,
+      "text": "The server MUST indicate its capabilities by sending an XML document containing a <hello> element as soon as the NETCONF session is established. The user (or application) can parse this message to determine which NETCONF capabilities are supported by the server.",
+      "zh-CHS": "一旦NETCONF会话建立，服务器必须通过发送包含<hello>元素的XML文档来指示其功能。用户（或应用程序）可以解析此消息，以确定服务器支持哪些NETCONF功能。"
+    },
+    {
+      "indent": 3,
+      "text": "The client must also send an XML document containing a <hello> element to indicate the client's capabilities to the server. The document containing the <hello> element MUST be the first XML document that the client sends after the NETCONF session is established.",
+      "zh-CHS": "客户端还必须向服务器发送包含<hello>元素的XML文档，以指示客户端的功能。包含<hello>元素的文档必须是NETCONF会话建立后客户端发送的第一个XML文档。"
+    },
+    {
+      "indent": 3,
+      "text": "The following example shows a capability exchange. Messages sent by the client are marked with \"C:\", and messages sent by the server are marked with \"S:\".",
+      "zh-CHS": "下面的示例显示了一个功能交换。客户端发送的消息标记为“C:”，服务器发送的消息标记为“S:”。"
+    },
+    {
+      "indent": 3,
+      "text": "S: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\nS: <hello>\nS:   <capabilities>\nS:     <capability>\nS:       urn:ietf:params:xml:ns:netconf:base:1.0\nS:     </capability>\nS:     <capability>\nS:       urn:ietf:params:ns:netconf:capability:startup:1.0\nS:     </capability>\nS:   </capabilities>\nS:   <session-id>4<session-id>\nS: </hello>\nS: ]]>]]>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "C: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\nC: <hello>\nC:   <capabilities>\nC:     <capability>\nC:       urn:ietf:params:xml:ns:netconf:base:1.0\nC:     </capability>\nC:   </capabilities>\nC: </hello>\nC: ]]>]]>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Although the example shows the server sending a <hello> message followed by the client's message, both sides will send the message as soon as the NETCONF subsystem is initialized, perhaps simultaneously.",
+      "zh-CHS": "尽管该示例显示服务器发送一条<hello>消息，然后是客户机的消息，但双方将在NETCONF子系统初始化后立即发送消息，可能是同时发送。"
+    },
+    {
+      "indent": 3,
+      "text": "As the previous example illustrates, a special character sequence, ]]>]]>, MUST be sent by both the client and the server after each XML document in the NETCONF exchange. This character sequence cannot legally appear in an XML document, so it can be unambiguously used to identify the end of the current document, allowing resynchronization of the NETCONF exchange in the event of an XML syntax or parsing error.",
+      "zh-CHS": "如前一个示例所示，在NETCONF交换中的每个XML文档之后，客户端和服务器都必须发送一个特殊的字符序列[]]>]]]>。此字符序列不能合法地出现在XML文档中，因此可以明确地将其用于标识当前文档的结尾，从而允许在出现XML语法或解析错误时重新同步NETCONF交换。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Using NETCONF over SSH",
+      "section_title": true,
+      "zh-CHS": "4. 通过SSH使用NETCONF"
+    },
+    {
+      "indent": 3,
+      "text": "A NETCONF over SSH session consists of the manager and agent exchanging complete XML documents. Once the session has been established and capabilities have been exchanged, the manager will send complete XML documents containing <rpc> elements to the server, and the agent will respond with complete XML documents containing <rpc-reply> elements.",
+      "zh-CHS": "NETCONF over SSH会话由交换完整XML文档的管理器和代理组成。建立会话并交换功能后，管理器将向服务器发送包含<rpc>元素的完整XML文档，代理将使用包含<rpc reply>元素的完整XML文档进行响应。"
+    },
+    {
+      "indent": 3,
+      "text": "To continue the example given above, an NETCONF over SSH session to retrieve a set of configuration information might look like this:",
+      "zh-CHS": "要继续上面给出的示例，用于检索一组配置信息的NETCONF over SSH会话可能如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "C: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\nC: <rpc message-id=\"105\"\nC: xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\nC:   <get-config>\nC:     <source><running/></source>\nC:     <config xmlns=\"http://example.com/schema/1.2/config\">\nC:      <users/>\nC:     </config>\nC:   </get-config>\nC: </rpc>\nC: ]]>]]>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "S: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\nS: <rpc-reply message-id=\"105\"\nS: xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\nS:   <config xmlns=\"http://example.com/schema/1.2/config\">\nS:     <users>\nS:       <user><name>root</name><type>superuser</type></user>\nS:       <user><name>fred</name><type>admin</type></user>\nS:       <user><name>barney</name><type>admin</type></user>\nS:     </users>\nS:   </config>\nS: </rpc-reply>\nS: ]]>]]>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "5. Exiting the NETCONF Subsystem",
+      "section_title": true,
+      "zh-CHS": "5. 退出NETCONF子系统"
+    },
+    {
+      "indent": 3,
+      "text": "Exiting NETCONF is accomplished using the <close-session> operation. An agent will process RPC messages from the manager in the order in which they are received. When the agent processes a <close-session> command, the agent shall respond and close the SSH session channel. The agent MUST NOT process any RPC commands received on the current session after the <close-session> command.",
+      "zh-CHS": "退出NETCONF是使用<close session>操作完成的。代理将按照接收的顺序处理来自管理器的RPC消息。当代理处理<close session>命令时，代理应响应并关闭SSH会话通道。在执行<close session>命令之后，代理程序不得处理当前会话上收到的任何RPC命令。"
+    },
+    {
+      "indent": 3,
+      "text": "To continue the example used in previous sections, an existing NETCONF subsystem session could be closed as follows:",
+      "zh-CHS": "要继续前面章节中使用的示例，可以按如下方式关闭现有NETCONF子系统会话："
+    },
+    {
+      "indent": 3,
+      "text": "C: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\nC: <rpc message-id=\"106\"\nC: xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\nC:   <close-session/>\nC: </rpc>\nC: ]]>]]>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "S: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\nS: <rpc-reply id=\"106\"\nS: xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\nS:   <ok/>\nS: </rpc-reply>\nS: ]]>]]>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "NETCONF is used to access configuration and state information and to modify configuration information, so the ability to access this protocol should be limited to users and systems that are authorized to view the agent's configuration and state or to modify the agent's configuration.",
+      "zh-CHS": "NETCONF用于访问配置和状态信息以及修改配置信息，因此访问此协议的能力应限于有权查看代理的配置和状态或修改代理的配置的用户和系统。"
+    },
+    {
+      "indent": 3,
+      "text": "The identity of the server MUST be verified and authenticated by the client according to local policy before password-based authentication data or any configuration or state data is sent to or received from the server. The identity of the client MUST also be verified and authenticated by the server according to local policy to ensure that the incoming client request is legitimate before any configuration or state data is sent to or received from the client. Neither side should establish a NETCONF over SSH connection with an unknown, unexpected, or incorrect identity on the opposite side.",
+      "zh-CHS": "在向服务器发送或从服务器接收基于密码的身份验证数据或任何配置或状态数据之前，客户端必须根据本地策略验证和身份验证服务器的身份。服务器还必须根据本地策略验证和验证客户端的身份，以确保在向客户端发送或从客户端接收任何配置或状态数据之前，传入的客户端请求是合法的。任何一方都不应使用对方未知、意外或不正确的标识通过SSH建立NETCONF连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Configuration or state data may include sensitive information, such as usernames or security keys. So, NETCONF should only be used over communications channels that provide strong encryption for data",
+      "zh-CHS": "配置或状态数据可能包括敏感信息，如用户名或安全密钥。因此，NETCONF只能在为数据提供强加密的通信通道上使用"
+    },
+    {
+      "indent": 3,
+      "text": "privacy. This document defines a NETCONF over SSH mapping that provides for support of strong encryption and authentication.",
+      "zh-CHS": "隐私本文档定义了NETCONF over SSH映射，该映射提供了对强加密和身份验证的支持。"
+    },
+    {
+      "indent": 3,
+      "text": "This document requires that servers default to allowing access to the \"netconf\" SSH subsystem only when using a specific TCP port assigned by IANA for this purpose. This will allow NETCONF over SSH traffic to be easily identified and filtered by firewalls and other network nodes. However, it will also allow NETCONF over SSH traffic to be more easily identified by attackers.",
+      "zh-CHS": "本文档要求服务器默认仅在使用IANA为此指定的特定TCP端口时才允许访问“netconf”SSH子系统。这将允许防火墙和其他网络节点轻松识别和过滤通过SSH的NETCONF流量。但是，它还允许攻击者更容易地识别NETCONF over SSH流量。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also recommends that servers be configurable to allow access to the \"netconf\" SSH subsystem over other ports. Use of that configuration option without corresponding changes to firewall or network device configuration may unintentionally result in the ability for nodes outside the firewall or other administrative boundary to gain access to \"netconf\" SSH subsystem.",
+      "zh-CHS": "本文档还建议对服务器进行配置，以允许通过其他端口访问“netconf”SSH子系统。使用该配置选项而不对防火墙或网络设备配置进行相应更改可能会无意中导致防火墙或其他管理边界之外的节点能够访问“netconf”SSH子系统。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA assigned a TCP port number that is the default port for NETCONF over SSH sessions as defined in this document.",
+      "zh-CHS": "IANA分配了一个TCP端口号，该端口号是本文档中定义的NETCONF over SSH会话的默认端口。"
+    },
+    {
+      "indent": 3,
+      "text": "IANA assigned port <830> for this purpose.",
+      "zh-CHS": "IANA为此指定了端口<830>。"
+    },
+    {
+      "indent": 3,
+      "text": "IANA is also requested to assign \"netconf\" as an SSH Service Name as defined in [RFC4250], as follows:",
+      "zh-CHS": "还要求IANA按照[RFC4250]中的定义将“netconf”指定为SSH服务名称，如下所示："
+    },
+    {
+      "indent": 12,
+      "text": "Service Name                  Reference\n-------------                 ---------\nnetconf                       RFC 4742",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This document was written using the xml2rfc tool described in RFC 2629 [RFC2629].",
+      "zh-CHS": "本文档使用RFC 2629[RFC2629]中描述的xml2rfc工具编写。"
+    },
+    {
+      "indent": 3,
+      "text": "Extensive input was received from the other members of the NETCONF design team, including: Andy Bierman, Weijing Chen, Rob Enns, Wes Hardaker, David Harrington, Eliot Lear, Simon Leinen, Phil Shafer, Juergen Schoenwaelder, and Steve Waldbusser. The following people have also reviewed this document and provided valuable input: Olafur Gudmundsson, Sam Hartman, Scott Hollenbeck, Bill Sommerfeld, and Bert Wijnen.",
+      "zh-CHS": "NETCONF设计团队的其他成员提供了广泛的意见，包括：安迪·比尔曼、陈伟晶、罗布·恩斯、韦斯·哈达克、大卫·哈林顿、艾略特·李尔、西蒙·莱宁、菲尔·沙弗、尤尔根·舍恩瓦德和史蒂夫·瓦尔德布瑟。以下人员也审阅了该文件并提供了宝贵的意见：Olafur Gudmundsson、Sam Hartman、Scott Hollenbeck、Bill Sommerfeld和Bert Wijnen。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4250] Lehtinen, S. and C. Lonvick, \"The Secure Shell (SSH) Protocol Assigned Numbers\", RFC 4250, January 2006.",
+      "zh-CHS": "[RFC4250]Lehtinen，S.和C.Lonvick，“安全外壳（SSH）协议分配编号”，RFC 4250，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4252] Ylonen, T. and C. Lonvick, \"The Secure Shell (SSH) Authentication Protocol\", RFC 4252, January 2006.",
+      "zh-CHS": "[RFC4252]Ylonen，T.和C.Lonvick，“安全外壳（SSH）认证协议”，RFC 4252，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4253] Ylonen, T. and C. Lonvick, \"The Secure Shell (SSH) Transport Layer Protocol\", RFC 4253, January 2006.",
+      "zh-CHS": "[RFC4253]Ylonen，T.和C.Lonvick，“安全外壳（SSH）传输层协议”，RFC 4253，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4254] Ylonen, T. and C. Lonvick, \"The Secure Shell (SSH) Connection Protocol\", RFC 4254, January 2006.",
+      "zh-CHS": "[RFC4254]Ylonen，T.和C.Lonvick，“安全外壳（SSH）连接协议”，RFC 42542006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4721] Enns, R., Ed., \"NETCONF Configuration Protocol\", RFC 4721, December 2006.",
+      "zh-CHS": "[RFC4721]恩斯，R.，编辑，“网络配置协议”，RFC 47212006年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2629] Rose, M., \"Writing I-Ds and RFCs using XML\", RFC 2629, June 1999.",
+      "zh-CHS": "[RFC2629]Rose，M.，“使用XML编写I-D和RFC”，RFC 26292999年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Margaret Wasserman ThingMagic One Broadway, 5th Floor Cambridge, MA 02142 USA",
+      "zh-CHS": "Margaret Wasserman ThingMagic One百老汇，美国马萨诸塞州剑桥市5楼，邮编：02142"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 781 405-7464\nEMail: margaret@thingmagic.com\nURI:   http://www.thingmagic.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Ted Goddard ICEsoft Technologies, Inc. Suite 300, 1717 10th St. NW Calgary, AB T2M 4S2 Canada",
+      "zh-CHS": "Ted Goddard ICEsoft Technologies，Inc.加拿大卡尔加里西北第10街1717号300室，邮编：T2M 4S2"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 403 663-3322\nEMail: ted.goddard@icesoft.com\nURI:   http://www.icesoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST, AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

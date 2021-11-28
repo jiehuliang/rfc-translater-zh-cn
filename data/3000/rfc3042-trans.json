@@ -1,0 +1,388 @@
+{
+  "title": {
+    "text": "RFC 3042:  Enhancing TCP's Loss Recovery Using Limited Transmit ",
+    "zh-CHS": "RFC 3042"
+  },
+  "number": 3042,
+  "created_at": "2021-10-25 18:17:24.433001+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          M. Allman\nRequest for Comments: 3042                                  NASA GRC/BBN\nCategory: Standards Track                                H. Balakrishnan\n                                                                     MIT\n                                                                S. Floyd\n                                                                   ACIRI\n                                                            January 2001",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "Enhancing TCP's Loss Recovery Using Limited Transmit",
+      "zh-CHS": "利用有限传输增强TCP的丢包恢复"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2001). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2001年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document proposes a new Transmission Control Protocol (TCP) mechanism that can be used to more effectively recover lost segments when a connection's congestion window is small, or when a large number of segments are lost in a single transmission window. The \"Limited Transmit\" algorithm calls for sending a new data segment in response to each of the first two duplicate acknowledgments that arrive at the sender. Transmitting these segments increases the probability that TCP can recover from a single lost segment using the fast retransmit algorithm, rather than using a costly retransmission timeout. Limited Transmit can be used both in conjunction with, and in the absence of, the TCP selective acknowledgment (SACK) mechanism.",
+      "zh-CHS": "本文档提出了一种新的传输控制协议（TCP）机制，该机制可用于在连接的拥塞窗口较小或单个传输窗口中丢失大量数据段时更有效地恢复丢失的数据段。“有限传输”算法要求发送新的数据段，以响应到达发送方的前两个重复确认。传输这些段增加了TCP使用快速重传算法从单个丢失段恢复的可能性，而不是使用代价高昂的重传超时。有限传输可以与TCP选择性确认（SACK）机制结合使用，也可以在没有TCP选择性确认（SACK）机制的情况下使用。"
+    },
+    {
+      "indent": 0,
+      "text": "1 Introduction",
+      "zh-CHS": "1导言"
+    },
+    {
+      "indent": 3,
+      "text": "A number of researchers have observed that TCP's loss recovery strategies do not work well when the congestion window at a TCP sender is small. This can happen, for instance, because there is only a limited amount of data to send, or because of the limit imposed by the receiver-advertised window, or because of the constraints imposed by end-to-end congestion control over a connection with a small bandwidth-delay product [Riz96,Mor97,BPS+98,Bal98,LK98]. When a TCP detects a missing segment, it enters a loss recovery phase using one of two methods.",
+      "zh-CHS": "许多研究人员已经观察到，当TCP发送方的拥塞窗口很小时，TCP的丢失恢复策略不能很好地工作。这可能发生，例如，因为要发送的数据量有限，或者因为接收器广告窗口施加的限制，或者因为对具有小带宽延迟产品的连接的端到端拥塞控制施加的约束[Riz96，Mor97，BPS+98，Bal98，LK98]。当TCP检测到丢失的数据段时，它将使用两种方法之一进入丢失恢复阶段。"
+    },
+    {
+      "indent": 3,
+      "text": "First, if an acknowledgment (ACK) for a given segment is not received in a certain amount of time a retransmission timeout occurs and the segment is resent [RFC793,PA00]. Second, the \"Fast Retransmit\" algorithm resends a segment when three duplicate ACKs arrive at the sender [Jac88,RFC2581]. However, because duplicate ACKs from the receiver are also triggered by packet reordering in the Internet, the TCP sender waits for three duplicate ACKs in an attempt to disambiguate segment loss from packet reordering. Once in a loss recovery phase, a number of techniques can be used to retransmit lost segments, including slow start-based recovery or Fast Recovery [RFC2581], NewReno [RFC2582], and loss recovery based on selective acknowledgments (SACKs) [RFC2018,FF96].",
+      "zh-CHS": "首先，如果在一定时间内未收到给定段的确认（ACK），则会发生重传超时，并重新发送该段[RFC793，PA00]。其次，“快速重传”算法在三个重复的ack到达发送方时重新发送一个段[Jac88，RFC2581]。然而，由于来自接收方的重复ack也由因特网中的数据包重新排序触发，因此TCP发送方等待三个重复ack，以消除数据包重新排序导致的段丢失的歧义。一旦进入丢失恢复阶段，可以使用多种技术来重传丢失的段，包括基于慢启动的恢复或快速恢复[RFC2581]、NewReno[RFC2582]和基于选择性确认（SACK）的丢失恢复[RFC2018，FF96]。"
+    },
+    {
+      "indent": 3,
+      "text": "TCP's retransmission timeout (RTO) is based on measured round-trip\ntimes (RTT) between the sender and receiver, as specified in [PA00].\nTo prevent spurious retransmissions of segments that are only delayed\nand not lost, the minimum RTO is conservatively chosen to be 1\nsecond.  Therefore, it behooves TCP senders to detect and recover\nfrom as many losses as possible without incurring a lengthy timeout\nwhen the connection remains idle.  However, if not enough duplicate\nACKs arrive from the receiver, the Fast Retransmit algorithm is never\ntriggered---this situation occurs when the congestion window is small\nor if a large number of segments in a window are lost.  For instance,\nconsider a congestion window (cwnd) of three segments.  If one\nsegment is dropped by the network, then at most two duplicate ACKs\nwill arrive at the sender.  Since three duplicate ACKs are required\nto trigger Fast Retransmit, a timeout will be required to resend the\ndropped packet.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[BPS+97] found that roughly 56% of retransmissions sent by a busy web server were sent after the RTO expires, while only 44% were handled by Fast Retransmit. In addition, only 4% of the RTO-based retransmissions could have been avoided with SACK, which of course has to continue to disambiguate reordering from genuine loss. In contrast, using the technique outlined in this document and in [Bal98], 25% of the RTO-based retransmissions in that dataset would have likely been avoided.",
+      "zh-CHS": "[BPS+97]发现，在繁忙的web服务器发送的重传中，大约56%是在RTO过期后发送的，而只有44%是通过快速重传处理的。此外，只有4%的基于RTO的重传可以通过SACK避免，这当然必须继续消除重新排序与真正损失之间的歧义。相比之下，使用本文档和[Bal98]中概述的技术，该数据集中25%的基于RTO的重传可能会被避免。"
+    },
+    {
+      "indent": 3,
+      "text": "The next section of this document outlines small changes to TCP senders that will decrease the reliance on the retransmission timer, and thereby improve TCP performance when Fast Retransmit is not triggered. These changes do not adversely affect the performance of TCP nor interact adversely with other connections, in other circumstances.",
+      "zh-CHS": "本文档的下一节概述了对TCP发送方的一些小更改，这些更改将减少对重传计时器的依赖，从而在未触发快速重传时提高TCP性能。在其他情况下，这些更改不会对TCP的性能产生负面影响，也不会与其他连接产生负面影响。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1 Terminology",
+      "section_title": true,
+      "zh-CHS": "1.1 术语"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, he key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", AND \"OPTIONAL\" are to be interpreted as described in RFC 2119 [1] and indicate requirement levels for protocols.",
+      "zh-CHS": "在本文件中，关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[1]中的描述进行解释，并表示协议的要求级别。"
+    },
+    {
+      "indent": 0,
+      "text": "2 The Limited Transmit Algorithm",
+      "zh-CHS": "2有限发射算法"
+    },
+    {
+      "indent": 3,
+      "text": "When a TCP sender has previously unsent data queued for transmission it SHOULD use the Limited Transmit algorithm, which calls for a TCP sender to transmit new data upon the arrival of the first two consecutive duplicate ACKs when the following conditions are satisfied:",
+      "zh-CHS": "当TCP发送方之前已将未发送的数据排队等待传输时，应使用受限传输算法，该算法要求TCP发送方在满足以下条件时，在到达前两个连续的重复ACK时传输新数据："
+    },
+    {
+      "indent": 5,
+      "text": "* The receiver's advertised window allows the transmission of the segment.",
+      "zh-CHS": "* 接收器的播发窗口允许传输段。"
+    },
+    {
+      "indent": 5,
+      "text": "* The amount of outstanding data would remain less than or equal to the congestion window plus 2 segments. In other words, the sender can only send two segments beyond the congestion window (cwnd).",
+      "zh-CHS": "* 未完成的数据量将保持小于或等于拥塞窗口加上2个段。换句话说，发送方只能在拥塞窗口（cwnd）之外发送两个段。"
+    },
+    {
+      "indent": 3,
+      "text": "The congestion window (cwnd) MUST NOT be changed when these new segments are transmitted. Assuming that these new segments and the corresponding ACKs are not dropped, this procedure allows the sender to infer loss using the standard Fast Retransmit threshold of three duplicate ACKs [RFC2581]. This is more robust to reordered packets than if an old packet were retransmitted on the first or second duplicate ACK.",
+      "zh-CHS": "传输这些新段时，不得更改拥塞窗口（cwnd）。假设这些新段和相应的ack没有被丢弃，此过程允许发送方使用三个重复ack的标准快速重传阈值来推断丢失[RFC2581]。与在第一个或第二个重复ACK上重新传输旧数据包相比，这对重新排序的数据包更为稳健。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: If the connection is using selective acknowledgments [RFC2018], the data sender MUST NOT send new segments in response to duplicate ACKs that contain no new SACK information, as a misbehaving receiver can generate such ACKs to trigger inappropriate transmission of data segments. See [SCWA99] for a discussion of attacks by misbehaving receivers.",
+      "zh-CHS": "注意：如果连接使用选择性确认[RFC2018]，则数据发送方不得发送新段以响应不包含新SACK信息的重复确认，因为行为不当的接收方可能会生成此类确认以触发数据段的不适当传输。参见[SCWA99]了解行为不端的接收者的攻击讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "Limited Transmit follows the \"conservation of packets\" congestion control principle [Jac88]. Each of the first two duplicate ACKs indicate that a segment has left the network. Furthermore, the sender has not yet decided that a segment has been dropped and therefore has no reason to assume that the current congestion control state is inaccurate. Therefore, transmitting segments does not deviate from the spirit of TCP's congestion control principles.",
+      "zh-CHS": "有限传输遵循“数据包守恒”拥塞控制原则[Jac88]。前两个重复ACK中的每一个都表示一个网段已离开网络。此外，发送方尚未确定某个段已被丢弃，因此没有理由假设当前拥塞控制状态不准确。因此，传输段不会偏离TCP拥塞控制原则的精神。"
+    },
+    {
+      "indent": 3,
+      "text": "[BPS99] shows that packet reordering is not a rare network event. [RFC2581] does not provide for sending of data on the first two duplicate ACKs that arrive at the sender. This causes a burst of segments to be sent when an ACK for new data does arrive following packet reordering. Using Limited Transmit, data packets will be clocked out by incoming ACKs and therefore transmission will not be as bursty.",
+      "zh-CHS": "[BPS99]表明数据包重新排序并非罕见的网络事件。[RFC2581]不提供发送到达发送方的前两个重复ACK的数据。这导致在数据包重新排序后，当新数据的ACK确实到达时发送突发段。使用有限传输，数据包将被传入的ACK打卡，因此传输不会像以前那样突发。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: Limited Transmit is implemented in the ns simulator [NS]. Researchers wishing to investigate this mechanism further can do so by enabling \"singledup_\" for the given TCP connection.",
+      "zh-CHS": "注：限制传输在ns模拟器[ns]中实现。希望进一步研究这一机制的研究人员可以通过为给定的TCP连接启用“singledup_2;”来做到这一点。"
+    },
+    {
+      "indent": 0,
+      "text": "3 Related Work",
+      "zh-CHS": "3相关工作"
+    },
+    {
+      "indent": 3,
+      "text": "Deployment of Explicit Congestion Notification (ECN) [Flo94,RFC2481] may benefit connections with small congestion window sizes [SA00]. ECN provides a method for indicating congestion to the end-host without dropping segments. While some segment drops may still occur, ECN may allow TCP to perform better with small congestion window sizes because the sender can avoid many of the Fast Retransmits and Retransmit Timeouts that would otherwise have been needed to detect dropped segments [SA00].",
+      "zh-CHS": "部署显式拥塞通知（ECN）[Flo94，RFC2481]可能有利于拥塞窗口大小较小的连接[SA00]。ECN提供了一种在不删除段的情况下向终端主机指示拥塞的方法。虽然仍可能发生某些段丢失，但ECN可能允许TCP在拥塞窗口较小的情况下更好地执行，因为发送方可以避免检测丢失段所需的许多快速重传和重传超时[SA00]。"
+    },
+    {
+      "indent": 3,
+      "text": "When ECN-enabled TCP traffic competes with non-ECN-enabled TCP traffic, ECN-enabled traffic can receive up to 30% higher goodput. For bulk transfers, the relative performance benefit of ECN is greatest when on average each flow has 3-4 outstanding packets during each round-trip time [ZQ00]. This should be a good estimate for the performance impact of a flow using Limited Transmit, since both ECN and Limited Transmit reduce the reliance on the retransmission timer for signaling congestion.",
+      "zh-CHS": "当启用ECN的TCP流量与未启用ECN的TCP流量竞争时，启用ECN的流量可以收到高达30%的goodput。对于批量传输，当平均每个流在每个往返时间内有3-4个未完成的数据包时，ECN的相对性能优势最大[ZQ00]。对于使用有限传输的流的性能影响，这应该是一个很好的估计，因为ECN和有限传输都减少了信令拥塞对重传计时器的依赖。"
+    },
+    {
+      "indent": 3,
+      "text": "The Rate-Halving congestion control algorithm [MSML99] uses a form of limited transmit, as it calls for transmitting a data segment on every second duplicate ACK that arrives at the sender. The algorithm decouples the decision of what to send from the decision of when to send. However, similar to Limited Transmit the algorithm will always send a new data segment on the second duplicate ACK that arrives at the sender.",
+      "zh-CHS": "减半速率拥塞控制算法[MSML99]使用有限传输的形式，因为它要求在到达发送方的每一秒重复ACK上传输一个数据段。该算法将发送内容的决策与何时发送的决策解耦。然而，与有限传输类似，该算法总是在到达发送方的第二个重复ACK上发送新的数据段。"
+    },
+    {
+      "indent": 0,
+      "text": "4 Security Considerations",
+      "zh-CHS": "4安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The additional security implications of the changes proposed in this document, compared to TCP's current vulnerabilities, are minimal. The potential security issues come from the subversion of end-to-end congestion control from \"false\" duplicate ACKs, where a \"false\" duplicate ACK is a duplicate ACK that does not actually acknowledge new data received at the TCP receiver. False duplicate ACKs could",
+      "zh-CHS": "与TCP当前的漏洞相比，本文档中提出的更改对安全的影响最小。潜在的安全问题来自“假”重复确认对端到端拥塞控制的颠覆，其中“假”重复确认是不实际确认TCP接收器接收到的新数据的重复确认。可能会出现错误的重复确认"
+    },
+    {
+      "indent": 3,
+      "text": "result from duplicate ACKs that are themselves duplicated in the network, or from misbehaving TCP receivers that send false duplicate ACKs to subvert end-to-end congestion control [SCWA99,RFC2581].",
+      "zh-CHS": "由于网络中自身重复的重复ACK，或行为不正常的TCP接收器发送错误的重复ACK以破坏端到端拥塞控制[SCWA99，RFC2581]。"
+    },
+    {
+      "indent": 3,
+      "text": "When the TCP data receiver has agreed to use the SACK option, the TCP data sender has fairly strong protection against false duplicate ACKs. In particular, with SACK, a duplicate ACK that acknowledges new data arriving at the receiver reports the sequence numbers of that new data. Thus, with SACK, the TCP sender can verify that an arriving duplicate ACK acknowledges data that the TCP sender has actually sent, and for which no previous acknowledgment has been received, before sending new data as a result of that acknowledgment. For further protection, the TCP sender could keep a record of packet boundaries for transmitted data packets, and recognize at most one valid acknowledgment for each packet (e.g., the first acknowledgment acknowledging the receipt of all of the sequence numbers in that packet).",
+      "zh-CHS": "当TCP数据接收方同意使用SACK选项时，TCP数据发送方对虚假重复ACK具有相当强的保护。特别是，对于SACK，确认到达接收器的新数据的重复ACK报告该新数据的序列号。因此，使用SACK，TCP发送方可以在发送新数据作为确认的结果之前，验证到达的重复确认确认TCP发送方实际发送的数据，并且没有收到之前的确认。为了进一步的保护，TCP发送方可以保留所传输数据分组的分组边界的记录，并且最多识别每个分组的一个有效确认（例如，确认接收到该分组中的所有序列号的第一个确认）。"
+    },
+    {
+      "indent": 3,
+      "text": "One could imagine some limited protection against false duplicate ACKs for a non-SACK TCP connection, where the TCP sender keeps a record of the number of packets transmitted, and recognizes at most one acknowledgment per packet to be used for triggering the sending of new data. However, this accounting of packets transmitted and acknowledged would require additional state and extra complexity at the TCP sender, and does not seem necessary.",
+      "zh-CHS": "我们可以想象，对于非SACK TCP连接，针对虚假重复确认的保护是有限的，其中TCP发送方保留传输的数据包数量的记录，并且每个数据包最多识别一个用于触发发送新数据的确认。然而，这种对传输和确认的数据包的记帐将需要TCP发送方的额外状态和额外复杂性，而且似乎没有必要。"
+    },
+    {
+      "indent": 3,
+      "text": "The most important protection against false duplicate ACKs comes from the limited potential of duplicate ACKs in subverting end-to-end congestion control. There are two separate cases to consider: when the TCP sender receives less than a threshold number of duplicate ACKs, and when the TCP sender receives at least a threshold number of duplicate ACKs. In the latter case a TCP with Limited Transmit will behave essentially the same as a TCP without Limited Transmit in that the congestion window will be halved and a loss recovery period will be initiated.",
+      "zh-CHS": "防止虚假重复ACK的最重要保护来自于重复ACK在破坏端到端拥塞控制方面的有限潜力。有两种情况需要考虑：当TCP发送方收到的重复ACK少于阈值数量时，以及当TCP发送方收到的重复ACK至少达到阈值数量时。在后一种情况下，具有有限传输的TCP与不具有有限传输的TCP的行为基本相同，即拥塞窗口将减半，并且将启动丢失恢复期。"
+    },
+    {
+      "indent": 3,
+      "text": "When a TCP sender receives less than a threshold number of duplicate ACKs a misbehaving receiver could send two duplicate ACKs after each regular ACK. One might imagine that the TCP sender would send at three times its allowed sending rate. However, using Limited Transmit as outlined in section 2 the sender is only allowed to exceed the congestion window by less than the duplicate ACK threshold (of three segments), and thus would not send a new packet for each duplicate ACK received.",
+      "zh-CHS": "当TCP发送方收到的重复ACK少于阈值数量时，行为不正常的接收方可能会在每个常规ACK之后发送两个重复ACK。可以想象TCP发送方将以其允许发送速率的三倍进行发送。然而，如第2节所述，使用有限传输时，发送方只允许超出拥塞窗口小于复制ACK阈值（三段），因此不会为接收到的每个复制ACK发送新数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Bill Fenner, Jamshid Mahdavi and the Transport Area Working Group provided valuable feedback on an early version of this document.",
+      "zh-CHS": "Bill Fenner、Jamshid Mahdavi和运输区工作组就本文件的早期版本提供了宝贵的反馈意见。"
+    },
+    {
+      "indent": 0,
+      "text": "References",
+      "zh-CHS": "工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[Bal98] Hari Balakrishnan. Challenges to Reliable Data Transport over Heterogeneous Wireless Networks. Ph.D. Thesis, University of California at Berkeley, August 1998.",
+      "zh-CHS": "哈里巴拉克里希南。异构无线网络上可靠数据传输的挑战。博士。毕业论文，加州大学伯克利分校，1998年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BPS+97] Hari Balakrishnan, Venkata Padmanabhan, Srinivasan Seshan, Mark Stemm, and Randy Katz. TCP Behavior of a Busy Web Server: Analysis and Improvements. Technical Report UCB/CSD-97-966, August 1997. Available from http://nms.lcs.mit.edu/~hari/papers/csd-97-966.ps. (Also in Proc. IEEE INFOCOM Conf., San Francisco, CA, March 1998.)",
+      "zh-CHS": "[BPS+97]哈里·巴拉克里希南、文卡塔·帕德马纳班、斯里尼瓦桑·塞尚、马克·斯特姆和兰迪·卡茨。繁忙Web服务器的TCP行为：分析和改进。技术报告UCB/CSD-97-966，1997年8月。可从http://nms.lcs.mit.edu/~hari/papers/csd-97-966.ps。（也在PRE.IEEE信息公开，旧金山，CA，1998年3月）。"
+    },
+    {
+      "indent": 3,
+      "text": "[BPS99] Jon Bennett, Craig Partridge, Nicholas Shectman. Packet Reordering is Not Pathological Network Behavior. IEEE/ACM Transactions on Networking, December 1999.",
+      "zh-CHS": "Jon Bennett Craig Partridge Nicholas Shectman。数据包重新排序不是病态的网络行为。IEEE/ACM网络交易，1999年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[FF96] Kevin Fall, Sally Floyd. Simulation-based Comparisons of Tahoe, Reno, and SACK TCP. ACM Computer Communication Review, July 1996.",
+      "zh-CHS": "[FF96]凯文·法尔，萨利·弗洛伊德。基于模拟的Tahoe、Reno和SACK TCP比较。ACM计算机通信评论，1996年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Flo94] Sally Floyd. TCP and Explicit Congestion Notification. ACM Computer Communication Review, October 1994.",
+      "zh-CHS": "萨莉·弗洛伊德。TCP和显式拥塞通知。ACM计算机通信评论，1994年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Jac88] Van Jacobson. Congestion Avoidance and Control. ACM SIGCOMM 1988.",
+      "zh-CHS": "范雅各布森。拥塞避免和控制。ACM SIGCOMM 1988。"
+    },
+    {
+      "indent": 3,
+      "text": "[LK98] Dong Lin, H.T. Kung. TCP Fast Recovery Strategies: Analysis and Improvements. Proceedings of InfoCom, March 1998.",
+      "zh-CHS": "[LK98]董林，龚H.T。TCP快速恢复策略：分析和改进。《信息通信会议录》，1998年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MSML99] Matt Mathis, Jeff Semke, Jamshid Mahdavi, Kevin Lahey. The Rate Halving Algorithm, 1999. URL: http://www.psc.edu/networking/rate_halving.html.",
+      "zh-CHS": "Matt Mathis Jeff Semke Jamshid Mahdavi Kevin Lahey。比率减半算法，1999年。网址：http://www.psc.edu/networking/rate_halving.html."
+    },
+    {
+      "indent": 3,
+      "text": "[Mor97] Robert Morris. TCP Behavior with Many Flows. Proceedings of the Fifth IEEE International Conference on Network Protocols. October 1997.",
+      "zh-CHS": "罗伯特·莫里斯。具有多个流的TCP行为。第五届IEEE网络协议国际会议记录。1997年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NS] Ns network simulator. URL: http://www.isi.edu/nsnam/.",
+      "zh-CHS": "[NS]NS网络模拟器。网址：http://www.isi.edu/nsnam/."
+    },
+    {
+      "indent": 3,
+      "text": "[PA00] Paxson, V. and M. Allman, \"Computing TCP's Retransmission Timer\", RFC 2988, November 2000.",
+      "zh-CHS": "[PA00]Paxson，V.和M.Allman，“计算TCP的重传计时器”，RFC 2988，2000年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Riz96]   Luigi Rizzo.  Issues in the Implementation of Selective\n          Acknowledgments for TCP.  January, 1996.  URL:\n          http://www.iet.unipi.it/~luigi/selack.ps",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[SA00] Hadi Salim, J. and U. Ahmed, \"Performance Evaluation of Explicit Congestion Notification (ECN) in IP Networks\", RFC 2884, July 2000.",
+      "zh-CHS": "[SA00]Hadi Salim，J.和U.Ahmed，“IP网络中显式拥塞通知（ECN）的性能评估”，RFC 2884，2000年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SCWA99] Stefan Savage, Neal Cardwell, David Wetherall, Tom Anderson. TCP Congestion Control with a Misbehaving Receiver. ACM Computer Communications Review, October 1999.",
+      "zh-CHS": "Stefan Savage Neal Cardwell David Wetheral Tom Anderson。使用行为不正常的接收器进行TCP拥塞控制。ACM计算机通信评论，1999年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[RFC793]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2018] Mathis, M., Mahdavi, J., Floyd, S. and A. Romanow, \"TCP Selective Acknowledgement Options\", RFC 2018, October 1996.",
+      "zh-CHS": "[RFC2018]Mathis，M.，Mahdavi，J.，Floyd，S.和A.Romanow，“TCP选择性确认选项”，RFC 2018，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2481] Ramakrishnan, K. and S. Floyd, \"A Proposal to Add Explicit Congestion Notification (ECN) to IP\", RFC 2481, January 1999.",
+      "zh-CHS": "[RFC2481]Ramakrishnan，K.和S.Floyd，“向IP添加明确拥塞通知（ECN）的提案”，RFC 2481，1999年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2581] Allman, M., Paxson, V. and W. Stevens, \"TCP Congestion Control\", RFC 2581, April 1999.",
+      "zh-CHS": "[RFC2581]Allman，M.，Paxson，V.和W.Stevens，“TCP拥塞控制”，RFC 25811999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2582] Floyd, S. and T. Henderson, \"The NewReno Modification to TCP's Fast Recovery Algorithm\", RFC 2582, April 1999.",
+      "zh-CHS": "[RFC2582]Floyd，S.和T.Henderson，“TCP快速恢复算法的NewReno修改”，RFC 25821999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ZQ00] Yin Zhang and Lili Qiu, Understanding the End-to-End Performance Impact of RED in a Heterogeneous Environment, Cornell CS Technical Report 2000-1802, July 2000. URL http://www.cs.cornell.edu/yzhang/papers.htm.",
+      "zh-CHS": "[ZQ00]尹章和邱丽丽，了解异构环境中RED的端到端性能影响，康奈尔CS技术报告2000-1802，2000年7月。统一资源定位地址http://www.cs.cornell.edu/yzhang/papers.htm."
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Mark Allman NASA Glenn Research Center/BBN Technologies Lewis Field 21000 Brookpark Rd. MS 54-5 Cleveland, OH 44135",
+      "zh-CHS": "马克·奥尔曼美国宇航局格伦研究中心/BBN技术刘易斯场美国俄亥俄州克利夫兰市布鲁克公园路21000号，邮编：44135"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1-216-433-6586\nFax:   +1-216-433-8705\nEMail: mallman@grc.nasa.gov\nhttp://roland.grc.nasa.gov/~mallman",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Hari Balakrishnan Laboratory for Computer Science 545 Technology Square Massachusetts Institute of Technology Cambridge, MA 02139",
+      "zh-CHS": "哈里巴拉克里希南计算机科学实验室麻省理工学院科技广场545号马萨诸塞州剑桥02139"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: hari@lcs.mit.edu\nhttp://nms.lcs.mit.edu/~hari/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sally Floyd AT&T Center for Internet Research at ICSI (ACIRI) 1947 Center St, Suite 600 Berkeley, CA 94704",
+      "zh-CHS": "萨莉·弗洛伊德美国电话电报公司互联网研究中心位于加利福尼亚州伯克利中心街1947号，600室，邮编94704"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1-510-666-2989\nEMail: floyd@aciri.org\nhttp://www.aciri.org/floyd/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2001). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2001年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,1883 @@
+{
+  "title": {
+    "text": "RFC 5061: Stream Control Transmission Protocol (SCTP) Dynamic Address Reconfiguration",
+    "zh-CHS": "RFC 5061"
+  },
+  "number": 5061,
+  "created_at": "2021-11-10 01:32:45.998310+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         R. Stewart\nRequest for Comments: 5061                           Cisco Systems, Inc.\nCategory: Standards Track                                         Q. Xie\n                                                          Motorola, Inc.\n                                                               M. Tuexen\n                                      Univ. of Applied Sciences Muenster\n                                                             S. Maruyama\n                                                               M. Kozuka\n                                                        Kyoto University\n                                                          September 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Stream Control Transmission Protocol (SCTP) Dynamic Address Reconfiguration",
+      "zh-CHS": "流控制传输协议（SCTP）动态地址重新配置"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "A local host may have multiple points of attachment to the Internet, giving it a degree of fault tolerance from hardware failures. Stream Control Transmission Protocol (SCTP) (RFC 4960) was developed to take full advantage of such a multi-homed host to provide a fast failover and association survivability in the face of such hardware failures. This document describes an extension to SCTP that will allow an SCTP stack to dynamically add an IP address to an SCTP association, dynamically delete an IP address from an SCTP association, and to request to set the primary address the peer will use when sending to an endpoint.",
+      "zh-CHS": "本地主机可能有多个连接点连接到Internet，从而使其具有一定程度的硬件故障容错能力。流控制传输协议（SCTP）（RFC 4960）的开发是为了充分利用这种多宿主主机，在遇到这种硬件故障时提供快速故障切换和关联生存能力。本文档描述了对SCTP的扩展，该扩展将允许SCTP堆栈向SCTP关联动态添加IP地址，从SCTP关联动态删除IP地址，并请求设置对等方在发送到端点时将使用的主地址。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3\n2.  Conventions  . . . . . . . . . . . . . . . . . . . . . . . . .  3\n3.  Serial Number Arithmetic . . . . . . . . . . . . . . . . . . .  4\n4.  Additional Chunks and Parameters . . . . . . . . . . . . . . .  4\n  4.1.  New Chunk Types  . . . . . . . . . . . . . . . . . . . . .  4\n    4.1.1.  Address Configuration Change Chunk (ASCONF)  . . . . .  5\n    4.1.2.  Address Configuration Acknowledgment Chunk\n            (ASCONF-ACK) . . . . . . . . . . . . . . . . . . . . .  6\n  4.2.  New Parameter Types  . . . . . . . . . . . . . . . . . . .  7\n    4.2.1.  Add IP Address . . . . . . . . . . . . . . . . . . . .  8\n    4.2.2.  Delete IP Address  . . . . . . . . . . . . . . . . . .  9\n    4.2.3.  Error Cause Indication . . . . . . . . . . . . . . . . 10\n    4.2.4.  Set Primary IP Address . . . . . . . . . . . . . . . . 11\n    4.2.5.  Success Indication . . . . . . . . . . . . . . . . . . 12\n    4.2.6.  Adaptation Layer Indication  . . . . . . . . . . . . . 13\n    4.2.7.  Supported Extensions Parameter . . . . . . . . . . . . 13\n  4.3.  New Error Causes . . . . . . . . . . . . . . . . . . . . . 14\n    4.3.1.  Error Cause: Request to Delete Last Remaining IP\n            Address  . . . . . . . . . . . . . . . . . . . . . . . 15\n    4.3.2.  Error Cause: Operation Refused Due to Resource\n            Shortage . . . . . . . . . . . . . . . . . . . . . . . 15\n    4.3.3.  Error Cause: Request to Delete Source IP Address . . . 16\n    4.3.4.  Error Cause: Association Aborted Due to Illegal\n            ASCONF-ACK . . . . . . . . . . . . . . . . . . . . . . 17\n    4.3.5.  Error Cause: Request Refused - No Authorization. . . . 17\n5.  Procedures . . . . . . . . . . . . . . . . . . . . . . . . . . 18\n  5.1.  ASCONF Chunk Procedures  . . . . . . . . . . . . . . . . . 18\n    5.1.1.  Congestion Control of ASCONF Chunks  . . . . . . . . . 20\n  5.2.  Upon Reception of an ASCONF Chunk  . . . . . . . . . . . . 21\n  5.3.  General Rules for Address Manipulation . . . . . . . . . . 24\n    5.3.1.  A Special Case for OOTB ABORT Chunks . . . . . . . . . 29\n    5.3.2.  A Special Case for Changing an Address . . . . . . . . 29\n  5.4.  Setting of the Primary Address . . . . . . . . . . . . . . 29\n  5.5.  Bundling of Multiple ASCONFs . . . . . . . . . . . . . . . 30\n6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 30\n7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 33\n8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 34\n9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 35\n  9.1.  Normative References . . . . . . . . . . . . . . . . . . . 35\n  9.2.  Informative References . . . . . . . . . . . . . . . . . . 35\nAppendix A.  Abstract Address Handling . . . . . . . . . . . . . . 36\n  A.1.  General Remarks  . . . . . . . . . . . . . . . . . . . . . 36\n  A.2.  Generalized Endpoints  . . . . . . . . . . . . . . . . . . 36\n  A.3.  Associations . . . . . . . . . . . . . . . . . . . . . . . 37\n  A.4.  Relationship with RFC 4960 . . . . . . . . . . . . . . . . 38\n  A.5.  Rules for Address Manipulation . . . . . . . . . . . . . . 38",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "A local host may have multiple points of attachment to the Internet, giving it a degree of fault tolerance from hardware failures. SCTP was developed to take full advantage of such a multi-homed host to provide a fast failover and association survivability in the face of such hardware failures. However, many modern computers allow for the dynamic addition and deletion of network cards (sometimes termed a hot-pluggable interface). Complicate this with the ability of a provider, in IPv6, to dynamically renumber a network, and there still is a gap between full-fault tolerance and the currently defined SCTP protocol. No matter if a card is added or an interface is renumbered, in order to take advantage of this new configuration, the transport association must be restarted. For many fault-tolerant applications this restart is considered an outage and is undesirable.",
+      "zh-CHS": "本地主机可能有多个连接点连接到Internet，从而使其具有一定程度的硬件故障容错能力。SCTP的开发目的是充分利用这种多宿主主机，在遇到这种硬件故障时提供快速故障切换和关联生存能力。然而，许多现代计算机允许动态添加和删除网卡（有时称为热插拔接口）。在IPv6中，提供商能够动态地重新编号网络，这使得这一点更加复杂，而且在完全容错和当前定义的SCTP协议之间仍然存在差距。无论是添加卡还是重新编号接口，为了利用此新配置，必须重新启动传输关联。对于许多容错应用程序，这种重启被视为停机，是不可取的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an extension to SCTP to attempt to correct this problem for the more demanding fault-tolerant application. This extension will allow an SCTP stack to:",
+      "zh-CHS": "本文档描述了对SCTP的扩展，以尝试针对要求更高的容错应用程序纠正此问题。此扩展将允许SCTP堆栈："
+    },
+    {
+      "indent": 3,
+      "text": "o Dynamically add an IP address to an association.",
+      "zh-CHS": "o 向关联动态添加IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "o Dynamically delete an IP address from an association.",
+      "zh-CHS": "o 从关联中动态删除IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "o Request to set the primary address the peer will use when sending to an endpoint.",
+      "zh-CHS": "o 请求设置对等方在发送到端点时将使用的主地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The dynamic addition and subtraction of IP addresses allows an SCTP association to continue to function through host and network reconfigurations. These changes, brought on by provider or user action, may mean that the peer would be better served by using the newly added address; however, this information may only be known by the endpoint that had the reconfiguration occur. In such a case this extension allows the local endpoint to advise the peer as to what it thinks is the better primary address that the peer should be using.",
+      "zh-CHS": "IP地址的动态加减允许SCTP关联通过主机和网络重新配置继续运行。这些由提供者或用户操作引起的更改可能意味着使用新添加的地址将更好地服务于对等方；但是，此信息可能仅由发生重新配置的端点知道。在这种情况下，此扩展允许本地端点通知对等方它认为对等方应该使用的更好的主地址。"
+    },
+    {
+      "indent": 3,
+      "text": "One last thing this extension adds is a small, 32-bit integer called an adaptation indication that can be exchanged at startup. This is useful for applications where there are one or more specific layers below the application, yet still above SCTP. In such a case, the exchange of this indication can allow the proper layer to be enabled below the application.",
+      "zh-CHS": "这个扩展添加的最后一件事是一个小的32位整数，称为自适应指示，可以在启动时交换。这对于在应用程序下方有一个或多个特定层，但仍在SCTP上方的应用程序非常有用。在这种情况下，交换该指示可允许在应用程序下方启用适当的层。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions",
+      "section_title": true,
+      "zh-CHS": "2. 习俗"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Serial Number Arithmetic",
+      "section_title": true,
+      "zh-CHS": "3. 序列号算法"
+    },
+    {
+      "indent": 3,
+      "text": "It is essential to remember that the actual Address Configuration Change Chunk (ASCONF) Sequence Number space is finite, though very large. This space ranges from 0 to 2**32 - 1. Since the space is finite, all arithmetic dealing with ASCONF Sequence Numbers MUST be performed modulo 2**32. This unsigned arithmetic preserves the relationship of sequence numbers as they cycle from 2**32 - 1 to 0 again. There are some subtleties to computer modulo arithmetic, so great care should be taken in programming the comparison of such values. When referring to ASCONF Sequence Numbers, the symbol \"=<\" means \"less than or equal\"(modulo 2**32).",
+      "zh-CHS": "必须记住，实际地址配置更改块（ASCONF）序列号空间是有限的，尽管非常大。此空格的范围为0到2**32-1。由于空间是有限的，所有处理ASCONF序列号的算术运算必须以模2**32执行。当序列号再次从2**32-1循环到0时，此无符号算术保留序列号之间的关系。计算机模运算有一些微妙之处，因此在编写比较这些值的程序时应特别小心。当提及ASCONF序列号时，符号“=<”表示“小于或等于”（模2**32）。"
+    },
+    {
+      "indent": 3,
+      "text": "Comparisons and arithmetic on ASCONF sequence numbers in this document SHOULD use Serial Number Arithmetic as defined in [RFC1982] where SERIAL_BITS = 32.",
+      "zh-CHS": "本文件中ASCONF序列号的比较和算术应使用[RFC1982]中定义的序列号算术，其中序列位=32。"
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF Sequence Numbers wrap around when they reach 2**32 - 1. That is, the next ASCONF Sequence Number an ASCONF chunk MUST use after transmitting an ASCONF Sequence Number = 2**32 - 1 is 0.",
+      "zh-CHS": "ASCONF序列号在达到2**32-1时环绕。也就是说，在传输ASCONF序列号=2**32-1之后，ASCONF区块必须使用的下一个ASCONF序列号为0。"
+    },
+    {
+      "indent": 3,
+      "text": "Any arithmetic done on Stream Sequence Numbers SHOULD use Serial Number Arithmetic (as defined in [RFC1982]) where SERIAL_BITS = 16. All other arithmetic and comparisons in this document use normal arithmetic.",
+      "zh-CHS": "对流序列号执行的任何算术都应使用序列号算术（如[RFC1982]中的定义），其中序列位=16。本文档中的所有其他算法和比较均使用普通算法。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Additional Chunks and Parameters",
+      "section_title": true,
+      "zh-CHS": "4. 附加块和参数"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the addition of two new chunks and seven new parameters to allow:",
+      "zh-CHS": "本节介绍添加两个新块和七个新参数以允许："
+    },
+    {
+      "indent": 3,
+      "text": "o Dynamic addition of IP addresses to an association.",
+      "zh-CHS": "o 向关联动态添加IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "o Dynamic deletion of IP addresses from an association.",
+      "zh-CHS": "o 从关联中动态删除IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "o A request to set the primary address the peer will use when sending to an endpoint.",
+      "zh-CHS": "o 设置对等方在发送到端点时将使用的主地址的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, this section describes three new Error Causes that support these new chunks and parameters.",
+      "zh-CHS": "此外，本节描述了支持这些新块和参数的三个新错误原因。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. New Chunk Types",
+      "section_title": true,
+      "zh-CHS": "4.1. 新的块类型"
+    },
+    {
+      "indent": 3,
+      "text": "This section defines two new chunk types that will be used to transfer the control information reliably. Table 1 illustrates the two new chunk types.",
+      "zh-CHS": "本节定义了两种新的区块类型，用于可靠地传输控制信息。表1说明了两种新的块类型。"
+    },
+    {
+      "indent": 8,
+      "text": "Chunk Type  Chunk Name\n--------------------------------------------------------------\n0xC1    Address Configuration Change Chunk        (ASCONF)\n0x80    Address Configuration Acknowledgment      (ASCONF-ACK)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Table 1: Address Configuration Chunks",
+      "zh-CHS": "表1：地址配置块"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. Address Configuration Change Chunk (ASCONF)",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 地址配置更改块（ASCONF）"
+    },
+    {
+      "indent": 3,
+      "text": "This chunk is used to communicate to the remote endpoint one of the configuration change requests that MUST be acknowledged. The information carried in the ASCONF Chunk uses the form of a Type-Length-Value (TLV), as described in \"3.2.1 Optional/Variable-length Parameter Format\" in [RFC4960] for all variable parameters. This chunk MUST be sent in an authenticated way by using the mechanism defined in [RFC4895]. If this chunk is received unauthenticated it MUST be silently discarded as described in [RFC4895].",
+      "zh-CHS": "此区块用于将必须确认的配置更改请求之一与远程端点通信。ASCONF区块中携带的信息使用类型长度值（TLV）的形式，如[RFC4960]中“3.2.1可选/可变长度参数格式”中所述，用于所有可变参数。必须使用[RFC4895]中定义的机制以经过身份验证的方式发送此数据块。如果未经身份验证就接收到该区块，则必须按照[RFC4895]中的说明将其悄悄丢弃。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Type = 0xC1   |  Chunk Flags  |      Chunk Length             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Sequence Number                          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                    Address Parameter                          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                     ASCONF Parameter #1                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n\\                                                               \\\n/                             ....                              /\n\\                                                               \\\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                     ASCONF Parameter #N                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sequence Number: 32 bits (unsigned integer)",
+      "zh-CHS": "序列号：32位（无符号整数）"
+    },
+    {
+      "indent": 3,
+      "text": "This value represents a Sequence Number for the ASCONF Chunk. The valid range of a Sequence Number is from 0 to 4294967295 (2**32 - 1). Sequence Numbers wrap back to 0 after reaching 4294967295.",
+      "zh-CHS": "此值表示ASCONF块的序列号。序列号的有效范围为0到4294967295（2**32-1）。序列号到达4294967295后返回到0。"
+    },
+    {
+      "indent": 3,
+      "text": "Address Parameter: 8 or 20 bytes (depending on the address type)",
+      "zh-CHS": "地址参数：8或20字节（取决于地址类型）"
+    },
+    {
+      "indent": 3,
+      "text": "This field contains an address parameter, either IPv6 or IPv4, from [RFC4960]. The address is an address of the sender of the ASCONF Chunk; the address MUST be considered part of the association by the peer endpoint (the receiver of the ASCONF Chunk). This field may be",
+      "zh-CHS": "此字段包含[RFC4960]中的地址参数IPv6或IPv4。地址是ASCONF区块的发送者的地址；对等端点（ASCONF区块的接收者）必须将该地址视为关联的一部分。该字段可能是"
+    },
+    {
+      "indent": 3,
+      "text": "used by the receiver of the ASCONF to help in finding the association. If the address 0.0.0.0 or ::0 is provided, the receiver MAY lookup the association by other information provided in the packet. This parameter MUST be present in every ASCONF message, i.e. it is a mandatory TLV parameter.",
+      "zh-CHS": "ASCONF的接收者用于帮助查找关联。如果提供了地址0.0.0.0或：：0，则接收器可以通过分组中提供的其他信息来查找关联。此参数必须出现在每个ASCONF消息中，即它是一个强制TLV参数。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: The host name address MUST NOT be sent and MUST be ignored if received in any ASCONF message.",
+      "zh-CHS": "注意：不得发送主机名地址，如果在任何ASCONF消息中收到，则必须忽略主机名地址。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that the ASCONF Chunk format requires the receiver to report to the sender if it does not understand the ASCONF Chunk. This is accomplished by setting the upper bits in the chunk type as described in [RFC4960], Section 3.2. Note that the upper two bits in the ASCONF Chunk are set to one. As defined in [RFC4960], Section 3.2, when setting these upper bits in this manner the receiver that does not understand this chunk MUST skip the chunk and continue processing, and report in an Operation Error Chunk using the 'Unrecognized Chunk Type' cause of error. This will NOT abort the association but indicates to the sender that it MUST not send any further ASCONF chunks.",
+      "zh-CHS": "需要注意的是，ASCONF区块格式要求接收方在不理解ASCONF区块时向发送方报告。如[RFC4960]第3.2节所述，通过设置块类型中的高位来实现。请注意，ASCONF块中的上两位设置为1。如[RFC4960]第3.2节所定义，当以这种方式设置这些高位时，不理解该区块的接收器必须跳过该区块并继续处理，并使用“无法识别的区块类型”错误原因报告操作错误区块。这不会中止关联，但会向发送方指示它不得再发送任何ASCONF块。"
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF Parameter: TLV format",
+      "zh-CHS": "ASCONF参数：TLV格式"
+    },
+    {
+      "indent": 3,
+      "text": "Each address configuration change is represented by a TLV parameter, as defined in Section 4.2. One or more requests may be present in an ASCONF Chunk.",
+      "zh-CHS": "每个地址配置更改由TLV参数表示，如第4.2节所定义。ASCONF区块中可能存在一个或多个请求。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Address Configuration Acknowledgment Chunk (ASCONF-ACK)",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 地址配置确认区块（ASCONF-ACK）"
+    },
+    {
+      "indent": 3,
+      "text": "This chunk is used by the receiver of an ASCONF Chunk to acknowledge the reception. It carries zero or more results for any ASCONF parameters that were processed by the receiver. This chunk MUST be sent in an authenticated way by using the mechanism defined in [RFC4895]. If this chunk is received unauthenticated it MUST be silently discarded as described in [RFC4895].",
+      "zh-CHS": "ASCONF区块的接收器使用该区块确认接收。它携带接收器处理的任何ASCONF参数的零或多个结果。必须使用[RFC4895]中定义的机制以经过身份验证的方式发送此数据块。如果未经身份验证就接收到该区块，则必须按照[RFC4895]中的说明将其悄悄丢弃。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Type = 0x80   |  Chunk Flags  |      Chunk Length             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                     Sequence Number                           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                 ASCONF Parameter Response#1                   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n\\                                                               \\\n/                             ....                              /\n\\                                                               \\\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                 ASCONF Parameter Response#N                   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sequence Number: 32 bits (unsigned integer)",
+      "zh-CHS": "序列号：32位（无符号整数）"
+    },
+    {
+      "indent": 3,
+      "text": "This value represents the Sequence Number for the received ASCONF Chunk that is acknowledged by this chunk. This value is copied from the received ASCONF Chunk.",
+      "zh-CHS": "此值表示接收到的ASCONF区块的序列号，该区块已确认该序列号。此值是从接收到的ASCONF块复制的。"
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF Parameter Response: TLV format",
+      "zh-CHS": "ASCONF参数响应：TLV格式"
+    },
+    {
+      "indent": 3,
+      "text": "The ASCONF Parameter Response is used in the ASCONF-ACK to report the status of ASCONF processing. By default, if a responding endpoint does not include any Error Cause, a success is indicated. Thus a sender of an ASCONF-ACK MAY indicate complete success of all TLVs in an ASCONF by returning only the Chunk Type, Chunk Flags, Chunk Length (set to 8), and the Sequence Number.",
+      "zh-CHS": "ASCONF参数响应在ASCONF-ACK中用于报告ASCONF处理的状态。默认情况下，如果响应端点不包含任何错误原因，则表示成功。因此，ASCONF-ACK的发送方可以通过仅返回区块类型、区块标志、区块长度（设置为8）和序列号来指示ASCONF中所有TLV的完全成功。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. New Parameter Types",
+      "section_title": true,
+      "zh-CHS": "4.2. 新参数类型"
+    },
+    {
+      "indent": 3,
+      "text": "The seven new parameters added follow the format defined in Section 3.2.1 of [RFC4960]. Tables 2, 3, and 4 describe the parameters.",
+      "zh-CHS": "添加的七个新参数遵循[RFC4960]第3.2.1节中定义的格式。表2、3和4描述了这些参数。"
+    },
+    {
+      "indent": 8,
+      "text": "Address Configuration Parameters   Parameter Type\n-------------------------------------------------\nSet Primary Address                  0xC004\nAdaptation Layer Indication          0xC006\nSupported Extensions                 0x8008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Table 2: Parameters That Can Be Used in an INIT/INIT-ACK Chunk",
+      "zh-CHS": "表2：可以在INIT/INIT-ACK块中使用的参数"
+    },
+    {
+      "indent": 8,
+      "text": "Address Configuration Parameters   Parameter Type\n-------------------------------------------------\nAdd IP Address                       0xC001\nDelete IP Address                    0xC002\nSet Primary Address                  0xC004",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Table 3: Parameters Used in an ASCONF Parameter",
+      "zh-CHS": "表3:ASCONF参数中使用的参数"
+    },
+    {
+      "indent": 8,
+      "text": "Address Configuration Parameters   Parameter Type\n-------------------------------------------------\nError Cause Indication               0xC003\nSuccess Indication                   0xC005",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Table 4: Parameters Used in an ASCONF Parameter Response",
+      "zh-CHS": "表4:ASCONF参数响应中使用的参数"
+    },
+    {
+      "indent": 3,
+      "text": "Any parameter that appears where it is not allowed (for example, a 0xC002 parameter appearing within an INIT or INIT-ACK) MAY be responded to with an ABORT by the receiver of the invalid parameter. If the receiver chooses NOT to abort, the parameter MUST be ignored. A robust implementation SHOULD ignore the parameter and leave the association intact.",
+      "zh-CHS": "任何出现在不允许的地方的参数（例如，出现在INIT或INIT-ACK中的0xC002参数）都可能会被无效参数的接收方以中止方式响应。如果接收器选择不中止，则必须忽略该参数。一个健壮的实现应该忽略参数并保持关联完整。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.1. Add IP Address",
+      "section_title": true,
+      "zh-CHS": "4.2.1. 添加IP地址"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        Type = 0xC001          |    Length = Variable          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               ASCONF-Request Correlation ID                   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                       Address Parameter                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF-Request Correlation ID: 32 bits",
+      "zh-CHS": "ASCONF请求相关ID:32位"
+    },
+    {
+      "indent": 3,
+      "text": "This is an opaque integer assigned by the sender to identify each request parameter. The receiver of the ASCONF Chunk will copy this 2-bit value into the ASCONF Response Correlation ID field of the ASCONF-ACK response parameter. The sender of the ASCONF can use this same value in the ASCONF-ACK to find which request the response is for. Note that the receiver MUST NOT change this 32-bit value.",
+      "zh-CHS": "这是一个由发送方分配的不透明整数，用于标识每个请求参数。ASCONF区块的接收器将该2位值复制到ASCONF-ACK响应参数的ASCONF响应相关ID字段中。ASCONF的发送方可以在ASCONF-ACK中使用相同的值来查找响应的请求。请注意，接收器不得更改此32位值。"
+    },
+    {
+      "indent": 3,
+      "text": "Address Parameter: TLV",
+      "zh-CHS": "地址参数：TLV"
+    },
+    {
+      "indent": 3,
+      "text": "This field contains an IPv4 or IPv6 address parameter as described in Section 3.3.2.1 of [RFC4960]. The complete TLV is wrapped within this parameter. It informs the receiver that the address specified is to be added to the existing association. This parameter MUST NOT contain a broadcast or multicast address. If the address 0.0.0.0 or ::0 is provided, the source address of the packet MUST be added.",
+      "zh-CHS": "此字段包含[RFC4960]第3.3.2.1节所述的IPv4或IPv6地址参数。完整的TLV包装在此参数内。它通知接收方指定的地址将添加到现有关联中。此参数不能包含广播或多播地址。如果提供了地址0.0.0.0或：：0，则必须添加数据包的源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "An example TLV requesting that the IPv4 address 192.0.2.1 be added to the association would look as follows:",
+      "zh-CHS": "请求将IPv4地址192.0.2.1添加到关联的示例TLV如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "+--------------------------------+\n|  Type=0xC001   | Length = 16   |\n+--------------------------------+\n|       C-ID = 0x01023474        |\n+--------------------------------+\n|  Type=5        | Length = 8    |\n+----------------+---------------+\n|       Value=0xC0000201         |\n+----------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Valid Chunk Appearance",
+      "zh-CHS": "有效块外观"
+    },
+    {
+      "indent": 3,
+      "text": "The Add IP Address parameter may only appear in the ASCONF Chunk type.",
+      "zh-CHS": "添加IP地址参数只能出现在ASCONF区块类型中。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.2. Delete IP Address",
+      "section_title": true,
+      "zh-CHS": "4.2.2. 删除IP地址"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        Type =0xC002           |    Length = Variable          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               ASCONF-Request Correlation ID                   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                       Address Parameter                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF-Request Correlation ID: 32 bits",
+      "zh-CHS": "ASCONF请求相关ID:32位"
+    },
+    {
+      "indent": 3,
+      "text": "This is an opaque integer assigned by the sender to identify each request parameter. The receiver of the ASCONF Chunk will copy this 32-bit value into the ASCONF Response Correlation ID field of the ASCONF-ACK response parameter. The sender of the ASCONF can use this same value in the ASCONF-ACK to find which request the response is for. Note that the receiver MUST NOT change this 32-bit value.",
+      "zh-CHS": "这是一个由发送方分配的不透明整数，用于标识每个请求参数。ASCONF区块的接收器将此32位值复制到ASCONF-ACK响应参数的ASCONF响应相关ID字段中。ASCONF的发送方可以在ASCONF-ACK中使用相同的值来查找响应的请求。请注意，接收器不得更改此32位值。"
+    },
+    {
+      "indent": 3,
+      "text": "Address Parameter: TLV",
+      "zh-CHS": "地址参数：TLV"
+    },
+    {
+      "indent": 3,
+      "text": "This field contains an IPv4 or IPv6 address parameter, as described in Section 3.3.2.1 of [RFC4960]. The complete TLV is wrapped within this parameter. It informs the receiver that the address specified is to be removed from the existing association. This parameter MUST NOT contain a broadcast or multicast address. If the address 0.0.0.0 or ::0 is provided, all addresses of the peer except the source address of the packet MUST be deleted.",
+      "zh-CHS": "此字段包含IPv4或IPv6地址参数，如[RFC4960]第3.3.2.1节所述。完整的TLV包装在此参数内。它通知接收方指定的地址将从现有关联中删除。此参数不能包含广播或多播地址。如果提供了地址0.0.0.0或：：0，则必须删除除数据包源地址之外的所有对等地址。"
+    },
+    {
+      "indent": 3,
+      "text": "An example TLV deleting the IPv4 address 192.0.2.1 from an existing association would look as follows:",
+      "zh-CHS": "从现有关联中删除IPv4地址192.0.2.1的示例TLV如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "+--------------------------------+\n|  Type=0xC002   | Length = 16   |\n+--------------------------------+\n|       C-ID = 0x01023476        |\n+--------------------------------+\n|  Type=5        | Length = 8    |\n+----------------+---------------+\n|       Value=0xC0000201         |\n+----------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Valid Chunk Appearance",
+      "zh-CHS": "有效块外观"
+    },
+    {
+      "indent": 3,
+      "text": "The Delete IP Address parameter may only appear in the ASCONF Chunk type.",
+      "zh-CHS": "Delete IP Address参数只能出现在ASCONF区块类型中。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.3. Error Cause Indication",
+      "section_title": true,
+      "zh-CHS": "4.2.3. 错误原因指示"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|    Type = 0xC003              |      Length = Variable        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             ASCONF-Response Correlation ID                    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             Error Cause(s) or Success Indication              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF-Response Correlation ID: 32 bits",
+      "zh-CHS": "ASCONF响应相关ID:32位"
+    },
+    {
+      "indent": 3,
+      "text": "This is an opaque integer assigned by the sender to identify each request parameter. The receiver of the ASCONF Chunk will copy this 32-bit value from the ASCONF-Request Correlation ID into the ASCONF Response Correlation ID field so the peer can easily correlate the request to this response. Note that the receiver MUST NOT change this 32-bit value.",
+      "zh-CHS": "这是一个由发送方分配的不透明整数，用于标识每个请求参数。ASCONF区块的接收者将该32位值从ASCONF请求相关ID复制到ASCONF响应相关ID字段中，以便对等方可以轻松地将请求与该响应相关联。请注意，接收器不得更改此32位值。"
+    },
+    {
+      "indent": 3,
+      "text": "Error Cause(s): TLV(s)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When reporting an error, this response parameter is used to wrap one or more standard Error Causes normally found within an SCTP Operational Error or SCTP Abort (as defined in [RFC4960]). The Error Cause(s) follow the format defined in Section 3.3.10 of [RFC4960].",
+      "zh-CHS": "报告错误时，此响应参数用于包装通常在SCTP操作错误或SCTP中止（定义见[RFC4960]）中发现的一个或多个标准错误原因。错误原因遵循[RFC4960]第3.3.10节中定义的格式。"
+    },
+    {
+      "indent": 3,
+      "text": "Valid Chunk Appearance",
+      "zh-CHS": "有效块外观"
+    },
+    {
+      "indent": 3,
+      "text": "The Error Cause Indication parameter may only appear in the ASCONF-ACK Chunk Type.",
+      "zh-CHS": "错误原因指示参数只能出现在ASCONF-ACK块类型中。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.4. Set Primary IP Address",
+      "section_title": true,
+      "zh-CHS": "4.2.4. 设置主IP地址"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        Type =0xC004           |    Length = Variable          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               ASCONF-Request Correlation ID                   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                       Address Parameter                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF-Request Correlation ID: 32 bits",
+      "zh-CHS": "ASCONF请求相关ID:32位"
+    },
+    {
+      "indent": 3,
+      "text": "This is an opaque integer assigned by the sender to identify each request parameter. The receiver of the ASCONF Chunk will copy this 32-bit value into the ASCONF Response Correlation ID field of the ASCONF-ACK response parameter. The sender of the ASCONF can use this same value in the ASCONF-ACK to find which request the response is for. Note that the receiver MUST NOT change this 32-bit value.",
+      "zh-CHS": "这是一个由发送方分配的不透明整数，用于标识每个请求参数。ASCONF区块的接收器将此32位值复制到ASCONF-ACK响应参数的ASCONF响应相关ID字段中。ASCONF的发送方可以在ASCONF-ACK中使用相同的值来查找响应的请求。请注意，接收器不得更改此32位值。"
+    },
+    {
+      "indent": 3,
+      "text": "Address Parameter: TLV",
+      "zh-CHS": "地址参数：TLV"
+    },
+    {
+      "indent": 3,
+      "text": "This field contains an IPv4 or IPv6 address parameter as described in Section 3.3.2.1 of [RFC4960]. The complete TLV is wrapped within this parameter. It requests the receiver to mark the specified address as the primary address to send data to (see Section 5.1.2 of [RFC4960]). The receiver MAY mark this as its primary address upon receiving this request. If the address 0.0.0.0 or ::0 is provided, the receiver MAY mark the source address of the packet as its primary.",
+      "zh-CHS": "此字段包含[RFC4960]第3.3.2.1节所述的IPv4或IPv6地址参数。完整的TLV包装在此参数内。它要求接收方将指定地址标记为发送数据的主地址（见[RFC4960]第5.1.2节）。接收方可在收到此请求时将其标记为其主地址。如果提供了地址0.0.0.0或：：0，则接收器可将数据包的源地址标记为其主地址。"
+    },
+    {
+      "indent": 3,
+      "text": "An example TLV requesting that the IPv4 address 192.0.2.1 be made the primary destination address would look as follows:",
+      "zh-CHS": "请求将IPv4地址192.0.2.1设置为主要目标地址的示例TLV如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "+--------------------------------+\n|  Type=0xC004   | Length = 16   |\n+--------------------------------+\n|       C-ID = 0x01023479        |\n+--------------------------------+\n|  Type=5        | Length = 8    |\n+----------------+---------------+\n|       Value=0xC0000201         |\n+----------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Valid Chunk Appearance",
+      "zh-CHS": "有效块外观"
+    },
+    {
+      "indent": 3,
+      "text": "The Set Primary IP Address parameter may appear in the ASCONF, the INIT, or the INIT-ACK Chunk Type. The inclusion of this parameter in the INIT or INIT-ACK can be used to indicate an initial preference of primary address.",
+      "zh-CHS": "Set Primary IP Address参数可能出现在ASCONF、INIT或INIT-ACK块类型中。在INIT或INIT-ACK中包含此参数可用于指示主地址的初始首选项。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.5. Success Indication",
+      "section_title": true,
+      "zh-CHS": "4.2.5. 成功迹象"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        Type = 0xC005          |      Length = 8               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               ASCONF-Response Correlation ID                  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "By default, if a responding endpoint does not report an error for any requested TLV, a success is implicitly indicated. Thus, a sender of an ASCONF-ACK MAY indicate complete success of all TLVs in an ASCONF by returning only the Chunk Type, Chunk Flags, Chunk Length (set to 8), and the Sequence Number.",
+      "zh-CHS": "默认情况下，如果响应端点没有为任何请求的TLV报告错误，则隐式指示成功。因此，ASCONF-ACK的发送方可以通过仅返回区块类型、区块标志、区块长度（设置为8）和序列号来指示ASCONF中所有TLV的完全成功。"
+    },
+    {
+      "indent": 3,
+      "text": "The responding endpoint MAY also choose to explicitly report a success for a requested TLV, by returning a success report ASCONF Parameter Response.",
+      "zh-CHS": "响应端点还可以选择通过返回成功报告ASCONF参数响应来显式报告请求的TLV的成功。"
+    },
+    {
+      "indent": 3,
+      "text": "ASCONF-Response Correlation ID: 32 bits",
+      "zh-CHS": "ASCONF响应相关ID:32位"
+    },
+    {
+      "indent": 3,
+      "text": "This is an opaque integer assigned by the sender to identify each request parameter. The receiver of the ASCONF Chunk will copy this 32-bit value from the ASCONF-Request Correlation ID into the ASCONF Response Correlation ID field so the peer can easily correlate the request to this response.",
+      "zh-CHS": "这是一个由发送方分配的不透明整数，用于标识每个请求参数。ASCONF区块的接收者将该32位值从ASCONF请求相关ID复制到ASCONF响应相关ID字段中，以便对等方可以轻松地将请求与该响应相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "Valid Chunk Appearance",
+      "zh-CHS": "有效块外观"
+    },
+    {
+      "indent": 3,
+      "text": "The Success Indication parameter may only appear in the ASCONF-ACK Chunk Type.",
+      "zh-CHS": "成功指示参数只能出现在ASCONF-ACK块类型中。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.6. Adaptation Layer Indication",
+      "section_title": true,
+      "zh-CHS": "4.2.6. 适应层指示"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        Type =0xC006           |    Length = 8                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                   Adaptation Code point                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This parameter is specified for the communication of peer upper-layer protocols. It is envisioned to be used for flow control and other adaptation layers that require an indication to be carried in the INIT and INIT-ACK. Each adaptation layer that is defined that wishes to use this parameter MUST specify an adaptation code point in an appropriate RFC defining its use and meaning. This parameter SHOULD NOT be examined by the receiving SCTP implementation and should be passed opaquely to the upper-layer protocol.",
+      "zh-CHS": "此参数指定用于对等上层协议的通信。设想将其用于需要在INIT和INIT-ACK中携带指示的流量控制和其他适配层。定义的每个希望使用此参数的自适应层必须在定义其用途和含义的适当RFC中指定自适应代码点。接收SCTP实现不应检查此参数，而应不透明地传递给上层协议。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: This parameter is not used in either the addition or deletion of addresses but is for the convenience of the upper layer. This document includes this parameter to minimize the number of SCTP documents.",
+      "zh-CHS": "注：此参数不用于地址的添加或删除，但为方便上层使用。此文档包含此参数以最小化SCTP文档的数量。"
+    },
+    {
+      "indent": 3,
+      "text": "Valid Chunk Appearance",
+      "zh-CHS": "有效块外观"
+    },
+    {
+      "indent": 3,
+      "text": "The Adaptation Layer Indication parameter may appear in INIT or INIT-ACK chunk and SHOULD be passed to the receiver's upper-layer protocol based upon the upper-layer protocol configuration of the SCTP stack. This parameter MUST NOT be sent in any other chunks, and if it is received in another chunk, it MUST be ignored.",
+      "zh-CHS": "自适应层指示参数可以出现在INIT或INIT-ACK块中，并且应当基于SCTP堆栈的上层协议配置传递给接收机的上层协议。此参数不能在任何其他块中发送，如果在其他块中接收到，则必须忽略它。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.7. Supported Extensions Parameter",
+      "section_title": true,
+      "zh-CHS": "4.2.7. 支持的扩展参数"
+    },
+    {
+      "indent": 3,
+      "text": "This parameter is used at startup to identify any additional extensions that the sender supports. The sender MUST support both the sending and the receiving of any chunk types listed within the Supported Extensions Parameter. An implementation supporting this extension MUST list the ASCONF,the ASCONF-ACK, and the AUTH chunks in its INIT and INIT-ACK parameters.",
+      "zh-CHS": "此参数在启动时用于标识发送方支持的任何其他扩展。发送方必须支持发送和接收Supported Extensions参数中列出的任何区块类型。支持此扩展的实现必须在其INIT和INIT-ACK参数中列出ASCONF、ASCONF-ACK和AUTH块。"
+    },
+    {
+      "indent": 5,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Parameter Type = 0x8008   |      Parameter Length         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| CHUNK TYPE 1  |  CHUNK TYPE 2 |  CHUNK TYPE 3 |  CHUNK TYPE 4 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                             ....                              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| CHUNK TYPE N  |      PAD      |      PAD      |      PAD      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Type This field holds the IANA-defined parameter type for the Supported Extensions Parameter. The value of this field is 0x8008.",
+      "zh-CHS": "参数类型此字段保存IANA为受支持的Extensions参数定义的参数类型。此字段的值为0x8008。"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Type Length This field holds the length of the parameter, including the Parameter Type, Parameter Length, and any additional supported extensions. Note: The length MUST NOT include any padding.",
+      "zh-CHS": "参数类型长度此字段保存参数的长度，包括参数类型、参数长度和任何其他支持的扩展名。注意：长度不得包含任何填充。"
+    },
+    {
+      "indent": 3,
+      "text": "CHUNK TYPE X This field(s) hold the chunk type of any SCTP extension(s) that are currently supported by the sending SCTP. Multiple chunk types may be defined listing each additional feature that the sender supports. The sender MUST NOT include multiple Supported Extensions Parameter within any chunk.",
+      "zh-CHS": "CHUNK TYPE X此字段保存发送SCTP当前支持的任何SCTP扩展的块类型。可以定义多个块类型，列出发送方支持的每个附加功能。发送方不得在任何块中包含多个受支持的扩展名参数。"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Appearance This parameter may appear in the INIT or INIT-ACK chunk. This parameter MUST NOT appear in any other chunk.",
+      "zh-CHS": "参数外观此参数可能出现在INIT或INIT-ACK块中。此参数不得出现在任何其他块中。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. New Error Causes",
+      "section_title": true,
+      "zh-CHS": "4.3. 新的错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "Five new Error Causes are added to the SCTP Operational Errors, primarily for use in the ASCONF-ACK Chunk.",
+      "zh-CHS": "SCTP操作错误中增加了五个新的错误原因，主要用于ASCONF-ACK块。"
+    },
+    {
+      "indent": 7,
+      "text": "Cause Code\nValue          Cause Code\n---------      ----------------\n0x00A0          Request to Delete Last Remaining IP Address\n0x00A1          Operation Refused Due to Resource Shortage\n0x00A2          Request to Delete Source IP Address\n0x00A3          Association Aborted Due to Illegal ASCONF-ACK\n0x00A4          Request Refused - No Authorization",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Table 5: New Error Causes",
+      "zh-CHS": "表5：新的错误原因"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.1. Error Cause: Request to Delete Last Remaining IP Address",
+      "section_title": true,
+      "zh-CHS": "4.3.1. 错误原因：请求删除最后剩余的IP地址"
+    },
+    {
+      "indent": 3,
+      "text": "Cause of error",
+      "zh-CHS": "错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "Request to Delete Last Remaining IP Address: The receiver of this error sent a request to delete the last IP address from its association with its peer. This error indicates that the request is rejected.",
+      "zh-CHS": "请求删除最后一个剩余IP地址：此错误的接收者发送了一个请求，请求从其与对等方的关联中删除最后一个IP地址。此错误表示请求被拒绝。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Cause Code=0x00A0         |      Cause Length=Variable    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n\\                     TLV-Copied-From-ASCONF                    /\n/                                                               \\\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "An example of a failed delete in an Error Cause TLV would look as follows in the response ASCONF-ACK message:",
+      "zh-CHS": "错误原因TLV中删除失败的示例在响应ASCONF-ACK消息中如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "+--------------------------------+\n| Type = 0xC003  | Length = 28   |\n+----------------+---------------+\n|       C-ID = 0x01023476        |\n+--------------------------------+\n|  Cause=0x00A0  | Length = 20   |\n+----------------+---------------+\n|  Type= 0xC002  | Length = 16   |\n+----------------+---------------+\n|       C-ID = 0x01023476        |\n+--------------------------------+\n|   Type=0x0005  | Length = 8    |\n+----------------+---------------+\n|       Value=0xC0000201         |\n+----------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.3.2. Error Cause: Operation Refused Due to Resource Shortage",
+      "section_title": true,
+      "zh-CHS": "4.3.2. 错误原因：由于资源短缺，操作被拒绝"
+    },
+    {
+      "indent": 3,
+      "text": "Cause of error",
+      "zh-CHS": "错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "This Error Cause is used to report a failure by the receiver to perform the requested operation due to a lack of resources. The entire TLV that is refused is copied from the ASCONF into the Error Cause.",
+      "zh-CHS": "此错误原因用于报告由于缺少资源而导致接收器无法执行请求的操作。被拒绝的整个TLV将从ASCONF复制到错误原因中。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Cause Code=0x00A1         |      Cause Length=Variable    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n\\                  TLV-Copied-From-ASCONF                      /\n/                                                              \\\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "An example of a failed addition in an Error Cause TLV would look as follows in the response ASCONF-ACK message:",
+      "zh-CHS": "错误原因TLV中添加失败的示例在响应ASCONF-ACK消息中如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "+--------------------------------+\n| Type = 0xC003  | Length = 28   |\n+--------------------------------+\n|       C-ID = 0x01023474        |\n+--------------------------------+\n|  Cause=0x00A1  | Length = 20   |\n+----------------+---------------+\n|  Type=0xC001   | Length = 16   |\n+--------------------------------+\n|       C-ID = 0x01023474        |\n+--------------------------------+\n|  Type=0x0005   | Length = 8    |\n+----------------+---------------+\n|       Value=0xC0000201         |\n+----------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.3.3. Error Cause: Request to Delete Source IP Address",
+      "section_title": true,
+      "zh-CHS": "4.3.3. 错误原因：请求删除源IP地址"
+    },
+    {
+      "indent": 3,
+      "text": "Cause of error",
+      "zh-CHS": "错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "Request to Delete Source IP Address: The receiver of this error sent a request to delete the source IP address of the ASCONF message. This error indicates that the request is rejected.",
+      "zh-CHS": "请求删除源IP地址：此错误的接收者发送了删除ASCONF消息的源IP地址的请求。此错误表示请求被拒绝。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Cause Code=0x00A2         |      Cause Length=Variable    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n\\                    TLV-Copied-From-ASCONF                     /\n/                                                               \\\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "An example of a failed delete in an Error Cause TLV would look as follows in the response ASCONF-ACK message:",
+      "zh-CHS": "错误原因TLV中删除失败的示例在响应ASCONF-ACK消息中如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "+--------------------------------+\n| Type = 0xC003  | Length = 28   |\n+--------------------------------+\n|       C-ID = 0x01023476        |\n+--------------------------------+\n|  Cause=0x00A2  | Length = 20   |\n+----------------+---------------+\n|  Type=0xC002   | Length = 16   |\n+----------------+---------------+\n|       C-ID = 0x01023476        |\n+--------------------------------+\n|   Type=0x0005  | Length = 8    |\n+----------------+---------------+\n|       Value=0xC0000201         |\n+----------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "IMPLEMENTATION NOTE: It is unlikely that an endpoint would source a packet from the address being deleted, unless the endpoint does not do proper source address selection.",
+      "zh-CHS": "实现说明：端点不太可能从被删除的地址中获取数据包，除非端点没有进行正确的源地址选择。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.4. Error Cause: Association Aborted Due to Illegal ASCONF-ACK",
+      "section_title": true,
+      "zh-CHS": "4.3.4. 错误原因：由于ASCONF-ACK非法，关联中止"
+    },
+    {
+      "indent": 3,
+      "text": "This error is to be included in an ABORT that is generated due to the reception of an ASCONF-ACK that was not expected but is larger than the current Sequence Number (see Section 5.3, Rule F0 ). Note that a Sequence Number is larger than the last acked Sequence Number if it is either the next sequence or no more than 2**31-1 greater than the current Sequence Number. Sequence Numbers smaller than the last acked Sequence Number are silently ignored.",
+      "zh-CHS": "该错误将包含在由于接收到ASCONF-ACK而产生的中止中，该ASCONF-ACK不是预期的，但大于当前序列号（见第5.3节，规则F0）。请注意，如果某个序列号是下一个序列号，或者不大于当前序列号的2**31-1，则该序列号大于上次确认的序列号。小于上次确认的序列号的序列号将被静默忽略。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Cause Code=0x00A3         |      Cause Length=4           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.3.5. Error Cause: Request Refused - No Authorization.",
+      "zh-CHS": "4.3.5. 错误原因：请求被拒绝-没有授权。"
+    },
+    {
+      "indent": 3,
+      "text": "Cause of error",
+      "zh-CHS": "错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "This Error Cause may be included to reject a request based on local security policies.",
+      "zh-CHS": "此错误原因可能包括拒绝基于本地安全策略的请求。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Cause Code=0x00A4         |      Cause Length=Variable    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n\\                     TLV-Copied-From-ASCONF                    /\n/                                                               \\\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "5. Procedures",
+      "section_title": true,
+      "zh-CHS": "5. 程序"
+    },
+    {
+      "indent": 3,
+      "text": "This section will lay out the specific procedures for address-configuration change chunk type and its processing.",
+      "zh-CHS": "本节将列出地址配置更改块类型及其处理的具体过程。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. ASCONF Chunk Procedures",
+      "section_title": true,
+      "zh-CHS": "5.1. ASCONF块程序"
+    },
+    {
+      "indent": 3,
+      "text": "When an endpoint has an ASCONF signaled change to be sent to the remote endpoint, it MUST do the following:",
+      "zh-CHS": "当端点具有要发送到远程端点的ASCONF信号更改时，它必须执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "A1) Create an ASCONF Chunk as defined in Section 4.1.1. The chunk MUST contain all of the TLV(s) of information necessary to be sent to the remote endpoint, and unique correlation identities for each request.",
+      "zh-CHS": "A1）创建第4.1.1节中定义的ASCONF区块。区块必须包含发送到远程端点所需的所有TLV信息，以及每个请求的唯一关联标识。"
+    },
+    {
+      "indent": 3,
+      "text": "A2) A Sequence Number MUST be assigned to the Chunk. The Sequence Number MUST be larger by one. The Sequence Number MUST be initialized at the start of the association to the same value as the Initial Transmission Sequence Number (TSN) and every time a new ASCONF Chunk is created, it MUST be incremented by one after assigning the Sequence Number to the newly created chunk.",
+      "zh-CHS": "A2）必须为区块分配序列号。序列号必须大于1。序列号必须在关联开始时初始化为与初始传输序列号（TSN）相同的值，并且每次创建新ASCONF区块时，必须在将序列号分配给新创建的区块后将其递增1。"
+    },
+    {
+      "indent": 3,
+      "text": "A3) If no SCTP packet with one or more ASCONF Chunk(s) is outstanding (unacknowledged) with the remote peer, send the chunk and proceed to step A4. If an ASCONF chunk is outstanding, then the ASCONF chunk should be queued for later transmission and no further action should be taken until the previous ASCONF is acknowledged or a timeout occurs.",
+      "zh-CHS": "A3）如果远程对等方没有包含一个或多个ASCONF区块的SCTP数据包未完成（未确认），则发送区块并转至步骤A4。如果ASCONF块未完成，则ASCONF块应排队等待稍后的传输，并且在确认前一个ASCONF或发生超时之前，不应采取进一步的操作。"
+    },
+    {
+      "indent": 3,
+      "text": "A4) The sender MUST Start a T-4 Retransmission Timeout (RTO) timer, using the RTO value of the selected destination address (normally the primary path; see [RFC4960], Section 6.4 for details).",
+      "zh-CHS": "A4）发送方必须使用所选目标地址的RTO值（通常为主路径；有关详细信息，请参阅[RFC4960]，第6.4节）启动T-4重传超时（RTO）计时器。"
+    },
+    {
+      "indent": 3,
+      "text": "A5) When the ASCONF-ACK that acknowledges the Sequence Number last sent arrives, the sender MUST stop the T-4 RTO timer, and clear the appropriate association and destination error counters as defined in [RFC4960], Sections 8.1 and 8.2.",
+      "zh-CHS": "A5）当确认最后发送的序列号的ASCONF-ACK到达时，发送方必须停止T-4 RTO计时器，并清除[RFC4960]第8.1和8.2节中定义的适当关联和目标错误计数器。"
+    },
+    {
+      "indent": 3,
+      "text": "A6) The endpoint MUST process all of the TLVs within the ASCONF-ACK(s) to find out particular status information returned to the various requests that were sent. Use the Correlation IDs to correlate the request and the responses.",
+      "zh-CHS": "A6）端点必须处理ASCONF-ACK中的所有TLV，以找出返回到已发送的各种请求的特定状态信息。使用关联ID关联请求和响应。"
+    },
+    {
+      "indent": 3,
+      "text": "A7) If an error response is received for a TLV parameter, all TLVs with no response before the failed TLV are considered successful if not reported. All TLVs after the failed response are considered unsuccessful unless a specific success indication is present for the parameter.",
+      "zh-CHS": "A7）如果收到TLV参数的错误响应，如果未报告，则在故障TLV之前没有响应的所有TLV均视为成功。响应失败后的所有TLV均视为不成功，除非参数存在特定的成功指示。"
+    },
+    {
+      "indent": 3,
+      "text": "A8) If there is no response(s) to specific TLV parameter(s), and no failures are indicated, then all request(s) are considered successful.",
+      "zh-CHS": "A8）如果没有对特定TLV参数的响应，并且没有指示故障，则所有请求都被视为成功。"
+    },
+    {
+      "indent": 3,
+      "text": "A9) If the peer responds to an ASCONF with an ERROR Chunk reporting that it did not recognize the ASCONF Chunk Type, the sender of the ASCONF MUST NOT send any further ASCONF Chunks and MUST stop its T-4 timer.",
+      "zh-CHS": "A9）如果对等方响应ASCONF时出现错误区块，报告其未识别ASCONF区块类型，则ASCONF的发送方不得再发送任何ASCONF区块，并且必须停止其T-4计时器。"
+    },
+    {
+      "indent": 3,
+      "text": "If the T-4 RTO timer expires the endpoint MUST do the following:",
+      "zh-CHS": "如果T-4 RTO计时器过期，端点必须执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "B1) Increment the error counters and perform path failure detection on the appropriate destination address as defined in [RFC4960], Sections 8.1 and 8.2.",
+      "zh-CHS": "B1）增加错误计数器，并在[RFC4960]第8.1和8.2节中定义的适当目标地址上执行路径故障检测。"
+    },
+    {
+      "indent": 3,
+      "text": "B2) Increment the association error counters and perform endpoint failure detection on the association as defined in [RFC4960], Sections 8.1 and 8.2.",
+      "zh-CHS": "B2）增加关联错误计数器，并按照[RFC4960]第8.1节和第8.2节中的定义对关联执行端点故障检测。"
+    },
+    {
+      "indent": 3,
+      "text": "B3) Backoff the destination address RTO value to which the ASCONF chunk was sent by doubling the RTO timer value.",
+      "zh-CHS": "B3）通过加倍RTO计时器值，回退ASCONF区块发送到的目标地址RTO值。"
+    },
+    {
+      "indent": 8,
+      "text": "Note: The RTO value is used in the setting of all timer types for SCTP. Each destination address has a single RTO estimate.",
+      "zh-CHS": "注：RTO值用于设置SCTP的所有定时器类型。每个目标地址都有一个RTO估计值。"
+    },
+    {
+      "indent": 3,
+      "text": "B4) Re-transmit the ASCONF Chunk last sent and if possible choose an alternate destination address (please refer to [RFC4960], Section 6.4.1). An endpoint MUST NOT add new parameters to this chunk; it MUST be the same (including its Sequence Number) as the last ASCONF sent. An endpoint MAY, however, bundle an additional ASCONF with new ASCONF parameters with the next Sequence Number. For details, see Section 5.5.",
+      "zh-CHS": "B4）重新传输上次发送的ASCONF区块，如有可能，选择备用目的地地址（请参考[RFC4960]，第6.4.1节）。端点不得向该区块添加新参数；它必须与上次发送的ASCONF相同（包括序列号）。然而，端点可以将一个额外的ASCONF与下一个序列号的新ASCONF参数捆绑在一起。有关详细信息，请参见第5.5节。"
+    },
+    {
+      "indent": 3,
+      "text": "B5) Restart the T-4 RTO timer. Note that if a different destination is selected, then the RTO used will be that of the new destination address.",
+      "zh-CHS": "B5）重新启动T-4 RTO定时器。请注意，如果选择了不同的目的地，则使用的RTO将是新目的地地址的RTO。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: The total number of retransmissions is limited by B2 above. If the maximum is reached, the association will fail and enter into the CLOSED state (see [RFC4960], Section 6.4.1 for details).",
+      "zh-CHS": "注：重传总数受上述B2限制。如果达到最大值，关联将失败并进入关闭状态（有关详细信息，请参阅[RFC4960]，第6.4.1节）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. Congestion Control of ASCONF Chunks",
+      "section_title": true,
+      "zh-CHS": "5.1.1. ASCONF块的拥塞控制"
+    },
+    {
+      "indent": 3,
+      "text": "In defining the ASCONF Chunk transfer procedures, it is essential that these transfers MUST NOT cause congestion within the network. To achieve this, we place these restrictions on the transfer of ASCONF Chunks:",
+      "zh-CHS": "在定义ASCONF数据块传输过程时，这些传输不得导致网络拥塞，这一点至关重要。为了实现这一点，我们对ASCONF区块的传输设置了以下限制："
+    },
+    {
+      "indent": 3,
+      "text": "C1) One and only one SCTP packet-holding ASCONF Chunk(s) MAY be in transit and unacknowledged at any one time. If a sender, after sending an ASCONF chunk, decides it needs to transfer another ASCONF Chunk, it MUST wait until the ASCONF-ACK Chunk returns from the previous ASCONF Chunk before sending a subsequent ASCONF. Note: This restriction binds each side, so at any time, two ASCONF may be in-transit on any given association (one sent from each endpoint). However, when an ASCONF Chunk is retransmitted due to a time-out, the additionally held ASCONF Chunks can be bundled into the retransmission packet as described in Section 5.5.",
+      "zh-CHS": "C1）一个且只有一个包含ASCONF块的SCTP数据包可以在任何时候处于传输中且未确认。如果发送方在发送ASCONF区块后决定需要传输另一个ASCONF区块，则必须等到ASCONF-ACK区块从先前的ASCONF区块返回后，才能发送后续ASCONF。注意：此限制约束每一方，因此在任何时候，两个ASCONF可能在任何给定关联上传输（每个端点发送一个）。然而，当ASCONF块由于超时而被重新传输时，额外持有的ASCONF块可以如第5.5节所述捆绑到重新传输分组中。"
+    },
+    {
+      "indent": 3,
+      "text": "C2) An ASCONF Chunk may be bundled with any other chunk type including other ASCONF Chunks. If bundled with other ASCONF Chunks, the chunks MUST appear in sequential order with respect to their Sequence Number.",
+      "zh-CHS": "C2）ASCONF区块可与任何其他区块类型捆绑，包括其他ASCONF区块。如果与其他ASCONF块捆绑在一起，则这些块必须按照其序列号的顺序出现。"
+    },
+    {
+      "indent": 3,
+      "text": "C3) An ASCONF-ACK Chunk may be bundled with any other chunk type including other ASCONF-ACK Chunks. If bundled with other ASCONF-ACK Chunks, the chunks MUST appear in sequential order with respect to their Sequence Number.",
+      "zh-CHS": "C3）ASCONF-ACK块可与任何其他块类型捆绑，包括其他ASCONF-ACK块。如果与其他ASCONF-ACK数据块捆绑在一起，这些数据块必须按照其序列号的顺序出现。"
+    },
+    {
+      "indent": 3,
+      "text": "C4) Both ASCONF and ASCONF-ACK Chunks MUST NOT be sent in any SCTP state except ESTABLISHED, SHUTDOWN-PENDING, SHUTDOWN-RECEIVED, and SHUTDOWN-SENT.",
+      "zh-CHS": "C4）ASCONF和ASCONF-ACK数据块不得在任何SCTP状态下发送，除非已建立、关机-挂起、关机-接收和关机-发送。"
+    },
+    {
+      "indent": 3,
+      "text": "C5) An ASCONF Chunk and an ASCONF-ACK Chunk SHOULD not be larger than the PMTU. If the PMTU is unknown, then the PMTU should be set to the minimum PMTU. The minimum PMTU depends on the IP version used for transmission, and is the lesser of 576 octets and the first-hop MTU for IPv4 [RFC1122] and 1280 octets for IPv6 [RFC2460].",
+      "zh-CHS": "C5）ASCONF区块和ASCONF-ACK区块不应大于PMTU。如果PMTU未知，则应将PMTU设置为最小PMTU。最小PMTU取决于用于传输的IP版本，是IPv4[RFC1122]的576个八位字节和第一跳MTU以及IPv6[RFC2460]的1280个八位字节中的较小值。"
+    },
+    {
+      "indent": 3,
+      "text": "An ASCONF sender without these restrictions could possibly flood the network with a large number of separate address-change operations, thus causing network congestion.",
+      "zh-CHS": "没有这些限制的ASCONF发送方可能会用大量单独的地址更改操作淹没网络，从而导致网络拥塞。"
+    },
+    {
+      "indent": 3,
+      "text": "If the sender of an ASCONF Chunk receives an Operational Error indicating that the ASCONF Chunk Type is not understood, then the sender MUST NOT send subsequent ASCONF Chunks to the peer. The endpoint should also inform the upper-layer application that the peer endpoint does not support any of the extensions detailed in this document.",
+      "zh-CHS": "如果ASCONF区块的发送方收到一个操作错误，指示ASCONF区块类型不可理解，则发送方不得将后续ASCONF区块发送给对等方。端点还应通知上层应用程序，对等端点不支持本文档中详述的任何扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Upon Reception of an ASCONF Chunk",
+      "section_title": true,
+      "zh-CHS": "5.2. 在收到ASCONF数据块时"
+    },
+    {
+      "indent": 3,
+      "text": "When an endpoint receives an ASCONF Chunk from the remote peer, special procedures may be needed to identify the association the ASCONF Chunk is associated with. To properly find the association, the following procedures SHOULD be followed:",
+      "zh-CHS": "当端点从远程对等方接收到ASCONF区块时，可能需要特殊的过程来识别ASCONF区块关联的关联。要正确查找关联，应遵循以下程序："
+    },
+    {
+      "indent": 3,
+      "text": "D1) Use the source address and port number of the sender to attempt to identify the association (i.e., use the same method defined in [RFC4960] used for all other SCTP Chunks). If found proceed to rule D4.",
+      "zh-CHS": "D1）使用发送方的源地址和端口号尝试识别关联（即，使用[RFC4960]中定义的用于所有其他SCTP块的相同方法）。如果发现，请转至规则D4。"
+    },
+    {
+      "indent": 3,
+      "text": "D2) If the association is not found, use the address found in the Address Parameter TLV combined with the port number found in the SCTP common header. If found, proceed to rule D4.",
+      "zh-CHS": "D2）如果未找到关联，则使用地址参数TLV中找到的地址与SCTP公共标头中找到的端口号组合使用。如果找到，则转至规则D4。"
+    },
+    {
+      "indent": 3,
+      "text": "D2-ext) If more than one ASCONF Chunks are packed together, use the address found in the ASCONF Address Parameter TLV of each of the subsequent ASCONF Chunks. If found, proceed to rule D4.",
+      "zh-CHS": "D2 ext）如果将多个ASCONF块打包在一起，则使用在每个后续ASCONF块的ASCONF地址参数TLV中找到的地址。如果找到，则转至规则D4。"
+    },
+    {
+      "indent": 3,
+      "text": "D3) If neither D1, D2, nor D2-ext locates the association, treat the chunk as an Out Of The Blue packet as defined in [RFC4960].",
+      "zh-CHS": "D3）如果D1、D2和D2 ext都没有找到关联，则按照[RFC4960]中的定义，将区块视为一个蓝包。"
+    },
+    {
+      "indent": 3,
+      "text": "D4) Follow the normal rules to validate the SCTP verification tag found in [RFC4960].",
+      "zh-CHS": "D4）按照正常规则验证[RFC4960]中的SCTP验证标记。"
+    },
+    {
+      "indent": 3,
+      "text": "D5) After the verification tag has been validated, normal chunk processing should occur. Prior to finding the ASCONF chunk, the receiver MUST encounter an AUTH chunk as described in [RFC4895]. If either authentication fails, or the AUTH chunk is missing, the receiver MUST silently discard this chunk and the rest of the packet.",
+      "zh-CHS": "D5）验证标签验证后，应进行正常区块处理。在找到ASCONF区块之前，接收方必须遇到[RFC4895]中所述的验证区块。如果身份验证失败，或者缺少身份验证区块，则接收方必须以静默方式放弃此区块和数据包的其余部分。"
+    },
+    {
+      "indent": 3,
+      "text": "After identification and verification of the association, the following should be performed to properly process the ASCONF Chunk:",
+      "zh-CHS": "识别和验证关联后，应执行以下操作以正确处理ASCONF区块："
+    },
+    {
+      "indent": 3,
+      "text": "E1) If the value found in the Sequence Number of the ASCONF Chunk is equal to the ('Peer-Sequence-Number' + 1) and the Sequence Number of the ASCONF Chunk is the first in the SCTP Packet, the endpoint MAY clean any old cached ASCONF-ACK up to the 'Peer-Sequence-Number' and then proceed to rule E4.",
+      "zh-CHS": "E1）如果在ASCONF区块的序列号中找到的值等于（'Peer-Sequence-Number'+1），并且ASCONF区块的序列号是SCTP数据包中的第一个，则端点可以清除任何旧的缓存ASCONF-ACK，直到“Peer-Sequence Number”，然后继续执行规则E4。"
+    },
+    {
+      "indent": 3,
+      "text": "E1-ext) If the value found in the Sequence Number of the ASCONF Chunk is equal to the ('Peer-Sequence-Number' + 1) and the ASCONF chunk is NOT the first Sequence Number in the SCTP packet, proceed to rule E4 but do NOT clear any cached ASCONF- ACK or state information.",
+      "zh-CHS": "E1 ext）如果在ASCONF块的序列号中找到的值等于（'Peer-Sequence-Number'+1），并且ASCONF块不是SCTP数据包中的第一个序列号，则转至规则E4，但不要清除任何缓存的ASCONF-ACK或状态信息。"
+    },
+    {
+      "indent": 3,
+      "text": "E2) If the value found in the Sequence Number is less than the ('Peer- Sequence-Number' + 1), simply skip to the next ASCONF, and include in the outbound response packet any previously cached ASCONF-ACK response that was sent and saved that matches the Sequence Number of the ASCONF. Note: It is possible that no cached ASCONF-ACK Chunk exists. This will occur when an older ASCONF arrives out of order. In such a case, the receiver should skip the ASCONF Chunk and not include ASCONF-ACK Chunk for that chunk.",
+      "zh-CHS": "E2）如果序列号中的值小于（‘对等-序列号’+1），只需跳到下一个ASCONF，并在出站响应数据包中包含与ASCONF序列号匹配的任何先前缓存的ASCONF-ACK响应。注意：可能不存在缓存的ASCONF-ACK块。当旧的ASCONF出现故障时，会发生这种情况。在这种情况下，接收方应该跳过ASCONF块，而不包括该块的ASCONF-ACK块。"
+    },
+    {
+      "indent": 3,
+      "text": "E3) Then, process each ASCONF one by one as above while the Sequence Number of the ASCONF is less than the ('Peer-Sequence-Number' + 1).",
+      "zh-CHS": "E3）然后，在ASCONF的序列号小于（'Peer-Sequence-Number'+1）时，如上所述逐个处理每个ASCONF。"
+    },
+    {
+      "indent": 3,
+      "text": "E4) When the Sequence Number matches the next one expected, process the ASCONF as described below and after processing the ASCONF Chunk, append an ASCONF-ACK Chunk to the response packet and cache a copy of it (in the event it later needs to be retransmitted).",
+      "zh-CHS": "E4）当序列号与预期的下一个序列号匹配时，按如下所述处理ASCONF，并在处理ASCONF区块后，将ASCONF-ACK区块附加到响应数据包并缓存其副本（如果以后需要重新传输）。"
+    },
+    {
+      "indent": 8,
+      "text": "V1) Process the TLVs contained within the Chunk performing the appropriate actions as indicated by each TLV type. The TLVs MUST be processed in order within the Chunk. For example, if the sender puts 3 TLVs in one chunk, the first TLV (the one closest to the Chunk Header) in the Chunk MUST be processed first. The next TLV in the chunk (the middle one) MUST be processed second and finally, the last TLV in the Chunk MUST be processed last.",
+      "zh-CHS": "V1）处理区块中包含的TLV，执行每个TLV类型指示的适当操作。必须在区块内按顺序处理TLV。例如，如果发送方在一个块中放入3个TLV，则必须首先处理块中的第一个TLV（最接近块头的TLV）。块中的下一个TLV（中间的TLV）必须第二次处理，最后，块中的最后一个TLV必须最后处理。"
+    },
+    {
+      "indent": 8,
+      "text": "V2) In processing the chunk, the receiver should build a response message with the appropriate error TLVs, as specified in the Parameter type bits, for any ASCONF Parameter it does not understand. To indicate an unrecognized parameter, Cause Type 8 should be used as defined in the ERROR in Section 3.3.10.8, [RFC4960]. The endpoint may also use the response to carry rejections for other reasons, such as resource shortages, etc., using the Error Cause TLV and an appropriate error condition.",
+      "zh-CHS": "V2）在处理区块时，接收方应针对其不理解的任何ASCONF参数，按照参数类型位中的规定，构建具有适当错误TLV的响应消息。要指示无法识别的参数，应使用第3.3.10.8节[RFC4960]中错误中定义的原因类型8。端点还可以使用错误原因TLV和适当的错误条件，使用响应来携带出于其他原因的拒绝，例如资源短缺等。"
+    },
+    {
+      "indent": 8,
+      "text": "Note: A positive response is implied if no error is indicated by the sender.",
+      "zh-CHS": "注：如果发送方未指出任何错误，则表示积极响应。"
+    },
+    {
+      "indent": 8,
+      "text": "V3) All responses MUST copy the ASCONF-Request Correlation ID field received in the ASCONF parameter from the TLV being responded to, into the ASCONF-Request Correlation ID field in the response parameter.",
+      "zh-CHS": "V3）所有响应必须将ASCONF参数中收到的ASCONF请求相关ID字段从被响应的TLV复制到响应参数中的ASCONF请求相关ID字段中。"
+    },
+    {
+      "indent": 8,
+      "text": "V4) After processing the entire Chunk, the receiver of the ASCONF MUST queue the response ASCONF-ACK Chunk for transmission after the rest of the SCTP packet has been processed. This allows the ASCONF-ACK Chunk to be bundled with other ASCONF-ACK Chunks as well as any additional responses, e.g., a Selective Acknowledgment (SACK) Chunk.",
+      "zh-CHS": "V4）处理完整个数据块后，ASCONF的接收器必须在处理完SCTP数据包的其余部分后，将响应ASCONF-ACK数据块排队以进行传输。这允许ASCONF-ACK区块与其他ASCONF-ACK区块以及任何其他响应捆绑在一起，例如选择性确认（SACK）区块。"
+    },
+    {
+      "indent": 8,
+      "text": "V5) Update the 'Peer-Sequence-Number' to the value found in the Sequence Number field.",
+      "zh-CHS": "V5）将“对等序列号”更新为序列号字段中的值。"
+    },
+    {
+      "indent": 3,
+      "text": "E5) Otherwise, the ASCONF Chunk is discarded since it must be either a stale packet or from an attacker. A receiver of such a packet MAY log the event for security purposes.",
+      "zh-CHS": "E5）否则，ASCONF区块将被丢弃，因为它必须是过时的数据包或来自攻击者。出于安全目的，此类分组的接收器可以记录事件。"
+    },
+    {
+      "indent": 3,
+      "text": "E6) When all ASCONF Chunks are processed for this SCTP packet, send back the accumulated single response packet with all of the ASCONF-ACK Chunks. The destination address of the SCTP packet containing the ASCONF-ACK Chunks MUST be the source address of the SCTP packet that held the ASCONF Chunks.",
+      "zh-CHS": "E6）当针对该SCTP数据包处理所有ASCONF数据块时，将累积的单个响应数据包连同所有ASCONF-ACK数据块一起发回。包含ASCONF-ACK数据块的SCTP数据包的目标地址必须是包含ASCONF数据块的SCTP数据包的源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "E7) While processing the ASCONF Chunks in the SCTP packet, if the response packet will exceed the PMTU of the return path, the receiver MUST stop adding additional ASCONF-ACKs into the response packet but MUST continue to process all of the ASCONF Chunks, saving ASCONF-ACK Chunk responses in its cached copy. The sender of the ASCONF Chunk will later retransmit the ASCONF Chunks that were not responded to, at which time the cached copies of the responses that would NOT fit in the PMTU can be sent to the peer.",
+      "zh-CHS": "E7）在处理SCTP数据包中的ASCONF数据块时，如果响应数据包将超过返回路径的PMTU，则接收器必须停止向响应数据包中添加额外的ASCONF ACK，但必须继续处理所有ASCONF数据块，将ASCONF-ACK数据块响应保存在其缓存副本中。ASCONF区块的发送方稍后将重新传输未响应的ASCONF区块，此时可将不适合PMTU的响应的缓存副本发送给对等方。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: These rules have been presented with the assumption that the implementation is caching old ASCONF-ACKs in case of loss of SCTP packets in the ACK path. It is allowable for an implementation to maintain this state in another form it deems appropriate, as long as that form results in the same ASCONF-ACK sequences being returned to the peer as outlined above.",
+      "zh-CHS": "注意：这些规则是在假设实现在ACK路径中丢失SCTP数据包的情况下缓存旧ASCONF ACK的情况下提出的。允许实现以其认为合适的另一种形式保持该状态，只要该形式导致如上所述的相同ASCONF-ACK序列返回给对等方。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. General Rules for Address Manipulation",
+      "section_title": true,
+      "zh-CHS": "5.3. 地址操纵的一般规则"
+    },
+    {
+      "indent": 3,
+      "text": "When building TLV parameters for the ASCONF Chunk that will add or delete IP addresses, the following rules MUST be applied:",
+      "zh-CHS": "为将添加或删除IP地址的ASCONF区块构建TLV参数时，必须应用以下规则："
+    },
+    {
+      "indent": 3,
+      "text": "F0) If an endpoint receives an ASCONF-ACK that is greater than or equal to the next Sequence Number to be used but no ASCONF Chunk is outstanding, the endpoint MUST ABORT the association. Note that a Sequence Number is greater than if it is no more than 2^^31-1 larger than the current Sequence Number (using serial arithmetic).",
+      "zh-CHS": "F0）如果端点接收到大于或等于要使用的下一个序列号的ASCONF-ACK，但没有未完成的ASCONF块，则端点必须中止关联。请注意，如果序列号比当前序列号（使用串行算术）大不超过2^^31-1，则序列号大于。"
+    },
+    {
+      "indent": 3,
+      "text": "F1) When adding an IP address to an association, the IP address is NOT considered fully added to the association until the ASCONF-ACK arrives. This means that until such time as the ASCONF containing the add is acknowledged, the sender MUST NOT use the new IP address as a source for ANY SCTP packet except on carrying an ASCONF Chunk. The receiver of the Add IP Address",
+      "zh-CHS": "F1）向关联添加IP地址时，在ASCONF-ACK到达之前，IP地址不会被视为完全添加到关联中。这意味着，在确认包含add的ASCONF之前，发送方不得将新的IP地址用作任何SCTP数据包的源，除非带有ASCONF数据块。添加IP地址的接收方"
+    },
+    {
+      "indent": 8,
+      "text": "request may use the address as a destination immediately. The receiver MUST use the path-verification procedure for the added address before using that address. The receiver MUST NOT send packets to the new address except for the corresponding ASCONF-ACK Chunk or HEARTBEAT Chunks for path verification before the new path is verified. If the ASCONF-ACK is sent to the new address, it MAY be bundled with the HEARTBEAT chunk for path verification.",
+      "zh-CHS": "请求可以立即使用该地址作为目的地。在使用该地址之前，接收方必须对添加的地址使用路径验证过程。在验证新路径之前，接收方不得将数据包发送到新地址，但用于路径验证的相应ASCONF-ACK块或心跳块除外。如果ASCONF-ACK被发送到新地址，它可能会与心跳块捆绑在一起以进行路径验证。"
+    },
+    {
+      "indent": 3,
+      "text": "F2) After the ASCONF-ACK of an IP address Add arrives, the endpoint MAY begin using the added IP address as a source address for any type of SCTP chunk.",
+      "zh-CHS": "F2）IP地址添加的ASCONF-ACK到达后，端点可以开始使用添加的IP地址作为任何类型SCTP区块的源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "F3a) If an endpoint receives an Error Cause TLV indicating that the IP address Add or IP address Deletion parameters was not understood, the endpoint MUST consider the operation failed and MUST NOT attempt to send any subsequent Add or Delete requests to the peer.",
+      "zh-CHS": "F3A）如果端点接收到错误原因TLV，指示IP地址添加或IP地址删除参数不被理解，则端点必须考虑操作失败，并且不能尝试向对等点发送任何后续的添加或删除请求。"
+    },
+    {
+      "indent": 3,
+      "text": "F3b) If an endpoint receives an Error Cause TLV indicating that the IP address Set Primary IP Address parameter was not understood, the endpoint MUST consider the operation failed and MUST NOT attempt to send any subsequent Set Primary IP Address requests to the peer.",
+      "zh-CHS": "F3B）如果端点接收到错误原因TLV，指示IP地址设置的主IP地址参数不被理解，则端点必须考虑操作失败，并且不能尝试向对等点发送任何后续的设置的主IP地址请求。"
+    },
+    {
+      "indent": 3,
+      "text": "F4) When deleting an IP address from an association, the IP address MUST be considered a valid destination address for the reception of SCTP packets until the ASCONF-ACK arrives and MUST NOT be used as a source address for any subsequent packets. This means that any datagrams that arrive before the ASCONF-ACK destined to the IP address being deleted MUST be considered part of the current association. One special consideration is that ABORT Chunks arriving destined to the IP address being deleted MUST be ignored (see Section 5.3.1 for further details).",
+      "zh-CHS": "F4）从关联中删除IP地址时，在ASCONF-ACK到达之前，IP地址必须被视为接收SCTP数据包的有效目标地址，并且不得用作任何后续数据包的源地址。这意味着在ASCONF-ACK发送到要删除的IP地址之前到达的任何数据报都必须被视为当前关联的一部分。一个特别的注意事项是，必须忽略到达要删除的IP地址的中止块（有关更多详细信息，请参阅第5.3.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "F5) An endpoint MUST NOT delete its last remaining IP address from an association. In other words, if an endpoint is NOT multi-homed, it MUST NOT use the delete IP address without an Add IP Address preceding the delete parameter in the ASCONF Chunk. Or, if an endpoint sends multiple requests to delete IP addresses, it MUST NOT delete all of the IP addresses that the peer has listed for the requester.",
+      "zh-CHS": "F5）端点不得从关联中删除其最后剩余的IP地址。换句话说，如果端点不是多宿主的，则在ASCONF块中的delete参数前面没有Add IP地址时，它不能使用delete IP地址。或者，如果端点发送多个删除IP地址的请求，那么它不能删除对等方为请求者列出的所有IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "F6) An endpoint MUST NOT set an IP header source address for an SCTP packet holding the ASCONF Chunk to be the same as an address being deleted by the ASCONF Chunk.",
+      "zh-CHS": "F6）端点不得将包含ASCONF区块的SCTP数据包的IP头源地址设置为与ASCONF区块删除的地址相同。"
+    },
+    {
+      "indent": 3,
+      "text": "F7) If a request is received to delete the last remaining IP address of a peer endpoint, the receiver MUST send an Error Cause TLV with the Error Cause set to the new error code 'Request to Delete Last Remaining IP Address'. The requested delete MUST NOT be performed or acted upon, other than to send the ASCONF-ACK.",
+      "zh-CHS": "F7）如果接收到删除对等端点最后剩余IP地址的请求，则接收方必须发送错误原因TLV，错误原因设置为新错误代码“删除最后剩余IP地址的请求”。除发送ASCONF-ACK外，不得执行或执行请求的删除。"
+    },
+    {
+      "indent": 3,
+      "text": "F8) If a request is received to delete an IP address that is also the source address of the IP packet that contained the ASCONF chunk, the receiver MUST reject this request. To reject the request, the receiver MUST send an Error Cause TLV set to the new error code 'Request to Delete Source IP Address' (unless Rule F5 has also been violated, in which case the error code 'Request to Delete Last Remaining IP Address' is sent).",
+      "zh-CHS": "F8）如果收到删除IP地址的请求，该IP地址也是包含ASCONF区块的IP数据包的源地址，则接收方必须拒绝该请求。若要拒绝该请求，接收方必须发送一个错误原因TLV，设置为新的错误代码“请求删除源IP地址”（除非也违反了规则F5，在这种情况下，发送错误代码“请求删除最后剩余IP地址”）。"
+    },
+    {
+      "indent": 3,
+      "text": "F9) If an endpoint receives an ADD IP Address request and does not have the local resources to add this new address to the association, it MUST return an Error Cause TLV set to the new error code 'Operation Refused Due to Resource Shortage'.",
+      "zh-CHS": "F9）如果端点接收到添加IP地址请求，并且没有本地资源将此新地址添加到关联中，则它必须将错误原因TLV设置返回到新错误代码“由于资源不足而拒绝操作”。"
+    },
+    {
+      "indent": 3,
+      "text": "F10) If an endpoint receives an 'Out of Resource' error in response to its request to ADD an IP address to an association, it must either ABORT the association or not consider the address part of the association. In other words, if the endpoint does not ABORT the association, it must consider the add attempt failed and NOT use this address since its peer will treat SCTP packets destined to the address as Out Of The Blue packets.",
+      "zh-CHS": "F10）如果一个端点接收到一个“资源外”错误，响应于它向一个关联添加IP地址的请求，它必须中止关联或不考虑关联的地址部分。换句话说，如果端点不中止关联，它必须考虑添加尝试失败，并且不使用这个地址，因为它的对等体将处理指定地址的SCTP分组作为蓝色分组。"
+    },
+    {
+      "indent": 3,
+      "text": "F11) When an endpoint receives an ASCONF to add an IP address sends an 'Out of Resource' in its response, it MUST also fail any subsequent add or delete requests bundled in the ASCONF. The receiver MUST NOT reject an ADD and then accept a subsequent DELETE of an IP address in the same ASCONF Chunk. In other words, once a receiver begins failing any ADD or DELETE request, it must fail all subsequent ADD or DELETE requests contained in that single ASCONF.",
+      "zh-CHS": "F11）当端点收到ASCONF以添加IP地址并在其响应中发送“资源不足”时，它还必须使绑定在ASCONF中的任何后续添加或删除请求失败。接收方不得拒绝添加，然后接受同一ASCONF区块中IP地址的后续删除。换句话说，一旦接收者开始使任何添加或删除请求失败，它就必须使单个ASCONF中包含的所有后续添加或删除请求失败。"
+    },
+    {
+      "indent": 3,
+      "text": "F12) When an endpoint receives a request to delete an IP address that is the current primary address, it is an implementation decision as to how that endpoint chooses the new primary address.",
+      "zh-CHS": "F12）当端点接收到删除作为当前主地址的IP地址的请求时，该端点如何选择新的主地址是一个实现决策。"
+    },
+    {
+      "indent": 3,
+      "text": "F13) When an endpoint receives a valid request to DELETE an IP address, the endpoint MUST consider the address no longer part of the association. It MUST NOT send SCTP packets for the association to that address and it MUST treat subsequent packets received from that address as Out Of The Blue.",
+      "zh-CHS": "F13）当端点接收到删除IP地址的有效请求时，端点必须考虑地址不再是关联的一部分。它不能将关联的SCTP数据包发送到该地址，并且必须将从该地址接收的后续数据包视为突发事件。"
+    },
+    {
+      "indent": 8,
+      "text": "During the time interval between sending out the ASCONF and receiving the ASCONF-ACK, it MAY be possible to receive DATA Chunks out of order. The following examples illustrate these problems:",
+      "zh-CHS": "在发送ASCONF和接收ASCONF-ACK之间的时间间隔内，可能会无序接收数据块。以下示例说明了这些问题："
+    },
+    {
+      "indent": 3,
+      "text": "F14) All addresses added by the reception of an ASCONF Chunk MUST be put into the UNCONFIRMED state and MUST have path verification performed on them before the address can be used as described in [RFC4960], Section 5.4.",
+      "zh-CHS": "F14）通过接收ASCONF区块而添加的所有地址必须处于未确认状态，并且必须在其上执行路径验证，然后才能使用[RFC4960]第5.4节中所述的地址。"
+    },
+    {
+      "indent": 7,
+      "text": "Endpoint-A                                     Endpoint-Z\n----------                                     ----------\nASCONF[Add-IP:X]------------------------------>\n                                        /--ASCONF-ACK\n                                       /\n                             /--------/---New DATA:\n                            /        /    Destination\n       <-------------------/        /     IP:X\n                                   /\n       <--------------------------/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In the above example, we see a new IP address (X) being added to the Endpoint-A. However, due to packet re-ordering in the network, a new DATA chunk is sent and arrives at Endpoint-A before the ASCONF-ACK confirms the add of the address to the association.",
+      "zh-CHS": "在上面的示例中，我们看到一个新的IP地址（X）被添加到端点-a。但是，由于网络中的数据包重新排序，在ASCONF-ACK确认将地址添加到关联之前，一个新的数据块被发送并到达端点-a。"
+    },
+    {
+      "indent": 3,
+      "text": "A similar problem exists with the deletion of an IP address as follows:",
+      "zh-CHS": "删除IP地址时也存在类似问题，如下所示："
+    },
+    {
+      "indent": 7,
+      "text": "Endpoint-A                                     Endpoint-Z\n----------                                     ----------\n                             /------------New DATA:\n                            /             Destination\n                           /              IP:X\nASCONF [DEL-IP:X]---------/---------------->\n       <-----------------/------------------ASCONF-ACK\n                        /\n                       /\n        <-------------/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In this example, we see a DATA chunk destined to the IP:X (which is about to be deleted) arriving after the deletion is complete. For the ADD case, an endpoint SHOULD consider the newly added IP address for the purpose of sending data to the association before the ASCONF-ACK has been received. The endpoint MUST NOT source data from this new address until the ASCONF-ACK arrives, but it may receive out-of-order data as illustrated and MUST NOT treat this data as an OOTB datagram (please see [RFC4960] section 8.4). It MAY drop the data silently or it MAY consider it part of the association, but it MUST NOT respond with an ABORT.",
+      "zh-CHS": "在本例中，我们看到一个数据块在删除完成后到达IP:X（即将被删除）。对于添加情况，端点应该考虑新添加的IP地址，以便在接收到ASCON-ACK之前将数据发送给关联。在ASCONF-ACK到达之前，端点不得从该新地址获取数据，但它可能会接收到如图所示的无序数据，并且不得将该数据视为OOTB数据报（请参见[RFC4960]第8.4节）。它可以悄悄地删除数据，或者可以认为它是关联的一部分，但是它不能用中止来响应。"
+    },
+    {
+      "indent": 3,
+      "text": "For the DELETE case, an endpoint MAY respond to the late-arriving DATA packet as an OOTB datagram or it MAY hold the deleting IP address for a small period of time as still valid. If it treats the DATA packet as OOTB, the peer will silently discard the ABORT (since by the time the ABORT is sent, the peer will have removed the IP address from this association). If the endpoint elects to hold the IP address valid for a period of time, it MUST NOT hold it valid longer than 2 RTO intervals for the destination being removed.",
+      "zh-CHS": "对于删除情况，端点可以作为OOTB数据报响应延迟到达的数据分组，或者它可以在一小段时间内保持删除IP地址仍然有效。如果将数据包视为OOTB，则对等方将自动放弃中止（因为在发送中止时，对等方将已从此关联中删除IP地址）。如果端点选择将IP地址保持有效一段时间，则对于要删除的目标，其保持有效的时间不得超过2个RTO间隔。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.1. A Special Case for OOTB ABORT Chunks",
+      "section_title": true,
+      "zh-CHS": "5.3.1. OOTB中止块的特殊情况"
+    },
+    {
+      "indent": 3,
+      "text": "Another case worth mentioning is illustrated below:",
+      "zh-CHS": "另一个值得一提的例子如下："
+    },
+    {
+      "indent": 7,
+      "text": "Endpoint-A                                     Endpoint-Z\n----------                                     ----------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "New DATA:------------\\\nSource IP:X           \\\n                       \\\nASCONF-REQ[DEL-IP:X]----\\------------------>\n                         \\        /---------ASCONF-ACK\n                          \\      /\n                           \\----/-----------> OOTB\n(Ignored <---------------------/-------------ABORT\n by rule F4)                  /\n       <---------------------/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "For this case, during the deletion of an IP address, an Abort MUST be ignored if the destination address of the Abort message is that of a destination being deleted.",
+      "zh-CHS": "对于这种情况，在删除IP地址期间，如果中止消息的目标地址是要删除的目标地址，则必须忽略中止。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.2. A Special Case for Changing an Address",
+      "section_title": true,
+      "zh-CHS": "5.3.2. 更改地址的特殊情况"
+    },
+    {
+      "indent": 3,
+      "text": "In some instances, the sender may only have one IP address in an association that is being renumbered. When this occurs, the sender may not be able to send the appropriate ADD/DELETE pair to the peer, and may use the old address as a source in the IP header. For this reason, the sender MUST fill in the Address Parameter field with an address that is part of the association (in this case, the one being deleted). This will allow the receiver to locate the association without using the source address found in the IP header.",
+      "zh-CHS": "在某些情况下，发送方在正在重新编号的关联中可能只有一个IP地址。发生这种情况时，发送方可能无法向对等方发送适当的添加/删除对，并且可能会将旧地址用作IP报头中的源。因此，发件人必须在Address参数字段中填写作为关联一部分的地址（在本例中，是被删除的地址）。这将允许接收方在不使用IP报头中找到的源地址的情况下定位关联。"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver of such a chunk MUST always first use the source address found in the IP header in looking up the association. The receiver should attempt to use the address found in the Address Parameter field only if the lookup using the source address from the IP header fails. The receiver MUST reply to the source address of the packet in this case, which is the new address that was added by the ASCONF (since the old address is no longer part of the association after processing).",
+      "zh-CHS": "在查找关联时，此类区块的接收者必须始终首先使用在IP头中找到的源地址。只有在使用IP头中的源地址进行查找失败时，接收方才应尝试使用在地址参数字段中找到的地址。在这种情况下，接收方必须回复数据包的源地址，即ASCONF添加的新地址（因为处理后旧地址不再是关联的一部分）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Setting of the Primary Address",
+      "section_title": true,
+      "zh-CHS": "5.4. 主地址的设置"
+    },
+    {
+      "indent": 3,
+      "text": "A sender of the set primary parameter MAY elect to send this combined with an add or delete of an address. A sender MUST only send a set primary request to an address that is already considered part of the association. In other words, if a sender combines a set primary with",
+      "zh-CHS": "设置主参数的发件人可以选择将此参数与地址的添加或删除一起发送。发件人只能向已被视为关联一部分的地址发送一个设置的主请求。换句话说，如果发送方将集合与主集合相结合"
+    },
+    {
+      "indent": 3,
+      "text": "an add new IP address request, the set primary will be discarded unless the add request is to be processed BEFORE the set primary (i.e., it precedes the set primary).",
+      "zh-CHS": "如果是添加新IP地址请求，则将丢弃集合主地址，除非在集合主地址之前处理添加请求（即，它位于集合主地址之前）。"
+    },
+    {
+      "indent": 3,
+      "text": "A request to set primary MAY also appear in an INIT or INIT-ACK chunk, which can give advice to the peer endpoint as to which of its addresses the sender of the INIT or INIT-ACK would prefer as the primary address.",
+      "zh-CHS": "设置主地址的请求也可能出现在INIT或INIT-ACK块中，这可以向对等端点提供关于INIT或INIT-ACK的发送方希望将哪个地址作为主地址的建议。"
+    },
+    {
+      "indent": 3,
+      "text": "The request to set an address as the primary path is an option the receiver SHOULD perform. It is considered advice to the receiver of the best-destination address to use in sending SCTP packets (in the requester's view). If a request arrives that asks the receiver to set an address as primary that does not exist, the receiver SHOULD NOT honor the request, leaving its existing primary address unchanged.",
+      "zh-CHS": "将地址设置为主路径的请求是接收方应该执行的选项。在发送SCTP数据包时（在请求者看来），它被认为是向接收者提供最佳目的地地址的建议。如果请求到达时要求接收方将一个地址设置为不存在的主地址，则接收方不应接受该请求，保持其现有主地址不变。"
+    },
+    {
+      "indent": 0,
+      "text": "5.5. Bundling of Multiple ASCONFs",
+      "section_title": true,
+      "zh-CHS": "5.5. 多个NFS的捆绑"
+    },
+    {
+      "indent": 3,
+      "text": "In the normal case, a single ASCONF is sent in a packet and a single reply ASCONF-ACK is received. However, in the event of the loss of an SCTP packet containing either an ASCONF or ASCONF-ACK, it is allowable for a sender to bundle additional ASCONFs in the retransmission. In bundling multiple ASCONFs, the following rules MUST be followed:",
+      "zh-CHS": "在正常情况下，在数据包中发送单个ASCONF，并接收单个回复ASCONF-ACK。但是，在包含ASCONF或ASCONF-ACK的SCTP数据包丢失的情况下，允许发送方在重传中捆绑额外的ASCONF。在绑定多个NFS时，必须遵循以下规则："
+    },
+    {
+      "indent": 3,
+      "text": "1. Previously transmitted ASCONF Chunks MUST be left unchanged.",
+      "zh-CHS": "1. 以前传输的ASCONF块必须保持不变。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Each SCTP packet containing ASCONF Chunks MUST be bundled starting with the smallest ASCONF Sequence Number first in the packet (closest to the Chunk header) and preceding in sequential order from the lowest to highest ASCONF Sequence Number.",
+      "zh-CHS": "2. 包含ASCONF区块的每个SCTP数据包必须从数据包中最小的ASCONF序列号（最接近区块头）开始捆绑，并按照从最低到最高的ASCONF序列号顺序进行捆绑。"
+    },
+    {
+      "indent": 3,
+      "text": "3. All ASCONFs within the packet MUST be adjacent to each other, i.e., no other chunk type must separate the ASCONFs.",
+      "zh-CHS": "3. 数据包中的所有ASCONFs必须彼此相邻，即，任何其他块类型都不能将ASCONFs分开。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Each new ASCONF lookup address MUST be populated as if the previous ASCONFs had been processed and accepted.",
+      "zh-CHS": "4. 必须填充每个新的ASCONF查找地址，就像先前的ASCONF已被处理和接受一样。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The addition and or deletion of an IP address to an existing association does provide an additional mechanism by which existing associations can be hijacked. Therefore, this document requires the use of the authentication mechanism defined in [RFC4895] to limit the ability of an attacker to hijack an association.",
+      "zh-CHS": "向现有关联添加和/或删除IP地址确实提供了一种额外的机制，可以通过该机制劫持现有关联。因此，本文档要求使用[RFC4895]中定义的身份验证机制来限制攻击者劫持关联的能力。"
+    },
+    {
+      "indent": 3,
+      "text": "Hijacking an association by using the addition and deletion of an IP address is only possible for an attacker who is able to intercept the initial two packets of the association setup when the SCTP-AUTH extension is used without pre-shared keys. If such a threat is considered a possibility, then the [RFC4895] extension MUST be used with a preconfigured shared endpoint pair key to mitigate this threat. For a more detailed analysis, see [RFC4895].",
+      "zh-CHS": "只有在使用SCTP-AUTH扩展而不使用预共享密钥时，能够截获关联设置的最初两个数据包的攻击者才可能通过添加和删除IP地址劫持关联。如果认为存在这种威胁，那么[RFC4895]扩展必须与预配置的共享端点对密钥一起使用，以缓解这种威胁。有关更详细的分析，请参见[RFC4895]。"
+    },
+    {
+      "indent": 3,
+      "text": "When the address parameter in ASCONF chunks with Add, IP Delete IP, or Set Primary IP parameters is a wildcard, the source address of the packet is used. This address is not protected by SCTP-AUTH [RFC4895] and an attacker can therefore intercept such a packet and modify the source address. Even if the source address is not one presently an alternate for the association, the identification of the association may rely on the other information in the packet (perhaps the verification tag, for example). An on-path attacker can therefore modify the source address to its liking.",
+      "zh-CHS": "当ASCONF区块中带有Add、IP Delete IP或Set Primary IP参数的地址参数为通配符时，将使用数据包的源地址。此地址不受SCTP-AUTH[RFC4895]的保护，因此攻击者可以截获此类数据包并修改源地址。即使源地址不是该关联的当前备选地址，该关联的标识也可以依赖于分组中的其他信息（例如，可能是验证标签）。因此，路径上的攻击者可以根据自己的喜好修改源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "If the ASCONF includes an Add IP with a wildcard address, the attacker can add an address of its liking, which provides little immediate damage but can set up later attacks.",
+      "zh-CHS": "如果ASCONF包含一个带有通配符地址的Add IP，攻击者可以添加自己喜欢的地址，这几乎不会立即造成伤害，但可以在以后发起攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "If the ASCONF includes a Delete IP with a wildcard address, the attacker can cause all addresses but one of its choosing to be deleted from an association. The address supplied by the attacker must already belong to the association, which makes this more difficult for the attacker. However, the sole remaining address might be one that the attacker controls, for example, or can monitor, etc. In the least, the sender and the deceived receiver would have different ideas of what that sole remaining address would be. This will eventually cause the association to fail, but in the meantime, the deceived receiver could be transmitting packets to an address the sender did not intend.",
+      "zh-CHS": "如果ASCONF包含一个带有通配符地址的删除IP，则攻击者可以导致从关联中删除除其选择的一个地址之外的所有地址。攻击者提供的地址必须已经属于该关联，这使得攻击者更难做到这一点。然而，唯一剩余的地址可能是攻击者控制的地址，例如，或可以监视的地址等。至少，发送方和受骗接收方对唯一剩余的地址会有不同的想法。这最终会导致关联失败，但与此同时，受骗的接收方可能正在将数据包发送到发送方不打算发送的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "If the ASCONF includes a Set Primary IP with a wildcard address, then the attacker can cause an address to be used as a primary address. This is limited to an address that already belongs to the association, so the damage is limited. At least, the result would be that the recipient is using a primary address that the sender did not intend. However, if both a wildcard Add IP and a wildcard Set Primary IP are used, then the attacker can modify the source address to both add an address to its liking to the association and make it the primary address. Such a combination would present the attacker with an opportunity for more damage.",
+      "zh-CHS": "如果ASCONF包含一个带有通配符地址的设置主IP，则攻击者可以将该地址用作主地址。这仅限于已属于该关联的地址，因此损害是有限的。至少，结果是收件人使用的主地址不是发件人想要的。但是，如果同时使用了通配符Add IP和通配符Set Primary IP，则攻击者可以修改源地址，以便根据自己的喜好为关联添加地址，并使其成为主要地址。这样的组合会给攻击者带来更多伤害的机会。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that all these attacks are from an on-path attacker. Endpoints that believe they face a threat from on-path attackers SHOULD NOT use wildcard addresses in ASCONF Add IP, Delete IP, or Set Primary IP parameters.",
+      "zh-CHS": "请注意，所有这些攻击都来自路径上的攻击者。认为自己面临路径上攻击者威胁的端点不应在ASCONF添加IP、删除IP或设置主IP参数中使用通配符地址。"
+    },
+    {
+      "indent": 3,
+      "text": "If an SCTP endpoint that supports this extension receives an INIT that indicates that the peer supports the ASCONF extension but does NOT support the [RFC4895] extension, the receiver of such an INIT MUST send an ABORT in response. Note that an implementation is allowed to silently discard such an INIT as an option as well, but under NO circumstance is an implementation allowed to proceed with the association setup by sending an INIT-ACK in response.",
+      "zh-CHS": "如果支持此扩展的SCTP端点接收到一个INIT，该INIT指示对等方支持ASCONF扩展，但不支持[RFC4895]扩展，则此类INIT的接收方必须发送一个中止响应。请注意，允许实现以静默方式放弃此类INIT作为选项，但在任何情况下都不允许实现通过发送INIT-ACK响应来继续关联设置。"
+    },
+    {
+      "indent": 3,
+      "text": "An implementation that receives an INIT-ACK that indicates that the peer does not support the [RFC4895] extension MUST NOT send the COOKIE-ECHO to establish the association. Instead, the implementation MUST discard the INIT-ACK and report to the upper-layer user that an association cannot be established destroying the Transmission Control Block (TCB).",
+      "zh-CHS": "接收INIT-ACK（指示对等方不支持[RFC4895]扩展）的实现不得发送COOKIE-ECHO以建立关联。相反，实现必须放弃INIT-ACK，并向上层用户报告无法通过破坏传输控制块（TCB）建立关联。"
+    },
+    {
+      "indent": 3,
+      "text": "Other types of attacks, e.g., bombing, are discussed in detail in [RFC5062]. The bombing attack, in particular, is countered by the use of a random nonce and is required by [RFC4960].",
+      "zh-CHS": "[RFC5062]详细讨论了其他类型的攻击，例如轰炸。尤其是轰炸攻击，通过使用随机的临时时间来反击，这是[RFC4960]所要求的。"
+    },
+    {
+      "indent": 3,
+      "text": "An on-path attacker can modify the INIT and INIT-ACK Supported Extensions parameter (and authentication-related parameters) to produce a denial of service. If the on-path attacker removes the [RFC4895]-related parameters from an INIT that indicates it supports the ASCONF extension, the association will not be established. If the on-path attacker adds a Supported Extensions parameter mentioning the ASCONF type to an INIT or INIT-ACK that does not carry any AUTH-related parameters, the association will not be established. If the on-path attacker removes the Supported Extensions parameter (or removes the ASCONF type from that parameter) from the INIT or the INIT-ACK, then the association will not be able to use the ADD-IP feature. If the on-path attacker adds the Supported Extensions parameter listing the ASCONF type to an INIT-ACK that did not carry one (but did carry AUTH-related parameters), then the INIT sender may use ASCONF where the INIT-ACK sender does not support it. This would be discovered later if the INIT sender transmitted an ASCONF, but the INIT sender could have made configuration choices at that point. As the INIT and INIT-ACK are not protected by the AUTH feature, there is no way to counter such attacks. Note however that an on-path attacker capable of modifying the INIT and INIT-ACK would almost certainly also be able to prevent the INIT and INIT-ACK from being delivered or modify the verification tags or checksum to cause the packet to be discarded, so the Supported Extensions adds little additional vulnerability (with respect to preventing association",
+      "zh-CHS": "路径上攻击者可以修改INIT和INIT-ACK Supported Extensions参数（以及与身份验证相关的参数）以产生拒绝服务。如果路径上的攻击者从指示其支持ASCONF扩展的INIT中删除[RFC4895]相关参数，则不会建立关联。如果路径上的攻击者将提及ASCONF类型的受支持扩展参数添加到未携带任何身份验证相关参数的INIT或INIT-ACK中，则不会建立关联。如果路径上的攻击者从INIT或INIT-ACK中删除受支持的扩展参数（或从该参数中删除ASCONF类型），则关联将无法使用ADD-IP功能。如果路径上的攻击者将列出ASCONF类型的受支持扩展参数添加到未携带ASCONF类型的INIT-ACK（但携带了与身份验证相关的参数），则INIT发送方可能在INIT-ACK发送方不支持的情况下使用ASCONF。如果INIT发送方发送了ASCONF，那么稍后就会发现这一点，但是INIT发送方可能在此时做出了配置选择。由于INIT和INIT-ACK不受身份验证功能的保护，因此无法抵抗此类攻击。但是请注意，能够修改INIT和INIT-ACK的路径上攻击者几乎肯定也能够阻止INIT和INIT-ACK的传递，或者修改验证标记或校验和以导致丢弃数据包，因此支持的扩展几乎不会增加额外的漏洞（关于防止结社"
+    },
+    {
+      "indent": 3,
+      "text": "formation) to the SCTP protocol. The ability to prevent the use of this new feature is an additional vulnerability to SCTP but only for this new feature.",
+      "zh-CHS": "根据SCTP协议。防止使用此新功能的能力是SCTP的另一个漏洞，但仅适用于此新功能。"
+    },
+    {
+      "indent": 3,
+      "text": "The Adaptation Layer Indication is subject to corruption, insertion, or deletion from the INIT and INIT-ACK chunks by an on-path attacker. This parameter SHOULD be opaque to the SCTP protocol (see Section 4.2.6), and so changes to the parameter will likely not affect the SCTP protocol. However, any adaptation layer that is defined SHOULD consider its own vulnerabilities in the Security Considerations section of the RFC that defines its adaptation code point.",
+      "zh-CHS": "路径上的攻击者会损坏、插入或删除INIT和INIT-ACK块中的适配层指示。该参数对SCTP协议应是不透明的（见第4.2.6节），因此对该参数的更改可能不会影响SCTP协议。然而，定义的任何适配层应该考虑其RFC定义的自适应代码点的安全考虑部分中的自身漏洞。"
+    },
+    {
+      "indent": 3,
+      "text": "The Set Primary IP Address parameter is subject to corruption, insertion, or deletion by an on-path attacker when included in the INIT and INIT-ACK chunks. The attacker could use this to influence the receiver to choose an address to its own purposes (one over which it has control, one that would be less desirable for the sender, etc.). An on-path attacker would also have the ability to include or remove addresses for the association from the INIT or INIT-ACK, so it is not limited in the address it can specify in the Set Primary IP Address. Endpoints that wish to avoid this possible threat MAY defer sending the initial Set Primary request and wait until the association is fully established before sending a fully protected ASCONF with the Set Primary as its single parameter.",
+      "zh-CHS": "当包含在INIT和INIT-ACK块中时，Set Primary IP Address参数可能会被路径上的攻击者损坏、插入或删除。攻击者可以利用这一点影响接收者选择符合其自身目的的地址（它可以控制的地址，发送者不太需要的地址，等等）。路径上的攻击者还可以从INIT或INIT-ACK中包含或删除关联的地址，因此它不受在设置的主IP地址中可以指定的地址的限制。希望避免这种可能的威胁的端点可能会推迟发送初始的Set Primary请求，并等待关联完全建立，然后再发送一个以Set Primary作为其单个参数的完全受保护的ASCONF。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the following new SCTP parameters, chunks, and errors (http://www.iana.org/assignments/sctp-parameters):",
+      "zh-CHS": "本文档定义了以下新的SCTP参数、块和错误(http://www.iana.org/assignments/sctp-parameters):"
+    },
+    {
+      "indent": 3,
+      "text": "o two new chunk types,",
+      "zh-CHS": "o 两种新的块类型，"
+    },
+    {
+      "indent": 3,
+      "text": "o six parameter types, and",
+      "zh-CHS": "o 六种参数类型，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o five new SCTP error causes.",
+      "zh-CHS": "o 五个新的SCTP错误原因。"
+    },
+    {
+      "indent": 3,
+      "text": "The chunk types with their assigned values are shown below.",
+      "zh-CHS": "块类型及其赋值如下所示。"
+    },
+    {
+      "indent": 8,
+      "text": "Chunk Type  Chunk Name\n--------------------------------------------------------------\n0xC1    Address Configuration Change Chunk        (ASCONF)\n0x80    Address Configuration Acknowledgment      (ASCONF-ACK)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The parameter types are listed below:",
+      "zh-CHS": "参数类型如下所示："
+    },
+    {
+      "indent": 8,
+      "text": "Parameter Type     Parameter Name\n-------------------------------------------------\n0x8008             Supported Extensions\n0xC001             Add IP Address\n0xC002             Delete IP Address\n0xC003             Error Cause Indication\n0xC004             Set Primary Address\n0xC005             Success Indication\n0xC006             Adaptation Layer Indication",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The Error Causes are listed below:",
+      "zh-CHS": "错误原因如下所示："
+    },
+    {
+      "indent": 7,
+      "text": "Cause Code\nValue          Cause Code\n---------      ----------------\n0x00A0          Request to Delete Last Remaining IP Address\n0x00A1          Operation Refused Due to Resource Shortage\n0x00A2          Request to Delete Source IP Address\n0x00A3          Association Aborted Due to Illegal ASCONF-ACK\n0x00A4          Request Refused - No Authorization",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This document also defines an adaptation code point. The adaptation code point is a 32-bit integer that is assigned by IANA through an IETF Consensus action as defined in [RFC2434]. For this new registry, no initial values are being added by this document; however, [RDDP] will add the first entry.",
+      "zh-CHS": "本文档还定义了自适应代码点。自适应代码点是一个32位整数，由IANA通过[RFC2434]中定义的IETF一致行动分配。对于此新注册表，本文档未添加初始值；但是，[RDDP]将添加第一个条目。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to express a special note of thanks to Michael Ramahlo and Phillip Conrad for their extreme efforts in the early formation of this draft.",
+      "zh-CHS": "作者要特别感谢Michael Ramahlo和Phillip Conrad，感谢他们在本草案早期形成过程中付出的巨大努力。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to thank Jon Berger, Mark Butler, Lars Eggert, Janardhan Iyengar, Greg Kendall, Seok Koh, Salvatore Loreto, Peter Lei, John Loughney, Sandy Murphy, Ivan Arias Rodriguez, Renee Revis, Marshall Rose, Ronnie Sellars, Chip Sharp, and Irene Ruengeler for their invaluable comments.",
+      "zh-CHS": "作者要感谢Jon Berger、Mark Butler、Lars Eggert、Janardhan Iyengar、Greg Kendall、Seok Koh、Salvatore Loreto、Peter Lei、John Loughney、Sandy Murphy、Ivan Arias Rodriguez、Renee Revis、Marshall Rose、Ronnie Sellars、Chip Sharp和Irene Ruengler的宝贵评论。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would also like to give special mention to Maria-Carmen Belinchon and Ian Rytina for their early contributions to this document and their thoughtful comments.",
+      "zh-CHS": "作者还想特别提及Maria Carmen Belinchon和Ian Rytina对本文件的早期贡献及其深思熟虑的评论。"
+    },
+    {
+      "indent": 3,
+      "text": "And a special thanks to James Polk, abstract writer to the few but lucky.",
+      "zh-CHS": "特别感谢詹姆斯·波尔克，一位为数不多但幸运的抽象作家。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1122] Braden, R., \"Requirements for Internet Hosts - Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[RFC1122]Braden，R.，“互联网主机的要求-通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1982] Elz, R. and R. Bush, \"Serial Number Arithmetic\", RFC 1982, August 1996.",
+      "zh-CHS": "[RFC1982]Elz，R.和R.Bush，“序列号算术”，RFC 1982，1996年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2434] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[RFC2434]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2460] Deering, S. and R. Hinden, \"Internet Protocol, Version 6 (IPv6) Specification\", RFC 2460, December 1998.",
+      "zh-CHS": "[RFC2460]Deering，S.和R.Hinden，“互联网协议，第6版（IPv6）规范”，RFC 2460，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4960] Stewart, R., Ed., \"Stream Control Transmission Protocol\", RFC 4960, September 2007.",
+      "zh-CHS": "[RFC4960]Stewart，R.，Ed.“流控制传输协议”，RFC 49602007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4895] Tuexen, M., Stewart, R., Lei, P., and E. Rescorla, \"Authenticated Chunks for the Stream Control Transmission Protocol (SCTP)\", RFC 4895, August 2007.",
+      "zh-CHS": "[RFC4895]Tuexen，M.，Stewart，R.，Lei，P.，和E.Rescorla，“流控制传输协议（SCTP）的认证块”，RFC 48952007年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5062] Stewart, R., Tuexen, M., and G. Camarillo, \"Security Attacks Found Against SCTP and Current Countermeasures\", RFC 5062, September 2007.",
+      "zh-CHS": "[RFC5062]Stewart，R.，Tuexen，M.和G.Camarillo，“发现针对SCTP的安全攻击和当前对策”，RFC 5062，2007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RDDP] Bestler, C. and R. Stewart, \"Stream Control Transmission Protocol (SCTP) Direct Data Placement (DDP) Adaptation\", Work in Progress, September 2006.",
+      "zh-CHS": "[RDDP]Bestler，C.和R.Stewart，“流控制传输协议（SCTP）直接数据放置（DDP）自适应”，正在进行的工作，2006年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Abstract Address Handling",
+      "section_title": true,
+      "zh-CHS": "附录A.摘要地址处理"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. General Remarks",
+      "section_title": true,
+      "zh-CHS": "A.1. 一般评论"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix is non-normative. It is present to give the reader a concise mathematical definition of an SCTP endpoint. The following text provides a working definition of the endpoint notion to discuss address reconfiguration. It is not intended to restrict implementations in any way; its goal is to provide a set of definitions only. Using these definitions should make a discussion about address issues easier.",
+      "zh-CHS": "本附录为非规范性附录。本文旨在为读者提供SCTP端点的简明数学定义。以下文本提供了端点概念的工作定义，以讨论地址重新配置。其目的不是以任何方式限制实施；其目标是仅提供一组定义。使用这些定义应该使讨论解决问题更容易。"
+    },
+    {
+      "indent": 0,
+      "text": "A.2. Generalized Endpoints",
+      "section_title": true,
+      "zh-CHS": "A.2. 广义端点"
+    },
+    {
+      "indent": 3,
+      "text": "A generalized endpoint is a pair of a set of IP addresses and a port number at any given point of time. The precise definition is as follows:",
+      "zh-CHS": "广义端点是在任何给定时间点由一组IP地址和一个端口号组成的一对。准确的定义如下："
+    },
+    {
+      "indent": 3,
+      "text": "A generalized endpoint gE at time t is given by",
+      "zh-CHS": "时间t处的广义端点gE由下式给出："
+    },
+    {
+      "indent": 18,
+      "text": "gE(t) = ({IP1, ..., IPn}, Port)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where {IP1, ..., IPn} is a non-empty set of IP addresses.",
+      "zh-CHS": "其中{IP1，…，IPn}是一组非空的IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Please note that the dynamic addition and deletion of IP addresses described in this document allows the set of IP addresses of a generalized endpoint to be changed at some point of time. The port number can never be changed.",
+      "zh-CHS": "请注意，本文档中描述的动态添加和删除IP地址允许在某个时间点更改通用端点的IP地址集。端口号永远不能更改。"
+    },
+    {
+      "indent": 3,
+      "text": "The set of IP addresses of a generalized endpoint gE at a time t is defined as",
+      "zh-CHS": "广义端点gE在t时刻的IP地址集定义为"
+    },
+    {
+      "indent": 15,
+      "text": "Addr(gE)(t) = {IP1, ..., IPn}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "if gE(t) = ({IP1, ..., IPn}, Port) holds at time t.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The port number of a generalized endpoint gE is defined as",
+      "zh-CHS": "通用端点gE的端口号定义为"
+    },
+    {
+      "indent": 15,
+      "text": "Port(gE) = Port",
+      "zh-CHS": "端口（gE）=端口"
+    },
+    {
+      "indent": 3,
+      "text": "if gE(t) = ({IP1, ..., IPn}, Port) holds at time t.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "There is one fundamental rule that restricts all generalized endpoints:",
+      "zh-CHS": "有一条基本规则限制所有通用端点："
+    },
+    {
+      "indent": 3,
+      "text": "For two different generalized endpoints gE' and gE'' with the same port number Port(gE') = Port(gE''), the address sets Addr(gE')(t) and Addr(gE'')(t) must be disjoint at every point in time.",
+      "zh-CHS": "对于具有相同端口号port（gE'）=port（gE'）的两个不同的通用端点gE'和gE''，地址集Addr（gE'）（t）和Addr（gE''）（t）在每个时间点都必须不相交。"
+    },
+    {
+      "indent": 0,
+      "text": "A.3. Associations",
+      "section_title": true,
+      "zh-CHS": "A.3. 联想"
+    },
+    {
+      "indent": 3,
+      "text": "Associations consist of two generalized endpoints and the two address sets known by the peer at any time. The precise definition is as follows:",
+      "zh-CHS": "关联由两个通用端点和对等方随时已知的两个地址集组成。准确的定义如下："
+    },
+    {
+      "indent": 3,
+      "text": "An association A between two different generalized endpoints gE' and gE'' is given by",
+      "zh-CHS": "两个不同的通用端点gE'和gE''之间的关联A由以下公式给出："
+    },
+    {
+      "indent": 18,
+      "text": "A = (gE', S', gE'', S'')",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where S'(t) and S''(t) are a set of addresses at any time t such that S'(t) is a non-empty subset of Addr(gE')(t) and S''(t) is a non-empty subset of Addr(gE'')(t).",
+      "zh-CHS": "其中，S’（t）和S’（t）是在任何时间t的一组地址，使得S’（t）是Addr（gE’（t）的非空子集，S’（t）是Addr（gE’）（t）的非空子集。"
+    },
+    {
+      "indent": 3,
+      "text": "If A = (gE', S', gE'', S'') is an association between the generalized\nendpoints gE' and gE'', the following notion is used:",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Addr(A, gE') = S' and Addr(A, gE'') = S''.",
+      "zh-CHS": "地址（A，gE'）=S'和地址（A，gE'）=S'。"
+    },
+    {
+      "indent": 3,
+      "text": "If the dependency on time is important the notion Addr(A, gE')(t) = S'(t) will be used.",
+      "zh-CHS": "如果对时间的依赖性很重要，则将使用Addr（A，gE'）（t）=S'（t）这一概念。"
+    },
+    {
+      "indent": 3,
+      "text": "If A is an association between gE' and gE'', then Addr(A, gE') is the subset of IP addresses of gE', which is known by gE'' and used by gE'.",
+      "zh-CHS": "如果A是gE'和gE''之间的关联，则Addr（A，gE'）是gE'的IP地址子集，gE'知道并使用该IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Association establishment between gE' and gE'' can be seen as:",
+      "zh-CHS": "gE'和gE''之间的关联建立可以看作："
+    },
+    {
+      "indent": 3,
+      "text": "1. gE' and gE'' do exist before the association.",
+      "zh-CHS": "1. 关联之前确实存在gE“”和gE“”。"
+    },
+    {
+      "indent": 3,
+      "text": "2. If an INIT has to be sent from gE' to gE'', address-scoping rules and other limitations are applied to calculate the subset S' from Addr(gE'). The addresses of S' are included in the INIT chunk.",
+      "zh-CHS": "2. 如果必须将INIT从gE“发送到gE”，则将应用地址范围规则和其他限制来计算来自Addr（gE'）的子集S。S'的地址包含在INIT块中。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If an INIT-ACK has to be sent from gE'' to gE', address-scoping rules and other limitations are applied to calculate the subset S'' from Addr(gE''). The addresses of S'' are included in the INIT-ACK chunk.",
+      "zh-CHS": "3. 如果必须从gE“”向gE发送INIT-ACK，则将应用地址范围规则和其他限制，从Addr（gE“”）计算子集S“”。S“”的地址包含在INIT-ACK块中。"
+    },
+    {
+      "indent": 3,
+      "text": "4. After the handshake the association A = (gE', S', gE'', S'') has been established.",
+      "zh-CHS": "4. 握手后，关联A=（gE'，S'，gE''，S''）已建立。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Right after the association establishment Addr(A, gE') and Addr(A, gE'') are the addresses that have been seen on the wire during the handshake.",
+      "zh-CHS": "5. 在关联建立之后，Addr（A，gE'）和Addr（A，gE''）是握手过程中在线路上看到的地址。"
+    },
+    {
+      "indent": 0,
+      "text": "A.4. Relationship with RFC 4960",
+      "section_title": true,
+      "zh-CHS": "A.4. 与RFC 4960的关系"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4960] defines the notion of an endpoint. This subsection will show that these endpoints are also (special) generalized endpoints.",
+      "zh-CHS": "[RFC4960]定义了端点的概念。本小节将说明这些端点也是（特殊的）广义端点。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4960] has no notion of address-scoping or other address-handling limitations and provides no mechanism to change the addresses of an endpoint.",
+      "zh-CHS": "[RFC4960]没有地址范围或其他地址处理限制的概念，也没有提供更改端点地址的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "This means that an endpoint is simply a generalized endpoint that does not depend on time. Neither the port nor the address list changes.",
+      "zh-CHS": "这意味着端点只是不依赖于时间的广义端点。端口和地址列表均未更改。"
+    },
+    {
+      "indent": 3,
+      "text": "During association setup, no address-scoping rules or other limitations will be applied. This means that for an association A between two endpoints gE' and gE'', the following is true:",
+      "zh-CHS": "在关联设置期间，不会应用地址范围规则或其他限制。这意味着对于两个端点gE'和gE''之间的关联A，以下为真："
+    },
+    {
+      "indent": 3,
+      "text": "Addr(A, gE') = Addr(gE') and Addr(A, gE'') = Addr(gE'').",
+      "zh-CHS": "地址（A，gE'）=地址（gE'）和地址（A，gE“”）=地址（gE“”）。"
+    },
+    {
+      "indent": 0,
+      "text": "A.5. Rules for Address Manipulation",
+      "section_title": true,
+      "zh-CHS": "A.5. 地址操纵规则"
+    },
+    {
+      "indent": 3,
+      "text": "The rules for address manipulation can now be stated in a simple way:",
+      "zh-CHS": "地址操作的规则现在可以用一种简单的方式说明："
+    },
+    {
+      "indent": 3,
+      "text": "1. An address can be added to a generalized endpoint gE only if this address is not an address of a different generalized endpoint with the same port number.",
+      "zh-CHS": "1. 只有当地址不是具有相同端口号的其他通用端点的地址时，才能将地址添加到通用端点gE。"
+    },
+    {
+      "indent": 3,
+      "text": "2. An address can be added to an association A with generalized endpoint gE if it has been added to the generalized endpoint gE first. This means that the address must be an element of Addr(gE) first and then it can become an element of Addr(A, gE). But this is not necessary. If the association does not allow the reconfiguration of the addresses only Addr(gE) can be modified.",
+      "zh-CHS": "2. 如果地址已首先添加到通用端点gE，则可以将其添加到与通用端点gE的关联中。这意味着地址必须首先是Addr（gE）的元素，然后才能成为Addr（A，gE）的元素。但这是没有必要的。如果关联不允许重新配置地址，则只能修改地址（gE）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. An address can be deleted from an association A with generalized endpoint gE as long as Addr(A, gE) stays non-empty.",
+      "zh-CHS": "3. 只要Addr（A，gE）保持非空，就可以从与通用端点gE的关联A中删除地址。"
+    },
+    {
+      "indent": 3,
+      "text": "4. An address can be deleted from an generalized endpoint gE only if it has been removed from all associations having gE as a generalized endpoint.",
+      "zh-CHS": "4. 只有当地址已从将gE作为通用端点的所有关联中删除时，才能从通用端点gE中删除该地址。"
+    },
+    {
+      "indent": 3,
+      "text": "These rules simply make sure that the rules for the endpoints and associations given above are always fulfilled.",
+      "zh-CHS": "这些规则只是确保始终满足上面给出的端点和关联规则。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Randall R. Stewart Cisco Systems, Inc. 4875 Forest Drive Suite 200 Columbia, SC 29206 US",
+      "zh-CHS": "Randall R.Stewart Cisco Systems，Inc.4875 Forest Drive Suite 200 Columbia，SC 29206美国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: EMail: rrs@cisco.com",
+      "zh-CHS": "电话：电邮：rrs@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Qiaobing Xie Motorola, Inc. 1501 W. Shure Drive, 2-3C Arlington Heights, IL 60004 USA",
+      "zh-CHS": "谢乔平摩托罗拉公司，美国伊利诺伊州阿灵顿高地2-3C舒尔大道西1501号，邮编60004"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1-847-632-3028\nEMail: Qiaobing.Xie@motorola.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Michael Tuexen Univ. of Applied Sciences Muenster Stegerwaldstr. 39 48565 Steinfurt Germany",
+      "zh-CHS": "Michael Tuexen应用科学大学Muenster Stegerwaldstr。39 48565德国斯坦福德"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: tuexen@fh-muenster.de",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Shin Maruyama Kyoto University Yoshida-Honmachi Sakyo-ku Kyoto, Kyoto 606-8501 JAPAN",
+      "zh-CHS": "新丸山京都大学吉田本町坂谷京都，京都606-8501日本"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +81-75-753-7417\nEMail: mail@marushin.gr.jp",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Masahiro Kozuka Kyoto University Yoshida-Honmachi Sakyo-ku Kyoto, Kyoto 606-8501 JAPAN",
+      "zh-CHS": "日本京都京都吉田本町坂谷京都大学小坂正彦606-8501"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +81-75-753-7417\nEMail: ma-kun@kozuka.jp",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

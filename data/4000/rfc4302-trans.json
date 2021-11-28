@@ -1,0 +1,1435 @@
+{
+  "title": {
+    "text": "RFC 4302: IP Authentication Header",
+    "zh-CHS": "RFC 4302"
+  },
+  "number": 4302,
+  "created_at": "2021-11-13 12:06:23.357625+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                            S. Kent\nRequest for Comments: 4302                              BBN Technologies\nObsoletes: 2402                                            December 2005\nCategory: Standards Track",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "IP Authentication Header",
+      "zh-CHS": "IP认证头"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an updated version of the IP Authentication Header (AH), which is designed to provide authentication services in IPv4 and IPv6. This document obsoletes RFC 2402 (November 1998).",
+      "zh-CHS": "本文档描述了IP身份验证标头（AH）的更新版本，该版本旨在提供IPv4和IPv6中的身份验证服务。本文件废除RFC 2402（1998年11月）。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Authentication Header Format ....................................4\n   2.1. Next Header ................................................5\n   2.2. Payload Length .............................................5\n   2.3. Reserved ...................................................6\n   2.4. Security Parameters Index (SPI) ............................6\n   2.5. Sequence Number ............................................8\n        2.5.1. Extended (64-bit) Sequence Number ...................8\n   2.6. Integrity Check Value (ICV) ................................9\n3. Authentication Header Processing ................................9\n   3.1. Authentication Header Location .............................9\n        3.1.1. Transport Mode ......................................9\n        3.1.2. Tunnel Mode ........................................11\n   3.2. Integrity Algorithms ......................................11\n   3.3. Outbound Packet Processing ................................11\n        3.3.1. Security Association Lookup ........................12\n        3.3.2. Sequence Number Generation .........................12\n        3.3.3. Integrity Check Value Calculation ..................13\n               3.3.3.1. Handling Mutable Fields ...................13\n               3.3.3.2. Padding and Extended Sequence Numbers .....16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "        3.3.4. Fragmentation ......................................17\n   3.4. Inbound Packet Processing .................................18\n        3.4.1. Reassembly .........................................18\n        3.4.2. Security Association Lookup ........................18\n        3.4.3. Sequence Number Verification .......................19\n        3.4.4. Integrity Check Value Verification .................20\n4. Auditing .......................................................21\n5. Conformance Requirements .......................................21\n6. Security Considerations ........................................22\n7. Differences from RFC 2402 ......................................22\n8. Acknowledgements ...............................................22\n9. References .....................................................22\n   9.1. Normative References ......................................22\n   9.2. Informative References ....................................23\nAppendix A: Mutability of IP Options/Extension Headers ............25\n   A1. IPv4 Options ...............................................25\n   A2. IPv6 Extension Headers .....................................26\nAppendix B: Extended (64-bit) Sequence Numbers ....................28\n   B1. Overview ...................................................28\n   B2. Anti-Replay Window .........................................28\n       B2.1. Managing and Using the Anti-Replay Window ............29\n       B2.2. Determining the Higher-Order Bits (Seqh) of the\n             Sequence Number ......................................30\n       B2.3. Pseudo-Code Example ..................................31\n   B3. Handling Loss of Synchronization due to Significant\n       Packet Loss ................................................32\n       B3.1. Triggering Re-synchronization ........................33\n       B3.2. Re-synchronization Process ...........................33",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document assumes that the reader is familiar with the terms and concepts described in the \"Security Architecture for the Internet Protocol\" [Ken-Arch], hereafter referred to as the Security Architecture document. In particular, the reader should be familiar with the definitions of security services offered by the Encapsulating Security Payload (ESP) [Ken-ESP] and the IP Authentication Header (AH), the concept of Security Associations, the ways in which ESP can be used in conjunction with the Authentication Header (AH), and the different key management options available for ESP and AH.",
+      "zh-CHS": "本文件假设读者熟悉“互联网协议的安全体系结构”[Ken Arch]中描述的术语和概念，以下称为安全体系结构文件。特别是，读者应熟悉封装安全有效载荷（ESP）[Ken ESP]和IP认证头（AH）提供的安全服务的定义、安全关联的概念、ESP与认证头（AH）结合使用的方式，以及ESP和AH可用的不同密钥管理选项。"
+    },
+    {
+      "indent": 3,
+      "text": "The keywords MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, MAY, and OPTIONAL, when they appear in this document, are to be interpreted as described in RFC 2119 [Bra97].",
+      "zh-CHS": "本文件中出现的关键词必须、不得、必需、应、不应、应、不应、推荐、可和可选时，应按照RFC 2119[Bra97]中的说明进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "The IP Authentication Header (AH) is used to provide connectionless integrity and data origin authentication for IP datagrams (hereafter referred to as just \"integrity\") and to provide protection against replays. This latter, optional service may be selected, by the receiver, when a Security Association (SA) is established. (The protocol default requires the sender to increment the sequence number used for anti-replay, but the service is effective only if the receiver checks the sequence number.) However, to make use of the Extended Sequence Number feature in an interoperable fashion, AH does impose a requirement on SA management protocols to be able to negotiate this new feature (see Section 2.5.1 below).",
+      "zh-CHS": "IP身份验证头（AH）用于为IP数据报提供无连接完整性和数据源身份验证（以下简称“完整性”），并提供防止重播的保护。当建立安全关联（SA）时，接收机可以选择后一种可选服务。（协议默认要求发送方增加用于反重播的序列号，但只有在接收方检查序列号时服务才有效。）但是，为了以可互操作的方式使用扩展序列号功能，AH确实要求SA管理协议能够协商此新功能（见下文第2.5.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "AH provides authentication for as much of the IP header as possible, as well as for next level protocol data. However, some IP header fields may change in transit and the value of these fields, when the packet arrives at the receiver, may not be predictable by the sender. The values of such fields cannot be protected by AH. Thus, the protection provided to the IP header by AH is piecemeal. (See Appendix A.)",
+      "zh-CHS": "AH为尽可能多的IP报头以及下一级协议数据提供身份验证。然而，一些IP报头字段可能在传输过程中发生变化，并且当数据包到达接收方时，发送方可能无法预测这些字段的值。AH不能保护这些字段的值。因此，AH向IP报头提供的保护是零碎的。（见附录A）"
+    },
+    {
+      "indent": 3,
+      "text": "AH may be applied alone, in combination with the IP Encapsulating Security Payload (ESP) [Ken-ESP], or in a nested fashion (see Security Architecture document [Ken-Arch]). Security services can be provided between a pair of communicating hosts, between a pair of communicating security gateways, or between a security gateway and a host. ESP may be used to provide the same anti-replay and similar integrity services, and it also provides a confidentiality (encryption) service. The primary difference between the integrity provided by ESP and AH is the extent of the coverage. Specifically, ESP does not protect any IP header fields unless those fields are",
+      "zh-CHS": "AH可以单独应用，与IP封装安全有效负载（ESP）[Ken ESP]结合使用，或者以嵌套方式应用（请参阅安全体系结构文档[Ken Arch]）。可以在一对通信主机之间、一对通信安全网关之间或安全网关与主机之间提供安全服务。ESP可用于提供相同的反重播和类似的完整性服务，并且还提供保密（加密）服务。ESP和AH提供的完整性之间的主要区别在于覆盖范围。特别是，ESP不保护任何IP头字段，除非这些字段是"
+    },
+    {
+      "indent": 3,
+      "text": "encapsulated by ESP (e.g., via use of tunnel mode). For more details on how to use AH and ESP in various network environments, see the Security Architecture document [Ken-Arch].",
+      "zh-CHS": "由ESP封装（例如，通过使用隧道模式）。有关如何在各种网络环境中使用AH和ESP的更多详细信息，请参阅安全体系结构文档[Ken Arch]。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 7 provides a brief review of the differences between this document and RFC 2402 [RFC2402].",
+      "zh-CHS": "第7节简要回顾了本文件与RFC 2402[RFC2402]之间的差异。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Authentication Header Format",
+      "section_title": true,
+      "zh-CHS": "2. 身份验证标头格式"
+    },
+    {
+      "indent": 3,
+      "text": "The protocol header (IPv4, IPv6, or IPv6 Extension) immediately preceding the AH header SHALL contain the value 51 in its Protocol (IPv4) or Next Header (IPv6, Extension) fields [DH98]. Figure 1 illustrates the format for AH.",
+      "zh-CHS": "AH头前面的协议头（IPv4、IPv6或IPv6扩展）应在其协议（IPv4）或下一个头（IPv6、扩展）字段中包含值51[DH98]。图1说明了AH的格式。"
+    },
+    {
+      "indent": 3,
+      "text": "  0                   1                   2                   3\n  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Next Header   |  Payload Len  |          RESERVED             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                 Security Parameters Index (SPI)               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                    Sequence Number Field                      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n+                Integrity Check Value-ICV (variable)           |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "Figure 1. AH Format",
+      "zh-CHS": "图1。啊格式"
+    },
+    {
+      "indent": 3,
+      "text": "The following table refers to the fields that comprise AH,\n(illustrated in Figure 1), plus other fields included in the\nintegrity computation, and illustrates which fields are covered by\nthe ICV and what is transmitted.\n                                                   What    What\n                                  # of     Requ'd  Integ    is\n                                  bytes     [1]    Covers  Xmtd\n                                  ------   ------  ------  ------\n       IP Header                  variable    M     [2]    plain\n       Next Header                   1        M      Y     plain\n       Payload Len                   1        M      Y     plain\n       RESERVED                      2        M      Y     plain\n       SPI                           4        M      Y     plain\n       Seq# (low-order 32 bits)      4        M      Y     plain\n       ICV                        variable    M      Y[3]  plain\n       IP datagram [4]            variable    M      Y     plain\n       Seq# (high-order 32 bits)     4      if ESN   Y     not xmtd\n       ICV Padding                variable  if need  Y     not xmtd",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "[1] - M = mandatory\n[2] - See Section 3.3.3, \"Integrity Check Value Calculation\", for\n      details of which IP header fields are covered.\n[3] - Zeroed before ICV calculation (resulting ICV placed here\n      after calculation)\n[4] - If tunnel mode -> IP datagram\n      If transport mode -> next header and data",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The following subsections define the fields that comprise the AH format. All the fields described here are mandatory; i.e., they are always present in the AH format and are included in the Integrity Check Value (ICV) computation (see Sections 2.6 and 3.3.3).",
+      "zh-CHS": "以下小节定义了构成AH格式的字段。此处描述的所有字段都是必填字段；i、 例如，它们始终以AH格式存在，并包含在完整性检查值（ICV）计算中（见第2.6节和第3.3.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: All of the cryptographic algorithms used in IPsec expect their input in canonical network byte order (see Appendix of RFC 791 [RFC791]) and generate their output in canonical network byte order. IP packets are also transmitted in network byte order.",
+      "zh-CHS": "注意：IPsec中使用的所有加密算法都希望以规范的网络字节顺序输入（请参见RFC 791[RFC791]附录），并以规范的网络字节顺序生成输出。IP数据包也以网络字节顺序传输。"
+    },
+    {
+      "indent": 3,
+      "text": "AH does not contain a version number, therefore if there are concerns about backward compatibility, they MUST be addressed by using a signaling mechanism between the two IPsec peers to ensure compatible versions of AH, e.g., IKE [IKEv2] or an out-of-band configuration mechanism.",
+      "zh-CHS": "AH不包含版本号，因此，如果存在向后兼容性问题，则必须通过使用两个IPsec对等方之间的信令机制来解决，以确保AH的兼容版本，例如IKE[IKEv2]或带外配置机制。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Next Header",
+      "section_title": true,
+      "zh-CHS": "2.1. 下一包头"
+    },
+    {
+      "indent": 3,
+      "text": "The Next Header is an 8-bit field that identifies the type of the next payload after the Authentication Header. The value of this field is chosen from the set of IP Protocol Numbers defined on the web page of Internet Assigned Numbers Authority (IANA). For example, a value of 4 indicates IPv4, a value of 41 indicates IPv6, and a value of 6 indicates TCP.",
+      "zh-CHS": "下一个报头是一个8位字段，用于标识身份验证报头之后的下一个有效负载的类型。此字段的值从Internet Assigned Numbers Authority（IANA）网页上定义的IP协议编号集合中选择。例如，值4表示IPv4，值41表示IPv6，值6表示TCP。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Payload Length",
+      "section_title": true,
+      "zh-CHS": "2.2. 净荷长度"
+    },
+    {
+      "indent": 3,
+      "text": "This 8-bit field specifies the length of AH in 32-bit words (4-byte units), minus \"2\". Thus, for example, if an integrity algorithm yields a 96-bit authentication value, this length field will be \"4\" (3 32-bit word fixed fields plus 3 32-bit words for the ICV, minus 2). For IPv6, the total length of the header must be a multiple of 8-octet units. (Note that although IPv6 [DH98] characterizes AH as an extension header, its length is measured in 32-bit words, not the 64-bit words used by other IPv6 extension headers.) See Section 2.6, \"Integrity Check Value (ICV)\", for comments on padding of this field, and Section 3.3.3.2.1, \"ICV Padding\".",
+      "zh-CHS": "此8位字段以32位字（4字节单位）减去“2”指定AH的长度。因此，例如，如果完整性算法产生96位身份验证值，则该长度字段将为“4”（3个32位字固定字段加上ICV的3个32位字，减去2）。对于IPv6，标头的总长度必须是8个八位字节单位的倍数。（请注意，尽管IPv6[DH98]将AH描述为扩展标头，但其长度是以32位字测量的，而不是其他IPv6扩展标头使用的64位字）。有关此字段填充的注释，请参阅第2.6节“完整性检查值（ICV）”，以及第3.3.3.2.1节“ICV填充”。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Reserved",
+      "section_title": true,
+      "zh-CHS": "2.3. 含蓄的"
+    },
+    {
+      "indent": 3,
+      "text": "This 16-bit field is reserved for future use. It MUST be set to \"zero\" by the sender, and it SHOULD be ignored by the recipient. (Note that the value is included in the ICV calculation, but is otherwise ignored by the recipient.)",
+      "zh-CHS": "此16位字段保留供将来使用。发送方必须将其设置为“零”，接收方应忽略它。（请注意，该值包含在ICV计算中，但接收方会忽略。）"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Security Parameters Index (SPI)",
+      "section_title": true,
+      "zh-CHS": "2.4. 安全参数索引（SPI）"
+    },
+    {
+      "indent": 3,
+      "text": "The SPI is an arbitrary 32-bit value that is used by a receiver to identify the SA to which an incoming packet is bound. For a unicast SA, the SPI can be used by itself to specify an SA, or it may be used in conjunction with the IPsec protocol type (in this case AH). Because for unicast SAs the SPI value is generated by the receiver, whether the value is sufficient to identify an SA by itself or whether it must be used in conjunction with the IPsec protocol value is a local matter. The SPI field is mandatory, and this mechanism for mapping inbound traffic to unicast SAs described above MUST be supported by all AH implementations.",
+      "zh-CHS": "SPI是一个任意的32位值，接收器使用它来标识传入数据包绑定到的SA。对于单播SA，SPI可以自己指定SA，也可以与IPsec协议类型一起使用（在本例中为AH）。因为对于单播SA，SPI值是由接收机生成的，因此该值是否足以单独识别SA，或者该值是否必须与IPsec协议值一起使用是本地问题。SPI字段是必需的，所有AH实现都必须支持上述将入站流量映射到单播SA的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "If an IPsec implementation supports multicast, then it MUST support multicast SAs using the algorithm below for mapping inbound IPsec datagrams to SAs. Implementations that support only unicast traffic need not implement this de-multiplexing algorithm.",
+      "zh-CHS": "如果IPsec实现支持多播，则必须使用以下算法支持多播SAs，以便将入站IPsec数据报映射到SAs。仅支持单播通信的实现不需要实现此解复用算法。"
+    },
+    {
+      "indent": 3,
+      "text": "In many secure multicast architectures, e.g., [RFC3740], a central Group Controller/Key Server unilaterally assigns the group security association's SPI. This SPI assignment is not negotiated or coordinated with the key management (e.g., IKE) subsystems that reside in the individual end systems that comprise the group. Consequently, it is possible that a group security association and a unicast security association can simultaneously use the same SPI. A multicast-capable IPsec implementation MUST correctly de-multiplex inbound traffic even in the context of SPI collisions.",
+      "zh-CHS": "在许多安全多播体系结构中，例如[RFC3740]，中央组控制器/密钥服务器单方面分配组安全关联的SPI。该SPI分配不与驻留在组成该组的各个终端系统中的密钥管理（如IKE）子系统协商或协调。因此，组安全关联和单播安全关联可以同时使用相同的SPI。支持多播的IPsec实现必须正确地解复用入站流量，即使在SPI冲突的情况下也是如此。"
+    },
+    {
+      "indent": 3,
+      "text": "Each entry in the Security Association Database (SAD) [Ken-Arch] must indicate whether the SA lookup makes use of the destination, or destination and source, IP addresses, in addition to the SPI. For multicast SAs, the protocol field is not employed for SA lookups. For each inbound, IPsec-protected packet, an implementation must conduct its search of the SAD such that it finds the entry that matches the \"longest\" SA identifier. In this context, if two or more SAD entries match based on the SPI value, then the entry that also matches based on destination, or destination and source, address comparison (as indicated in the SAD entry) is the \"longest\" match. This implies a logical ordering of the SAD search as follows:",
+      "zh-CHS": "安全关联数据库（SAD）[Ken Arch]中的每个条目都必须指明SA查找除了使用SPI外，还使用了目的地、目的地和源IP地址。对于多播SA，协议字段不用于SA查找。对于每个受IPsec保护的入站数据包，实现必须对SAD进行搜索，以便找到与“最长”SA标识符匹配的条目。在此上下文中，如果两个或多个SAD条目基于SPI值匹配，则也基于目的地或目的地与源地址比较（如SAD条目中所示）匹配的条目是“最长”匹配。这意味着SAD搜索的逻辑顺序如下："
+    },
+    {
+      "indent": 11,
+      "text": "1. Search the SAD for a match on {SPI, destination address, source address}. If an SAD entry matches, then process the inbound AH packet with that matching SAD entry. Otherwise, proceed to step 2.",
+      "zh-CHS": "1. 在SAD中搜索{SPI，目标地址，源地址}上的匹配项。如果SAD条目匹配，则使用匹配的SAD条目处理入站AH数据包。否则，继续执行步骤2。"
+    },
+    {
+      "indent": 11,
+      "text": "2. Search the SAD for a match on {SPI, destination address}. If an SAD entry matches, then process the inbound AH packet with that matching SAD entry. Otherwise, proceed to step 3.",
+      "zh-CHS": "2. 在SAD中搜索{SPI，destination address}上的匹配项。如果SAD条目匹配，则使用匹配的SAD条目处理入站AH数据包。否则，继续执行步骤3。"
+    },
+    {
+      "indent": 11,
+      "text": "3. Search the SAD for a match on only {SPI} if the receiver has chosen to maintain a single SPI space for AH and ESP, or on {SPI, protocol} otherwise. If an SAD entry matches, then process the inbound AH packet with that matching SAD entry. Otherwise, discard the packet and log an auditable event.",
+      "zh-CHS": "3. 如果接收器选择为AH和ESP保留单个SPI空间，则仅在{SPI}上搜索SAD，否则在{SPI，protocol}上搜索匹配。如果SAD条目匹配，则使用匹配的SAD条目处理入站AH数据包。否则，丢弃数据包并记录可审核事件。"
+    },
+    {
+      "indent": 3,
+      "text": "In practice, an implementation MAY choose any method to accelerate this search, although its externally visible behavior MUST be functionally equivalent to having searched the SAD in the above order. For example, a software-based implementation could index into a hash table by the SPI. The SAD entries in each hash table bucket's linked list are kept sorted to have those SAD entries with the longest SA identifiers first in that linked list. Those SAD entries having the shortest SA identifiers are sorted so that they are the last entries in the linked list. A hardware-based implementation may be able to effect the longest match search intrinsically, using commonly available Ternary Content-Addressable Memory (TCAM) features.",
+      "zh-CHS": "实际上，实现可以选择任何方法来加速此搜索，尽管其外部可见的行为在功能上必须等同于按上述顺序搜索SAD。例如，基于软件的实现可以通过SPI索引到哈希表中。每个哈希表存储桶的链接列表中的SAD条目保持排序，以使那些SA标识符最长的SAD条目位于该链接列表的第一位。对具有最短SA标识符的SAD条目进行排序，使其成为链接列表中的最后一个条目。基于硬件的实现可能能够使用常用的三值内容寻址存储器（TCAM）功能，从本质上实现最长匹配搜索。"
+    },
+    {
+      "indent": 3,
+      "text": "The indication of whether source and destination address matching is required to map inbound IPsec traffic to SAs MUST be set either as a side effect of manual SA configuration or via negotiation using an SA management protocol, e.g., IKE or Group Domain of Interpretation (GDOI) [RFC3547]. Typically, Source-Specific Multicast (SSM) [HC03] groups use a 3-tuple SA identifier composed of an SPI, a destination multicast address, and source address. An Any-Source Multicast group SA requires only an SPI and a destination multicast address as an identifier.",
+      "zh-CHS": "将入站IPsec通信映射到SAs时是否需要源地址和目标地址匹配的指示必须设置为手动SA配置的副作用，或使用SA管理协议（例如IKE或组解释域（GDOI））通过协商进行设置[RFC3547]。通常，源特定多播（SSM）[HC03]组使用由SPI、目标多播地址和源地址组成的三元组SA标识符。任何源多播组SA只需要SPI和目标多播地址作为标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "The set of SPI values in the range 1 through 255 is reserved by the Internet Assigned Numbers Authority (IANA) for future use; a reserved SPI value will not normally be assigned by IANA unless the use of the assigned SPI value is specified in an RFC. The SPI value of zero (0) is reserved for local, implementation-specific use and MUST NOT be sent on the wire. (For example, a key management implementation might use the zero SPI value to mean \"No Security Association Exists\"",
+      "zh-CHS": "范围为1到255的SPI值集由互联网分配号码管理局（IANA）保留，以备将来使用；IANA通常不会指定保留的SPI值，除非RFC中指定使用指定的SPI值。SPI值0（0）保留供本地特定于实现的使用，不得通过线路发送。（例如，密钥管理实现可能使用零SPI值表示“不存在安全关联”"
+    },
+    {
+      "indent": 3,
+      "text": "during the period when the IPsec implementation has requested that its key management entity establish a new SA, but the SA has not yet been established.)",
+      "zh-CHS": "在IPsec实现请求其密钥管理实体建立新SA，但尚未建立SA的期间。）"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Sequence Number",
+      "section_title": true,
+      "zh-CHS": "2.5. 序列号"
+    },
+    {
+      "indent": 3,
+      "text": "This unsigned 32-bit field contains a counter value that increases by one for each packet sent, i.e., a per-SA packet sequence number. For a unicast SA or a single-sender multicast SA, the sender MUST increment this field for every transmitted packet. Sharing an SA among multiple senders is permitted, though generally not recommended. AH provides no means of synchronizing packet counters among multiple senders or meaningfully managing a receiver packet counter and window in the context of multiple senders. Thus, for a multi-sender SA, the anti-reply features of AH are not available (see Sections 3.3.2 and 3.4.3).",
+      "zh-CHS": "此无符号32位字段包含一个计数器值，每个发送的数据包增加一个计数器值，即每个SA数据包序列号。对于单播SA或单发送方多播SA，发送方必须为每个传输的数据包增加此字段。允许在多个发件人之间共享SA，但通常不建议这样做。AH无法在多个发送方之间同步数据包计数器，也无法在多个发送方的上下文中有意义地管理接收方数据包计数器和窗口。因此，对于多发送方SA，AH的反回复功能不可用（参见第3.3.2节和第3.4.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The field is mandatory and MUST always be present even if the receiver does not elect to enable the anti-replay service for a specific SA. Processing of the Sequence Number field is at the discretion of the receiver, but all AH implementations MUST be capable of performing the processing described in Section 3.3.2, \"Sequence Number Generation\", and Section 3.4.3, \"Sequence Number Verification\". Thus, the sender MUST always transmit this field, but the receiver need not act upon it.",
+      "zh-CHS": "该字段是必填字段，即使接收方未选择为特定SA启用反重播服务，该字段也必须始终存在。序列号字段的处理由接收机自行决定，但所有AH实现必须能够执行第3.3.2节“序列号生成”和第3.4.3节“序列号验证”中所述的处理。因此，发送方必须始终发送此字段，但接收方无需对其进行操作。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender's counter and the receiver's counter are initialized to 0 when an SA is established. (The first packet sent using a given SA will have a sequence number of 1; see Section 3.3.2 for more details on how the sequence number is generated.) If anti-replay is enabled (the default), the transmitted sequence number must never be allowed to cycle. Thus, the sender's counter and the receiver's counter MUST be reset (by establishing a new SA and thus a new key) prior to the transmission of the 2^32nd packet on an SA.",
+      "zh-CHS": "建立SA时，发送方计数器和接收方计数器初始化为0。（使用给定SA发送的第一个数据包的序列号为1；有关如何生成序列号的更多详细信息，请参阅第3.3.2节。）如果启用了反重播（默认），则决不能允许传输的序列号循环。因此，在SA上传输第2^32个数据包之前，必须重置发送方计数器和接收方计数器（通过建立新SA和新密钥）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5.1. Extended (64-bit) Sequence Number",
+      "section_title": true,
+      "zh-CHS": "2.5.1. 扩展（64位）序列号"
+    },
+    {
+      "indent": 3,
+      "text": "To support high-speed IPsec implementations, a new option for sequence numbers SHOULD be offered, as an extension to the current, 32-bit sequence number field. Use of an Extended Sequence Number (ESN) MUST be negotiated by an SA management protocol. Note that in IKEv2, this negotiation is implicit; the default is ESN unless 32-bit sequence numbers are explicitly negotiated. (The ESN feature is applicable to multicast as well as unicast SAs.)",
+      "zh-CHS": "为了支持高速IPsec实施，应提供一个新的序列号选项，作为当前32位序列号字段的扩展。扩展序列号（ESN）的使用必须通过SA管理协议协商。注意，在IKEv2中，这种协商是隐含的；除非明确协商32位序列号，否则默认为ESN。（ESN功能适用于多播和单播SAs。）"
+    },
+    {
+      "indent": 3,
+      "text": "The ESN facility allows use of a 64-bit sequence number for an SA. (See Appendix B, \"Extended (64-bit) Sequence Numbers\", for details.) Only the low-order 32 bits of the sequence number are transmitted in",
+      "zh-CHS": "ESN设施允许对SA使用64位序列号。（有关详细信息，请参见附录B“扩展（64位）序列号”）。只有序列号的低阶32位在"
+    },
+    {
+      "indent": 3,
+      "text": "the AH header of each packet, thus minimizing packet overhead. The high-order 32 bits are maintained as part of the sequence number counter by both transmitter and receiver and are included in the computation of the ICV, but are not transmitted.",
+      "zh-CHS": "每个数据包的AH报头，从而最小化数据包开销。高阶32位由发射机和接收机作为序列号计数器的一部分进行维护，并包括在ICV的计算中，但不传输。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Integrity Check Value (ICV)",
+      "section_title": true,
+      "zh-CHS": "2.6. 完整性检查值（ICV）"
+    },
+    {
+      "indent": 3,
+      "text": "This is a variable-length field that contains the Integrity Check Value (ICV) for this packet. The field must be an integral multiple of 32 bits (IPv4 or IPv6) in length. The details of ICV processing are described in Section 3.3.3, \"Integrity Check Value Calculation\", and Section 3.4.4, \"Integrity Check Value Verification\". This field may include explicit padding, if required to ensure that the length of the AH header is an integral multiple of 32 bits (IPv4) or 64 bits (IPv6). All implementations MUST support such padding and MUST insert only enough padding to satisfy the IPv4/IPv6 alignment requirements. Details of how to compute the required padding length are provided below in Section 3.3.3.2, \"Padding\". The integrity algorithm specification MUST specify the length of the ICV and the comparison rules and processing steps for validation.",
+      "zh-CHS": "这是一个可变长度字段，包含此数据包的完整性检查值（ICV）。字段长度必须是32位（IPv4或IPv6）的整数倍。第3.3.3节“完整性检查值计算”和第3.4.4节“完整性检查值验证”中描述了ICV处理的细节。如果需要确保AH报头的长度是32位（IPv4）或64位（IPv6）的整数倍，则此字段可能包括显式填充。所有实现都必须支持这种填充，并且必须插入足够的填充以满足IPv4/IPv6对齐要求。下面第3.3.3.2节“填充”中提供了有关如何计算所需填充长度的详细信息。完整性算法规范必须指定ICV的长度以及验证的比较规则和处理步骤。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Authentication Header Processing",
+      "section_title": true,
+      "zh-CHS": "3. 身份验证标头处理"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Authentication Header Location",
+      "section_title": true,
+      "zh-CHS": "3.1. 身份验证标头位置"
+    },
+    {
+      "indent": 3,
+      "text": "AH may be employed in two ways: transport mode or tunnel mode. (See the Security Architecture document for a description of when each should be used.)",
+      "zh-CHS": "AH可采用两种方式：运输模式或隧道模式。（请参阅安全体系结构文档，了解何时应使用每种安全体系结构的说明。）"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.1. Transport Mode",
+      "section_title": true,
+      "zh-CHS": "3.1.1. 运输方式"
+    },
+    {
+      "indent": 3,
+      "text": "In transport mode, AH is inserted after the IP header and before a next layer protocol (e.g., TCP, UDP, ICMP, etc.) or before any other IPsec headers that have already been inserted. In the context of IPv4, this calls for placing AH after the IP header (and any options that it contains), but before the next layer protocol. (Note that the term \"transport\" mode should not be misconstrued as restricting its use to TCP and UDP.) The following diagram illustrates AH transport mode positioning for a typical IPv4 packet, on a \"before and after\" basis.",
+      "zh-CHS": "在传输模式下，AH插入在IP报头之后和下一层协议（例如TCP、UDP、ICMP等）之前，或者插入在已经插入的任何其他IPsec报头之前。在IPv4的上下文中，这要求将AH放在IP头（及其包含的任何选项）之后，但在下一层协议之前。（请注意，术语“传输”模式不应被误解为仅限于TCP和UDP的使用。）下图说明了典型IPv4数据包在“之前和之后”的AH传输模式定位。"
+    },
+    {
+      "indent": 7,
+      "text": "            BEFORE APPLYING AH\n      ----------------------------\nIPv4  |orig IP hdr  |     |      |\n      |(any options)| TCP | Data |\n      ----------------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "            AFTER APPLYING AH\n      -------------------------------------------------------\nIPv4  |original IP hdr (any options) | AH | TCP |    Data   |\n      -------------------------------------------------------\n      |<- mutable field processing ->|<- immutable fields ->|\n      |<----- authenticated except for mutable fields ----->|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In the IPv6 context, AH is viewed as an end-to-end payload, and thus should appear after hop-by-hop, routing, and fragmentation extension headers. The destination options extension header(s) could appear before or after or both before and after the AH header depending on the semantics desired. The following diagram illustrates AH transport mode positioning for a typical IPv6 packet.",
+      "zh-CHS": "在IPv6上下文中，AH被视为端到端有效负载，因此应该出现在逐跳、路由和分段扩展头之后。目标选项扩展头可能出现在AH头之前或之后，或者同时出现在AH头之前和之后，具体取决于所需的语义。下图说明了典型IPv6数据包的AH传输模式定位。"
+    },
+    {
+      "indent": 7,
+      "text": "                 BEFORE APPLYING AH\n      ---------------------------------------\nIPv6  |             | ext hdrs |     |      |\n      | orig IP hdr |if present| TCP | Data |\n      ---------------------------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "                 AFTER APPLYING AH\n      ------------------------------------------------------------\nIPv6  |             |hop-by-hop, dest*, |    | dest |     |      |\n      |orig IP hdr  |routing, fragment. | AH | opt* | TCP | Data |\n      ------------------------------------------------------------\n      |<--- mutable field processing -->|<-- immutable fields -->|\n      |<---- authenticated except for mutable fields ----------->|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "* = if present, could be before AH, after AH, or both",
+      "zh-CHS": "* =如果存在，可在AH之前、之后或两者"
+    },
+    {
+      "indent": 3,
+      "text": "ESP and AH headers can be combined in a variety of modes. The IPsec Architecture document describes the combinations of security associations that must be supported.",
+      "zh-CHS": "ESP和AH头可以以多种模式组合。IPsec体系结构文档描述了必须支持的安全关联的组合。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that in transport mode, for \"bump-in-the-stack\" or \"bump-in-the-wire\" implementations, as defined in the Security Architecture document, inbound and outbound IP fragments may require an IPsec implementation to perform extra IP reassembly/fragmentation in order to both conform to this specification and provide transparent IPsec support. Special care is required to perform such operations within these implementations when multiple interfaces are in use.",
+      "zh-CHS": "请注意，在传输模式下，对于安全体系结构文档中定义的“堆栈中的通气”或“线路中的通气”实现，入站和出站IP片段可能需要IPsec实现来执行额外的IP重组/分段，以便符合此规范并提供透明的IPsec支持。当使用多个接口时，在这些实现中执行此类操作需要特别小心。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2. Tunnel Mode",
+      "section_title": true,
+      "zh-CHS": "3.1.2. 隧道模式"
+    },
+    {
+      "indent": 3,
+      "text": "In tunnel mode, the \"inner\" IP header carries the ultimate (IP) source and destination addresses, while an \"outer\" IP header contains the addresses of the IPsec \"peers,\" e.g., addresses of security gateways. Mixed inner and outer IP versions are allowed, i.e., IPv6 over IPv4 and IPv4 over IPv6. In tunnel mode, AH protects the entire inner IP packet, including the entire inner IP header. The position of AH in tunnel mode, relative to the outer IP header, is the same as for AH in transport mode. The following diagram illustrates AH tunnel mode positioning for typical IPv4 and IPv6 packets.",
+      "zh-CHS": "在隧道模式下，“内部”IP报头包含最终（IP）源地址和目标地址，“外部”IP报头包含IPsec“对等方”的地址，例如安全网关的地址。允许混合内部和外部IP版本，即IPv4上的IPv6和IPv6上的IPv4。在隧道模式下，AH保护整个内部IP数据包，包括整个内部IP报头。隧道模式下AH相对于外部IP报头的位置与传输模式下AH的位置相同。下图说明了典型IPv4和IPv6数据包的AH隧道模式定位。"
+    },
+    {
+      "indent": 3,
+      "text": "     ----------------------------------------------------------------\nIPv4 |                              |    | orig IP hdr*  |   |      |\n     |new IP header * (any options) | AH | (any options) |TCP| Data |\n     ----------------------------------------------------------------\n     |<- mutable field processing ->|<------ immutable fields ----->|\n     |<- authenticated except for mutable fields in the new IP hdr->|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "     --------------------------------------------------------------\nIPv6 |           | ext hdrs*|    |            | ext hdrs*|   |    |\n     |new IP hdr*|if present| AH |orig IP hdr*|if present|TCP|Data|\n     --------------------------------------------------------------\n     |<--- mutable field -->|<--------- immutable fields -------->|\n     |       processing     |\n     |<-- authenticated except for mutable fields in new IP hdr ->|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "* = if present, construction of outer IP hdr/extensions and modification of inner IP hdr/extensions is discussed in the Security Architecture document.",
+      "zh-CHS": "* =如果存在，外部IP hdr/扩展的构造和内部IP hdr/扩展的修改将在安全体系结构文档中讨论。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Integrity Algorithms",
+      "section_title": true,
+      "zh-CHS": "3.2. 完整性算法"
+    },
+    {
+      "indent": 3,
+      "text": "The integrity algorithm employed for the ICV computation is specified by the SA. For point-to-point communication, suitable integrity algorithms include keyed Message Authentication Codes (MACs) based on symmetric encryption algorithms (e.g., AES [AES]) or on one-way hash functions (e.g., MD5, SHA-1, SHA-256, etc.). For multicast communication, a variety of cryptographic strategies for providing integrity have been developed and research continues in this area.",
+      "zh-CHS": "用于ICV计算的完整性算法由SA指定。对于点对点通信，合适的完整性算法包括基于对称加密算法（例如AES[AES]）或单向散列函数（例如MD5、SHA-1、SHA-256等）的密钥消息认证码（MAC）。对于多播通信，已经开发了各种提供完整性的密码策略，并且该领域的研究仍在继续。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Outbound Packet Processing",
+      "section_title": true,
+      "zh-CHS": "3.3. 出站数据包处理"
+    },
+    {
+      "indent": 3,
+      "text": "In transport mode, the sender inserts the AH header after the IP header and before a next layer protocol header, as described above. In tunnel mode, the outer and inner IP header/extensions can be",
+      "zh-CHS": "在传输模式下，发送方将AH报头插入IP报头之后和下一层协议报头之前，如上所述。在隧道模式下，外部和内部IP头/扩展可以"
+    },
+    {
+      "indent": 3,
+      "text": "interrelated in a variety of ways. The construction of the outer IP header/extensions during the encapsulation process is described in the Security Architecture document.",
+      "zh-CHS": "以各种方式相互关联。安全体系结构文档中描述了封装过程中外部IP头/扩展的构造。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.1. Security Association Lookup",
+      "section_title": true,
+      "zh-CHS": "3.3.1. 安全关联查找"
+    },
+    {
+      "indent": 3,
+      "text": "AH is applied to an outbound packet only after an IPsec implementation determines that the packet is associated with an SA that calls for AH processing. The process of determining what, if any, IPsec processing is applied to outbound traffic is described in the Security Architecture document.",
+      "zh-CHS": "AH仅在IPsec实现确定出站数据包与调用AH处理的SA关联后应用于出站数据包。安全体系结构文档中描述了确定将什么（如果有的话）IPsec处理应用于出站流量的过程。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.2. Sequence Number Generation",
+      "section_title": true,
+      "zh-CHS": "3.3.2. 序列号生成"
+    },
+    {
+      "indent": 3,
+      "text": "The sender's counter is initialized to 0 when an SA is established. The sender increments the sequence number (or ESN) counter for this SA and inserts the low-order 32 bits of the value into the Sequence Number field. Thus, the first packet sent using a given SA will contain a sequence number of 1.",
+      "zh-CHS": "建立SA时，发送方计数器初始化为0。发送方递增此SA的序列号（或ESN）计数器，并将值的低位32位插入序列号字段。因此，使用给定SA发送的第一个分组将包含序号1。"
+    },
+    {
+      "indent": 3,
+      "text": "If anti-replay is enabled (the default), the sender checks to ensure that the counter has not cycled before inserting the new value in the Sequence Number field. In other words, the sender MUST NOT send a packet on an SA if doing so would cause the sequence number to cycle. An attempt to transmit a packet that would result in sequence number overflow is an auditable event. The audit log entry for this event SHOULD include the SPI value, current date/time, Source Address, Destination Address, and (in IPv6) the cleartext Flow ID.",
+      "zh-CHS": "如果启用了反重播功能（默认设置），则发送方会进行检查，以确保在序列号字段中插入新值之前计数器没有循环。换句话说，如果这样做会导致序列号循环，则发送方不得在SA上发送数据包。试图传输可能导致序列号溢出的数据包是可审核事件。此事件的审核日志条目应包括SPI值、当前日期/时间、源地址、目标地址和（在IPv6中）明文流ID。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender assumes anti-replay is enabled as a default, unless otherwise notified by the receiver (see Section 3.4.3) or if the SA was configured using manual key management. Thus, typical behavior of an AH implementation calls for the sender to establish a new SA when the Sequence Number (or ESN) cycles, or in anticipation of this value cycling.",
+      "zh-CHS": "除非接收方另有通知（参见第3.4.3节），或者SA是使用手动密钥管理配置的，否则发送方假定默认启用了防重播功能。因此，AH实现的典型行为要求发送方在序列号（或ESN）循环时或预期该值循环时建立新的SA。"
+    },
+    {
+      "indent": 3,
+      "text": "If anti-replay is disabled (as noted above), the sender does not need to monitor or reset the counter, e.g., in the case of manual key management (see Section 5). However, the sender still increments the counter and when it reaches the maximum value, the counter rolls over back to zero. (This behavior is recommended for multi-sender, multicast SAs, unless anti-replay mechanisms outside the scope of this standard are negotiated between the sender and receiver.)",
+      "zh-CHS": "如果禁用了防重播功能（如上所述），发送方无需监控或重置计数器，例如，在手动密钥管理的情况下（参见第5节）。但是，发送方仍然增加计数器，当它达到最大值时，计数器将回滚到零。（除非发送方和接收方之间协商了本标准范围之外的反重播机制，否则建议多发送方、多播SA采用此行为。）"
+    },
+    {
+      "indent": 3,
+      "text": "If ESN (see Appendix B) is selected, only the low-order 32 bits of the sequence number are transmitted in the Sequence Number field, although both sender and receiver maintain full 64-bit ESN counters. However, the high-order 32 bits are included in the ICV calculation.",
+      "zh-CHS": "如果选择了ESN（见附录B），则序列号字段中仅传输低阶32位序列号，尽管发送方和接收方都保持完整的64位ESN计数器。然而，高阶32位包括在ICV计算中。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: If a receiver chooses not to enable anti-replay for an SA, then the receiver SHOULD NOT negotiate ESN in an SA management protocol. Use of ESN creates a need for the receiver to manage the anti-replay window (in order to determine the correct value for the high-order bits of the ESN, which are employed in the ICV computation), which is generally contrary to the notion of disabling anti-replay for an SA.",
+      "zh-CHS": "注意：如果接收器选择不为SA启用反重播，则接收器不应在SA管理协议中协商ESN。ESN的使用导致接收机需要管理反重放窗口（以确定ICV计算中使用的ESN高阶位的正确值），这通常与禁用SA反重放的概念相反。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3. Integrity Check Value Calculation",
+      "section_title": true,
+      "zh-CHS": "3.3.3. 完整性检查值计算"
+    },
+    {
+      "indent": 3,
+      "text": "The AH ICV is computed over:",
+      "zh-CHS": "AH ICV的计算方法如下："
+    },
+    {
+      "indent": 8,
+      "text": "o IP or extension header fields before the AH header that are either immutable in transit or that are predictable in value upon arrival at the endpoint for the AH SA o the AH header (Next Header, Payload Len, Reserved, SPI, Sequence Number (low-order 32 bits), and the ICV (which is set to zero for this computation), and explicit padding bytes (if any)) o everything after AH is assumed to be immutable in transit o the high-order bits of the ESN (if employed), and any implicit padding required by the integrity algorithm",
+      "zh-CHS": "o AH报头之前的IP或扩展报头字段，这些字段在传输过程中是不可变的，或者在到达AH SA的端点时值是可预测的。AH报头（下一个报头、有效负载Len、保留、SPI、序列号（低阶32位）和ICV（此计算设置为零）以及显式填充字节（如果有））o假设AH之后的所有内容在传输过程中都是不可变的o ESN的高阶位（如果使用），以及完整性算法所需的任何隐式填充"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1. Handling Mutable Fields",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1. 处理可变字段"
+    },
+    {
+      "indent": 3,
+      "text": "If a field may be modified during transit, the value of the field is set to zero for purposes of the ICV computation. If a field is mutable, but its value at the (IPsec) receiver is predictable, then that value is inserted into the field for purposes of the ICV calculation. The Integrity Check Value field is also set to zero in preparation for this computation. Note that by replacing each field's value with zero, rather than omitting the field, alignment is preserved for the ICV calculation. Also, the zero-fill approach ensures that the length of the fields that are so handled cannot be changed during transit, even though their contents are not explicitly covered by the ICV.",
+      "zh-CHS": "如果一个字段在运输过程中可能被修改，为了ICV计算的目的，该字段的值被设置为零。如果字段是可变的，但其在（IPsec）接收器处的值是可预测的，则该值将插入该字段以用于ICV计算。完整性检查值字段也设置为零以准备此计算。请注意，通过将每个字段的值替换为零，而不是忽略该字段，可以为ICV计算保留对齐。此外，零填充方法确保这样处理的字段长度在传输过程中不会改变，即使ICV未明确涵盖其内容。"
+    },
+    {
+      "indent": 3,
+      "text": "As a new extension header or IPv4 option is created, it will be defined in its own RFC and SHOULD include (in the Security Considerations section) directions for how it should be handled when calculating the AH ICV. If the IP (v4 or v6) implementation encounters an extension header that it does not recognize, it will discard the packet and send an ICMP message. IPsec will never see the packet. If the IPsec implementation encounters an IPv4 option that it does not recognize, it should zero the whole option, using the second byte of the option as the length. IPv6 options (in Destination Extension Headers or the Hop-by-Hop Extension Header) contain a flag indicating mutability, which determines appropriate processing for such options.",
+      "zh-CHS": "创建新的扩展标头或IPv4选项时，将在其自己的RFC中定义，并应包括（在“安全注意事项”部分中）计算AH ICV时应如何处理的说明。如果IP（v4或v6）实现遇到无法识别的扩展头，它将丢弃该数据包并发送ICMP消息。IPsec将永远看不到数据包。如果IPsec实现遇到无法识别的IPv4选项，则应使用该选项的第二个字节作为长度，将整个选项归零。IPv6选项（在目标扩展标头或逐跳扩展标头中）包含一个指示可变性的标志，该标志确定了对此类选项的适当处理。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.1. ICV Computation for IPv4",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.1. IPv4的ICV计算"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.1.1. Base Header Fields",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.1.1. 基本标头字段"
+    },
+    {
+      "indent": 3,
+      "text": "The IPv4 base header fields are classified as follows:",
+      "zh-CHS": "IPv4基本标头字段分类如下："
+    },
+    {
+      "indent": 3,
+      "text": "Immutable Version Internet Header Length Total Length Identification Protocol (This should be the value for AH.) Source Address Destination Address (without loose or strict source routing)",
+      "zh-CHS": "不可变版本Internet标头长度总长度标识协议（这应该是AH的值。）源地址目标地址（无松散或严格的源路由）"
+    },
+    {
+      "indent": 3,
+      "text": "Mutable but predictable Destination Address (with loose or strict source routing)",
+      "zh-CHS": "可变但可预测的目标地址（具有松散或严格的源路由）"
+    },
+    {
+      "indent": 3,
+      "text": "Mutable (zeroed prior to ICV calculation) Differentiated Services Code Point (DSCP) (6 bits, see RFC 2474 [NBBB98]) Explicit Congestion Notification (ECN) (2 bits, see RFC 3168 [RFB01]) Flags Fragment Offset Time to Live (TTL) Header Checksum",
+      "zh-CHS": "可变（ICV计算前归零）区分服务代码点（DSCP）（6位，请参阅RFC 2474[NBBB98]）显式拥塞通知（ECN）（2位，请参阅RFC 3168[RFB01]）标志片段偏移生存时间（TTL）报头校验和"
+    },
+    {
+      "indent": 3,
+      "text": "DSCP - Routers may rewrite the DS field as needed to provide a desired local or end-to-end service, thus its value upon reception cannot be predicted by the sender.",
+      "zh-CHS": "DSCP-路由器可根据需要重写DS字段，以提供所需的本地或端到端服务，因此发送方无法预测其接收时的值。"
+    },
+    {
+      "indent": 3,
+      "text": "ECN - This will change if a router along the route experiences congestion, and thus its value upon reception cannot be predicted by the sender.",
+      "zh-CHS": "ECN-如果路由上的路由器遇到拥塞，这将改变，因此发送方无法预测其接收值。"
+    },
+    {
+      "indent": 3,
+      "text": "Flags - This field is excluded because an intermediate router might set the DF bit, even if the source did not select it.",
+      "zh-CHS": "标志-此字段被排除，因为中间路由器可能会设置DF位，即使源没有选择它。"
+    },
+    {
+      "indent": 3,
+      "text": "Fragment Offset - Since AH is applied only to non-fragmented IP packets, the Offset Field must always be zero, and thus it is excluded (even though it is predictable).",
+      "zh-CHS": "片段偏移-由于AH仅应用于非片段化IP数据包，偏移字段必须始终为零，因此它被排除在外（即使它是可预测的）。"
+    },
+    {
+      "indent": 3,
+      "text": "TTL - This is changed en route as a normal course of processing by routers, and thus its value at the receiver is not predictable by the sender.",
+      "zh-CHS": "TTL-这是路由器在正常处理过程中更改的，因此发送方无法预测其在接收方的值。"
+    },
+    {
+      "indent": 3,
+      "text": "Header Checksum - This will change if any of these other fields change, and thus its value upon reception cannot be predicted by the sender.",
+      "zh-CHS": "报头校验和-如果这些其他字段中的任何一个发生变化，这将发生变化，因此发送方无法预测其接收时的值。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.1.2. Options",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.1.2. 选择权"
+    },
+    {
+      "indent": 3,
+      "text": "For IPv4 (unlike IPv6), there is no mechanism for tagging options as mutable in transit. Hence the IPv4 options are explicitly listed in Appendix A and classified as immutable, mutable but predictable, or mutable. For IPv4, the entire option is viewed as a unit; so even though the type and length fields within most options are immutable in transit, if an option is classified as mutable, the entire option is zeroed for ICV computation purposes.",
+      "zh-CHS": "对于IPv4（与IPv6不同），没有将选项标记为传输中可变的机制。因此，IPv4选项在附录A中明确列出，并分类为不可变、可变但可预测或可变。对于IPv4，整个选项被视为一个单元；因此，即使大多数选项中的类型和长度字段在传输过程中是不可变的，但如果某个选项被分类为可变的，则出于ICV计算的目的，整个选项将归零。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.2. ICV Computation for IPv6",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.2. IPv6的ICV计算"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.2.1. Base Header Fields",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.2.1. 基本标头字段"
+    },
+    {
+      "indent": 3,
+      "text": "The IPv6 base header fields are classified as follows:",
+      "zh-CHS": "IPv6基本标头字段分类如下："
+    },
+    {
+      "indent": 3,
+      "text": "Immutable Version Payload Length Next Header Source Address Destination Address (without Routing Extension Header)",
+      "zh-CHS": "不可变版本有效负载长度下一个标头源地址目标地址（无路由扩展标头）"
+    },
+    {
+      "indent": 3,
+      "text": "Mutable but predictable Destination Address (with Routing Extension Header)",
+      "zh-CHS": "可变但可预测的目标地址（带路由扩展标头）"
+    },
+    {
+      "indent": 3,
+      "text": "Mutable (zeroed prior to ICV calculation) DSCP (6 bits, see RFC2474 [NBBB98]) ECN (2 bits, see RFC3168 [RFB01]) Flow Label (*) Hop Limit",
+      "zh-CHS": "可变（ICV计算前归零）DSCP（6位，见RFC2474[NBBB98]）ECN（2位，见RFC3168[RFB01]）流量标签（*）跳数限制"
+    },
+    {
+      "indent": 8,
+      "text": "(*) The flow label described in AHv1 was mutable, and in RFC 2460 [DH98] was potentially mutable. To retain compatibility with existing AH implementations, the flow label is not included in the ICV in AHv2.",
+      "zh-CHS": "（*）AHv1中描述的流量标签是可变的，RFC 2460[DH98]中描述的流量标签可能是可变的。为保持与现有AH实施的兼容性，AHv2中的ICV中不包括流量标签。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.2.2. Extension Headers Containing Options",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.2.2. 包含选项的扩展标题"
+    },
+    {
+      "indent": 3,
+      "text": "IPv6 options in the Hop-by-Hop and Destination Extension Headers contain a bit that indicates whether the option might change (unpredictably) during transit. For any option for which contents may change en-route, the entire \"Option Data\" field must be treated as zero-valued octets when computing or verifying the ICV. The",
+      "zh-CHS": "逐跳和目标扩展标头中的IPv6选项包含一个位，指示该选项在传输过程中是否可能发生更改（不可预测）。对于内容可能在途中更改的任何选项，在计算或验证ICV时，必须将整个“选项数据”字段视为零值八位字节。这个"
+    },
+    {
+      "indent": 3,
+      "text": "Option Type and Opt Data Len are included in the ICV calculation. All options for which the bit indicates immutability are included in the ICV calculation. See the IPv6 specification [DH98] for more information.",
+      "zh-CHS": "选项类型和选项数据Len包含在ICV计算中。位表示不变性的所有选项都包括在ICV计算中。有关更多信息，请参阅IPv6规范[DH98]。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.1.2.3. Extension Headers Not Containing Options",
+      "section_title": true,
+      "zh-CHS": "3.3.3.1.2.3. 扩展标题不包含选项"
+    },
+    {
+      "indent": 3,
+      "text": "The IPv6 extension headers that do not contain options are explicitly listed in Appendix A and classified as immutable, mutable but predictable, or mutable.",
+      "zh-CHS": "附录A中明确列出了不包含选项的IPv6扩展头，并将其分类为不可变、可变但可预测或可变。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.2. Padding and Extended Sequence Numbers",
+      "section_title": true,
+      "zh-CHS": "3.3.3.2. 填充和扩展序列号"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.2.1. ICV Padding",
+      "section_title": true,
+      "zh-CHS": "3.3.3.2.1. ICV填充"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned in Section 2.6, the ICV field may include explicit padding if required to ensure that the AH header is a multiple of 32 bits (IPv4) or 64 bits (IPv6). If padding is required, its length is determined by two factors:",
+      "zh-CHS": "如第2.6节所述，如果需要确保AH报头是32位（IPv4）或64位（IPv6）的倍数，ICV字段可能包括显式填充。如果需要填充，其长度由两个因素决定："
+    },
+    {
+      "indent": 11,
+      "text": "- the length of the ICV - the IP protocol version (v4 or v6)",
+      "zh-CHS": "- ICV的长度-IP协议版本（v4或v6）"
+    },
+    {
+      "indent": 3,
+      "text": "For example, if the output of the selected algorithm is 96 bits, no padding is required for IPv4 or IPv6. However, if a different length ICV is generated, due to use of a different algorithm, then padding may be required depending on the length and IP protocol version. The content of the padding field is arbitrarily selected by the sender. (The padding is arbitrary, but need not be random to achieve security.) These padding bytes are included in the ICV calculation, counted as part of the Payload Length, and transmitted at the end of the ICV field to enable the receiver to perform the ICV calculation. Inclusion of padding in excess of the minimum amount required to satisfy IPv4/IPv6 alignment requirements is prohibited.",
+      "zh-CHS": "例如，如果所选算法的输出为96位，则IPv4或IPv6不需要填充。但是，如果由于使用不同的算法而生成不同长度的ICV，则可能需要根据长度和IP协议版本进行填充。填充字段的内容由发送方任意选择。（填充是任意的，但不必是随机的，以实现安全性。）这些填充字节包括在ICV计算中，作为有效负载长度的一部分计算，并在ICV字段的末尾发送，以使接收器能够执行ICV计算。禁止包含超过满足IPv4/IPv6对齐要求所需的最小填充量的填充。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3.2.2. Implicit Packet Padding and ESN",
+      "section_title": true,
+      "zh-CHS": "3.3.3.2.2. 隐式数据包填充与ESN"
+    },
+    {
+      "indent": 3,
+      "text": "If the ESN option is elected for an SA, then the high-order 32 bits of the ESN must be included in the ICV computation. For purposes of ICV computation, these bits are appended (implicitly) immediately after the end of the payload, and before any implicit packet padding.",
+      "zh-CHS": "如果为SA选择ESN选项，则ESN的高阶32位必须包括在ICV计算中。为了ICV计算的目的，这些位被（隐式地）附加在有效载荷结束之后，并且在任何隐式分组填充之前。"
+    },
+    {
+      "indent": 3,
+      "text": "For some integrity algorithms, the byte string over which the ICV computation is performed must be a multiple of a blocksize specified by the algorithm. If the IP packet length (including AH and the 32 high-order bits of the ESN, if enabled) does not match the blocksize requirements for the algorithm, implicit padding MUST be appended to the end of the packet, prior to ICV computation. The padding octets",
+      "zh-CHS": "对于某些完整性算法，执行ICV计算的字节字符串必须是算法指定的块大小的倍数。如果IP数据包长度（包括AH和ESN的32个高阶位，如果启用）与算法的块大小要求不匹配，则必须在ICV计算之前将隐式填充附加到数据包的末尾。填充八位组"
+    },
+    {
+      "indent": 3,
+      "text": "MUST have a value of zero. The blocksize (and hence the length of the padding) is specified by the algorithm specification. This padding is not transmitted with the packet. The document that defines an integrity algorithm MUST be consulted to determine if implicit padding is required as described above. If the document does not specify an answer to this, then the default is to assume that implicit padding is required (as needed to match the packet length to the algorithm's blocksize.) If padding bytes are needed but the algorithm does not specify the padding contents, then the padding octets MUST have a value of zero.",
+      "zh-CHS": "必须具有零的值。块大小（以及填充的长度）由算法规范指定。此填充不随数据包一起传输。必须查阅定义完整性算法的文档，以确定是否需要如上所述的隐式填充。如果文档未对此指定答案，则默认情况下假定需要隐式填充（根据需要将数据包长度与算法的块大小匹配）。如果需要填充字节，但算法未指定填充内容，则填充八位字节的值必须为零。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.4. Fragmentation",
+      "section_title": true,
+      "zh-CHS": "3.3.4. 碎裂"
+    },
+    {
+      "indent": 3,
+      "text": "If required, IP fragmentation occurs after AH processing within an IPsec implementation. Thus, transport mode AH is applied only to whole IP datagrams (not to IP fragments). An IPv4 packet to which AH has been applied may itself be fragmented by routers en route, and such fragments must be reassembled prior to AH processing at a receiver. (This does not apply to IPv6, where there is no router-initiated fragmentation.) In tunnel mode, AH is applied to an IP packet, the payload of which may be a fragmented IP packet. For example, a security gateway or a \"bump-in-the-stack\" or \"bump-in-the-wire\" IPsec implementation (see the Security Architecture document for details) may apply tunnel mode AH to such fragments.",
+      "zh-CHS": "如果需要，IP碎片会在IPsec实现中的AH处理之后发生。因此，传输模式AH仅应用于整个IP数据报（而不是IP片段）。已应用AH的IPv4数据包本身可能在路由中被路由器分段，并且在接收器处进行AH处理之前，必须重新组装这些分段。（这不适用于没有路由器启动的分段的IPv6。）在隧道模式下，AH应用于IP数据包，其有效负载可能是分段的IP数据包。例如，安全网关或“堆栈中的通气”或“线路中的通气”IPsec实现（有关详细信息，请参阅安全体系结构文档）可以将隧道模式AH应用于此类片段。"
+    },
+    {
+      "indent": 3,
+      "text": "NOTE: For transport mode -- As mentioned at the end of Section 3.1.1, bump-in-the-stack and bump-in-the-wire implementations may have to first reassemble a packet fragmented by the local IP layer, then apply IPsec, and then fragment the resulting packet.",
+      "zh-CHS": "注意：对于传输模式——如第3.1.1节末尾所述，堆栈中的bump和有线实现中的bump可能必须首先重新组装由本地IP层分割的数据包，然后应用IPsec，然后分割生成的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "NOTE: For IPv6 -- For bump-in-the-stack and bump-in-the-wire implementations, it will be necessary to examine all the extension headers to determine if there is a fragmentation header and hence that the packet needs reassembling prior to IPsec processing.",
+      "zh-CHS": "注意：对于IPv6——对于堆栈中的bump和有线实现中的bump，有必要检查所有扩展头，以确定是否存在分段头，因此需要在IPsec处理之前重新组装数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Fragmentation, whether performed by an IPsec implementation or by routers along the path between IPsec peers, significantly reduces performance. Moreover, the requirement for an AH receiver to accept fragments for reassembly creates denial of service vulnerabilities. Thus, an AH implementation MAY choose to not support fragmentation and may mark transmitted packets with the DF bit, to facilitate Path MTU (PMTU) discovery. In any case, an AH implementation MUST support generation of ICMP PMTU messages (or equivalent internal signaling for native host implementations) to minimize the likelihood of fragmentation. Details of the support required for MTU management are contained in the Security Architecture document.",
+      "zh-CHS": "分段，无论是由IPsec实现还是由IPsec对等点之间的路由器执行，都会显著降低性能。此外，AH接收器接受重组碎片的要求造成了拒绝服务漏洞。因此，AH实现可以选择不支持分段，并且可以用DF比特标记发送的分组，以促进路径MTU（PMTU）发现。在任何情况下，AH实现必须支持生成ICMP PMTU消息（或本机主机实现的等效内部信令），以最大限度地降低碎片化的可能性。MTU管理所需支持的详细信息包含在安全体系结构文档中。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Inbound Packet Processing",
+      "section_title": true,
+      "zh-CHS": "3.4. 入站数据包处理"
+    },
+    {
+      "indent": 3,
+      "text": "If there is more than one IPsec header/extension present, the processing for each one ignores (does not zero, does not use) any IPsec headers applied subsequent to the header being processed.",
+      "zh-CHS": "如果存在多个IPsec头/扩展，则对每个IPsec头/扩展的处理将忽略（不为零，不使用）在处理头之后应用的任何IPsec头。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.1. Reassembly",
+      "section_title": true,
+      "zh-CHS": "3.4.1. 重新组装"
+    },
+    {
+      "indent": 3,
+      "text": "If required, reassembly is performed prior to AH processing. If a packet offered to AH for processing appears to be an IP fragment, i.e., the OFFSET field is nonzero or the MORE FRAGMENTS flag is set, the receiver MUST discard the packet; this is an auditable event. The audit log entry for this event SHOULD include the SPI value, date/time, Source Address, Destination Address, and (in IPv6) the Flow ID.",
+      "zh-CHS": "如果需要，在AH处理之前进行重新组装。如果提供给AH进行处理的数据包似乎是IP片段，即偏移字段为非零或设置了“更多片段”标志，则接收器必须丢弃该数据包；这是一个可审核的事件。此事件的审核日志条目应包括SPI值、日期/时间、源地址、目标地址和（在IPv6中）流ID。"
+    },
+    {
+      "indent": 3,
+      "text": "NOTE: For packet reassembly, the current IPv4 spec does NOT require either the zeroing of the OFFSET field or the clearing of the MORE FRAGMENTS flag. In order for a reassembled packet to be processed by IPsec (as opposed to discarded as an apparent fragment), the IP code must do these two things after it reassembles a packet.",
+      "zh-CHS": "注意：对于数据包重组，当前的IPv4规范不需要对偏移量字段进行调零，也不需要清除“更多碎片”标志。为了让IPsec处理重新组装的数据包（而不是作为明显的片段丢弃），IP代码必须在重新组装数据包后完成这两件事。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.2. Security Association Lookup",
+      "section_title": true,
+      "zh-CHS": "3.4.2. 安全关联查找"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receipt of a packet containing an IP Authentication Header, the receiver determines the appropriate (unidirectional) SA via lookup in the SAD. For a unicast SA, this determination is based on the SPI or the SPI plus protocol field, as described in Section 2.4. If an implementation supports multicast traffic, the destination address is also employed in the lookup (in addition to the SPI), and the sender address also may be employed, as described in Section 2.4. (This process is described in more detail in the Security Architecture document.) The SAD entry for the SA also indicates whether the Sequence Number field will be checked and whether 32- or 64-bit sequence numbers are employed for the SA. The SAD entry for the SA also specifies the algorithm(s) employed for ICV computation, and indicates the key required to validate the ICV.",
+      "zh-CHS": "在接收到包含IP认证报头的分组后，接收器通过在SAD中查找来确定适当的（单向）SA。对于单播SA，该确定基于SPI或SPI plus协议字段，如第2.4节所述。如第2.4节所述，如果一个实现支持多播通信，那么在查找中也会使用目的地地址（除了SPI之外），也可以使用发送方地址。（此过程在安全体系结构文档中有更详细的描述。）SA的SAD条目还指示是否将检查序列号字段，以及SA是否使用32位或64位序列号。SA的SAD条目还指定了用于ICV计算的算法，并指示验证ICV所需的密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "If no valid Security Association exists for this packet the receiver MUST discard the packet; this is an auditable event. The audit log entry for this event SHOULD include the SPI value, date/time, Source Address, Destination Address, and (in IPv6) the Flow ID.",
+      "zh-CHS": "如果此数据包不存在有效的安全关联，则接收方必须丢弃该数据包；这是一个可审核的事件。此事件的审核日志条目应包括SPI值、日期/时间、源地址、目标地址和（在IPv6中）流ID。"
+    },
+    {
+      "indent": 3,
+      "text": "(Note that SA management traffic, such as IKE packets, does not need to be processed based on SPI, i.e., one can de-multiplex this traffic separately based on Next Protocol and Port fields, for example.)",
+      "zh-CHS": "（请注意，SA管理流量（例如IKE数据包）不需要基于SPI进行处理，即，可以基于下一个协议和端口字段分别对该流量进行解复用。）"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.3. Sequence Number Verification",
+      "section_title": true,
+      "zh-CHS": "3.4.3. 序列号验证"
+    },
+    {
+      "indent": 3,
+      "text": "All AH implementations MUST support the anti-replay service, though its use may be enabled or disabled by the receiver on a per-SA basis. Anti-replay is applicable to unicast as well as multicast SAs. However, this standard specifies no mechanisms for providing anti-replay for a multi-sender SA (unicast or multicast). In the absence of negotiation (or manual configuration) of an anti-replay mechanism for such an SA, it is recommended that sender and receiver checking of the Sequence Number for the SA be disabled (via negotiation or manual configuration), as noted below.",
+      "zh-CHS": "所有AH实现都必须支持反重播服务，尽管其使用可能由接收方根据每个SA启用或禁用。反重播适用于单播和多播SAs。但是，本标准未规定为多发送方SA（单播或多播）提供反重播的机制。在没有针对此类SA的反重播机制的协商（或手动配置）的情况下，建议禁用对SA序列号的发送方和接收方检查（通过协商或手动配置），如下所述。"
+    },
+    {
+      "indent": 3,
+      "text": "If the receiver does not enable anti-replay for an SA, no inbound checks are performed on the Sequence Number. However, from the perspective of the sender, the default is to assume that anti-replay is enabled at the receiver. To avoid having the sender do unnecessary sequence number monitoring and SA setup (see Section 3.3.2, \"Sequence Number Generation\"), if an SA establishment protocol such as IKE is employed, the receiver SHOULD notify the sender, during SA establishment, if the receiver will not provide anti-replay protection.",
+      "zh-CHS": "如果接收器未为SA启用反重播，则不会对序列号执行入站检查。但是，从发送方的角度来看，默认情况是假定在接收方启用了反重播。为避免发送方进行不必要的序列号监控和SA设置（参见第3.3.2节“序列号生成”），如果采用了诸如IKE之类的SA建立协议，则接收方应在SA建立期间通知发送方，如果接收方不提供防重放保护。"
+    },
+    {
+      "indent": 3,
+      "text": "If the receiver has enabled the anti-replay service for this SA, the receive packet counter for the SA MUST be initialized to zero when the SA is established. For each received packet, the receiver MUST verify that the packet contains a Sequence Number that does not duplicate the Sequence Number of any other packets received during the life of this SA. This SHOULD be the first AH check applied to a packet after it has been matched to an SA, to speed rejection of duplicate packets.",
+      "zh-CHS": "如果接收器已为此SA启用了反重播服务，则在建立SA时，SA的接收数据包计数器必须初始化为零。对于每个接收到的分组，接收机必须验证该分组包含的序列号与在该SA的生命周期内接收到的任何其他分组的序列号不重复。这应该是与SA匹配后应用于数据包的第一个AH检查，以加快重复数据包的拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "Duplicates are rejected through the use of a sliding receive window. How the window is implemented is a local matter, but the following text describes the functionality that the implementation must exhibit.",
+      "zh-CHS": "通过使用滑动接收窗口拒绝重复项。如何实现窗口是一个局部问题，但是下面的文本描述了实现必须展示的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"right\" edge of the window represents the highest, validated Sequence Number value received on this SA. Packets that contain sequence numbers lower than the \"left\" edge of the window are rejected. Packets falling within the window are checked against a list of received packets within the window.",
+      "zh-CHS": "窗口的“右”边缘表示此SA上接收到的最高已验证序列号值。包含序列号低于窗口“左”边缘的数据包将被拒绝。根据窗口内接收的数据包列表检查窗口内的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "If the ESN option is selected for an SA, only the low-order 32 bits of the sequence number are explicitly transmitted, but the receiver employs the full sequence number computed using the high-order 32 bits for the indicated SA (from his local counter) when checking the received Sequence Number against the receive window. In constructing the full sequence number, if the low-order 32 bits carried in the",
+      "zh-CHS": "如果为SA选择ESN选项，则仅显式发送序列号的低阶32位，但在对照接收窗口检查接收序列号时，接收器使用使用所指示SA的高阶32位计算的完整序列号（从其本地计数器）。在构造完整序列号时，如果"
+    },
+    {
+      "indent": 3,
+      "text": "packet are lower in value than the low-order 32 bits of the receiver's sequence number counter, the receiver assumes that the high-order 32 bits have been incremented, moving to a new sequence number subspace. (This algorithm accommodates gaps in reception for a single SA as large as 2**32-1 packets. If a larger gap occurs, additional, heuristic checks for re-synchronization of the receiver's sequence number counter MAY be employed, as described in Appendix B.)",
+      "zh-CHS": "如果数据包的值低于接收机序列号计数器的低阶32位，则接收机假定高阶32位已递增，移动到新的序列号子空间。（该算法适用于单个SA的接收间隔，最大为2**32-1个数据包。如果出现较大的间隔，可采用额外的启发式检查，以重新同步接收器的序列号计数器，如附录B所述。）"
+    },
+    {
+      "indent": 3,
+      "text": "If the received packet falls within the window and is not a duplicate, or if the packet is to the right of the window, then the receiver proceeds to ICV verification. If the ICV validation fails, the receiver MUST discard the received IP datagram as invalid. This is an auditable event. The audit log entry for this event SHOULD include the SPI value, date/time, Source Address, Destination Address, the Sequence Number, and (in IPv6) the Flow ID. The receive window is updated only if the ICV verification succeeds.",
+      "zh-CHS": "如果接收到的数据包落在窗口内并且不是重复的，或者如果数据包在窗口的右侧，则接收机进行ICV验证。如果ICV验证失败，接收器必须将接收到的IP数据报视为无效而丢弃。这是一个可审核的事件。此事件的审核日志条目应包括SPI值、日期/时间、源地址、目标地址、序列号和（在IPv6中）流ID。仅当ICV验证成功时，才会更新接收窗口。"
+    },
+    {
+      "indent": 3,
+      "text": "A MINIMUM window size of 32 packets MUST be supported, but a window size of 64 is preferred and SHOULD be employed as the default. Another window size (larger than the MINIMUM) MAY be chosen by the receiver. (The receiver does NOT notify the sender of the window size.) The receive window size should be increased for higher-speed environments, irrespective of assurance issues. Values for minimum and recommended receive window sizes for very high-speed (e.g., multi-gigabit/second) devices are not specified by this standard.",
+      "zh-CHS": "必须支持32个数据包的最小窗口大小，但首选64个窗口大小，并应作为默认值使用。接收器可以选择另一个窗口大小（大于最小值）。（接收方不通知发送方窗口大小。）对于更高速度的环境，无论保证问题如何，都应增加接收窗口大小。本标准未规定超高速（例如，千兆位/秒）设备的最小和推荐接收窗口大小值。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.4. Integrity Check Value Verification",
+      "section_title": true,
+      "zh-CHS": "3.4.4. 完整性检查值验证"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver computes the ICV over the appropriate fields of the packet, using the specified integrity algorithm, and verifies that it is the same as the ICV included in the ICV field of the packet. Details of the computation are provided below.",
+      "zh-CHS": "接收器使用指定的完整性算法，通过数据包的适当字段计算ICV，并验证它是否与数据包的ICV字段中包含的ICV相同。计算详情如下。"
+    },
+    {
+      "indent": 3,
+      "text": "If the computed and received ICVs match, then the datagram is valid, and it is accepted. If the test fails, then the receiver MUST discard the received IP datagram as invalid. This is an auditable event. The audit log entry SHOULD include the SPI value, date/time received, Source Address, Destination Address, and (in IPv6) the Flow ID.",
+      "zh-CHS": "如果计算出的ICV与接收到的ICV匹配，则数据报有效，并被接受。如果测试失败，则接收器必须将接收到的IP数据报视为无效而丢弃。这是一个可审核的事件。审核日志条目应包括SPI值、接收日期/时间、源地址、目标地址和（在IPv6中）流ID。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementation Note:",
+      "zh-CHS": "实施说明："
+    },
+    {
+      "indent": 6,
+      "text": "Implementations can use any set of steps that results in the same result as the following set of steps. Begin by saving the ICV value and replacing it (but not any ICV field padding) with zero. Zero all other fields that may have been modified during transit. (See Section 3.3.3.1, \"Handling Mutable Fields\", for a discussion of which fields are zeroed before performing the ICV calculation.)",
+      "zh-CHS": "实现可以使用与以下步骤集产生相同结果的任何步骤集。首先保存ICV值并将其替换为零（但不是任何ICV字段填充）。将传输期间可能已修改的所有其他字段归零。（参见第3.3.3.1节“处理可变字段”，了解在执行ICV计算之前哪些字段归零的讨论。）"
+    },
+    {
+      "indent": 6,
+      "text": "If the ESN option is elected for this SA, append the high-order 32 bits of the ESN after the end of the packet. Check the overall length of the packet (as described above), and if it requires implicit padding based on the requirements of the integrity algorithm, append zero-filled bytes to the end of the packet (after the ESN if present) as required. Perform the ICV computation and compare the result with the saved value, using the comparison rules defined by the algorithm specification. (For example, if a digital signature and one-way hash are used for the ICV computation, the matching process is more complex.)",
+      "zh-CHS": "如果为该SA选择ESN选项，则在数据包结束后附加ESN的高阶32位。检查数据包的总长度（如上所述），如果它需要基于完整性算法的要求进行隐式填充，则根据需要将零填充字节追加到数据包的末尾（在ESN之后，如果存在）。使用算法规范定义的比较规则，执行ICV计算并将结果与保存的值进行比较。（例如，如果数字签名和单向散列用于ICV计算，则匹配过程更复杂。）"
+    },
+    {
+      "indent": 0,
+      "text": "4. Auditing",
+      "section_title": true,
+      "zh-CHS": "4. 审计"
+    },
+    {
+      "indent": 3,
+      "text": "Not all systems that implement AH will implement auditing. However, if AH is incorporated into a system that supports auditing, then the AH implementation MUST also support auditing and MUST allow a system administrator to enable or disable auditing for AH. For the most part, the granularity of auditing is a local matter. However, several auditable events are identified in this specification, and for each of these events a minimum set of information that SHOULD be included in an audit log is defined. Additional information also MAY be included in the audit log for each of these events, and additional events, not explicitly called out in this specification, also MAY result in audit log entries. There is no requirement for the receiver to transmit any message to the purported sender in response to the detection of an auditable event, because of the potential to induce denial of service via such action.",
+      "zh-CHS": "并非所有实施AH的系统都将实施审计。但是，如果AH集成到支持审核的系统中，则AH实现还必须支持审核，并且必须允许系统管理员启用或禁用AH审核。在大多数情况下，审计的粒度是一个局部问题。但是，在本规范中确定了几个可审核事件，并且为每个事件定义了应包含在审核日志中的最小信息集。审计日志中还可能包含这些事件的附加信息，本规范中未明确指出的附加事件也可能导致审计日志条目。不要求接收方在检测到可审计事件时向声称的发送方发送任何消息，因为通过这种行为可能导致拒绝服务。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Conformance Requirements",
+      "section_title": true,
+      "zh-CHS": "5. 一致性要求"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations that claim conformance or compliance with this specification MUST fully implement the AH syntax and processing described here for unicast traffic, and MUST comply with all requirements of the Security Architecture document [Ken-Arch]. Additionally, if an implementation claims to support multicast traffic, it MUST comply with the additional requirements specified for support of such traffic. If the key used to compute an ICV is manually distributed, correct provision of the anti-replay service would require correct maintenance of the counter state at the sender, until the key is replaced, and there likely would be no automated recovery provision if counter overflow were imminent. Thus, a compliant implementation SHOULD NOT provide this service in conjunction with SAs that are manually keyed.",
+      "zh-CHS": "声明符合或符合本规范的实现必须完全实现此处描述的单播通信的AH语法和处理，并且必须符合安全体系结构文档[Ken Arch]的所有要求。此外，如果一个实现声称支持多播通信，那么它必须遵守为支持这种通信而指定的附加要求。如果用于计算ICV的密钥是手动分发的，则正确提供反重放服务需要在发送方正确维护计数器状态，直到密钥被替换，并且如果计数器溢出即将发生，则可能不会提供自动恢复。因此，兼容实现不应与手动键入的SAs一起提供此服务。"
+    },
+    {
+      "indent": 3,
+      "text": "The mandatory-to-implement algorithms for use with AH are described in a separate RFC [Eas04], to facilitate updating the algorithm requirements independently from the protocol per se. Additional algorithms, beyond those mandated for AH, MAY be supported.",
+      "zh-CHS": "在单独的RFC[Eas04]中描述了实现AH使用算法的强制性要求，以便于独立于协议本身更新算法要求。除AH要求的算法外，还可能支持其他算法。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Security is central to the design of this protocol, and these security considerations permeate the specification. Additional security-relevant aspects of using the IPsec protocol are discussed in the Security Architecture document.",
+      "zh-CHS": "安全性是该协议设计的核心，这些安全考虑贯穿于规范中。安全体系结构文档中讨论了使用IPsec协议的其他安全相关方面。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Differences from RFC 2402",
+      "section_title": true,
+      "zh-CHS": "7. 与RFC 2402的区别"
+    },
+    {
+      "indent": 3,
+      "text": "This document differs from RFC 2402 [RFC2402] in the following ways.",
+      "zh-CHS": "本文件与RFC 2402[RFC2402]的不同之处如下。"
+    },
+    {
+      "indent": 8,
+      "text": "o SPI -- modified to specify a uniform algorithm for SAD lookup for unicast and multicast SAs, covering a wider range of multicast technologies. For unicast, the SPI may be used alone to select an SA, or may be combined with the protocol, at the option of the receiver. For multicast SAs, the SPI is combined with the destination address, and optionally the source address, to select an SA. o Extended Sequence Number -- added a new option for a 64-bit sequence number for very high-speed communications. Clarified sender and receiver processing requirements for multicast SAs and multi-sender SAs. o Moved references to mandatory algorithms to a separate document [Eas04].",
+      "zh-CHS": "o SPI——修改为指定单播和多播SA的SAD查找的统一算法，涵盖更广泛的多播技术。对于单播，SPI可单独用于选择SA，或可根据接收机的选择与协议组合。对于多播SA，SPI与目标地址（可选）和源地址组合以选择SA。o扩展序列号——为用于高速通信的64位序列号添加了一个新选项。阐明了多播SAs和多发送方SAs的发送方和接收方处理要求。o将对强制算法的引用移至单独的文件[Eas04]。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The author would like to acknowledge the contributions of Ran Atkinson, who played a critical role in initial IPsec activities, and who authored the first series of IPsec standards: RFCs 1825-1827. Karen Seo deserves special thanks for providing help in the editing of this and the previous version of this specification. The author also would like to thank the members of the IPsec and MSEC working groups who have contributed to the development of this protocol specification.",
+      "zh-CHS": "作者要感谢Ran Atkinson的贡献，他在最初的IPsec活动中发挥了关键作用，并编写了第一系列IPsec标准：RFCs 1825-1827。Karen Seo值得特别感谢，感谢您在编辑本规范和本规范先前版本时提供的帮助。作者还要感谢IPsec和MSEC工作组的成员，他们为本协议规范的开发做出了贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[Bra97] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Level\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[Bra97]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DH98] Deering, S. and R. Hinden, \"Internet Protocol, Version 6 (IPv6) Specification\", RFC 2460, December 1998.",
+      "zh-CHS": "[DH98]Deering，S.和R.Hinden，“互联网协议，第6版（IPv6）规范”，RFC 2460，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Eas04] 3rd Eastlake, D., \"Cryptographic Algorithm Implementation Requirements for Encapsulating Security Payload (ESP) and Authentication Header (AH)\", RFC 4305, December 2005.",
+      "zh-CHS": "[Eas04]第三届Eastlake，D.，“封装安全有效载荷（ESP）和认证头（AH）的密码算法实现要求”，RFC 4305，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Ken-Arch] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[Ken Arch]Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC791] Postel, J., \"Internet Protocol\", STD 5, RFC 791, September 1981.",
+      "zh-CHS": "[RFC791]Postel，J.，“互联网协议”，标准5，RFC7911981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1108] Kent, S., \"U.S. Department of Defense Security Options for the Internet Protocol\", RFC 1108, November 1991.",
+      "zh-CHS": "[RFC1108]Kent，S.，“美国国防部互联网协议的安全选项”，RFC1108，1991年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[AES] Advanced Encryption Standard (AES), Federal Information Processing Standard 197, National Institutes of Standards and Technology, November 26, 2001.",
+      "zh-CHS": "[AES]高级加密标准（AES），联邦信息处理标准197，美国国家标准与技术研究院，2001年11月26日。"
+    },
+    {
+      "indent": 3,
+      "text": "[HC03] Holbrook, H. and B. Cain, \"Source Specific Multicast for IP\", Work in Progress, November 3, 2002.",
+      "zh-CHS": "[HC03]Holbrook，H.和B.Cain，“IP的源特定多播”，正在进行的工作，2002年11月3日。"
+    },
+    {
+      "indent": 3,
+      "text": "[IKEv2] Kaufman, C., Ed., \"Internet Key Exchange (IKEv2) Protocol\", RFC 4306, December 2005.",
+      "zh-CHS": "[IKEv2]考夫曼，C.，编辑，“因特网密钥交换（IKEv2）协议”，RFC4306，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Ken-ESP] Kent, S., \"IP Encapsulating Security Payload (ESP)\", RFC 4303, December 2005.",
+      "zh-CHS": "[Ken ESP]Kent，S.，“IP封装安全有效负载（ESP）”，RFC 4303，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NBBB98] Nichols, K., Blake, S., Baker, F., and D. Black, \"Definition of the Differentiated Services Field (DS Field) in the IPv4 and IPv6 Headers\", RFC 2474, December 1998.",
+      "zh-CHS": "[NBBB98]Nichols，K.，Blake，S.，Baker，F.，和D.Black，“IPv4和IPv6报头中区分服务字段（DS字段）的定义”，RFC 24741998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFB01] Ramakrishnan, K., Floyd, S., and D. Black, \"The Addition of Explicit Congestion Notification (ECN) to IP\", RFC 3168, September 2001.",
+      "zh-CHS": "[RFB01]Ramakrishnan，K.，Floyd，S.，和D.Black，“向IP添加显式拥塞通知（ECN）”，RFC 3168，2001年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1063] Mogul, J., Kent, C., Partridge, C., and K. McCloghrie, \"IP MTU discovery options\", RFC 1063, July 1988.",
+      "zh-CHS": "[RFC1063]Mogul，J.，Kent，C.，Partridge，C.，和K.McCloghrie，“IP MTU发现选项”，RFC 1063，1988年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1122] Braden, R., \"Requirements for Internet Hosts - Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[RFC1122]Braden，R.，“互联网主机的要求-通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1191] Mogul, J. and S. Deering, \"Path MTU discovery\", RFC 1191, November 1990.",
+      "zh-CHS": "[RFC1191]Mogul，J.和S.Deering，“MTU发现路径”，RFC1191，1990年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1385] Wang, Z., \"EIP: The Extended Internet Protocol\", RFC 1385, November 1992.",
+      "zh-CHS": "[RFC1385]Wang，Z.，“EIP：扩展互联网协议”，RFC1385，1992年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1393] Malkin, G., \"Traceroute Using an IP Option\", RFC 1393, January 1993.",
+      "zh-CHS": "[RFC1393]Malkin，G.“使用IP选项的跟踪路由”，RFC 1393，1993年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1770] Graff, C., \"IPv4 Option for Sender Directed Multi-Destination Delivery\", RFC 1770, March 1995.",
+      "zh-CHS": "[RFC1770]Graff，C.，“发送方定向多目的地交付的IPv4选项”，RFC1770，1995年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2113] Katz, D., \"IP Router Alert Option\", RFC 2113, February 1997.",
+      "zh-CHS": "[RFC2113]Katz，D.，“IP路由器警报选项”，RFC 21131997年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2402] Kent, S. and R. Atkinson, \"IP Authentication Header\", RFC 2402, November 1998.",
+      "zh-CHS": "[RFC2402]Kent，S.和R.Atkinson，“IP认证头”，RFC 2402，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3547] Baugher, M., Weis, B., Hardjono, T., and H. Harney, \"The Group Domain of Interpretation\", RFC 3547, July 2003.",
+      "zh-CHS": "[RFC3547]Baugher，M.，Weis，B.，Hardjono，T.，和H.Harney，“解释的集团领域”，RFC 3547，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3740] Hardjono, T. and B. Weis, \"The Multicast Group Security Architecture\", RFC 3740, March 2004.",
+      "zh-CHS": "[RFC3740]Hardjono，T.和B.Weis，“多播组安全架构”，RFC 3740，2004年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A: Mutability of IP Options/Extension Headers",
+      "zh-CHS": "附录A：IP选项/扩展头的可变性"
+    },
+    {
+      "indent": 0,
+      "text": "A1. IPv4 Options",
+      "zh-CHS": "A1。IPv4选项"
+    },
+    {
+      "indent": 3,
+      "text": "This table shows how the IPv4 options are classified with regard to \"mutability\". Where two references are provided, the second one supercedes the first. This table is based in part on information provided in RFC 1700, \"ASSIGNED NUMBERS\", (October 1994).",
+      "zh-CHS": "此表显示了IPv4选项如何根据“可变性”进行分类。如果提供了两个参考，则第二个参考将取代第一个参考。本表部分基于RFC 1700“分配编号”（1994年10月）中提供的信息。"
+    },
+    {
+      "indent": 4,
+      "text": "           Opt.\nCopy Class  #   Name                       Reference\n---- ----- ---  -------------------------  --------\nIMMUTABLE -- included in ICV calculation\n  0   0     0   End of Options List        [RFC791]\n  0   0     1   No Operation               [RFC791]\n  1   0     2   Security                   [RFC1108] (historic but\n                                           in use)\n  1   0     5   Extended Security          [RFC1108] (historic but\n                                           in use)\n  1   0     6   Commercial Security\n  1   0    20   Router Alert               [RFC2113]\n  1   0    21   Sender Directed Multi-     [RFC1770]\n                Destination Delivery\nMUTABLE -- zeroed\n  1   0      3  Loose Source Route         [RFC791]\n  0   2      4  Time Stamp                 [RFC791]\n  0   0      7  Record Route               [RFC791]\n  1   0      9  Strict Source Route        [RFC791]\n  0   2     18  Traceroute                 [RFC1393]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "EXPERIMENTAL, SUPERCEDED -- zeroed\n  1   0      8  Stream ID                  [RFC791, RFC1122 (Host\n                                           Req)]\n  0   0     11  MTU Probe                  [RFC1063, RFC1191 (PMTU)]\n  0   0     12  MTU Reply                  [RFC1063, RFC1191 (PMTU)]\n  1   0     17  Extended Internet Protocol [RFC1385, DH98 (IPv6)]\n  0   0     10  Experimental Measurement\n  1   2     13  Experimental Flow Control\n  1   0     14  Experimental Access Ctl\n  0   0     15  ???\n  1   0     16  IMI Traffic Descriptor\n  1   0     19  Address Extension",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "NOTE: Use of the Router Alert option is potentially incompatible with use of IPsec. Although the option is immutable, its use implies that each router along a packet's path will \"process\" the packet and consequently might change the packet. This would happen on a hop-by-hop basis as the packet goes from router to router. Prior to",
+      "zh-CHS": "注意：路由器警报选项的使用可能与IPsec的使用不兼容。尽管该选项是不可变的，但它的使用意味着沿着数据包路径的每个路由器将“处理”该数据包，因此可能会更改该数据包。当数据包从一个路由器传送到另一个路由器时，这将在逐跳的基础上发生。之前"
+    },
+    {
+      "indent": 3,
+      "text": "being processed by the application to which the option contents are directed (e.g., Resource Reservation Protocol (RSVP)/Internet Group Management Protocol (IGMP)), the packet should encounter AH processing. However, AH processing would require that each router along the path is a member of a multicast-SA defined by the SPI. This might pose problems for packets that are not strictly source routed, and it requires multicast support techniques not currently available.",
+      "zh-CHS": "在由选项内容指向的应用程序（例如，资源保留协议（RSVP）/互联网组管理协议（IGMP））处理时，数据包应遇到AH处理。然而，AH处理要求路径上的每个路由器都是SPI定义的多播SA的成员。这可能会给没有严格的源路由的数据包带来问题，并且需要目前不可用的多播支持技术。"
+    },
+    {
+      "indent": 3,
+      "text": "NOTE: Addition or removal of security labels (e.g., Basic Security Option (BSO), Extended Security Option (ESO), or Commercial Internet Protocol Security Option (CIPSO)) by systems along a packet's path conflicts with the classification of these IP options as immutable and is incompatible with the use of IPsec.",
+      "zh-CHS": "注意：系统沿数据包路径添加或删除安全标签（例如，基本安全选项（BSO）、扩展安全选项（ESO）或商业互联网协议安全选项（CIPSO））与这些IP选项的分类不一致，并且与IPsec的使用不兼容。"
+    },
+    {
+      "indent": 3,
+      "text": "NOTE: End of Options List options SHOULD be repeated as necessary to ensure that the IP header ends on a 4-byte boundary in order to ensure that there are no unspecified bytes that could be used for a covert channel.",
+      "zh-CHS": "注意：应根据需要重复选项列表的末尾选项，以确保IP标头在4字节边界上结束，以确保没有可用于隐蔽通道的未指定字节。"
+    },
+    {
+      "indent": 0,
+      "text": "A2. IPv6 Extension Headers",
+      "zh-CHS": "A2。IPv6扩展头"
+    },
+    {
+      "indent": 3,
+      "text": "This table shows how the IPv6 extension headers are classified with regard to \"mutability\".",
+      "zh-CHS": "此表显示了IPv6扩展头是如何根据“可变性”进行分类的。"
+    },
+    {
+      "indent": 7,
+      "text": "Option/Extension Name                  Reference\n-----------------------------------    ---------\nMUTABLE BUT PREDICTABLE -- included in ICV calculation\n  Routing (Type 0)                    [DH98]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "BIT INDICATES IF OPTION IS MUTABLE (CHANGES UNPREDICTABLY DURING TRANSIT) Hop-by-Hop options [DH98] Destination options [DH98]",
+      "zh-CHS": "位指示选项是否可变（在传输过程中发生不可预测的变化）逐跳选项[DH98]目标选项[DH98]"
+    },
+    {
+      "indent": 7,
+      "text": "NOT APPLICABLE Fragmentation [DH98]",
+      "zh-CHS": "不适用碎片[DH98]"
+    },
+    {
+      "indent": 3,
+      "text": " Options -- IPv6 options in the Hop-by-Hop and Destination Extension Headers contain a bit that indicates whether the option might change (unpredictably) during transit. For any option for which contents may change en route, the entire \"Option Data\" field must be treated as zero-valued octets when computing or verifying the ICV. The Option Type and Opt Data Len are included in the ICV calculation. All options for which the bit indicates immutability are included in the ICV calculation. See the IPv6 specification [DH98] for more information.",
+      "zh-CHS": "选项--逐跳和目标扩展标头中的IPv6选项包含一个位，指示该选项在传输过程中是否可能发生更改（不可预测）。对于内容可能在途中更改的任何选项，在计算或验证ICV时，必须将整个“选项数据”字段视为零值八位字节。期权类型和期权数据Len包含在ICV计算中。位表示不变性的所有选项都包括在ICV计算中。有关更多信息，请参阅IPv6规范[DH98]。"
+    },
+    {
+      "indent": 3,
+      "text": " Routing (Type 0) -- The IPv6 Routing Header \"Type 0\" will rearrange the address fields within the packet during transit from source to destination. However, the contents of the packet as it will appear at the receiver are known to the sender and to all intermediate hops. Hence, the IPv6 Routing Header \"Type 0\" is included in the Integrity Check Value calculation as mutable but predictable. The sender must order the field so that it appears as it will at the receiver, prior to performing the ICV computation.",
+      "zh-CHS": "路由（类型0）——IPv6路由报头“类型0”将在从源到目标的传输过程中重新排列数据包内的地址字段。然而，发送方和所有中间跳都知道数据包将在接收方出现的内容。因此，IPv6路由头“类型0”作为可变但可预测的内容包含在完整性检查值计算中。在执行ICV计算之前，发送方必须对字段进行排序，使其在接收方显示。"
+    },
+    {
+      "indent": 3,
+      "text": " Fragmentation -- Fragmentation occurs after outbound IPsec processing (Section 3.3) and reassembly occurs before inbound IPsec processing (Section 3.4). So the Fragmentation Extension Header, if it exists, is not seen by IPsec.",
+      "zh-CHS": "碎片——碎片发生在出站IPsec处理（第3.3节）之后，重新组装发生在入站IPsec处理（第3.4节）之前。因此，IPsec看不到碎片扩展头（如果存在）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that on the receive side, the IP implementation could leave a Fragmentation Extension Header in place when it does re-assembly. If this happens, then when AH receives the packet, before doing ICV processing, AH MUST \"remove\" (or skip over) this header and change the previous header's \"Next Header\" field to be the \"Next Header\" field in the Fragmentation Extension Header.",
+      "zh-CHS": "请注意，在接收端，IP实现在重新组装时可能会保留碎片扩展头。如果发生这种情况，那么当AH接收到数据包时，在进行ICV处理之前，AH必须“删除”（或跳过）该报头，并将先前报头的“下一个报头”字段更改为碎片扩展报头中的“下一个报头”字段。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that on the send side, the IP implementation could give the IPsec code a packet with a Fragmentation Extension Header with Offset of 0 (first fragment) and a More Fragments Flag of 0 (last fragment). If this happens, then before doing ICV processing, AH MUST first \"remove\" (or skip over) this header and change the previous header's \"Next Header\" field to be the \"Next Header\" field in the Fragmentation Extension Header.",
+      "zh-CHS": "请注意，在发送端，IP实现可以为IPsec代码提供一个数据包，该数据包具有偏移量为0（第一个片段）的分段扩展头和0（最后一个片段）的更多片段标志。如果发生这种情况，则在执行ICV处理之前，AH必须首先“删除”（或跳过）此标头，并将上一个标头的“下一个标头”字段更改为碎片扩展标头中的“下一个标头”字段。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B: Extended (64-bit) Sequence Numbers",
+      "zh-CHS": "附录B：扩展（64位）序列号"
+    },
+    {
+      "indent": 0,
+      "text": "B1. Overview",
+      "zh-CHS": "B1。概述"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix describes an Extended Sequence Number (ESN) scheme for use with IPsec (ESP and AH) that employs a 64-bit sequence number, but in which only the low-order 32 bits are transmitted as part of each packet. It covers both the window scheme used to detect replayed packets and the determination of the high-order bits of the sequence number that are used both for replay rejection and for computation of the ICV. It also discusses a mechanism for handling loss of synchronization relative to the (not transmitted) high-order bits.",
+      "zh-CHS": "本附录描述了用于IPsec（ESP和AH）的扩展序列号（ESN）方案，该方案采用64位序列号，但在该方案中，每个数据包仅传输低阶32位。它包括用于检测重播分组的窗口方案和用于重播拒绝和ICV计算的序列号的高阶位的确定。它还讨论了处理相对于（未传输）高阶位的同步丢失的机制。"
+    },
+    {
+      "indent": 0,
+      "text": "B2. Anti-Replay Window",
+      "zh-CHS": "B2。防重播窗口"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver will maintain an anti-replay window of size W. This window will limit how far out of order a packet can be, relative to the packet with the highest sequence number that has been authenticated so far. (No requirement is established for minimum or recommended sizes for this window, beyond the 32- and 64-packet values already established for 32-bit sequence number windows. However, it is suggested that an implementer scale these values consistent with the interface speed supported by an implementation that makes use of the ESN option. Also, the algorithm described below assumes that the window is no greater than 2^31 packets in width.) All 2^32 sequence numbers associated with any fixed value for the high-order 32 bits (Seqh) will hereafter be called a sequence number subspace. The following table lists pertinent variables and their definitions.",
+      "zh-CHS": "接收器将保持一个大小为W的反重播窗口。该窗口将限制一个数据包相对于迄今为止已通过身份验证的序列号最高的数据包的无序程度。（除了已经为32位序列号窗口建立的32和64数据包值外，没有为此窗口建立最小或建议的大小要求。但是，建议实现者根据使用ESN选项的实现所支持的接口速度来缩放这些值。此外下面描述的算法假设窗口宽度不大于2^31个数据包。）所有与高阶32位（Seqh）的任何固定值相关联的2^32序列号将在下文中称为序列号子空间。下表列出了相关变量及其定义。"
+    },
+    {
+      "indent": 8,
+      "text": "Var.   Size\nName  (bits)             Meaning\n----  ------   ---------------------------\nW       32     Size of window\nT       64     Highest sequence number authenticated so far,\n               upper bound of window\n  Tl      32     Lower 32 bits of T\n  Th      32     Upper 32 bits of T\nB       64     Lower bound of window\n  Bl      32     Lower 32 bits of B\n  Bh      32     Upper 32 bits of B\nSeq     64     Sequence Number of received packet\n  Seql    32     Lower 32 bits of Seq\n  Seqh    32     Upper 32 bits of Seq",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When performing the anti-replay check, or when determining which high-order bits to use to authenticate an incoming packet, there are two cases:",
+      "zh-CHS": "在执行反重放检查时，或在确定用于验证传入数据包的高阶位时，有两种情况："
+    },
+    {
+      "indent": 5,
+      "text": "+ Case A: Tl >= (W - 1). In this case, the window is within one sequence number subspace. (See Figure 1) + Case B: Tl < (W - 1). In this case, the window spans two sequence number subspaces. (See Figure 2)",
+      "zh-CHS": "+ 案例A:Tl>=（W-1）。在这种情况下，窗口位于一个序列号子空间内。（见图1）+案例B:Tl<（W-1）。在这种情况下，窗口跨越两个序列号子空间。（见图2）"
+    },
+    {
+      "indent": 3,
+      "text": "In the figures below, the bottom line (\"----\") shows two consecutive\nsequence number subspaces, with zeros indicating the beginning of\neach subspace.  The two shorter lines above it show the higher-order\nbits that apply.  The \"====\" represents the window.  The \"****\"\nrepresents future sequence numbers, i.e., those beyond the current\nhighest sequence number authenticated (ThTl).",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Th+1                         *********",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Th               =======*****",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "--0--------+-----+-----0--------+-----------0--\n           Bl    Tl            Bl\n                          (Bl+2^32) mod 2^32",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 28,
+      "text": "Figure 1 -- Case A",
+      "zh-CHS": "图1——案例A"
+    },
+    {
+      "indent": 8,
+      "text": "Th                           ====**************",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Th-1                      ===",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "--0-----------------+--0--+--------------+--0--\n                    Bl    Tl            Bl\n                                   (Bl+2^32) mod 2^32",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 28,
+      "text": "Figure 2 -- Case B",
+      "zh-CHS": "图2——案例B"
+    },
+    {
+      "indent": 0,
+      "text": "B2.1. Managing and Using the Anti-Replay Window",
+      "zh-CHS": "B2.1。管理和使用防重播窗口"
+    },
+    {
+      "indent": 3,
+      "text": "The anti-replay window can be thought of as a string of bits where `W' defines the length of the string. W = T - B + 1 and cannot exceed 2^32 - 1 in value. The bottom-most bit corresponds to B and the top-most bit corresponds to T, and each sequence number from Bl through Tl is represented by a corresponding bit. The value of the bit indicates whether or not a packet with that sequence number has been received and authenticated, so that replays can be detected and rejected.",
+      "zh-CHS": "反重放窗口可以看作是一个位字符串，其中“W”定义了字符串的长度。W=T-B+1，值不能超过2^32-1。最下面的位对应于B，最上面的位对应于T，从Bl到Tl的每个序列号由对应的位表示。位的值指示是否已接收并验证了具有该序列号的数据包，以便可以检测并拒绝重播。"
+    },
+    {
+      "indent": 3,
+      "text": "When a packet with a 64-bit sequence number (Seq) greater than T is received and validated,",
+      "zh-CHS": "当接收并验证64位序列号（Seq）大于T的数据包时，"
+    },
+    {
+      "indent": 6,
+      "text": "+ B is increased by (Seq - T) + (Seq - T) bits are dropped from the low end of the window + (Seq - T) bits are added to the high end of the window + The top bit is set to indicate that a packet with that sequence number has been received and authenticated + The new bits between T and the top bit are set to indicate that no packets with those sequence numbers have been received yet. + T is set to the new sequence number",
+      "zh-CHS": "+ B增加（Seq-T）+（Seq-T）位从窗口的低端删除+（Seq-T）位被添加到窗口的高端+顶部位被设置为指示具有该序列号的数据包已被接收和验证+T和顶部位之间的新位被设置为指示尚未接收到具有这些序列号的数据包T设置为新的序列号"
+    },
+    {
+      "indent": 3,
+      "text": "In checking for replayed packets,",
+      "zh-CHS": "在检查重播的数据包时，"
+    },
+    {
+      "indent": 6,
+      "text": "+ Under Case A: If Seql >= Bl (where Bl = Tl - W + 1) AND Seql <= Tl, then check the corresponding bit in the window to see if this Seql has already been seen. If yes, reject the packet. If no, perform integrity check (see Appendix B2.2 below for determination of SeqH).",
+      "zh-CHS": "+ 在情况A下：如果Seql>=Bl（其中Bl=Tl-W+1）和Seql<=Tl，则检查窗口中的相应位，以查看是否已经看到该Seql。如果是，则拒绝该数据包。如果否，则进行完整性检查（关于SeqH的确定，请参见下面的附录B2.2）。"
+    },
+    {
+      "indent": 6,
+      "text": "+ Under Case B: If Seql >= Bl (where Bl = Tl - W + 1) OR Seql <= Tl, then check the corresponding bit in the window to see if this Seql has already been seen. If yes, reject the packet. If no, perform integrity check (see Appendix B2.2 below for determination of Seqh).",
+      "zh-CHS": "+ 在情况B下：如果Seql>=Bl（其中Bl=Tl-W+1）或Seql<=Tl，则检查窗口中的相应位，以查看是否已经看到该Seql。如果是，则拒绝该数据包。如果否，则进行完整性检查（关于Seqh的确定，请参见下面的附录B2.2）。"
+    },
+    {
+      "indent": 0,
+      "text": "B2.2. Determining the Higher-Order Bits (Seqh) of the Sequence Number",
+      "zh-CHS": "B2.2。确定序列号的高阶位（Seqh）"
+    },
+    {
+      "indent": 3,
+      "text": "Because only `Seql' will be transmitted with the packet, the receiver must deduce and track the sequence number subspace into which each packet falls, i.e., determine the value of Seqh. The following equations define how to select Seqh under \"normal\" conditions; see Appendix B3 for a discussion of how to recover from extreme packet loss.",
+      "zh-CHS": "因为只有“Seql”将与分组一起发送，所以接收机必须推导并跟踪每个分组所落入的序列号子空间，即，确定Seqh的值。以下方程式定义了如何在“正常”条件下选择Seqh；有关如何从极端数据包丢失中恢复的讨论，请参见附录B3。"
+    },
+    {
+      "indent": 6,
+      "text": "+ Under Case A (Figure 1): If Seql >= Bl (where Bl = Tl - W + 1), then Seqh = Th If Seql < Bl (where Bl = Tl - W + 1), then Seqh = Th + 1",
+      "zh-CHS": "+ 在案例A下（图1）：如果Seql>=Bl（其中Bl=Tl-W+1），那么Seqh=Th如果Seql<Bl（其中Bl=Tl-W+1），那么Seqh=Th+1"
+    },
+    {
+      "indent": 6,
+      "text": "+ Under Case B (Figure 2): If Seql >= Bl (where Bl = Tl - W + 1), then Seqh = Th - 1 If Seql < Bl (where Bl = Tl - W + 1), then Seqh = Th",
+      "zh-CHS": "+ 在情况B下（图2）：如果Seql>=Bl（其中Bl=Tl-W+1），那么Seqh=Th-1如果Seql<Bl（其中Bl=Tl-W+1），那么Seqh=Th"
+    },
+    {
+      "indent": 0,
+      "text": "B2.3. Pseudo-Code Example",
+      "zh-CHS": "B2.3。伪代码示例"
+    },
+    {
+      "indent": 3,
+      "text": "The following pseudo-code illustrates the above algorithms for anti-replay and integrity checks. The values for `Seql', `Tl', `Th', and `W' are 32-bit unsigned integers. Arithmetic is mod 2^32.",
+      "zh-CHS": "以下伪代码说明了上述反重播和完整性检查算法。“Seql”、“Tl”、“Th”和“W”的值是32位无符号整数。算术是mod 2^32。"
+    },
+    {
+      "indent": 8,
+      "text": "If (Tl >= W - 1) Case A If (Seql >= Tl - W + 1) Seqh = Th If (Seql <= Tl) If (pass replay check) If (pass integrity check) Set bit corresponding to Seql Pass the packet on Else reject packet Else reject packet Else If (pass integrity check) Tl = Seql (shift bits) Set bit corresponding to Seql Pass the packet on Else reject packet Else Seqh = Th + 1 If (pass integrity check) Tl = Seql (shift bits) Th = Th + 1 Set bit corresponding to Seql Pass the packet on Else reject packet Else Case B If (Seql >= Tl - W + 1) Seqh = Th - 1 If (pass replay check) If (pass integrity check) Set the bit corresponding to Seql Pass packet on Else reject packet Else reject packet Else Seqh = Th If (Seql <= Tl) If (pass replay check) If (pass integrity check) Set the bit corresponding to Seql Pass packet on Else reject packet Else reject packet",
+      "zh-CHS": "If（Tl>=W-1）情况A If（Seql>=Tl-W+1）Seqh=Th If（Seql<=Tl）If（通过重放检查）If（通过完整性检查）If（通过完整性检查）设置对应于Seql的位pass the packet on Else拒绝包Else拒绝包Else If（通过完整性检查）Tl=Seql（移位位）设置位对应于Seql在Else上传递数据包拒绝数据包Else Seqh=Th+1 If（通过完整性检查）Tl=Seql（移位位）Th=Th+1设置位对应于Seql在Else上传递数据包拒绝数据包Else情况B If（Seql>=Tl-W+1）Seqh=Th-1 If（通过重放检查）If（通过完整性检查）设置与Else reject packet Else reject packet Else上的Seql Pass packet对应的位Seqh=Th If（Seql<=Tl）If（通过重放检查）If（通过完整性检查）设置与Else reject packet Else reject packet上的Seql Pass packet对应的位"
+    },
+    {
+      "indent": 16,
+      "text": "Else If (pass integrity check) Tl = Seql (shift bits) Set the bit corresponding to Seql Pass packet on Else reject packet",
+      "zh-CHS": "Else If（通过完整性检查）Tl=Seql（移位位）在Else拒绝数据包上设置与Seql通过数据包对应的位"
+    },
+    {
+      "indent": 0,
+      "text": "B3. Handling Loss of Synchronization due to Significant Packet Loss",
+      "zh-CHS": "B3。处理由于重大数据包丢失而导致的同步丢失"
+    },
+    {
+      "indent": 3,
+      "text": "If there is an undetected packet loss of 2^32 or more consecutive packets on a single SA, then the transmitter and receiver will lose synchronization of the high-order bits, i.e., the equations in Appendix B2.2. will fail to yield the correct value. Unless this problem is detected and addressed, subsequent packets on this SA will fail authentication checks and be discarded. The following procedure SHOULD be implemented by any IPsec (ESP or AH) implementation that supports the ESN option.",
+      "zh-CHS": "如果单个SA上存在2^32或更多连续数据包的未检测到的数据包丢失，则发射机和接收机将丢失高阶位的同步，即附录B2.2中的等式。将无法生成正确的值。除非检测到并解决此问题，否则此SA上的后续数据包将无法通过身份验证检查并被丢弃。以下过程应通过支持ESN选项的任何IPsec（ESP或AH）实现来实现。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this sort of extended traffic loss seems unlikely to occur if any significant fraction of the traffic on the SA in question is TCP, because the source would fail to receive ACKs and would stop sending long before 2^32 packets had been lost. Also, for any bi-directional application, even ones operating above UDP, such an extended outage would likely result in triggering some form of timeout. However, a unidirectional application, operating over UDP, might lack feedback that would cause automatic detection of a loss of this magnitude, hence the motivation to develop a recovery method for this case.",
+      "zh-CHS": "请注意，如果所讨论的SA上的流量中有很大一部分是TCP，则这种扩展流量丢失似乎不太可能发生，因为源将无法接收ACK，并且在丢失2^32个数据包之前很久就停止发送。此外，对于任何双向应用程序，即使是在UDP之上运行的应用程序，这种延长的中断可能会触发某种形式的超时。但是，在UDP上运行的单向应用程序可能缺少反馈，从而导致自动检测到这种程度的丢失，因此需要为这种情况开发一种恢复方法。"
+    },
+    {
+      "indent": 3,
+      "text": "The solution we've chosen was selected to:",
+      "zh-CHS": "我们选择的解决方案用于："
+    },
+    {
+      "indent": 5,
+      "text": "+ minimize the impact on normal traffic processing.",
+      "zh-CHS": "+ 尽量减少对正常流量处理的影响。"
+    },
+    {
+      "indent": 5,
+      "text": "+ avoid creating an opportunity for a new denial of service attack such as might occur by allowing an attacker to force diversion of resources to a re-synchronization process. + limit the recovery mechanism to the receiver because anti-replay is a service only for the receiver, and the transmitter generally is not aware of whether the receiver is using sequence numbers in support of this optional service. It is preferable for recovery mechanisms to be local to the receiver. This also allows for backward compatibility.",
+      "zh-CHS": "+ 避免为新的拒绝服务攻击创造机会，例如允许攻击者强制将资源转移到重新同步过程中可能发生的攻击将恢复机制限制在接收器，因为反重放是仅针对接收器的服务，并且发射器通常不知道接收器是否使用序列号来支持此可选服务。优选地，恢复机制对于接收机是本地的。这也允许向后兼容。"
+    },
+    {
+      "indent": 0,
+      "text": "B3.1. Triggering Re-synchronization",
+      "zh-CHS": "B3.1。触发再同步"
+    },
+    {
+      "indent": 3,
+      "text": "For each SA, the receiver records the number of consecutive packets that fail authentication. This count is used to trigger the re-synchronization process, which should be performed in the background or using a separate processor. Receipt of a valid packet on the SA resets the counter to zero. The value used to trigger the re-synchronization process is a local parameter. There is no requirement to support distinct trigger values for different SAs, although an implementer may choose to do so.",
+      "zh-CHS": "对于每个SA，接收器记录认证失败的连续数据包的数量。此计数用于触发重新同步过程，该过程应在后台或使用单独的处理器执行。收到SA上的有效数据包后，计数器将重置为零。用于触发重新同步过程的值是本地参数。不需要为不同的SA支持不同的触发器值，尽管实现者可以选择这样做。"
+    },
+    {
+      "indent": 0,
+      "text": "B3.2. Re-synchronization Process",
+      "zh-CHS": "B3.2。重新同步过程"
+    },
+    {
+      "indent": 3,
+      "text": "When the above trigger point is reached, a \"bad\" packet is selected for which authentication is retried using successively larger values for the upper half of the sequence number (Seqh). These values are generated by incrementing by one for each retry. The number of retries should be limited, in case this is a packet from the \"past\" or a bogus packet. The limit value is a local parameter. (Because the Seqh value is implicitly placed after the AH (or ESP) payload, it may be possible to optimize this procedure by executing the integrity algorithm over the packet up to the endpoint of the payload, then compute different candidate ICVs by varying the value of Seqh.) Successful authentication of a packet via this procedure resets the consecutive failure count and sets the value of T to that of the received packet.",
+      "zh-CHS": "当达到上述触发点时，选择一个“坏”数据包，使用序列号（Seqh）上半部分的连续较大值重试验证。这些值是通过每次重试递增一来生成的。重试次数应受到限制，以防这是来自“过去”的数据包或伪造数据包。极限值是一个局部参数。（因为Seqh值隐式地放在AH（或ESP）有效载荷之后，所以可以通过在数据包上执行完整性算法直到有效载荷的端点来优化该过程，然后通过改变Seqh的值来计算不同的候选icv。）通过此过程成功验证数据包将重置连续故障计数，并将T的值设置为接收数据包的值。"
+    },
+    {
+      "indent": 3,
+      "text": "This solution requires support only on the part of the receiver, thereby allowing for backward compatibility. Also, because re-synchronization efforts would either occur in the background or utilize an additional processor, this solution does not impact traffic processing and a denial of service attack cannot divert resources away from traffic processing.",
+      "zh-CHS": "此解决方案只需要接收器部分的支持，从而允许向后兼容。此外，由于重新同步工作将在后台进行或使用额外的处理器，因此此解决方案不会影响流量处理，并且拒绝服务攻击无法将资源从流量处理中转移。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Stephen Kent BBN Technologies 10 Moulton Street Cambridge, MA 02138 USA",
+      "zh-CHS": "美国马萨诸塞州剑桥莫尔顿街10号Stephen Kent BBN Technologies 02138"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 (617) 873-3988\nEMail: kent@bbn.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

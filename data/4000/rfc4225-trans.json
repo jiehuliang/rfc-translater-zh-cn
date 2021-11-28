@@ -1,0 +1,1489 @@
+{
+  "title": {
+    "text": "RFC 4225: Mobile IP Version 6 Route Optimization Security Design Background",
+    "zh-CHS": "RFC 4225"
+  },
+  "number": 4225,
+  "created_at": "2021-11-13 06:00:57.007693+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        P. Nikander\nRequest for Comments: 4225                                      J. Arkko\nCategory: Informational                     Ericsson Research NomadicLab\n                                                                 T. Aura\n                                                      Microsoft Research\n                                                           G. Montenegro\n                                                   Microsoft Corporation\n                                                             E. Nordmark\n                                                        Sun Microsystems\n                                                           December 2005",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Mobile IP Version 6 Route Optimization Security Design Background",
+      "zh-CHS": "移动IP版本6路由优化安全设计背景"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document is an account of the rationale behind the Mobile IPv6 (MIPv6) Route Optimization security design. The purpose of this document is to present the thinking and to preserve the reasoning behind the Mobile IPv6 security design in 2001 - 2002.",
+      "zh-CHS": "本文档介绍了移动IPv6（MIPv6）路由优化安全设计背后的基本原理。本文档的目的是展示2001-2002年移动IPv6安全设计背后的思想和理由。"
+    },
+    {
+      "indent": 3,
+      "text": "The document has two target audiences: (1) helping MIPv6 implementors to better understand the design choices in MIPv6 security procedures, and (2) allowing people dealing with mobility or multi-homing to avoid a number of potential security pitfalls in their designs.",
+      "zh-CHS": "本文档有两个目标受众：（1）帮助MIPv6实施者更好地理解MIPv6安全过程中的设计选择；（2）允许处理移动性或多宿主的人员避免其设计中的一些潜在安全陷阱。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Assumptions about the Existing IP Infrastructure ...........4\n   1.2. The Mobility Problem and the Mobile IPv6 Solution ..........6\n   1.3. Design Principles and Goals ................................8\n      1.3.1. End-to-End Principle ..................................8\n      1.3.2. Trust Assumptions .....................................8\n      1.3.3. Protection Level ......................................8\n   1.4. About Mobile IPv6 Mobility and its Variations ..............9\n2. Avenues of Attack ...............................................9\n   2.1. Target ....................................................10\n   2.2. Timing ....................................................10\n   2.3. Location ..................................................11\n3. Threats and Limitations ........................................11\n   3.1. Attacks Against Address 'Owners' (\"Address Stealing\").. ...12\n      3.1.1. Basic Address Stealing ...............................12\n      3.1.2. Stealing Addresses of Stationary Nodes ...............13\n      3.1.3. Future Address Sealing ...............................14\n      3.1.4. Attacks against Secrecy and Integrity ................15\n      3.1.5. Basic Denial-of-Service Attacks ......................16\n      3.1.6. Replaying and Blocking Binding Updates ...............16\n   3.2. Attacks Against Other Nodes and Networks (Flooding) .......16\n      3.2.1. Basic Flooding .......................................17\n      3.2.2. Return-to-Home Flooding ..............................18\n   3.3. Attacks against Binding Update Protocols ..................18\n      3.3.1. Inducing Unnecessary Binding Updates .................19\n      3.3.2. Forcing Non-Optimized Routing ........................20\n      3.3.3. Reflection and Amplification .........................21\n   3.4. Classification of Attacks .................................22\n   3.5. Problems with Infrastructure-Based Authorization ..........23\n4. Solution Selected for Mobile IPv6 ..............................24\n   4.1. Return Routability ........................................24\n      4.1.1. Home Address Check ...................................26\n      4.1.2. Care-of-Address Check ................................27\n      4.1.3. Forming the First Binding Update .....................27\n   4.2. Creating State Safely .....................................28\n      4.2.1. Retransmissions and State Machine ....................29\n   4.3. Quick expiration of the Binding Cache Entries .............29\n5. Security Considerations ........................................30\n   5.1. Residual Threats as Compared to IPv4 ......................31\n   5.2. Interaction with IPsec ....................................31\n   5.3. Pretending to Be One's Neighbor ...........................32\n   5.4. Two Mobile Nodes Talking to Each Other ....................33\n6. Conclusions ....................................................33\n7. Acknowledgements ...............................................34\n8. Informative References .........................................34",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile IPv4 is based on the idea of supporting mobility on top of existing IP infrastructure, without requiring any modifications to the routers, the applications, or the stationary end hosts. However, in Mobile IPv6 [6] (as opposed to Mobile IPv4), the stationary end hosts may provide support for mobility, i.e., route optimization. In route optimization, a correspondent node (CN) (i.e., a peer for a mobile node) learns a binding between the mobile node's stationary home address and its current temporary care-of address. This binding is then used to modify the handling of outgoing (as well as the processing of incoming) packets, leading to security risks. The purpose of this document is to provide a relatively compact source for the background assumptions, design choices, and other information needed to understand the route optimization security design. This document does not seek to compare the relative security of Mobile IPv6 and other mobility protocols, or to list all the alternative security mechanisms that were discussed during the Mobile IPv6 design process. For a summary of the latter, we refer the reader to [1]. Even though incidental implementation suggestions are included for illustrative purposes, the goal of this document is not to provide a guide to implementors. Instead, it is to explain the design choices and rationale behind the current route optimization design. The authors participated in the design team that produced the design and hope, via this note, to capture some of the lessons and reasoning behind that effort.",
+      "zh-CHS": "移动IPv4基于在现有IP基础设施上支持移动性的思想，无需对路由器、应用程序或固定终端主机进行任何修改。然而，在移动IPv6[6]（与移动IPv4相反）中，固定终端主机可以提供对移动性的支持，即路由优化。在路由优化中，对应节点（CN）（即，移动节点的对等方）学习移动节点的固定归属地址与其当前临时转交地址之间的绑定。然后，此绑定用于修改传出（以及传入）数据包的处理，从而导致安全风险。本文件旨在为背景假设、设计选择和理解路线优化安全设计所需的其他信息提供一个相对紧凑的来源。本文档不打算比较移动IPv6和其他移动协议的相对安全性，也不想列出移动IPv6设计过程中讨论的所有替代安全机制。对于后者的总结，我们请读者参考[1]。尽管附带的实施建议是为了说明目的，但本文档的目的不是为实施者提供指南。而是解释当前路线优化设计背后的设计选择和基本原理。作者们参与了设计团队，通过本说明产生了设计和希望，以获取该工作背后的一些经验教训和推理。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors' intent is to document the thinking behind that design effort as it was. Even though this note may incorporate more recent developments in order to illustrate the issues, it is not our intent to present a new design. Rather, along with the lessons learned, there is some effort to clarify differing opinions, questionable assumptions, or newly discovered vulnerabilities, should such new information be available today. This is also very important, because it may benefit the working group's hindsight as it revises or improves the Mobile IPv6 specification.",
+      "zh-CHS": "作者的意图是记录设计工作背后的想法。尽管本说明可能会结合最近的发展来说明这些问题，但我们并不打算提出新的设计。相反，在总结经验教训的同时，如果这些新信息今天可用，还需要做出一些努力来澄清不同的观点、可疑的假设或新发现的漏洞。这一点也非常重要，因为在工作组修改或改进移动IPv6规范时，它可能会有助于工作组的后见之明。"
+    },
+    {
+      "indent": 3,
+      "text": "To fully understand the security implications of the relevant design constraints, it is necessary to explore briefly the nature of the existing IP infrastructure, the problems Mobile IP aims to solve, and the design principles applied. In the light of this background, we can then explore IP-based mobility in more detail and have a brief look at the security problems. The background is given in the rest of this section, starting from Section 1.1.",
+      "zh-CHS": "为了充分理解相关设计约束的安全含义，有必要简要探讨现有IP基础设施的性质、移动IP旨在解决的问题以及应用的设计原则。在这样的背景下，我们可以更详细地探讨基于IP的移动性，并简要介绍安全问题。本节其余部分将从第1.1节开始介绍背景。"
+    },
+    {
+      "indent": 3,
+      "text": "Although the introduction in Section 1.1 may appear redundant to readers who are already familiar with Mobile IPv6, it may be valuable to read it anyway. The approach taken in this document is very",
+      "zh-CHS": "尽管第1.1节中的介绍对于已经熟悉移动IPv6的读者来说可能显得多余，但无论如何，阅读它可能是有价值的。本文件所采用的方法非常简单"
+    },
+    {
+      "indent": 3,
+      "text": "different from that in the Mobile IPv6 specification. That is, we have explicitly aimed to expose the implicit assumptions and design choices made in the base Mobile IPv6 design, while the Mobile IPv6 specification aims to state the result of the design. By understanding the background, it is much easier to understand the source of some of the related security problems, and to understand the limitations intrinsic to the provided solutions.",
+      "zh-CHS": "与移动IPv6规范中的不同。也就是说，我们的明确目标是公开基本移动IPv6设计中的隐含假设和设计选择，而移动IPv6规范旨在说明设计结果。通过了解背景，可以更容易地了解一些相关安全问题的根源，并了解所提供解决方案的固有局限性。"
+    },
+    {
+      "indent": 3,
+      "text": "In particular, this document explains how the adopted design for \"Return Routability\" (RR) protects against the identified threats (Section 3). This is true except for attacks on the RR protocol itself, which require other countermeasures based on heuristics and judicious implementation (Section 3.3).",
+      "zh-CHS": "特别是，本文件解释了所采用的“返回可路由性”（RR）设计如何防止已识别的威胁（第3节）。除对RR协议本身的攻击外，情况也是如此，这需要基于启发式和明智实施的其他对策（第3.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The rest of this document is organized as follows: after this introductory section, we start by considering the avenues of attack in Section 2. The security problems and countermeasures are studied in detail in Section 3. Section 4 explains the overall operation and design choices behind the current security design. Section 5 analyzes the design and discuss the remaining threats. Finally, Section 6 concludes this document.",
+      "zh-CHS": "本文档的其余部分组织如下：在本介绍部分之后，我们首先考虑第2部分中的攻击途径。第3节详细研究了安全问题和对策。第4节解释了当前安全设计背后的总体操作和设计选择。第5节分析了设计并讨论了剩余的威胁。最后，第6节总结了本文件。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Assumptions about the Existing IP Infrastructure",
+      "section_title": true,
+      "zh-CHS": "1.1. 关于现有IP基础设施的假设"
+    },
+    {
+      "indent": 3,
+      "text": "One of the design goals in the Mobile IP design was to make mobility possible without changing too much. This was especially important for IPv4, with its large installed base, but the same design goals were inherited by Mobile IPv6. Some alternative proposals take a different approach and propose larger modifications to the Internet architecture (see Section 1.4).",
+      "zh-CHS": "移动IP设计中的一个设计目标是在不做太多改变的情况下实现移动性。这对于IPv4尤其重要，因为它有着庞大的安装基础，但移动IPv6继承了同样的设计目标。一些备选方案采用不同的方法，并对互联网架构提出更大的修改（见第1.4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "To understand Mobile IPv6, it is important to understand the MIPv6 design view of the base IPv6 protocol and infrastructure. The most important base assumptions can be expressed as follows:",
+      "zh-CHS": "要理解移动IPv6，必须了解基本IPv6协议和基础架构的MIPv6设计视图。最重要的基本假设可表述如下："
+    },
+    {
+      "indent": 3,
+      "text": "1. The routing prefixes available to a node are determined by its current location, and therefore the node must change its IP address as it moves.",
+      "zh-CHS": "1. 节点可用的路由前缀由其当前位置决定，因此节点必须在移动时更改其IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The routing infrastructure is assumed to be secure and well functioning, delivering packets to their intended destinations as identified by destination address.",
+      "zh-CHS": "2. 路由基础设施被认为是安全的，并且运行良好，按照目的地地址将数据包传送到其预期目的地。"
+    },
+    {
+      "indent": 3,
+      "text": "Although these assumptions may appear to be trivial, let us explore them a little further. First, in current IPv6 operational practice the IP address prefixes are distributed in a hierarchical manner. This limits the number of routing table entries each individual router needs to handle. An important implication is that the",
+      "zh-CHS": "尽管这些假设看起来微不足道，但让我们进一步探讨一下。首先，在当前的IPv6操作实践中，IP地址前缀是以分层方式分布的。这限制了每个路由器需要处理的路由表条目的数量。一个重要的含义是"
+    },
+    {
+      "indent": 3,
+      "text": "topology determines what globally routable IP addresses are available at a given location. That is, the nodes cannot freely decide what globally routable IP address to use; they must rely on the routing prefixes served by the local routers via Router Advertisements or by a DHCP server. In other words, IP addresses are just what the name says, addresses (i.e., locators).",
+      "zh-CHS": "拓扑结构确定在给定位置可使用的全局可路由IP地址。也就是说，节点不能自由决定使用哪个全局可路由IP地址；它们必须依赖本地路由器通过路由器广告或DHCP服务器提供的路由前缀。换句话说，IP地址就是名称所说的地址（即定位器）。"
+    },
+    {
+      "indent": 3,
+      "text": "Second, in the current Internet structure, the routers collectively maintain a distributed database of the network topology and forward each packet towards the location determined by the destination address carried in the packet. To maintain the topology information, the routers must trust each other, at least to a certain extent. The routers learn the topology information from the other routers, and they have no option but to trust their neighbor routers about distant topology. At the borders of administrative domains, policy rules are used to limit the amount of perhaps faulty routing table information received from the peer domains. While this is mostly used to weed out administrative mistakes, it also helps with security. The aim is to maintain a reasonably accurate idea of the network topology even if someone is feeding faulty information to the routing system.",
+      "zh-CHS": "其次，在当前的互联网结构中，路由器共同维护网络拓扑的分布式数据库，并将每个分组转发到由分组中携带的目的地地址确定的位置。为了维护拓扑信息，路由器必须相互信任，至少在一定程度上是如此。路由器从其他路由器学习拓扑信息，他们别无选择，只能信任邻居路由器的远程拓扑。在管理域的边界处，策略规则用于限制从对等域接收的可能有错误的路由表信息的数量。虽然这主要用于消除管理错误，但也有助于提高安全性。其目的是在有人向路由系统提供错误信息的情况下，保持对网络拓扑的合理准确的了解。"
+    },
+    {
+      "indent": 3,
+      "text": "In the current Mobile IPv6 design, it is explicitly assumed that the routers and the policy rules are configured in a reasonable way, and that the resulting routing infrastructure is trustworthy enough. That is, it is assumed that the routing system maintains accurate information of the network topology, and that it is therefore able to route packets to their destination locations. If this assumption is broken, the Internet itself is broken in the sense that packets go to wrong locations. Such a fundamental malfunction of the Internet would render hopeless any other effort to assure correct packet delivery (e.g., any efforts due to Mobile IP security considerations).",
+      "zh-CHS": "在当前的移动IPv6设计中，明确假设路由器和策略规则以合理的方式配置，并且生成的路由基础设施足够可靠。也就是说，假设路由系统保持网络拓扑的准确信息，并且因此能够将分组路由到其目的地位置。如果这一假设被打破，互联网本身就被打破了，因为数据包去了错误的位置。互联网的这种根本性故障将使确保正确数据包交付的任何其他努力（例如，出于移动IP安全考虑的任何努力）变得毫无希望。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1.1. A Note on Source Addresses and Ingress Filtering",
+      "section_title": true,
+      "zh-CHS": "1.1.1. 关于源地址和入口过滤的注记"
+    },
+    {
+      "indent": 3,
+      "text": "Some of the threats and attacks discussed in this document take advantage of the ease of source address spoofing. That is, in the current Internet it is possible to send packets with a false source IP address. The eventual introduction of ingress filtering is assumed to prevent this. When ingress filtering is used, traffic with spoofed addresses is not forwarded. This filtering can be applied at different network borders, such as those between an Internet service provider (ISP) and its customers, between downstream and upstream ISPs, or between peer ISPs [5]. Obviously, the granularity of ingress filters specifies how much you can \"spoof inside a prefix\". For example, if an ISP ingress filters a customer's link but the customer does nothing, anything inside the customer's /48 prefix could be spoofed. If the customer does",
+      "zh-CHS": "本文讨论的一些威胁和攻击利用了源地址欺骗的便利性。也就是说，在当前的互联网上，有可能发送带有虚假源IP地址的数据包。假设最终引入入口过滤可以防止这种情况。当使用入口过滤时，不转发具有伪造地址的流量。这种过滤可以应用于不同的网络边界，例如互联网服务提供商（ISP）与其客户之间、下游和上游ISP之间或对等ISP之间的边界[5]。显然，入口过滤器的粒度指定了“在前缀内欺骗”的程度。例如，如果ISP入口过滤客户的链接，但客户什么也不做，则客户/48前缀内的任何内容都可能被欺骗。如果客户有"
+    },
+    {
+      "indent": 3,
+      "text": "filtering at LAN subnets, anything inside the /64 prefixes could be spoofed. Despite the limitations imposed by such \"in-prefix spoofing\", in general, ingress filtering enables traffic to be traceable to its real source network [5].",
+      "zh-CHS": "在LAN子网进行过滤时，/64前缀内的任何内容都可能被欺骗。尽管存在这种“前缀内欺骗”的限制，但通常情况下，入口过滤使流量能够追踪到其真正的源网络[5]。"
+    },
+    {
+      "indent": 3,
+      "text": "However, ingress filtering helps if and only if a large part of the Internet uses it. Unfortunately, there are still some issues (e.g., in the presence of site multi-homing) that, although not insurmountable, do require careful handling, and that are likely to limit or delay its usefulness [5].",
+      "zh-CHS": "然而，当且仅当大部分互联网使用入口过滤时，入口过滤才有帮助。不幸的是，仍然存在一些问题（例如，存在站点多主），尽管这些问题并非无法克服，但确实需要小心处理，并且可能会限制或延迟其用途[5]。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. The Mobility Problem and the Mobile IPv6 Solution",
+      "section_title": true,
+      "zh-CHS": "1.2. 移动问题与移动IPv6解决方案"
+    },
+    {
+      "indent": 3,
+      "text": "The Mobile IP design aims to solve two problems at the same time. First, it allows transport layer sessions (TCP connections, UDP-based transactions) to continue even if the underlying host(s) move and change their IP addresses. Second, it allows a node to be reached through a static IP address, a home address (HoA).",
+      "zh-CHS": "移动IP设计的目的是同时解决两个问题。首先，它允许传输层会话（TCP连接、基于UDP的事务）继续，即使底层主机移动并更改其IP地址。其次，它允许通过静态IP地址（家庭地址（HoA））访问节点。"
+    },
+    {
+      "indent": 3,
+      "text": "The latter design choice can also be stated in other words: Mobile IPv6 aims to preserve the identifier nature of IP addresses. That is, Mobile IPv6 takes the view that IP addresses can be used as natural identifiers of nodes, as they have been used since the beginning of the Internet. This must be contrasted to proposed and existing alternative designs where the identifier and locator natures of the IP addresses have been separated (see Section 1.4).",
+      "zh-CHS": "后一种设计选择也可以用另一种话说：移动IPv6旨在保留IP地址的标识符性质。也就是说，移动IPv6认为IP地址可以用作节点的自然标识符，因为它们自互联网诞生以来就一直被使用。这必须与IP地址的标识符和定位器性质已分离的拟议和现有备选设计进行对比（见第1.4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic idea in Mobile IP is to allow a home agent (HA) to work as a stationary proxy for a mobile node (MN). Whenever the mobile node is away from its home network, the home agent intercepts packets destined to the node and forwards the packets by tunneling them to the node's current address, the care-of address (CoA). The transport layer (e.g., TCP, UDP) uses the home address as a stationary identifier for the mobile node. Figure 1 illustrates this basic arrangement.",
+      "zh-CHS": "移动IP的基本思想是允许归属代理（HA）作为移动节点（MN）的固定代理。当移动节点离开其归属网络时，归属代理截获目的地为该节点的数据包，并通过隧道将数据包转发到该节点的当前地址，即转交地址（CoA）。传输层（例如TCP、UDP）使用家庭地址作为移动节点的固定标识符。图1说明了这种基本安排。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic solution requires tunneling through the home agent, thereby leading to longer paths and degraded performance. This tunneling is sometimes called triangular routing since it was originally planned that the packets from the mobile node to its peer could still traverse directly, bypassing the home agent.",
+      "zh-CHS": "基本解决方案需要通过归属代理进行隧道传输，从而导致更长的路径和性能下降。这种隧道有时被称为三角路由，因为最初的计划是，从移动节点到对等节点的数据包仍然可以直接穿越，绕过归属代理。"
+    },
+    {
+      "indent": 4,
+      "text": "+----+                                       +----+\n| MN |=#=#=#=#=#=#=#=#=tunnel=#=#=#=#=#=#=#=#|#HA |\n+----+         ____________                  +-#--+\n  | CoA    ___/            \\_____              # Home Link\n -+-------/      Internet    * * *-*-*-*-#-#-#-#-----\n         |               * *      |    * Home Address\n          \\___       * *    _____/   + * -+\n              \\_____*______/         | MN |\n                    *                + - -+\n                  +----+\n                  | CN |    Data path as     * * * *\n                  +----+    it appears to correspondent node",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 32,
+      "text": "Real data path   # # # #",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Figure 1. Basic Mode of Operation in Mobile IPv6",
+      "zh-CHS": "图1。移动IPv6中的基本操作模式"
+    },
+    {
+      "indent": 3,
+      "text": "To alleviate the performance penalty, Mobile IPv6 includes a mode of operation that allows the mobile node and its peer, a correspondent node (CN), to exchange packets directly, bypassing the home agent completely after the initial setup phase. This mode of operation is called route optimization (RO). When route optimization is used, the mobile node sends its current care-of address to the correspondent node, using binding update (BU) messages. The correspondent node stores the binding between the home address and care-of address into its Binding Cache.",
+      "zh-CHS": "为了减轻性能损失，移动IPv6包括一种操作模式，允许移动节点及其对等节点（对应节点（CN））直接交换数据包，在初始设置阶段后完全绕过归属代理。这种操作模式称为路线优化（RO）。当使用路由优化时，移动节点使用绑定更新（BU）消息将其当前转交地址发送给对应节点。对应节点将归属地址和转交地址之间的绑定存储到其绑定缓存中。"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever MIPv6 route optimization is used, the correspondent node effectively functions in two roles. Firstly, it is the source of the packets it sends, as usual. Secondly, it acts as the first router for the packets, effectively performing source routing. That is, when the correspondent node is sending out packets, it consults its MIPv6 route optimization data structures and reroutes the packets, if necessary. A Binding Cache Entry (BCE) contains the home address and the care-of address of the mobile node, and records the fact that packets destined to the home address should now be sent to the destination address. Thus, it represents a local routing exception.",
+      "zh-CHS": "每当使用MIPv6路由优化时，对应节点有效地在两个角色中工作。首先，像往常一样，它是它发送的数据包的来源。其次，它充当数据包的第一个路由器，有效地执行源路由。也就是说，当对应节点发送分组时，它参考其MIPv6路由优化数据结构，并在必要时重新路由分组。绑定缓存条目（BCE）包含移动节点的归属地址和转交地址，并记录目的地为归属地址的数据包现在应发送到目的地地址的事实。因此，它表示本地路由异常。"
+    },
+    {
+      "indent": 3,
+      "text": "The packets leaving the correspondent node are source routed to the care-of address. Each packet includes a routing header that contains the home address of the mobile node. Thus, logically, the packet is first routed to the care-of address and then, virtually, from the care-of address to the home address. In practice, of course, the packet is consumed by the mobile node at the care-of address; the header just allows the mobile node to select a socket associated with the home address instead of one with the care-of address. However, the mechanism resembles source routing, as there is routing state involved at the correspondent node, and a routing header is used.",
+      "zh-CHS": "离开对应节点的数据包被源路由到转交地址。每个分组包括包含移动节点的归属地址的路由报头。因此，在逻辑上，分组首先路由到转交地址，然后实际上从转交地址路由到归属地址。当然，在实践中，分组由移动节点在转交地址处消费；头部仅允许移动节点选择与家庭地址相关联的套接字，而不是具有转交地址的套接字。然而，该机制类似于源路由，因为在对应节点处涉及路由状态，并且使用路由报头。"
+    },
+    {
+      "indent": 3,
+      "text": "Nevertheless, this routing header is special (type 2) to avoid the risks associated with using the more general (type 0) variant.",
+      "zh-CHS": "然而，此路由头是特殊的（类型2），以避免与使用更通用（类型0）变体相关的风险。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Design Principles and Goals",
+      "section_title": true,
+      "zh-CHS": "1.3. 设计原则和目标"
+    },
+    {
+      "indent": 3,
+      "text": "The MIPv6 design and security design aimed to follow the end-to-end principle, to notice the differences in trust relationships between the nodes, and to be explicit about delivering a practical (instead of an over-ambitious) level of protection.",
+      "zh-CHS": "MIPv6设计和安全设计旨在遵循端到端原则，注意节点之间信任关系的差异，明确提供实际（而不是过于雄心勃勃）的保护级别。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3.1. End-to-End Principle",
+      "section_title": true,
+      "zh-CHS": "1.3.1. 端到端原则"
+    },
+    {
+      "indent": 3,
+      "text": "Perhaps the leading design principle for Internet protocols is the so-called end-to-end principle [4][11]. According to this principle, it is beneficial to avoid polluting the network with state, and to limit new state creation to the involved end nodes.",
+      "zh-CHS": "也许互联网协议的主要设计原则是所谓的端到端原则[4][11]。根据这一原则，有利于避免状态污染网络，并将新的状态创建限制到相关的终端节点。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of Mobile IPv6, the end-to-end principle is applied by restricting mobility-related state primarily to the home agent. Additionally, if route optimization is used, the correspondent nodes also maintain a soft state relating to the mobile nodes' current care-of addresses, the Binding Cache. This can be contrasted to an approach that would use individual host routes within the basic routing system. Such an approach would create state on a huge number of routers around the network. In Mobile IPv6, only the home agent and the communicating nodes need to create state.",
+      "zh-CHS": "在移动IPv6的情况下，通过将移动相关状态主要限制到归属代理来应用端到端原则。此外，如果使用路由优化，则对应节点还保持与移动节点的当前转交地址（绑定缓存）相关的软状态。这可以与在基本路由系统中使用单个主机路由的方法形成对比。这种方法将在网络中的大量路由器上创建状态。在移动IPv6中，只有归属代理和通信节点需要创建状态。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3.2. Trust Assumptions",
+      "section_title": true,
+      "zh-CHS": "1.3.2. 信任假设"
+    },
+    {
+      "indent": 3,
+      "text": "In the Mobile IPv6 security design, different approaches were chosen for securing the communication between the mobile node and its home agent and between the mobile node and its correspondent nodes. In the home agent case, it was assumed that the mobile node and the home agent know each other through a prior arrangement, e.g., due to a business relationship. In contrast, it was strictly assumed that the mobile node and the correspondent node do not need to have any prior arrangement, thereby allowing Mobile IPv6 to function in a scalable manner, without requiring any configuration at the correspondent nodes.",
+      "zh-CHS": "在移动IPv6安全设计中，选择了不同的方法来保护移动节点与其归属代理之间以及移动节点与其对应节点之间的通信。在归属代理的情况下，假设移动节点和归属代理通过先前的安排（例如，由于业务关系）相互了解。相反，严格假设移动节点和对应节点不需要有任何事先安排，从而允许移动IPv6以可伸缩的方式运行，而不需要在对应节点处进行任何配置。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3.3. Protection Level",
+      "section_title": true,
+      "zh-CHS": "1.3.3. 保护级别"
+    },
+    {
+      "indent": 3,
+      "text": "As a security goal, Mobile IPv6 design aimed to be \"as secure as the (non-mobile) IPv4 Internet\" was at the time of the design, in the period 2001 - 2002. In particular, that means that there is little protection against attackers that are able to attach themselves between a correspondent node and a home agent. The rationale is simple: in the 2001 Internet, if a node was able to attach itself to",
+      "zh-CHS": "作为一个安全目标，移动IPv6设计的目标是“与（非移动）IPv4互联网一样安全”，在设计之时，即2001-2002年间。特别是，这意味着对于能够连接到对应节点和归属代理之间的攻击者，几乎没有什么保护。理由很简单：在2001年的互联网上，如果一个节点能够连接到"
+    },
+    {
+      "indent": 3,
+      "text": "the communication path between two arbitrary nodes, it was able to disrupt, modify, and eavesdrop all the traffic between the two nodes, unless IPsec protection was used. Even when IPsec was used, the attacker was still able to block communication selectively by simply dropping the packets. The attacker in control of a router between the two nodes could also mount a flooding attack by redirecting the data flows between the two nodes (or, more practically, an equivalent flow of bogus data) to a third party.",
+      "zh-CHS": "在两个任意节点之间的通信路径中，它能够中断、修改和窃听两个节点之间的所有通信，除非使用IPsec保护。即使使用了IPsec，攻击者仍然能够通过简单地丢弃数据包来选择性地阻止通信。控制两个节点之间路由器的攻击者还可以通过将两个节点之间的数据流（或者更实际地说，等效的虚假数据流）重定向到第三方来发起泛洪攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "1.4. About Mobile IPv6 Mobility and its Variations",
+      "section_title": true,
+      "zh-CHS": "1.4. 关于移动IPv6移动性及其变化"
+    },
+    {
+      "indent": 3,
+      "text": "Taking a more abstract angle, IPv6 mobility can be defined as a mechanism for managing local exceptions to routing information in order to direct packets that are sent to one address (the home address) to another address (the care-of address). It is managing in the sense that the local routing exceptions (source routes) are created and deleted dynamically, according to instructions sent by the mobile node. It is local in the sense that the routing exceptions are valid only at the home agent, and in the correspondent nodes if route optimization is used. The created pieces of state are exceptions in the sense that they override the normal topological routing information carried collectively by the routers.",
+      "zh-CHS": "从更抽象的角度来看，IPv6移动性可以定义为一种机制，用于管理路由信息的本地异常，以便将发送到一个地址（家庭地址）的数据包定向到另一个地址（转交地址）。它是根据移动节点发送的指令动态地创建和删除本地路由异常（源路由）。它是局部的，因为路由异常仅在归属代理处有效，如果使用路由优化，则在对应节点中有效。创建的状态片段是例外，因为它们覆盖了路由器集体携带的正常拓扑路由信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Using the terminology introduced by J. Noel Chiappa [14], we can say that the home address functions in the dual role of being an end-point identifier (EID) and a permanent locator. The care-of address is a pure, temporary locator, which identifies the current location of the mobile node. The correspondent nodes effectively perform source routing, redirecting traffic destined to the home address to the care-of address. This is even reflected in the packet structure: the packets carry an explicit routing header.",
+      "zh-CHS": "使用J.Noel Chiappa[14]介绍的术语，我们可以说家庭地址具有端点标识符（EID）和永久定位器的双重功能。转交地址是一个纯粹的临时定位器，用于标识移动节点的当前位置。通信节点有效地执行源路由，将目的地为归属地址的通信重定向到转交地址。这甚至反映在数据包结构中：数据包携带一个显式路由报头。"
+    },
+    {
+      "indent": 3,
+      "text": "The relationship between EIDs and permanent locators has been exploited by other proposals. Their technical merits and security problems, however, are beyond the scope of this document.",
+      "zh-CHS": "其他提案利用了EID和永久定位器之间的关系。然而，它们的技术优点和安全问题超出了本文件的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Avenues of Attack",
+      "section_title": true,
+      "zh-CHS": "2. 攻击途径"
+    },
+    {
+      "indent": 3,
+      "text": "From the discussion above, it should now be clear that the dangers that Mobile IPv6 must protect from lie in creation (or deletion) of the local routing exceptions. In Mobile IPv6 terms, the danger is in the possibility of unauthorized creation of Binding Cache Entries (BCE). The effects of an attack differ depending on the target of the attack, the timing of the attack, and the location of the attacker.",
+      "zh-CHS": "从上面的讨论可以清楚地看到，移动IPv6必须防止的危险在于创建（或删除）本地路由异常。在移动IPv6方面，危险在于未经授权创建绑定缓存项（BCE）的可能性。攻击的效果因攻击目标、攻击时间和攻击者的位置而异。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Target",
+      "section_title": true,
+      "zh-CHS": "2.1. 目标"
+    },
+    {
+      "indent": 3,
+      "text": "Basically, the target of an attack can be any node or network in the Internet (stationary or mobile). The basic differences lie in the goals of the attack: does the attacker aim to divert (steal) the traffic destined to and/or sourced at the target node, or does it aim to cause denial-of-service to the target node or network? The target does not typically play much of an active role attack. As an example, an attacker may launch a denial-of-service attack on a given node, A, by contacting a large number of nodes, claiming to be A, and subsequently diverting the traffic at these other nodes so that A is no longer able to receive packets from those nodes. A itself need not be involved at all before its communications start to break. Furthermore, A is not necessarily a mobile node; it may well be stationary.",
+      "zh-CHS": "基本上，攻击目标可以是互联网上的任何节点或网络（固定或移动）。基本区别在于攻击的目标：攻击者的目的是转移（窃取）目标节点和/或来源于目标节点的流量，还是造成目标节点或网络拒绝服务？目标通常不会在主动攻击中扮演太多角色。例如，攻击者可通过联系大量自称为a的节点，然后转移这些其他节点上的流量，从而在给定节点a上发起拒绝服务攻击，从而a不再能够从这些节点接收数据包。在通信中断之前，A本身根本不需要介入。此外，A不一定是移动节点；它很可能是静止的。"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile IPv6 uses the same class of IP addresses for both mobile nodes (i.e., home and care-of addresses) and stationary nodes. That is, mobile and stationary addresses are indistinguishable from each other. Attackers can take advantage of this by taking any IP address and using it in a context where, normally, only mobile (home or care-of) addresses appear. This means that attacks that otherwise would only concern mobile nodes are, in fact, a threat to all IPv6 nodes.",
+      "zh-CHS": "移动IPv6为移动节点（即家庭和护理地址）和固定节点使用相同类别的IP地址。也就是说，移动地址和固定地址彼此无法区分。攻击者可以通过获取任何IP地址并在通常仅显示移动（home或care of）地址的上下文中使用它来利用此漏洞。这意味着，否则只涉及移动节点的攻击实际上是对所有IPv6节点的威胁。"
+    },
+    {
+      "indent": 3,
+      "text": "In fact, a mobile node appears to be best protected, since a mobile node does not need to maintain state about the whereabouts of some remote nodes. Conversely, the role of being a correspondent node appears to be the weakest, since there are very few assumptions upon which it can base its state formation. That is, an attacker has a much easier task in fooling a correspondent node to believe that a presumably mobile node is somewhere it is not, than in fooling a mobile node itself into believing something similar. On the other hand, since it is possible to attack a node indirectly by first targeting its peers, all nodes are equally vulnerable in some sense. Furthermore, a (usually) mobile node often also plays the role of being a correspondent node, since it can exchange packets with other mobile nodes (see also Section 5.4).",
+      "zh-CHS": "事实上，移动节点似乎得到了最好的保护，因为移动节点不需要维护一些远程节点的位置状态。相反，作为对应节点的作用似乎最弱，因为它的状态形成所依据的假设很少。也就是说，与欺骗移动节点本身相信类似的东西相比，攻击者要更容易欺骗通信节点，使其相信可能的移动节点不在某个地方。另一方面，由于可以通过首先以节点的对等节点为目标来间接攻击节点，因此所有节点在某种意义上都同样容易受到攻击。此外，一个（通常）移动节点通常也扮演着相应节点的角色，因为它可以与其他移动节点交换数据包（另见第5.4节）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Timing",
+      "section_title": true,
+      "zh-CHS": "2.2. 时机"
+    },
+    {
+      "indent": 3,
+      "text": "An important aspect in understanding Mobile IPv6-related dangers is timing. In a stationary IPv4 network, an attacker must be between the communication nodes at the same time as the nodes communicate. With the Mobile IPv6 ability of creating binding cache entries, the situation changes. A new danger is created. Without proper protection, an attacker could attach itself between the home agent and a correspondent node for a while, create a BCE at the",
+      "zh-CHS": "了解移动IPv6相关危险的一个重要方面是时间。在固定IPv4网络中，攻击者必须在节点通信的同时出现在通信节点之间。随着移动IPv6创建绑定缓存项的能力的增强，情况发生了变化。新的危险产生了。如果没有适当的保护，攻击者可能会在归属代理和对应节点之间连接一段时间，在"
+    },
+    {
+      "indent": 3,
+      "text": "correspondent node, leave the position, and continuously update the correspondent node about the mobile node's whereabouts. This would make the correspondent node send packets destined to the mobile node to an incorrect address as long as the BCE remained valid, i.e., typically until the correspondent node is rebooted. The converse would also be possible: an attacker could also launch an attack by first creating a BCE and then letting it expire at a carefully selected time. If a large number of active BCEs carrying large amounts of traffic expired at the same time, the result might be an overload towards the home agent or the home network. (See Section 3.2.2 for a more detailed explanation.)",
+      "zh-CHS": "通讯节点，离开该位置，并不断向通讯节点更新移动节点的行踪。这将使对应节点将目的地为移动节点的分组发送到错误的地址，只要BCE保持有效，即，通常直到对应节点重新启动。反过来也是可能的：攻击者也可以先创建BCE，然后让它在精心选择的时间过期，从而发起攻击。如果承载大量流量的大量活动BCE同时过期，则结果可能是归属代理或归属网络过载。（有关更详细的说明，请参见第3.2.2节。）"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Location",
+      "section_title": true,
+      "zh-CHS": "2.3. 地方"
+    },
+    {
+      "indent": 3,
+      "text": "In a static IPv4 Internet, an attacker can only receive packets destined to a given address if it is able to attach itself to, or to control, a node on the topological path between the sender and the recipient. On the other hand, an attacker can easily send spoofed packets from almost anywhere. If Mobile IPv6 allowed sending unprotected Binding Updates, an attacker could create a BCE on any correspondent node from anywhere in the Internet, simply by sending a fraudulent Binding Update to the correspondent node. Instead of being required to be between the two target nodes, the attacker could act from anywhere in the Internet.",
+      "zh-CHS": "在静态IPv4 Internet中，如果攻击者能够将自身连接到或控制发送方和接收方之间拓扑路径上的节点，则攻击者只能接收指向给定地址的数据包。另一方面，攻击者可以很容易地从几乎任何地方发送伪造的数据包。如果移动IPv6允许发送未受保护的绑定更新，则攻击者只需向对应节点发送欺诈性绑定更新，即可从Internet上的任何位置在任何对应节点上创建BCE。攻击者可以在Internet上的任何位置进行攻击，而不需要位于两个目标节点之间。"
+    },
+    {
+      "indent": 3,
+      "text": "In summary, by introducing the new routing exception (binding cache) at the correspondent nodes, Mobile IPv6 introduces the dangers of time and space shifting. Without proper protection, Mobile IPv6 would allow an attacker to act from anywhere in the Internet and well before the time of the actual attack. In contrast, in the static IPv4 Internet, the attacking nodes must be present at the time of the attack and they must be positioned in a suitable way, or the attack would not be possible in the first place.",
+      "zh-CHS": "总之，通过在对应节点引入新的路由异常（绑定缓存），移动IPv6引入了时间和空间转移的危险。如果没有适当的保护，移动IPv6将允许攻击者在实际攻击发生之前从互联网的任何位置采取行动。相比之下，在静态IPv4 Internet中，攻击节点必须在攻击时出现，并且必须以适当的方式定位，否则攻击一开始就不可能发生。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Threats and Limitations",
+      "section_title": true,
+      "zh-CHS": "3. 威胁和限制"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes attacks against Mobile IPv6 Route Optimization and what protection mechanisms Mobile IPv6 applies against them. The goal of the attacker can be to corrupt the correspondent node's binding cache and to cause packets to be delivered to a wrong address. This can compromise secrecy and integrity of communication and cause denial-of-service (DoS) both at the communicating parties and at the address that receives the unwanted packets. The attacker may also exploit features of the Binding Update (BU) mechanism to exhaust the resources of the mobile node, the home agent, or the correspondent nodes. The aim of this section is to provide an overview of the various protocol mechanisms and their limitations. The details of the mechanisms are covered in Section 4.",
+      "zh-CHS": "本节介绍针对移动IPv6路由优化的攻击，以及移动IPv6针对这些攻击应用的保护机制。攻击者的目标可能是破坏对应节点的绑定缓存，并导致数据包传递到错误的地址。这可能危及通信的保密性和完整性，并在通信双方和接收不需要的数据包的地址造成拒绝服务（DoS）。攻击者还可以利用绑定更新（BU）机制的功能耗尽移动节点、归属代理或对应节点的资源。本节的目的是概述各种协议机制及其局限性。有关这些机制的详细信息，请参见第4节。"
+    },
+    {
+      "indent": 3,
+      "text": "It is essential to understand that some of the threats are more serious than others, that some can be mitigated but not removed, that some threats may represent acceptable risk, and that some threats may be considered too expensive to the attacker to be worth preventing.",
+      "zh-CHS": "必须了解，有些威胁比其他威胁更严重，有些威胁可以缓解但不能消除，有些威胁可能代表可接受的风险，有些威胁可能被认为对攻击者来说代价太高，不值得防范。"
+    },
+    {
+      "indent": 3,
+      "text": "We consider only active attackers. The rationale behind this is that in order to corrupt the binding cache, the attacker must sooner or later send one or more messages. Thus, it makes little sense to consider attackers that only observe messages but do not send any. In fact, some active attacks are easier, for the average attacker, to launch than a passive one would be. That is, in many active attacks the attacker can initiate binding update processing at any time, while most passive attacks require the attacker to wait for suitable messages to be sent by the target nodes.",
+      "zh-CHS": "我们只考虑主动攻击者。其基本原理是，为了破坏绑定缓存，攻击者迟早必须发送一条或多条消息。因此，考虑只观察消息但不发送任何消息的攻击者是没有意义的。事实上，对于普通攻击者来说，一些主动攻击比被动攻击更容易发起。也就是说，在许多主动攻击中，攻击者可以随时启动绑定更新处理，而大多数被动攻击要求攻击者等待目标节点发送适当的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Nevertheless, an important class of passive attacks remains: attacks on privacy. It is well known that simply by examining packets, eavesdroppers can track the movements of individual nodes (and potentially, users) [3]. Mobile IPv6 exacerbates the problem by adding more potentially sensitive information into the packets (e.g., Binding Updates, routing headers or home address options). This document does not address these attacks.",
+      "zh-CHS": "然而，一类重要的被动攻击仍然存在：对隐私的攻击。众所周知，只要检查数据包，窃听者就可以跟踪单个节点（以及潜在的用户）的移动[3]。移动IPv6通过向数据包中添加更多潜在的敏感信息（例如绑定更新、路由头或家庭地址选项）加剧了问题。本文档不涉及这些攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "We first consider attacks against nodes that are supposed to have a specified address (Section 3.1), continuing with flooding attacks (Section 3.2) and attacks against the basic Binding Update protocol (Section 3.3). After that, we present a classification of the attacks (Section 3.4). Finally, we consider the applicability of solutions relying on some kind of a global security infrastructure (Section 3.5).",
+      "zh-CHS": "我们首先考虑对具有指定地址（第3.1节）的节点的攻击，继续进行洪泛攻击（第3.2节）和针对基本绑定更新协议（第3.3节）的攻击。之后，我们将对这些攻击进行分类（第3.4节）。最后，我们考虑依赖于某种全球安全基础设施的解决方案的适用性（第3.5节）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Attacks Against Address 'Owners' (\"Address Stealing\")",
+      "section_title": true,
+      "zh-CHS": "3.1. 针对地址“所有者”的攻击（“地址窃取”）"
+    },
+    {
+      "indent": 3,
+      "text": "The most obvious danger in Mobile IPv6 is address \"stealing\", when an attacker illegitimately claims to be a given node at a given address and tries to \"steal\" traffic destined to that address. We first describe the basic variant of this attack, follow with a description of how the situation is affected if the target is a stationary node, and continue with more complicated issues related to timing (so called \"future\" attacks), confidentiality and integrity, and DoS aspects.",
+      "zh-CHS": "移动IPv6中最明显的危险是地址“窃取”，即攻击者非法声称自己是给定地址的给定节点，并试图“窃取”指向该地址的流量。我们首先描述这种攻击的基本变体，然后描述如果目标是固定节点，情况会受到怎样的影响，然后继续讨论与定时（所谓的“未来”攻击）、机密性和完整性以及DoS方面有关的更复杂问题。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.1. Basic Address Stealing",
+      "section_title": true,
+      "zh-CHS": "3.1.1. 基本地址窃取"
+    },
+    {
+      "indent": 3,
+      "text": "If Binding Updates were not authenticated at all, an attacker could fabricate and send spoofed binding updates from anywhere in the Internet. All nodes that support the correspondent node functionality would become unwitting accomplices to this attack. As",
+      "zh-CHS": "如果绑定更新根本没有经过身份验证，攻击者可以从Internet上的任何位置伪造并发送伪造的绑定更新。所有支持对应节点功能的节点都将成为此攻击的无意帮凶。像"
+    },
+    {
+      "indent": 3,
+      "text": "explained in Section 2.1, there is no way of telling which addresses belong to mobile nodes that really could send binding updates and which addresses belong to stationary nodes (see below), so potentially any node (including \"static\" nodes) is vulnerable.",
+      "zh-CHS": "如第2.1节所述，无法判断哪些地址属于真正可以发送绑定更新的移动节点，哪些地址属于固定节点（见下文），因此任何节点（包括“静态”节点）都可能存在漏洞。"
+    },
+    {
+      "indent": 8,
+      "text": "+---+  original       +---+ new packet   +---+\n| B |<----------------| A |- - - - - - ->| C |\n+---+  packet flow    +---+ flow         +---+\n                        ^\n                        |\n                        | False BU: B -> C\n                        |\n                    +----------+\n                    | Attacker |\n                    +----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "Figure 2. Basic Address Stealing",
+      "zh-CHS": "图2。基本地址窃取"
+    },
+    {
+      "indent": 3,
+      "text": "Consider an IP node, A, sending IP packets to another IP node, B. The attacker could redirect the packets to an arbitrary address, C, by sending a Binding Update to A. The home address (HoA) in the binding update would be B and the care-of address (CoA) would be C. After receiving this binding update, A would send all packets intended for the node B to the address C. See Figure 2.",
+      "zh-CHS": "考虑IP节点A，将IP数据包发送到另一个IP节点，B。攻击者可以通过发送绑定更新来将数据包重定向到任意地址，C。绑定更新中的家乡地址（HoA）将是B，并且关心地址（CoA）将是C。A会将所有用于节点B的数据包发送到地址C。见图2。"
+    },
+    {
+      "indent": 3,
+      "text": "The attacker might select the care-of address to be either its own current address, another address in its local network, or any other IP address. If the attacker selected a local care-of address allowing it to receive the packets, it would be able to send replies to the correspondent node. Ingress filtering at the attacker's local+ network does not prevent the spoofing of Binding Updates but forces the attacker either to choose a care-of address from inside its own network or to use the Alternate care-of address sub-option.",
+      "zh-CHS": "攻击者可能会将转交地址选择为其自己的当前地址、其本地网络中的另一个地址或任何其他IP地址。如果攻击者选择一个本地转交地址，允许其接收数据包，则它将能够向对应节点发送回复。攻击者本地+网络上的入口过滤不会阻止绑定更新的欺骗，但会迫使攻击者从自己的网络中选择转交地址或使用备用转交地址子选项。"
+    },
+    {
+      "indent": 3,
+      "text": "The binding update authorization mechanism used in the MIPv6 security design is primarily intended to mitigate this threat, and to limit the location of attackers to the path between a correspondent node and the home agent.",
+      "zh-CHS": "MIPv6安全设计中使用的绑定更新授权机制主要用于缓解此威胁，并将攻击者的位置限制在对应节点和归属代理之间的路径上。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2. Stealing Addresses of Stationary Nodes",
+      "section_title": true,
+      "zh-CHS": "3.1.2. 窃取固定节点的地址"
+    },
+    {
+      "indent": 3,
+      "text": "The attacker needs to know or guess the IP addresses of both the source of the packets to be diverted (A in the example above) and the destination of the packets (B, above). This means that it is difficult to redirect all packets to or from a specific node because the attacker would need to know the IP addresses of all the nodes with which it is communicating.",
+      "zh-CHS": "攻击者需要知道或猜测要转移的数据包的源（上例中的A）和数据包的目标（上例中的B）的IP地址。这意味着很难将所有数据包重定向到特定节点或从特定节点重定向，因为攻击者需要知道与之通信的所有节点的IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Nodes with well-known addresses, such as servers and those using stateful configuration, are most vulnerable. Nodes that are a part of the network infrastructure, such as DNS servers, are particularly interesting targets for attackers and particularly easy to identify.",
+      "zh-CHS": "具有已知地址的节点（如服务器和使用有状态配置的节点）最容易受到攻击。作为网络基础设施一部分的节点（如DNS服务器）是攻击者特别感兴趣的目标，并且特别容易识别。"
+    },
+    {
+      "indent": 3,
+      "text": "Nodes that frequently change their address and use random addresses are relatively safe. However, if they register their address into Dynamic DNS, they become more exposed. Similarly, nodes that visit publicly accessible networks such as airport wireless LANs risk revealing their addresses. IPv6 addressing privacy features [3] mitigate these risks to an extent, but note that addresses cannot be completely recycled while there are still open sessions that use those addresses.",
+      "zh-CHS": "频繁更改地址并使用随机地址的节点相对安全。然而，如果他们将自己的地址注册到动态DNS中，他们就会变得更加暴露。类似地，访问公共可访问网络（如机场无线局域网）的节点有暴露其地址的风险。IPv6寻址隐私功能[3]在一定程度上缓解了这些风险，但请注意，当仍有使用这些地址的开放会话时，地址无法完全回收。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, it is not the mobile nodes that are most vulnerable to address stealing attacks; it is the well-known static servers. Furthermore, the servers often run old or heavily optimized operating systems and may not have any mobility related code at all. Thus, the security design cannot be based on the idea that mobile nodes might somehow be able to detect whether someone has stolen their address, and reset the state at the correspondent node. Instead, the security design must make reasonable measures to prevent the creation of fraudulent binding cache entries in the first place.",
+      "zh-CHS": "因此，不是移动节点最容易受到地址窃取攻击；它是众所周知的静态服务器。此外，服务器通常运行旧的或高度优化的操作系统，可能根本没有任何与移动相关的代码。因此，安全设计不能基于这样的想法，即移动节点可能以某种方式能够检测到是否有人窃取了他们的地址，并重置对应节点的状态。相反，安全设计必须首先采取合理措施防止创建欺诈性绑定缓存项。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.3. Future Address Sealing",
+      "section_title": true,
+      "zh-CHS": "3.1.3. 未来地址密封"
+    },
+    {
+      "indent": 3,
+      "text": "If an attacker knows an address that a node is likely to select in the future, it can launch a \"future\" address stealing attack. The attacker creates a Binding Cache Entry with the home address that it anticipates the target node will use. If the Home Agent allows dynamic home addresses, the attacker may be able to do this legitimately. That is, if the attacker is a client of the Home Agent and is able to acquire the home address temporarily, it may be able to do so and then to return the home address to the Home Agent once the BCE is in place.",
+      "zh-CHS": "如果攻击者知道节点将来可能选择的地址，则可以发起“未来”地址窃取攻击。攻击者使用预期目标节点将使用的主地址创建绑定缓存项。如果Home Agent允许动态Home addresses，则攻击者可以合法地执行此操作。也就是说，如果攻击者是归属代理的客户端，并且能够临时获取归属地址，则攻击者可能能够这样做，然后在BCE就位后将归属地址返回给归属代理。"
+    },
+    {
+      "indent": 3,
+      "text": "Now, if the BCE state had a long expiration time, the target node would acquire the same home address while the BCE is still effective, and the attacker would be able to launch a successful man-in-the-middle or denial-of-service attack. The mechanism applied in the MIPv6 security design is to limit the lifetime of Binding Cache Entries to a few minutes.",
+      "zh-CHS": "现在，如果BCE状态有很长的过期时间，目标节点将在BCE仍然有效的情况下获得相同的家庭地址，攻击者将能够发起成功的中间人攻击或拒绝服务攻击。MIPv6安全设计中应用的机制是将绑定缓存项的生存期限制为几分钟。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this attack applies only to fairly specific conditions. There are also some variations of this attack that are theoretically possible under some other conditions. However, all of these attacks are limited by the Binding Cache Entry lifetime, and therefore they are not a real concern with the current design.",
+      "zh-CHS": "请注意，此攻击仅适用于相当特定的情况。这种攻击也有一些变化，在某些其他条件下理论上是可能的。然而，所有这些攻击都受到绑定缓存项生存期的限制，因此它们不是当前设计的真正关注点。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.4. Attacks against Secrecy and Integrity",
+      "section_title": true,
+      "zh-CHS": "3.1.4. 对保密性和完整性的攻击"
+    },
+    {
+      "indent": 3,
+      "text": "By spoofing Binding Updates, an attacker could redirect all packets between two IP nodes to itself. By sending a spoofed binding update to A, it could capture the data intended to B. That is, it could pretend to be B and highjack A's connections with B, or it could establish new spoofed connections. The attacker could also send spoofed binding updates to both A and B and insert itself in the middle of all connections between them (man-in-the-middle attack). Consequently, the attacker would be able to see and modify the packets sent between A and B. See Figure 3.",
+      "zh-CHS": "通过欺骗绑定更新，攻击者可以将两个IP节点之间的所有数据包重定向到自身。通过向a发送欺骗绑定更新，它可以捕获打算发送给B的数据。也就是说，它可以假装是B和highjack a与B的连接，或者它可以建立新的欺骗连接。攻击者还可以向A和B发送欺骗绑定更新，并在它们之间的所有连接（中间人攻击）中间插入自身。因此，攻击者将能够看到并修改A和B之间发送的数据包。见图3。"
+    },
+    {
+      "indent": 5,
+      "text": "Original data path, before man-in-the-middle attack",
+      "zh-CHS": "原始数据路径，在中间人攻击之前"
+    },
+    {
+      "indent": 10,
+      "text": "+---+                               +---+\n| A |                               | B |\n+---+                               +---+\n  \\___________________________________/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Modified data path, after the falsified binding updates",
+      "zh-CHS": "修改的数据路径，在伪造的绑定更新之后"
+    },
+    {
+      "indent": 10,
+      "text": "+---+                               +---+\n| A |                               | B |\n+---+                               +---+\n  \\                                  /\n   \\                                /\n    \\          +----------+        /\n     \\---------| Attacker |-------/\n               +----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "Figure 3. Man-in-the-Middle Attack",
+      "zh-CHS": "图3。中间人攻击"
+    },
+    {
+      "indent": 3,
+      "text": "Strong end-to-end encryption and integrity protection, such as authenticated IPsec, can prevent all the attacks against data secrecy and integrity. When the data is cryptographically protected, spoofed binding updates could result in denial of service (see below) but not in disclosure or corruption of sensitive data beyond revealing the existence of the traffic flows. Two fixed nodes could also protect communication between themselves by refusing to accept binding updates from each other. Ingress filtering, on the other hand, does not help, as the attacker is using its own address as the care-of address and is not spoofing source IP addresses.",
+      "zh-CHS": "强大的端到端加密和完整性保护（如经过身份验证的IPsec）可以防止所有针对数据保密性和完整性的攻击。当数据受到加密保护时，伪造的绑定更新可能会导致拒绝服务（见下文），但不会导致敏感数据的泄露或损坏，而不仅仅是泄露流量的存在。两个固定节点还可以通过拒绝接受彼此的绑定更新来保护它们之间的通信。另一方面，入口过滤没有帮助，因为攻击者使用自己的地址作为转交地址，并且没有欺骗源IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The protection adopted in MIPv6 Security Design is to authenticate (albeit weakly) the addresses by return routability (RR), which limits the topological locations from which the attack is possible (see Section 4.1).",
+      "zh-CHS": "MIPv6安全设计中采用的保护是通过返回可路由性（RR）对地址进行身份验证（尽管很弱），这限制了可能发生攻击的拓扑位置（参见第4.1节）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5. Basic Denial-of-Service Attacks",
+      "section_title": true,
+      "zh-CHS": "3.1.5. 基本拒绝服务攻击"
+    },
+    {
+      "indent": 3,
+      "text": "By sending spoofed binding updates, the attacker could redirect all packets sent between two IP nodes to a random or nonexistent address (or addresses). As a result, it might be able to stop or disrupt communication between the nodes. This attack is serious because any Internet node could be targeted, including fixed nodes belonging to the infrastructure (e.g., DNS servers) that are also vulnerable. Again, the selected protection mechanism is return routability (RR).",
+      "zh-CHS": "通过发送伪造的绑定更新，攻击者可以将两个IP节点之间发送的所有数据包重定向到随机或不存在的地址。因此，它可能会停止或中断节点之间的通信。此攻击非常严重，因为任何Internet节点都可能成为攻击目标，包括属于基础设施的固定节点（例如DNS服务器），这些节点也容易受到攻击。同样，选择的保护机制是返回路由性（RR）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.6. Replaying and Blocking Binding Updates",
+      "section_title": true,
+      "zh-CHS": "3.1.6. 重播和阻止绑定更新"
+    },
+    {
+      "indent": 3,
+      "text": "Any protocol for authenticating binding updates has to consider replay attacks. That is, an attacker may be able to replay recently authenticated binding updates to the correspondent and, consequently, to direct packets to the mobile node's previous location. As with spoofed binding updates, this could be used both for capturing packets and for DoS. The attacker could capture the packets and impersonate the mobile node if it reserved the mobile's previous address after the mobile node has moved away and then replayed the previous binding update to redirect packets back to the previous location.",
+      "zh-CHS": "任何验证绑定更新的协议都必须考虑重放攻击。也就是说，攻击者可能能够将最近通过身份验证的绑定更新重播给通信方，从而将数据包定向到移动节点的先前位置。与伪造绑定更新一样，这可以用于捕获数据包和拒绝服务。如果攻击者在移动节点离开后保留了移动节点以前的地址，然后重播以前的绑定更新以将数据包重定向回以前的位置，则攻击者可以捕获数据包并模拟移动节点。"
+    },
+    {
+      "indent": 3,
+      "text": "In a related attack, the attacker blocks binding updates from the mobile at its new location, e.g., by jamming the radio link or by mounting a flooding attack. The attacker then takes over the mobile's connections at the old location. The attacker will be able to capture the packets sent to the mobile and to impersonate the mobile until the correspondent's Binding Cache entry expires.",
+      "zh-CHS": "在相关攻击中，攻击者通过干扰无线链路或发起泛洪攻击等方式，阻止移动设备在其新位置进行绑定更新。然后，攻击者在旧位置接管移动设备的连接。攻击者将能够捕获发送到移动设备的数据包并模拟移动设备，直到通信方的绑定缓存条目过期。"
+    },
+    {
+      "indent": 3,
+      "text": "Both of the above attacks require that the attacker be on the same local network with the mobile, where it can relatively easily observe packets and block them even if the mobile does not move to a new location. Therefore, we believe that these attacks are not as serious as ones that can be mounted from remote locations. The limited lifetime of the Binding Cache entry and the associated nonces limit the time frame within which the replay attacks are possible. Replay protection is provided by the sequence number and MAC in the Binding Update. To not undermine this protection, correspondent nodes must exercise care upon deleting a binding cache entry, as per section 5.2.8 (\"Preventing Replay Attacks\") in [6].",
+      "zh-CHS": "上述两种攻击都要求攻击者与移动设备位于同一个本地网络上，在该网络上，即使移动设备未移动到新位置，攻击者也可以相对容易地观察数据包并阻止它们。因此，我们认为，这些攻击不如可以从远程地点发动的攻击那么严重。绑定缓存项的有限生存期和相关的nonce限制了重播攻击可能发生的时间范围。重播保护由绑定更新中的序列号和MAC提供。为了不破坏这种保护，根据[6]中第5.2.8节（“防止重放攻击”）的规定，对应节点在删除绑定缓存项时必须小心。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Attacks Against Other Nodes and Networks (Flooding)",
+      "section_title": true,
+      "zh-CHS": "3.2. 对其他节点和网络的攻击（泛洪）"
+    },
+    {
+      "indent": 3,
+      "text": "By sending spoofed binding updates, an attacker could redirect traffic to an arbitrary IP address. This could be used to overload an arbitrary Internet address with an excessive volume of packets (known as a 'bombing attack'). The attacker could also target a",
+      "zh-CHS": "通过发送伪造的绑定更新，攻击者可以将流量重定向到任意IP地址。这可能被用来使任意的互联网地址过载，并产生过多的数据包（称为“轰炸攻击”）。攻击者还可以将目标锁定在"
+    },
+    {
+      "indent": 3,
+      "text": "network by redirecting data to one or more IP addresses within the network. There are two main variations of flooding: basic flooding and return-to-home flooding. We consider them separately.",
+      "zh-CHS": "通过将数据重定向到网络中的一个或多个IP地址来连接网络。洪水有两种主要变化：基本洪水和返乡洪水。我们把它们分开考虑。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1. Basic Flooding",
+      "section_title": true,
+      "zh-CHS": "3.2.1. 基本洪水"
+    },
+    {
+      "indent": 3,
+      "text": "In the simplest attack, the attacker knows that there is a heavy data stream from node A to B and redirects this to the target address C. However, A would soon stop sending the data because it is not receiving acknowledgements from B.",
+      "zh-CHS": "在最简单的攻击中，攻击者知道从节点a到B有大量数据流，并将其重定向到目标地址C。但是，a将很快停止发送数据，因为它没有收到来自B的确认。"
+    },
+    {
+      "indent": 8,
+      "text": "(B is attacker)",
+      "zh-CHS": "（B是攻击者）"
+    },
+    {
+      "indent": 8,
+      "text": "+---+  original       +---+ flooding packet   +---+\n| B |<================| A |==================>| C |\n+---+  packet flow    +---+ flow              +---+\n |                      ^\n  \\                    /\n   \\__________________/\n  False binding update + false acknowledgements",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 4. Basic Flooding Attack",
+      "zh-CHS": "图4。基本洪水攻击"
+    },
+    {
+      "indent": 3,
+      "text": "A more sophisticated attacker would act itself as B; see Figure 4. It would first subscribe to a data stream (e.g., a video stream) and redirect this stream to the target address C. The attacker would even be able to spoof the acknowledgements. For example, consider a TCP stream. The attacker would perform the TCP handshake itself and thus know the initial sequence numbers. After redirecting the data to C, the attacker would continue to send spoofed acknowledgements. It would even be able to accelerate the data rate by simulating a fatter pipe [12].",
+      "zh-CHS": "一个更老练的攻击者会扮演B；参见图4。它将首先订阅数据流（例如视频流），并将该流重定向到目标地址C。攻击者甚至能够伪造确认。例如，考虑TCP流。攻击者将自行执行TCP握手，从而知道初始序列号。将数据重定向到C后，攻击者将继续发送伪造的确认。它甚至可以通过模拟更胖的管道来加速数据速率[12]。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack might be even easier with UDP/RTP. The attacker could create spoofed RTCP acknowledgements. Either way, the attacker would be able to redirect an increasing stream of unwanted data to the target address without doing much work itself. It could carry on opening more streams and refreshing the Binding Cache entries by sending a new binding update every few minutes. Thus, the limitation of BCE lifetime to a few minutes does not help here without additional measures.",
+      "zh-CHS": "使用UDP/RTP，这种攻击可能更容易。攻击者可以创建伪造的RTCP确认。无论哪种方式，攻击者都能够将越来越多的不需要的数据流重定向到目标地址，而无需自己做很多工作。它可以通过每隔几分钟发送一次新的绑定更新来打开更多的流并刷新绑定缓存条目。因此，如果没有额外的措施，将BCE寿命限制在几分钟是没有帮助的。"
+    },
+    {
+      "indent": 3,
+      "text": "During the Mobile IPv6 design process, the effectiveness of this attack was debated. It was mistakenly assumed that the target node would send a TCP Reset to the source of the unwanted data stream, which would then stop sending. In reality, all practical TCP/IP implementations fail to send the Reset. The target node drops the unwanted packets at the IP layer because it does not have a Binding",
+      "zh-CHS": "在移动IPv6设计过程中，对这种攻击的有效性进行了辩论。错误地认为目标节点将向不需要的数据流的源发送TCP重置，然后停止发送。实际上，所有实际的TCP/IP实现都无法发送重置。目标节点在IP层丢弃不需要的数据包，因为它没有绑定"
+    },
+    {
+      "indent": 3,
+      "text": "Update List entry corresponding to the Routing Header on the incoming packet. Thus, the flooding data is never processed at the TCP layer of the target node, and no Reset is sent. This means that the attack using TCP streams is more effective than was originally believed.",
+      "zh-CHS": "与传入数据包上的路由头相对应的更新列表项。因此，泛洪数据永远不会在目标节点的TCP层处理，也不会发送重置。这意味着使用TCP流的攻击比最初认为的更有效。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack is serious because the target can be any node or network, not only a mobile one. What makes it particularly serious compared to the other attacks is that the target itself cannot do anything to prevent the attack. For example, it does not help if the target network stops using Route Optimization. The damage is compounded if these techniques are used to amplify the effect of other distributed denial-of-service (DDoS) attacks. Ingress filtering in the attacker's local network prevents the spoofing of source addresses but the attack would still be possible by setting the Alternate care-of address sub-option to the target address.",
+      "zh-CHS": "这种攻击很严重，因为目标可以是任何节点或网络，而不仅仅是移动节点或网络。与其他攻击相比，它尤其严重的是目标本身无法采取任何措施来阻止攻击。例如，如果目标网络停止使用路由优化，则没有帮助。如果这些技术被用于放大其他分布式拒绝服务（DDoS）攻击的影响，则损害将更加严重。攻击者本地网络中的入口过滤可防止对源地址的欺骗，但通过将Alternate care of address子选项设置为目标地址，仍有可能进行攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Again, the protection mechanism adopted for MIPv6 is return routability. This time it is necessary to check that there is indeed a node at the new care-of address, and that the node is the one that requested redirecting packets to that very address (see Section 4.1.2).",
+      "zh-CHS": "同样，MIPv6采用的保护机制是返回可路由性。这一次，有必要检查新转交地址是否确实存在一个节点，以及该节点是否是请求将数据包重定向到该地址的节点（见第4.1.2节）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2. Return-to-Home Flooding",
+      "section_title": true,
+      "zh-CHS": "3.2.2. 返乡洪水"
+    },
+    {
+      "indent": 3,
+      "text": "A variation of the bombing attack would target the home address or the home network instead of the care-of address or a visited network. The attacker would claim to be a mobile with the home address equal to the target address. While claiming to be away from home, the attacker would start downloading a data stream. The attacker would then send a binding update cancellation (i.e., a request to delete the binding from the Binding Cache) or just allow the cache entry to expire. Either would redirect the data stream to the home network. As when bombing a care-of address, the attacker can keep the stream alive and even increase the data rate by spoofing acknowledgements. When successful, the bombing attack against the home network is just as serious as that against a care-of address.",
+      "zh-CHS": "轰炸攻击的一种变体将以家庭地址或家庭网络为目标，而不是照管地址或访问过的网络。攻击者会声称自己是一部家庭地址等于目标地址的手机。当攻击者声称不在家时，会开始下载数据流。然后，攻击者将发送绑定更新取消（即，从绑定缓存中删除绑定的请求）或仅允许缓存项过期。任何一个都会将数据流重定向到家庭网络。与轰炸转交地址一样，攻击者可以通过欺骗确认来保持流的活动性，甚至提高数据速率。成功后，对家庭网络的轰炸攻击与对转交地址的轰炸攻击一样严重。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic protection mechanism adopted is return routability. However, it is hard to fully protect against this attack; see Section 4.1.1.",
+      "zh-CHS": "采用的基本保护机制是返回路由性。然而，很难完全防范这种攻击；见第4.1.1节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Attacks against Binding Update Protocols",
+      "section_title": true,
+      "zh-CHS": "3.3. 针对绑定更新协议的攻击"
+    },
+    {
+      "indent": 3,
+      "text": "Security protocols that successfully protect the secrecy and integrity of data can sometimes make the participants more vulnerable to denial-of-service attacks. In fact, the stronger the authentication, the easier it may be for an attacker to use the",
+      "zh-CHS": "成功保护数据保密性和完整性的安全协议有时会使参与者更容易受到拒绝服务攻击。事实上，身份验证越强，攻击者就越容易使用"
+    },
+    {
+      "indent": 3,
+      "text": "protocol features to exhaust the mobile's or the correspondent's resources.",
+      "zh-CHS": "协议功能可耗尽手机或通讯员的资源。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.1. Inducing Unnecessary Binding Updates",
+      "section_title": true,
+      "zh-CHS": "3.3.1. 导致不必要的绑定更新"
+    },
+    {
+      "indent": 3,
+      "text": "When a mobile node receives an IP packet from a new correspondent via the home agent, it may initiate the binding update protocol. An attacker can exploit this by sending the mobile node a spoofed IP packet (e.g., ping or TCP SYN packet) that appears to come from a new correspondent node. Since the packet arrives via the home agent, the mobile node may start the binding update protocol with the correspondent node. The decision as to whether to initiate the binding update procedure may depend on several factors (including heuristics, cross layer information, and configuration options) and is not specified by Mobile IPv6. Not initiating the binding update procedure automatically may alleviate these attacks, but it will not, in general, prevent them completely.",
+      "zh-CHS": "当移动节点经由归属代理从新通信方接收到IP分组时，它可以发起绑定更新协议。攻击者可以通过向移动节点发送看似来自新对应节点的伪造IP数据包（例如ping或TCP SYN数据包）来利用此漏洞。由于分组经由归属代理到达，移动节点可以启动与对应节点的绑定更新协议。关于是否启动绑定更新过程的决定可能取决于多个因素（包括启发式、跨层信息和配置选项），移动IPv6没有指定。不自动启动绑定更新过程可能会减轻这些攻击，但通常不会完全阻止它们。"
+    },
+    {
+      "indent": 3,
+      "text": "In a real attack the attacker would induce the mobile node to initiate binding update protocols with a large number of correspondent nodes at the same time. If the correspondent addresses are real addresses of existing IP nodes, then most instances of the binding update protocol might even complete successfully. The entries created in the Binding Cache are correct but useless. In this way, the attacker can induce the mobile to execute the binding update protocol unnecessarily, which can drain the mobile's resources.",
+      "zh-CHS": "在实际攻击中，攻击者会诱使移动节点同时启动与大量对应节点的绑定更新协议。如果对应地址是现有IP节点的真实地址，那么绑定更新协议的大多数实例甚至可能成功完成。在绑定缓存中创建的条目是正确的，但没有用处。通过这种方式，攻击者可以诱导移动设备不必要地执行绑定更新协议，从而耗尽移动设备的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "A correspondent node (i.e., any IP node) can also be attacked in a similar way. The attacker sends spoofed IP packets to a large number of mobiles, with the target node's address as the source address. These mobiles will initiate the binding update protocol with the target node. Again, most of the binding update protocol executions will complete successfully. By inducing a large number of unnecessary binding updates, the attacker is able to consume the target node's resources.",
+      "zh-CHS": "对应节点（即，任何IP节点）也可以以类似的方式受到攻击。攻击者向大量手机发送伪造的IP数据包，目标节点的地址作为源地址。这些移动设备将启动与目标节点的绑定更新协议。同样，大多数绑定更新协议执行将成功完成。通过诱导大量不必要的绑定更新，攻击者能够消耗目标节点的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack is possible against any binding update authentication protocol. The more resources the binding update protocol consumes, the more serious the attack. Therefore, strong cryptographic authentication protocol is more vulnerable to the attack than a weak one or unauthenticated binding updates. Ingress filtering helps a little, since it makes it harder to forge the source address of the spoofed packets, but it does not completely eliminate this threat.",
+      "zh-CHS": "此攻击可能针对任何绑定更新身份验证协议。绑定更新协议消耗的资源越多，攻击越严重。因此，强加密身份验证协议比弱加密身份验证协议或未经验证的绑定更新更容易受到攻击。入口过滤有点帮助，因为它使伪造伪造伪造数据包的源地址变得更加困难，但它并不能完全消除这种威胁。"
+    },
+    {
+      "indent": 3,
+      "text": "A node should protect itself from the attack by setting a limit on the amount of resources (i.e., processing time, memory, and communications bandwidth) that it uses for processing binding",
+      "zh-CHS": "节点应通过对其用于处理绑定的资源量（即处理时间、内存和通信带宽）设置限制来保护自己免受攻击"
+    },
+    {
+      "indent": 3,
+      "text": "updates. When the limit is exceeded, the node can simply stop attempting route optimization. Sometimes it is possible to process some binding updates even when a node is under the attack. A mobile node may have a local security policy listing a limited number of addresses to which binding updates will be sent even when the mobile node is under DoS attack. A correspondent node (i.e., any IP node) may similarly have a local security policy listing a limited set of addresses from which binding updates will be accepted even when the correspondent is under a binding update DoS attack.",
+      "zh-CHS": "更新。当超过限制时，节点可以简单地停止尝试路由优化。有时，即使节点受到攻击，也可能处理一些绑定更新。移动节点可能具有本地安全策略，该策略列出了有限数量的地址，即使在移动节点受到DoS攻击时，绑定更新也将发送到这些地址。对应节点（即，任何IP节点）可能类似地具有本地安全策略，列出有限的地址集，即使对应节点受到绑定更新DoS攻击，也将从中接受绑定更新。"
+    },
+    {
+      "indent": 3,
+      "text": "The node may also recognize addresses with it had meaningful communication in the past and only send binding updates to, or accept them from, those addresses. Since it may be impossible for the IP layer to know about the protocol state in higher protocol layers, a good measure of the meaningfulness of the past communication is probably per-address packet counts. Alternatively, Neighbor Discovery [2] (Section 5.1, Conceptual Data Structures) defines the Destination Cache as a set of entries about destinations to which traffic has been sent recently. Thus, implementors may wish to use the information in the Destination Cache.",
+      "zh-CHS": "节点还可以识别过去有意义通信的地址，并且只向这些地址发送绑定更新，或者从这些地址接收绑定更新。由于IP层可能不可能知道更高协议层中的协议状态，因此过去通信的意义的一个很好的度量可能是每个地址的数据包计数。或者，邻居发现[2]（第5.1节，概念数据结构）将目标缓存定义为一组关于最近已向其发送流量的目标的条目。因此，实现者可能希望使用目标缓存中的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 11.7.2 (\"Correspondent Registration\") in [6] does not specify when such a route optimization procedure should be initiated. It does indicate when it may justifiable to do so, but these hints are not enough. This remains an area where more work is needed. Obviously, given that route optimization is optional, any node that finds the processing load excessive or unjustified may simply turn it off (either selectively or completely).",
+      "zh-CHS": "[6]中的第11.7.2节（“对应注册”）未规定何时启动此类路线优化程序。它确实指出了何时这样做是合理的，但这些提示还不够。这仍然是一个需要做更多工作的领域。显然，考虑到路由优化是可选的，任何发现处理负载过大或不合理的节点都可以（选择性地或完全地）将其关闭。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.2. Forcing Non-Optimized Routing",
+      "section_title": true,
+      "zh-CHS": "3.3.2. 强制非优化路由"
+    },
+    {
+      "indent": 3,
+      "text": "As a variant of the previous attack, the attacker can prevent a correspondent node from using route optimization by filling its Binding Cache with unnecessary entries so that most entries for real mobiles are dropped.",
+      "zh-CHS": "作为前一次攻击的一种变体，攻击者可以通过使用不必要的条目填充绑定缓存来阻止对应节点使用路由优化，从而丢弃真实移动设备的大多数条目。"
+    },
+    {
+      "indent": 3,
+      "text": "Any successful DoS attack against a mobile or correspondent node can also prevent the processing of binding updates. We have previously suggested that the target of a DoS attack may respond by stopping route optimization for all or some communication. Obviously, an attacker can exploit this fallback mechanism and force the target to use the less efficient home agent-based routing. The attacker only needs to mount a noticeable DoS attack against the mobile or correspondent, and the target will default to non-optimized routing.",
+      "zh-CHS": "任何针对移动或通信节点的成功DoS攻击也会阻止绑定更新的处理。我们之前曾建议，DoS攻击的目标可以通过停止所有或某些通信的路由优化来响应。显然，攻击者可以利用此回退机制，迫使目标使用效率较低的基于home agent的路由。攻击者只需对移动设备或通信设备发起明显的DoS攻击，目标将默认为非优化路由。"
+    },
+    {
+      "indent": 3,
+      "text": "The target node can mitigate the effects of the attack by reserving more space for the Binding Cache, by reverting to non-optimized routing only when it cannot otherwise cope with the DoS attack, by",
+      "zh-CHS": "目标节点可以通过为绑定缓存保留更多空间来减轻攻击的影响，只有在无法应对DoS攻击时，目标节点才能通过以下方式恢复到非优化路由："
+    },
+    {
+      "indent": 3,
+      "text": "trying aggressively to return to optimized routing, or by favoring mobiles with which it has an established relationship. This attack is not as serious as the ones described earlier, but applications that rely on Route Optimization could still be affected. For instance, conversational multimedia sessions can suffer drastically from the additional delays caused by triangle routing.",
+      "zh-CHS": "积极尝试返回到优化路由，或通过支持与之建立关系的手机。此攻击不像前面描述的攻击那么严重，但依赖路由优化的应用程序仍可能受到影响。例如，会话多媒体会话可能会因三角路由造成的额外延迟而遭受巨大损失。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.3. Reflection and Amplification",
+      "section_title": true,
+      "zh-CHS": "3.3.3. 反射和放大"
+    },
+    {
+      "indent": 3,
+      "text": "Attackers sometimes try to hide the source of a packet-flooding attack by reflecting the traffic from other nodes [1]. That is, instead of sending the flood of packets directly to the target, the attacker sends data to other nodes, tricking them to send the same number, or more, packets to the target. Such reflection can hide the attacker's address even when ingress filtering prevents source address spoofing. Reflection is particularly dangerous if the packets can be reflected multiple times, if they can be sent into a looping path, or if the nodes can be tricked into sending many more packets than they receive from the attacker, because such features can be used to amplify the traffic by a significant factor. When designing protocols, one should avoid creating services that can be used for reflection and amplification.",
+      "zh-CHS": "攻击者有时试图通过反映来自其他节点的流量来隐藏数据包泛滥攻击的来源[1]。也就是说，攻击者不是直接向目标发送大量数据包，而是向其他节点发送数据，诱使它们向目标发送相同数量或更多的数据包。即使入口过滤阻止源地址欺骗，这种反射也可以隐藏攻击者的地址。如果数据包可以被多次反射，如果它们可以被发送到循环路径中，或者如果节点被诱骗发送的数据包比从攻击者那里接收的数据包多得多，那么反射就特别危险，因为这些特征可以被用来放大流量的一个重要因素。在设计协议时，应避免创建可用于反射和放大的服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Triangle routing would easily create opportunities for reflection: a correspondent node receives packets (e.g., TCP SYN) from the mobile node and replies to the home address given by the mobile node in the Home Address Option (HAO). The mobile might not really be a mobile and the home address could actually be the target address. The target would only see the packets sent by the correspondent and could not see the attacker's address (even if ingress filtering prevents the attacker from spoofing its source address).",
+      "zh-CHS": "三角路由很容易产生反射的机会：对应节点从移动节点接收数据包（例如，TCP SYN），并回复移动节点在home address选项（HAO）中给出的home address。手机可能不是真正的手机，而家庭地址实际上可能是目标地址。目标只会看到通信方发送的数据包，而看不到攻击者的地址（即使入口过滤可以防止攻击者欺骗其源地址）。"
+    },
+    {
+      "indent": 8,
+      "text": "+----------+ TCP SYN with HAO    +-----------+\n| Attacker |-------------------->| Reflector |\n+----------+                     +-----------+\n                                       |\n                                       | TCP SYN-ACK to HoA\n                                       V\n                                 +-----------+\n                                 | Flooding  |\n                                 | target    |\n                                 +-----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "Figure 5. Reflection Attack",
+      "zh-CHS": "图5。反射攻击"
+    },
+    {
+      "indent": 3,
+      "text": "A badly designed binding update protocol could also be used for reflection: the correspondent would respond to a data packet by initiating the binding update authentication protocol, which usually",
+      "zh-CHS": "设计糟糕的绑定更新协议也可用于反射：通信方将通过启动绑定更新身份验证协议来响应数据包，该协议通常"
+    },
+    {
+      "indent": 3,
+      "text": "involves sending a packet to the home address. In that case, the reflection attack can be discouraged by copying the mobile's address into the messages sent by the mobile to the correspondent. (The mobile's source address is usually the same as the care-of address, but an Alternative Care-of Address sub-option can specify a different care-of address.) Some of the early proposals for MIPv6 security used this approach and were prone to reflection attacks.",
+      "zh-CHS": "包括向家庭地址发送数据包。在这种情况下，可以通过将手机地址复制到手机发送给通讯员的消息中来阻止反射攻击。（移动设备的源地址通常与转交地址相同，但替代转交地址子选项可以指定不同的转交地址。）一些早期的MIPv6安全建议使用了这种方法，并且容易受到反射攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "In some of the proposals for binding update authentication protocols, the correspondent node responded to an initial message from the mobile with two packets (one to the home address, one to the care-of address). It would have been possible to use this to amplify a flooding attack by a factor of two. Furthermore, with public-key authentication, the packets sent by the correspondent might have been significantly larger than the one that triggers them.",
+      "zh-CHS": "在绑定更新认证协议的一些建议中，对应节点使用两个分组（一个到家庭地址，一个到转交地址）响应来自移动设备的初始消息。用它可以将洪水袭击放大两倍。此外，通过公钥身份验证，通信方发送的数据包可能比触发它们的数据包大得多。"
+    },
+    {
+      "indent": 3,
+      "text": "These types of reflection and amplification can be avoided by ensuring that the correspondent only responds to the same address from which it received a packet, and only with a single packet of the same size. These principles have been applied to MIPv6 security design.",
+      "zh-CHS": "这些类型的反射和放大可以通过确保通信者只响应从中接收数据包的相同地址，并且只响应相同大小的单个数据包来避免。这些原则已应用于MIPv6安全设计中。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Classification of Attacks",
+      "section_title": true,
+      "zh-CHS": "3.4. 攻击的分类"
+    },
+    {
+      "indent": 3,
+      "text": "Sect. Attack name                            Target Sev. Mitigation\n---------------------------------------------------------------------\n3.1.1 Basic address stealing                 MN     Med. RR\n3.1.2 Stealing addresses of stationary nodes Any    High RR\n3.1.3 Future address stealing                MN     Low  RR, lifetime\n3.1.4 Attacks against secrecy and integrity  MN     Low  RR, IPsec\n3.1.5 Basic denial-of-service attacks        Any    Med. RR\n3.1.6 Replaying and blocking binding updates MN     Low  lifetime,\n                                                         seq number,\n                                                         MAC\n3.2.1 Basic flooding                         Any    High RR\n3.2.2 Return-to-home flooding                Any    High RR\n3.3.1 Inducing unnecessary binding updates   MN, CN Med. heuristics\n3.3.2 Forcing non-optimized routing          MN     Low  heuristics\n3.3.3 Reflection and amplification           N/A    Med. BU design",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Figure 6. Summary of Discussed Attacks",
+      "zh-CHS": "图6。讨论的攻击摘要"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 6 gives a summary of the attacks discussed. As it stands at the time of writing, the return-to-the-home flooding and the induction of unnecessary binding updates look like the threats against which we have the least amount of protection, compared to their severity.",
+      "zh-CHS": "图6总结了所讨论的攻击。就在撰写本文时的情况来看，与严重性相比，返乡洪水和不必要的绑定更新似乎是我们面临的保护最少的威胁。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Problems with Infrastructure-Based Authorization",
+      "section_title": true,
+      "zh-CHS": "3.5. 基于基础架构的授权问题"
+    },
+    {
+      "indent": 3,
+      "text": "Early in the MIPv6 design process, it was assumed that plain IPsec could be the default way to secure Binding Updates with arbitrary correspondent nodes. However, this turned out to be impossible. Plain IPsec relies on an infrastructure for key management, which, to be usable with any arbitrary pair of nodes, would need to be global in scope. Such a \"global PKI\" does not exist, nor is it expected to come into existence any time soon.",
+      "zh-CHS": "在MIPv6设计过程的早期，假定普通IPsec可能是保护与任意对应节点的绑定更新的默认方式。然而，事实证明这是不可能的。普通IPsec依赖于密钥管理的基础设施，要对任意一对节点可用，密钥管理的范围必须是全局的。这样一个“全球PKI”并不存在，也不会很快出现。"
+    },
+    {
+      "indent": 3,
+      "text": "More minor issues that also surfaced at the time were: (1) insufficient filtering granularity for the state of IPsec at the time, (2) cost to establish a security association (in terms of CPU and round trip times), and (3) expressing the proper authorization (as opposed to just authentication) for binding updates [13]. These issues are solvable, and, in particular, (1) and (3) have been addressed for IPsec usage with binding updates between the mobile node and the home agent [7].",
+      "zh-CHS": "当时还出现了更多的小问题：（1）当时IPsec状态的过滤粒度不足，（2）建立安全关联的成本（CPU和往返时间方面），以及（3）表示绑定更新的适当授权（而不仅仅是身份验证）[13]。这些问题是可以解决的，特别是，（1）和（3）已经通过移动节点和归属代理之间的绑定更新解决了IPsec使用问题[7]。"
+    },
+    {
+      "indent": 3,
+      "text": "However, the lack of a global PKI remains unsolved.",
+      "zh-CHS": "然而，缺乏全球PKI的问题仍未解决。"
+    },
+    {
+      "indent": 3,
+      "text": "One way to provide a global key infrastructure for mobile IP could be DNSSEC. Such a scheme is not completely supported by the existing specifications, as it constitutes a new application of the KEY RR, something explicitly limited to DNSSEC [8] [9] [10]. Nevertheless, if one were to define it, one could proceed along the following lines: A secure reverse DNS that provided a public key for each IP address could be used to verify that a binding update is indeed signed by an authorized party. However, in order to be secure, each link in such a system must be secure. That is, there must be a chain of keys and signatures all the way down from the root (or at least starting from a trust anchor common to the mobile node and the correspondent node) to the given IP address. Furthermore, it is not enough that each key be signed by the key above it in the chain. It is also necessary that each signature explicitly authorize the lower key to manage the corresponding address block below.",
+      "zh-CHS": "为移动IP提供全球关键基础设施的一种方法是DNSSEC。现有规范并不完全支持这种方案，因为它构成了密钥RR的一种新应用，明确限制了DNSSEC[8][9][10]。然而，如果要定义它，可以按照以下思路进行：可以使用为每个IP地址提供公钥的安全反向DNS来验证绑定更新是否确实由授权方签名。然而，为了安全，这样一个系统中的每个链路都必须是安全的。也就是说，从根（或至少从移动节点和对应节点共用的信任锚点开始）到给定的IP地址，必须有一系列密钥和签名。此外，链中每个密钥都由其上方的密钥签名是不够的。每个签名还必须明确授权较低的密钥来管理下面相应的地址块。"
+    },
+    {
+      "indent": 3,
+      "text": "Even though it would be theoretically possible to build a secure reverse DNS infrastructure along the lines shown above, the practical problems would be daunting. Whereas the delegation and key signing might work close to the root of the tree, it would probably break down somewhere along the path to the individual nodes. Note that a similar delegation tree is currently being proposed for Secure Neighbor Discovery [15], although in this case only routers (not necessarily every single potential mobile node) need to secure such a certificate. Furthermore, checking all the signatures on the tree would place a considerable burden on the correspondent nodes, making route optimization prohibitive, or at least justifiable only in very",
+      "zh-CHS": "尽管理论上可以按照上述思路构建安全的反向DNS基础设施，但实际问题将令人望而生畏。尽管委托和密钥签名可能在树的根附近工作，但它可能会在通往各个节点的路径上的某个地方发生故障。请注意，目前正在为安全邻居发现提出类似的委托树[15]，尽管在这种情况下，只有路由器（不一定每个潜在移动节点）需要保护此类证书。此外，检查树上的所有签名将给相应节点带来相当大的负担，这使得路由优化成为禁止性的，或者至少在非常复杂的情况下才是合理的"
+    },
+    {
+      "indent": 3,
+      "text": "particular circumstances. Finally, it is not enough simply to check whether the mobile node is authorized to send binding updates containing a given home address, because to protect against flooding attacks, the care-of address must also be verified.",
+      "zh-CHS": "特殊情况。最后，仅仅检查移动节点是否被授权发送包含给定家庭地址的绑定更新是不够的，因为为了防止洪水攻击，还必须验证转交地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Relying on this same secure DNS infrastructure to verify care-of addresses would be even harder than verifying home addresses. Instead, a different method would be required, e.g., a return routability procedure. If so, the obvious question is whether the gargantuan cost of deploying the global secure DNS infrastructure is worth the additional protection it affords, as compared to simply using return routability for both home address and care-of address verification.",
+      "zh-CHS": "依靠同样的安全DNS基础设施来验证转交地址将比验证家庭地址更加困难。相反，需要一种不同的方法，例如，返回可路由性程序。如果是这样的话，那么显而易见的问题是，与简单地为家庭地址和转交地址验证使用返回路由相比，部署全球安全DNS基础设施的巨大成本是否值得它提供额外的保护。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Solution Selected for Mobile IPv6",
+      "section_title": true,
+      "zh-CHS": "4. 为移动IPv6选择的解决方案"
+    },
+    {
+      "indent": 3,
+      "text": "The current Mobile IPv6 route optimization security has been carefully designed to prevent or mitigate the threats that were discussed in Section 3. The goal has been to produce a design with a level of security close to that of a static IPv4-based Internet, and with an acceptable cost in terms of packets, delay, and processing. The result is not what one would expect: it is definitely not a traditional cryptographic protocol. Instead, the result relies heavily on the assumption of an uncorrupted routing infrastructure and builds upon the idea of checking that an alleged mobile node is indeed reachable through both its home address and its care-of address. Furthermore, the lifetime of the state created at the corresponded nodes is deliberately restricted to a few minutes, in order to limit the potential threat from time shifting.",
+      "zh-CHS": "当前的移动IPv6路由优化安全性经过精心设计，以防止或缓解第3节中讨论的威胁。我们的目标是设计出一种安全级别接近基于IPv4的静态互联网的安全级别，并且在数据包、延迟和处理方面具有可接受的成本。结果并非人们所期望的：它肯定不是传统的密码协议。相反，结果在很大程度上依赖于一个不受破坏的路由基础设施的假设，并建立在检查所谓的移动节点是否确实可以通过其家庭地址和转交地址到达的思想之上。此外，在对应节点上创建的状态的生存期被故意限制为几分钟，以限制时间转移带来的潜在威胁。"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the solution in reasonable detail (for further details see the specification), starting from Return Routability (Section 4.1), continuing with a discussion about state creation at the correspondent node (Section 4.2), and completing the description with a discussion about the lifetime of Binding Cache Entries (Section 4.3).",
+      "zh-CHS": "本节对解决方案进行了合理的详细描述（有关更多详细信息，请参阅规范），从返回可路由性（第4.1节）开始，继续讨论对应节点上的状态创建（第4.2节），并通过讨论绑定缓存项的生存期（第4.3节）完成描述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Return Routability",
+      "section_title": true,
+      "zh-CHS": "4.1. 返回路由性"
+    },
+    {
+      "indent": 3,
+      "text": "Return Routability (RR) is the name of the basic mechanism deployed by Mobile IPv6 route optimization security design. RR is based on the idea that a node should be able to verify that there is a node that is able to respond to packets sent to a given address. The check yields false positives if the routing infrastructure is compromised or if there is an attacker between the verifier and the address to be verified. With these exceptions, it is assumed that a successful reply indicates that there is indeed a node at the given",
+      "zh-CHS": "Return Routability（RR）是移动IPv6路由优化安全设计所部署的基本机制的名称。RR基于这样一种思想，即节点应该能够验证是否存在能够响应发送到给定地址的数据包的节点。如果路由基础设施受损，或者验证器和要验证的地址之间存在攻击者，则该检查将产生误报。除了这些例外情况，假设成功的回复表明在给定的位置确实存在一个节点"
+    },
+    {
+      "indent": 3,
+      "text": "address, and that the node is willing to reply to the probes sent to it.",
+      "zh-CHS": "地址，并且节点愿意回复发送给它的探测。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic return routability mechanism consists of two checks, a Home Address check (see Section 4.1.1) and a care-of-address check (see Section 4.1.2). The packet flow is depicted in Figure 7. First, the mobile node sends two packets to the correspondent node: a Home Test Init (HoTI) packet is sent through the home agent, and a Care-of Test Init (CoTI) directly. The correspondent node replies to both of these independently by sending a Home Test (HoT) in response to the Home Test Init and a Care-of Test (CoT) in response to the Care-of Test Init. Finally, once the mobile node has received both the Home Test and Care-of Test packets, it sends a Binding Update to the correspondent node.",
+      "zh-CHS": "基本的返回路由机制包括两个检查，一个家庭地址检查（见第4.1.1节）和一个转交地址检查（见第4.1.2节）。包流如图7所示。首先，移动节点向对应节点发送两个数据包：一个Home Test Init（HoTI）数据包通过Home代理发送，另一个Care of Test Init（CoTI）直接发送。对应节点通过发送一个Home Test（HoT）以响应Home Test Init和一个Care of Test（CoT）以响应Care of Test Init来独立地响应这两个请求。最后，一旦移动节点接收到归属测试和转交测试数据包，它就向对应节点发送绑定更新。"
+    },
+    {
+      "indent": 3,
+      "text": "        +------+   1a) HoTI            +------+\n        |      |---------------------->|      |\n        |  MN  |   2a) HoT             |  HA  |\n        |      |<----------------------|      |\n        +------+                       +------+\n1b) CoTI | ^  |                        /  ^\n         | |2b| CoT                   /  /\n         | |  |                      /  /\n         | |  | 3) BU               /  /\n         V |  V                    /  /\n        +------+   1a) HoTI       /  /\n        |      |<----------------/  /\n        |  CN  |   2a) HoT         /\n        |      |------------------/\n        +------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 7. Return Routability Packet Flow",
+      "zh-CHS": "图7。返回可路由性分组流"
+    },
+    {
+      "indent": 3,
+      "text": "It might appear that the actual design was somewhat convoluted. That is, the real return routability checks are the message pairs < Home Test, Binding Update > and < Care-of Test, Binding Update >. The Home Test Init and Care-of Test Init packets are only needed to trigger the test packets, and the Binding Update acts as a combined routability response to both of the tests.",
+      "zh-CHS": "实际的设计似乎有些复杂。也就是说，真正的返回路由性检查是消息对<Home Test，Binding Update>和<Care of Test，Binding Update>。Home Test Init和Care of Test Init数据包仅用于触发测试数据包，绑定更新充当对这两个测试的组合路由性响应。"
+    },
+    {
+      "indent": 3,
+      "text": "There are two main reasons behind this design:",
+      "zh-CHS": "这种设计背后有两个主要原因："
+    },
+    {
+      "indent": 3,
+      "text": "o avoidance of reflection and amplification (see Section 3.3.3), and",
+      "zh-CHS": "o 避免反射和放大（见第3.3.3节），以及"
+    },
+    {
+      "indent": 3,
+      "text": "o avoidance of state exhaustion DoS attacks (see Section 4.2).",
+      "zh-CHS": "o 避免状态耗尽DoS攻击（见第4.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The reason for sending two Init packets instead of one is to avoid amplification. The correspondent node does not know anything about",
+      "zh-CHS": "发送两个Init数据包而不是一个的原因是为了避免放大。对应节点不知道有关的任何信息"
+    },
+    {
+      "indent": 3,
+      "text": "the mobile node, and therefore it just receives an unsolicited IP packet from some arbitrary IP address. In a way, this is similar to a server receiving a TCP SYN from a previously unknown client. If the correspondent node were to send two packets in response to an initial trigger, that would provide the potential for a DoS amplification effect, as discussed in Section 3.3.3.",
+      "zh-CHS": "移动节点，因此它只接收来自某个任意IP地址的未经请求的IP数据包。在某种程度上，这类似于服务器从以前未知的客户端接收TCP SYN。如第3.3.3节所述，如果对应节点发送两个数据包以响应初始触发，则可能产生DoS放大效应。"
+    },
+    {
+      "indent": 3,
+      "text": "This scheme also avoids providing for a potential reflection attack. If the correspondent node were to reply to an address other than the source address of the packet, that would create a reflection effect. Thus, the only safe mechanism possible for a naive correspondent is to reply to each received packet with just one packet, and to send the reply to the source address of the received packet. Hence, two initial triggers are needed instead of just one.",
+      "zh-CHS": "该方案还避免了潜在的反射攻击。如果对应节点要回复数据包源地址以外的地址，则会产生反射效果。因此，对于天真的通信者来说，唯一可能的安全机制是仅用一个数据包回复每个接收到的数据包，并将回复发送到接收到的数据包的源地址。因此，需要两个初始触发器，而不是一个。"
+    },
+    {
+      "indent": 3,
+      "text": "Let us now consider the two return routability tests separately. In the following sections, the derivation of cryptographic material from each of these is shown in a simplified manner. For the real formulas and more detail, please refer to [6].",
+      "zh-CHS": "现在让我们分别考虑两个返回可路由性测试。在以下各节中，将以简化的方式展示从每一种加密材料派生的加密材料。有关实际公式和更多详细信息，请参考[6]。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. Home Address Check",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 家庭住址检查"
+    },
+    {
+      "indent": 3,
+      "text": "The Home Address check consists of a Home Test (HoT) packet and a subsequent Binding Update (BU). It is triggered by the arrival of a Home Test Init (HoTI). A correspondent node replies to a Home Test Init by sending a Home Test to the source address of the Home Test Init. The source address is assumed to be the home address of a mobile node, and therefore the Home Test is assumed to be tunneled by the Home Agent to the mobile node. The Home Test contains a cryptographically generated token, home keygen token, which is formed by calculating a hash function over the concatenation of a secret key, Kcn, known only by the correspondent node, the source address of the Home Test Init packet, and a nonce.",
+      "zh-CHS": "家庭地址检查包括家庭测试（HoT）数据包和随后的绑定更新（BU）。它由Home Test Init（HoTI）的到达触发。通信节点通过向Home Test Init的源地址发送Home Test来回复Home Test Init。源地址被假定为移动节点的归属地址，因此归属测试被假定由归属代理以隧道方式传送到移动节点。Home Test包含加密生成的令牌Home keygen token，该令牌是通过在仅由对应节点知道的密钥Kcn、Home Test Init数据包的源地址和nonce的串联上计算哈希函数而形成的。"
+    },
+    {
+      "indent": 6,
+      "text": "home keygen token = hash(Kcn | home address | nonce | 0)",
+      "zh-CHS": "home keygen token=散列（Kcn | home address | nonce | 0）"
+    },
+    {
+      "indent": 3,
+      "text": "An index to the nonce is also included in the Home Test packet, allowing the correspondent node to find the appropriate nonce more easily.",
+      "zh-CHS": "对nonce的索引也包括在归属测试包中，允许对应节点更容易地找到适当的nonce。"
+    },
+    {
+      "indent": 3,
+      "text": "The token allows the correspondent node to make sure that any binding update received subsequently has been created by a node that has seen the Home Test packet; see Section 4.2.",
+      "zh-CHS": "令牌允许对应节点确保随后接收到的任何绑定更新已经由已经看到归属测试分组的节点创建；见第4.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "In most cases, the Home Test packet is forwarded over two different segments of the Internet. It first traverses from the correspondent node to the Home Agent. On this trip, it is not protected and any eavesdropper on the path can learn its contents. The Home Agent then",
+      "zh-CHS": "在大多数情况下，家庭测试数据包通过互联网的两个不同部分转发。它首先从对应节点遍历到归属代理。在这段旅程中，它没有受到保护，路径上的任何窃听者都可以了解它的内容。那么国内代理呢"
+    },
+    {
+      "indent": 3,
+      "text": "forwards the packet to the mobile node. This path is taken inside an IPsec ESP protected tunnel, making it impossible for the outsiders to learn the contents of the packet.",
+      "zh-CHS": "将数据包转发到移动节点。此路径位于IPsec ESP保护的隧道内，使得外部人员无法了解数据包的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "At first, it may sound unnecessary to protect the packet between the home agent and the mobile node, since it travelled unprotected between the correspondent node and the mobile node. If all links in the Internet were equally insecure, the additional protection would be unnecessary. However, in most practical settings the network is likely to be more secure near the home agent than near the mobile node. For example, if the home agent hosts a virtual home link and the mobile nodes are never actually at home, an eavesdropper should be close to the correspondent node or on the path between the correspondent node and the home agent, since it could not eavesdrop at the home agent. If the correspondent node is a major server, all the links on the path between it and the home agent are likely to be fairly secure. On the other hand, the Mobile Node is probably using wireless access technology, making it sometimes trivial to eavesdrop on its access link. Thus, it is fairly easy to eavesdrop on packets that arrive at the mobile node. Consequently, protecting the HA-MN path is likely to provide real security benefits even when the CN-HA path remains unprotected.",
+      "zh-CHS": "首先，可能听起来没有必要保护归属代理和移动节点之间的分组，因为它在对应节点和移动节点之间不受保护地移动。如果互联网上的所有链接都同样不安全，那么额外的保护就没有必要了。然而，在大多数实际设置中，网络在归属代理附近可能比在移动节点附近更安全。例如，如果归属代理承载虚拟归属链路，并且移动节点从未实际在家，则窃听者应该靠近对应节点或在对应节点和归属代理之间的路径上，因为它不能在归属代理处窃听。如果对应节点是主服务器，则它与归属代理之间的路径上的所有链接都可能相当安全。另一方面，移动节点可能正在使用无线接入技术，这使得窃听其接入链路有时变得微不足道。因此，相当容易窃听到达移动节点的数据包。因此，即使在CN-HA路径保持不受保护的情况下，保护HA-MN路径也可能提供真正的安全好处。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Care-of-Address Check",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 转交地址检查"
+    },
+    {
+      "indent": 3,
+      "text": "From the correspondent node's point of view, the Care-of-Address check is very similar to the home check. The only difference is that now the source address of the received Care-of Test Init packet is assumed to be the care-of address of the mobile node. Furthermore, the token is created in a slightly different manner in order to make it impossible to use home tokens for care-of tokens or vice versa.",
+      "zh-CHS": "从通信节点的角度来看，转交地址检查与家庭检查非常相似。唯一的区别是，现在接收到的Care-of-Test-Init包的源地址被假定为移动节点的Care-of-address。此外，令牌是以稍微不同的方式创建的，以便不可能使用家庭令牌来照管令牌，反之亦然。"
+    },
+    {
+      "indent": 6,
+      "text": "care-of keygen token = hash(Kcn | care-of address | nonce | 1)",
+      "zh-CHS": "密钥保管令牌=散列（Kcn |保管地址| nonce | 1）"
+    },
+    {
+      "indent": 3,
+      "text": "The Care-of Test traverses only one leg, directly from the correspondent node to the mobile node. It remains unprotected all along the way, making it vulnerable to eavesdroppers near the correspondent node, on the path from the correspondent node to the mobile node, or near the mobile node.",
+      "zh-CHS": "Care-of-Test只遍历一个分支，直接从对应节点到移动节点。它在整个过程中都没有受到保护，这使得它容易被对应节点附近、从对应节点到移动节点的路径上或移动节点附近的窃听者窃听。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3. Forming the First Binding Update",
+      "section_title": true,
+      "zh-CHS": "4.1.3. 形成第一个绑定更新"
+    },
+    {
+      "indent": 3,
+      "text": "When the mobile node has received both the Home Test and Care-of Test messages, it creates a binding key, Kbm, by computing a hash function over the concatenation of the tokens received.",
+      "zh-CHS": "当移动节点已经接收到归属测试和照顾测试消息时，它通过在接收到的令牌的串联上计算散列函数来创建绑定密钥Kbm。"
+    },
+    {
+      "indent": 3,
+      "text": "This key is used to protect the first and the subsequent binding updates, as long as the key remains valid.",
+      "zh-CHS": "此密钥用于保护第一次和后续绑定更新，只要该密钥仍然有效。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the key Kbm is available to anyone who is able to receive both the Care-of Test and Home Test messages. However, they are normally routed by different routes through the network, and the Home Test is transmitted over an encrypted tunnel from the home agent to the mobile node (see also Section 5.4).",
+      "zh-CHS": "请注意，密钥Kbm可供任何能够接收监护测试和家庭测试消息的人使用。然而，它们通常通过不同的路由通过网络进行路由，并且归属测试通过加密隧道从归属代理传输到移动节点（另请参见第5.4节）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Creating State Safely",
+      "section_title": true,
+      "zh-CHS": "4.2. 安全创建状态"
+    },
+    {
+      "indent": 3,
+      "text": "The correspondent node may remain stateless until it receives the first Binding Update. That is, it does not need to record receiving and replying to the Home Test Init and Care-of Test Init messages. The Home Test Init/Home Test and Care-of Test Init/Care-of Test exchanges take place in parallel but independently of each other. Thus, the correspondent can respond to each message immediately, and it does not need to remember doing that. This helps in potential denial-of-service situations: no memory needs to be reserved for processing Home Test Init and Care-of Test Init messages. Furthermore, Home Test Init and Care-of Test Init processing is designed to be lightweight, and it can be rate limited if necessary.",
+      "zh-CHS": "对应节点在收到第一次绑定更新之前可能保持无状态。也就是说，它不需要记录对Home Test Init和Care of Test Init消息的接收和回复。Home Test Init/Home Test和Care of Test Init/Care of Test交换并行进行，但相互独立。因此，通讯员可以立即回复每一条消息，而不需要记住这样做。这有助于处理潜在的拒绝服务情况：不需要为处理Home Test Init和Care of Test Init消息保留内存。此外，Home Test Init和Care of Test Init处理的设计是轻量级的，如果需要，可以对其进行速率限制。"
+    },
+    {
+      "indent": 3,
+      "text": "When receiving a first binding update, the correspondent node goes through a rather complicated procedure. The purpose of this procedure is to ensure that there is indeed a mobile node that has recently received a Home Test and a Care-of Test that were sent to the claimed home and care-of addresses, respectively, and to make sure that the correspondent node does not unnecessarily spend CPU or other resources while performing this check.",
+      "zh-CHS": "当接收到第一次绑定更新时，对应节点会经历一个相当复杂的过程。此过程的目的是确保确实有一个移动节点最近收到了分别发送到所声称的家庭和照管地址的家庭测试和照管测试，并确保相应节点在执行此检查时不会不必要地花费CPU或其他资源。"
+    },
+    {
+      "indent": 3,
+      "text": "Since the correspondent node does not have any state when the binding update arrives, the binding update itself must contain enough information so that relevant state can be created. To that end, the binding update contains the following pieces of information:",
+      "zh-CHS": "由于绑定更新到达时对应节点没有任何状态，因此绑定更新本身必须包含足够的信息，以便可以创建相关状态。为此，绑定更新包含以下信息："
+    },
+    {
+      "indent": 3,
+      "text": "Source address: The care-of address specified in the Binding Update must be equal to the source address used in the Care-of Test Init message. Notice that this applies to the effective Care-of Address of the Binding Update. In particular, if the Binding Update includes an Alternate Care-of Address (AltCoA) [6], the effective CoA is, of course, this AltCoA. Thus, the Care-of Test Init must have originated from the AltCoA.",
+      "zh-CHS": "源地址：绑定更新中指定的转交地址必须等于转交测试初始化消息中使用的源地址。请注意，这适用于绑定更新的有效转交地址。特别是，如果绑定更新包括备用转交地址（AltCoA）[6]，那么有效的CoA当然就是这个AltCoA。因此，Test Init的维护必须源自AltCoA。"
+    },
+    {
+      "indent": 3,
+      "text": "Home address: The home address specified in the Binding Update must be equal to the source address used in the Home Test Init message.",
+      "zh-CHS": "Home address：绑定更新中指定的Home address必须等于Home Test Init消息中使用的源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Two nonce indices: These are copied over from the Home Test and Care-of Test messages, and together with the other information they allow the correspondent node to re-create the tokens sent in the Home Test and Care-of Test messages and used for creating Kbm.",
+      "zh-CHS": "两个临时索引：它们是从Home Test and Care of Test消息复制过来的，它们与其他信息一起允许通信节点重新创建Home Test and Care of Test消息中发送的令牌，并用于创建Kbm。"
+    },
+    {
+      "indent": 6,
+      "text": "Without them, the correspondent node might need to try the 2-3 latest nonces, leading to unnecessary resource consumption.",
+      "zh-CHS": "如果没有它们，对应节点可能需要尝试2-3个最新的nonce，从而导致不必要的资源消耗。"
+    },
+    {
+      "indent": 3,
+      "text": "Message Authentication Code (MAC): The binding update is authenticated by computing a MAC function over the care-of address, the correspondent node's address and the binding update message itself. The MAC is keyed with the key Kbm.",
+      "zh-CHS": "消息身份验证码（MAC）：通过计算转交地址、对应节点地址和绑定更新消息本身上的MAC函数，对绑定更新进行身份验证。MAC由密钥Kbm设置。"
+    },
+    {
+      "indent": 3,
+      "text": "Given the addresses, the nonce indices (and thereby the nonces) and the key Kcn, the correspondent node can re-create the home and care-of tokens at the cost of a few memory lookups and computation of one MAC and one hash function.",
+      "zh-CHS": "给定地址、nonce索引（以及由此产生的nonce）和密钥Kcn，对应节点可以以少量内存查找和计算一个MAC和一个散列函数为代价重新创建令牌的归属和照顾。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the correspondent node has re-created the tokens, it hashes the tokens together, giving the key Kbm. If the Binding Update is authentic, Kbm is cached together with the binding. This key is then used to verify the MAC that protects integrity and origin of the actual Binding Update. Note that the same Kbm may be used for a while, until the mobile node moves (and needs to get a new care-of-address token), the care-of token expires, or the home token expires.",
+      "zh-CHS": "一旦通信节点重新创建了令牌，它就会将令牌散列在一起，给出密钥Kbm。如果绑定更新是可信的，则Kbm将与绑定一起缓存。然后，该密钥用于验证保护实际绑定更新的完整性和来源的MAC。注意，相同的Kbm可以使用一段时间，直到移动节点移动（并且需要获得新的转交地址令牌）、转交令牌到期或归属令牌到期。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.1. Retransmissions and State Machine",
+      "section_title": true,
+      "zh-CHS": "4.2.1. 重传与状态机"
+    },
+    {
+      "indent": 3,
+      "text": "Note that since the correspondent node may remain stateless until it receives a valid binding update, the mobile node is solely responsible for retransmissions. That is, the mobile node should keep sending the Home Test Init / Care-of Test Init messages until it receives a Home Test / Care-of Test, respectively. Similarly, it may need to send the binding update a few times in the case it is lost while in transit.",
+      "zh-CHS": "注意，由于对应节点在接收到有效绑定更新之前可能保持无状态，因此移动节点仅负责重新传输。也就是说，移动节点应该继续发送Home Test Init/Care of Test Init消息，直到它分别接收到Home Test/Care of Test。类似地，它可能需要发送绑定更新几次，以防在传输过程中丢失。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Quick expiration of the Binding Cache Entries",
+      "section_title": true,
+      "zh-CHS": "4.3. 绑定缓存项的快速过期"
+    },
+    {
+      "indent": 3,
+      "text": "A Binding Cache Entry, along with the key Kbm, represents the return routability state of the network at the time when the Home Test and Care-of Test messages were sent out. It is possible that a specific attacker is able to eavesdrop a Home Test message at some point of time, but not later. If the Home Test had an infinite or a long lifetime, that would allow the attacker to perform a time shifting attack (see Section 2.2). That is, in the current IPv4 architecture an attacker on the path between the correspondent node and the home agent is able to perform attacks only as long as the attacker is able to eavesdrop (and possibly disrupt) communications on that particular path. A long living Home Test, and consequently the ability to send valid binding updates for a long time, would allow the attacker to continue its attack even after the attacker is no longer able to eavesdrop on the path.",
+      "zh-CHS": "绑定缓存项与密钥Kbm一起表示发送Home Test和Care of Test消息时网络的返回路由状态。特定攻击者有可能在某个时间点窃听家庭测试消息，但不能在以后窃听。如果Home测试具有无限或较长的生命周期，则攻击者可以执行时移攻击（请参阅第2.2节）。也就是说，在当前的IPv4体系结构中，只有当攻击者能够窃听（并可能中断）该特定路径上的通信时，对应节点和归属代理之间路径上的攻击者才能执行攻击。长时间居家测试，以及长时间发送有效绑定更新的能力，将允许攻击者继续攻击，即使攻击者不再能够窃听路径。"
+    },
+    {
+      "indent": 3,
+      "text": "To limit the seriousness of this and other similar time shifting threats, the validity of the tokens is limited to a few minutes. This effectively limits the validity of the key Kbm and the lifetime of the resulting binding updates and binding cache entries.",
+      "zh-CHS": "为了限制这种威胁和其他类似的时移威胁的严重性，令牌的有效性被限制在几分钟内。这有效地限制了密钥Kbm的有效性以及生成的绑定更新和绑定缓存项的生存期。"
+    },
+    {
+      "indent": 3,
+      "text": "Although short lifetimes are required by other aspects of the security design and the goals, they are clearly detrimental for efficiency and robustness. That is, a Home Test Init / Home Test message pair must be exchanged through the home agent every few minutes. These messages are unnecessary from a purely functional point of view, thereby representing overhead. What is worse, though, is that they make the home agent a single point of failure. That is, if the Home Test Init / Home Test messages were not needed, the existing connections from a mobile node to other nodes could continue even when the home agent fails, but the current design forces the bindings to expire after a few minutes.",
+      "zh-CHS": "尽管安全设计和目标的其他方面需要较短的生命周期，但它们显然不利于效率和健壮性。也就是说，必须每隔几分钟通过归属代理交换一次归属测试初始化/归属测试消息对。从纯功能的角度来看，这些消息是不必要的，因此表示开销。然而，更糟糕的是，他们使国内代理成为单一的失败点。也就是说，如果不需要Home Test Init/Home Test消息，那么即使Home agent失败，从移动节点到其他节点的现有连接也可以继续，但是当前的设计强制绑定在几分钟后过期。"
+    },
+    {
+      "indent": 3,
+      "text": "This concludes our walk-through of the selected security design. The cornerstones of the design were the employment of the return routability idea in the Home Test, Care-of Test, and binding update messages, the ability to remain stateless until a valid binding update is received, and the limiting of the binding lifetimes to a few minutes. Next we briefly discuss some of the remaining threats and other problems inherent to the design.",
+      "zh-CHS": "这就结束了我们对所选安全设计的演练。设计的基石是在Home测试、Care of Test和binding update消息中使用返回路由性思想，在收到有效的绑定更新之前保持无状态的能力，以及将绑定生存时间限制在几分钟内。接下来，我们简要讨论一些剩余的威胁和设计固有的其他问题。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives a brief analysis of the security design, mostly in the light of what was known when the design was completed in Fall 2002. It should be noted that this section does not present a proper security analysis of the protocol; it merely discusses a few issues that were known at the time the design was completed.",
+      "zh-CHS": "本节简要分析了安全设计，主要是根据2002年秋季设计完成时已知的情况。应该注意的是，本节没有对协议进行适当的安全分析；它只讨论了设计完成时已知的几个问题。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be kept in mind that the MIPv6 RO security design was never intended to be fully secure. Instead, as we stated earlier, the goal was to be roughly as secure as non-mobile IPv4 was known to be at the time of the design. As it turns out, the result is slightly less secure than IPv4, but the difference is small and most likely insignificant in real life.",
+      "zh-CHS": "应该记住的是，MIPv6 RO安全设计从来都不是完全安全的。相反，正如我们前面所说的，我们的目标是与设计时已知的非移动IPv4一样安全。结果表明，其安全性略低于IPv4，但差别很小，在现实生活中很可能无关紧要。"
+    },
+    {
+      "indent": 3,
+      "text": "The known residual threats as compared with IPv4 are discussed in Section 5.1. Considerations related to the application of IPsec to authorize route optimization are discussed in Section 5.2. Section 5.3 discusses an attack against neighboring nodes. Finally, Section 5.4 deals with the special case of two mobile nodes conversing and performing the route optimization procedure with each other.",
+      "zh-CHS": "第5.1节讨论了与IPv4相比的已知剩余威胁。第5.2节讨论了与应用IPsec授权路由优化相关的注意事项。第5.3节讨论了对相邻节点的攻击。最后，第5.4节讨论了两个移动节点相互转换并执行路由优化过程的特殊情况。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Residual Threats as Compared to IPv4",
+      "section_title": true,
+      "zh-CHS": "5.1. 与IPv4相比的剩余威胁"
+    },
+    {
+      "indent": 3,
+      "text": "As we mentioned in Section 4.2, the lifetime of a binding represents a potential time shift in an attack. That is, an attacker that is able to create a false binding is able to reap the benefits of the binding as long as the binding lasts. Alternatively, the attacker is able to delay a return-to-home flooding attack (Section 3.2.2) until the binding expires. This is different from IPv4, where an attacker may continue an attack only as long as it is on the path between the two hosts.",
+      "zh-CHS": "正如我们在第4.2节中提到的，绑定的生存期表示攻击中的潜在时间变化。也就是说，只要绑定持续，能够创建虚假绑定的攻击者就能够获得绑定的好处。或者，攻击者可以延迟返回家园洪水攻击（第3.2.2节），直到绑定到期。这与IPv4不同，在IPv4中，攻击者只能在两台主机之间的路径上继续攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Since the binding lifetimes are severely restricted in the current design, the ability to do a time shifting attack is equivalently restricted.",
+      "zh-CHS": "由于在当前设计中绑定寿命受到严格限制，因此执行时移攻击的能力受到同等限制。"
+    },
+    {
+      "indent": 3,
+      "text": "Threats possible because of the introduction of route optimization are, of course, not present in a baseline IPv4 internet (Section 3.3). In particular, inducing unnecessary binding updates could potentially be a severe attack, but this would be most likely due to faulty implementations. As an extreme measure, a correspondent node can protect against these attacks by turning off route optimization. If so, it becomes obvious that the only residual attack against which there is no clear-cut prevention (other than its severe limitation as currently specified) is the time shifting attack mentioned above.",
+      "zh-CHS": "当然，由于引入路由优化而可能产生的威胁在基线IPv4互联网中并不存在（第3.3节）。特别是，诱导不必要的绑定更新可能是一种严重的攻击，但这很可能是由于错误的实现造成的。作为一种极端措施，对应节点可以通过关闭路由优化来抵御这些攻击。如果是这样，那么很明显，没有明确预防措施的唯一剩余攻击（除目前规定的严重限制外）是上述时移攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Interaction with IPsec",
+      "section_title": true,
+      "zh-CHS": "5.2. 与IPsec的交互"
+    },
+    {
+      "indent": 3,
+      "text": "A major motivation behind the current binding update design was scalability, which implied the ability to run the protocol without any existing security infrastructure. An alternative would have been to rely on existing trust relationships, perhaps in the form of a special-purpose Public Key Infrastructure in conjunction with IPsec. That would have limited scalability, making route optimization available only in environments where it is possible to create appropriate IPsec security associations between the mobile nodes and the corresponding nodes.",
+      "zh-CHS": "当前绑定更新设计背后的一个主要动机是可伸缩性，这意味着能够在没有任何现有安全基础设施的情况下运行协议。另一种选择是依赖现有的信任关系，可能是一种特殊用途的公钥基础设施与IPsec相结合的形式。这将限制可伸缩性，使得路由优化仅在可以在移动节点和相应节点之间创建适当的IPsec安全关联的环境中可用。"
+    },
+    {
+      "indent": 3,
+      "text": "There clearly are situations where there exists an appropriate relationship between a mobile node and the correspondent node. For example, if the correspondent node is a server that has pre-established keys with the mobile node, that would be the case. However, entity authentication or an authenticated session key is not necessarily sufficient for accepting Binding Updates.",
+      "zh-CHS": "显然存在移动节点和对应节点之间存在适当关系的情况。例如，如果对应节点是具有与移动节点预先建立的密钥的服务器，则情况就是这样。但是，实体身份验证或经过身份验证的会话密钥不一定足以接受绑定更新。"
+    },
+    {
+      "indent": 3,
+      "text": "Home Address Check: If one wants to replace the home address check with cryptographic credentials, these must carry proper authorization for the specific home address, and care must be taken to make sure that the issuer of the certificate is entitled",
+      "zh-CHS": "家庭地址检查：如果要用加密凭据替换家庭地址检查，这些凭据必须具有特定家庭地址的适当授权，并且必须注意确保证书的颁发者有权"
+    },
+    {
+      "indent": 6,
+      "text": "to express such authorization. At the time of the design work, the route optimization security design team was not aware of standardized certificate formats to do this, although more recent efforts within the IETF are addressing this issue. Note that there is plenty of motivation to do so, as any pre-existing relationship with a correspondent node would involve the mobile node's home address (instead of any of its possible care-of addresses). Accordingly, the IKE exchange would most naturally run between the correspondent node and the mobile node's home address. This still leaves open the issue of checking the mobile node's care-of address.",
+      "zh-CHS": "表示这种授权。在进行设计工作时，路线优化安全设计团队并不知道如何使用标准化的证书格式来实现这一点，尽管IETF内最近的工作正在解决这一问题。请注意，这样做有很多动机，因为与对应节点的任何预先存在的关系都会涉及移动节点的家庭地址（而不是其任何可能的转交地址）。因此，IKE交换将最自然地在对应节点和移动节点的家庭地址之间运行。这仍然存在检查移动节点转交地址的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Care-of Address Check: As for the care-of-address check, in practice, it seems highly unlikely that nodes could completely replace the care-of-address check with credentials. Since the care-of addresses are ephemeral, in general it is very difficult for a mobile node to present credentials that taken at face value (by an arbitrary correspondent node) guarantee no misuse for, say, flooding attacks (Section 3.2). As discussed before, a reachability check goes a long way to alleviate such attacks. Notice that, as part of the normal protocol exchange, establishing IPsec security associations via IKE includes one such reachability test. However, as per the previous section, the natural IKE protocol exchange runs between the correspondent node and the mobile node's home address. Hence, another reachability check is needed to check the care-of address at which the node is currently reachable. If this address changes, such a reachability test is likewise necessary, and it is included in ongoing work aimed at securely updating the node's current address.",
+      "zh-CHS": "转交地址检查：至于转交地址检查，在实践中，节点似乎不太可能用凭据完全取代转交地址检查。由于转交地址是短暂的，一般来说，移动节点很难提供（由任意通信节点）按面值获取的凭证，以保证不会误用，例如洪水攻击（第3.2节）。如前所述，可达性检查对于缓解此类攻击有很大帮助。注意，作为正常协议交换的一部分，通过IKE建立IPsec安全关联包括一个这样的可达性测试。然而，如前一节所述，自然的IKE协议交换在对应节点和移动节点的家庭地址之间运行。因此，需要另一个可达性检查来检查节点当前可到达的转交地址。如果该地址发生变化，同样需要进行这样的可达性测试，并且该测试包括在旨在安全更新节点当前地址的正在进行的工作中。"
+    },
+    {
+      "indent": 3,
+      "text": "Nevertheless, the Mobile IPv6 base specification [6] does not specify how to use IPsec together with the mobility procedures between the mobile node and correspondent node. On the other hand, the specification is carefully written to allow the creation of the binding management key Kbm through some different means. Accordingly, where an appropriate relationship exists between a mobile node and a correspondent node, the use of IPsec is possible, and is, in fact, being pursued in more recent work.",
+      "zh-CHS": "然而，移动IPv6基本规范[6]并未规定如何将IPsec与移动节点和对应节点之间的移动过程一起使用。另一方面，该规范经过仔细编写，允许通过一些不同的方法创建绑定管理密钥Kbm。因此，在移动节点和对应节点之间存在适当关系的情况下，IPsec的使用是可能的，并且事实上，在最近的工作中正在进行。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Pretending to Be One's Neighbor",
+      "section_title": true,
+      "zh-CHS": "5.3. 假装邻居"
+    },
+    {
+      "indent": 3,
+      "text": "One possible attack against the security design is to pretend to be a neighboring node. To launch this attack, the mobile node establishes route optimization with some arbitrary correspondent node. While performing the return routability tests and creating the binding management key Kbm, the attacker uses its real home address but a faked care-of address. Indeed, the care-of address would be the address of the neighboring node on the local link. The attacker is",
+      "zh-CHS": "针对安全设计的一种可能攻击是假装是相邻节点。为了发起这种攻击，移动节点与任意对应节点建立路由优化。在执行返回路由性测试和创建绑定管理密钥Kbm时，攻击者使用其真实的主地址，但使用伪造的转交地址。实际上，转交地址将是本地链路上相邻节点的地址。袭击者是"
+    },
+    {
+      "indent": 3,
+      "text": "able to create the binding since it receives a valid Home Test normally, and it is able to eavesdrop on the Care-of Test, as it appears on the local link.",
+      "zh-CHS": "能够创建绑定，因为它通常会收到有效的Home测试，并且能够窃听Care of测试，就像它出现在本地链接上一样。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack would allow the mobile node to divert unwanted traffic towards the neighboring node, resulting in an flooding attack.",
+      "zh-CHS": "此攻击将允许移动节点将不需要的流量转移到相邻节点，从而导致泛洪攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "However, this attack is not very serious in practice. First, it is limited in the terms of location, since it is only possible against neighbors. Second, the attack works also against the attacker, since it shares the local link with the target. Third, a similar attack is possible with Neighbor Discovery spoofing.",
+      "zh-CHS": "然而，这种攻击在实践中并不十分严重。首先，它在地理位置上是有限的，因为它只能针对邻居。第二，攻击也可以针对攻击者，因为它与目标共享本地链接。第三，邻居发现欺骗可能会发生类似的攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Two Mobile Nodes Talking to Each Other",
+      "section_title": true,
+      "zh-CHS": "5.4. 两个移动节点相互通信"
+    },
+    {
+      "indent": 3,
+      "text": "When two mobile nodes want to establish route optimization with each other, some care must be exercised in order not to reveal the reverse tokens to an attacker. In this situation, both mobile nodes act simultaneously in the mobile node and the correspondent node roles. In the correspondent node role, the nodes are vulnerable to attackers that are co-located at the same link. Such an attacker is able to learn both the Home Test and Care-of Test sent by the mobile node, and therefore it is able to spoof the location of the other mobile host to the neighboring one. What is worse is that the attacker can obtain a valid Care-of Test itself, combine it with the Home Test, and then claim to the neighboring node that the other node has just arrived at the same link.",
+      "zh-CHS": "当两个移动节点想要彼此建立路由优化时，必须谨慎行事，以免将反向令牌泄露给攻击者。在这种情况下，两个移动节点同时扮演移动节点和对应节点的角色。在对应节点角色中，这些节点容易受到位于同一链路上的攻击者的攻击。此类攻击者能够了解移动节点发送的Home Test和Care of Test，因此能够将另一个移动主机的位置欺骗到相邻主机。更糟糕的是，攻击者可以获得有效的Care-of-Test本身，将其与Home测试结合起来，然后向相邻节点声称另一节点刚刚到达同一链路。"
+    },
+    {
+      "indent": 3,
+      "text": "There is an easy way to avoid this attack. In the correspondent node role, the mobile node should tunnel the Home Test messages that it sends through its home agent. This prevents the co-located attacker from learning any valid Home Test messages.",
+      "zh-CHS": "有一种简单的方法可以避免这种攻击。在对应节点角色中，移动节点应通过隧道传输通过其归属代理发送的归属测试消息。这可防止位于同一位置的攻击者学习任何有效的家庭测试消息。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Conclusions",
+      "section_title": true,
+      "zh-CHS": "6. 结论"
+    },
+    {
+      "indent": 3,
+      "text": "This document discussed the security design rationale for the Mobile IPv6 Route Optimization. We have tried to describe the dangers created by Mobile IP Route Optimization, the security goals and background of the design, and the actual mechanisms employed.",
+      "zh-CHS": "本文讨论了移动IPv6路由优化的安全设计原理。我们试图描述移动IP路由优化带来的危险，设计的安全目标和背景，以及实际使用的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "We started the discussion with a background tour to the IP routing architecture the definition of the mobility problem. After that, we covered the avenues of attack: the targets, the time shifting abilities, and the possible locations of an attacker. We outlined a number of identified threat scenarios, and discussed how they are mitigated in the current design. Finally, in Section 4 we gave an overview of the actual mechanisms employed, and the rational behind them.",
+      "zh-CHS": "我们开始讨论的背景是IP路由架构和移动性问题的定义。之后，我们讨论了攻击的途径：目标、时移能力和攻击者的可能位置。我们概述了一些已识别的威胁场景，并讨论了如何在当前设计中缓解这些场景。最后，在第4节中，我们概述了所采用的实际机制及其背后的合理性。"
+    },
+    {
+      "indent": 3,
+      "text": "As far as we know today, the only significant difference between the security of an IPv4 Internet and that of an Internet with Mobile IPv6 (and route optimization) concerns time shifting attacks. Nevertheless, these are severely restricted in the current design.",
+      "zh-CHS": "就我们今天所知，IPv4互联网与使用移动IPv6（和路由优化）的互联网的安全性之间唯一显著的区别在于时移攻击。然而，这些在当前设计中受到严格限制。"
+    },
+    {
+      "indent": 3,
+      "text": "We have also briefly covered some of the known subtleties and shortcomings, but that discussion cannot be exhaustive. It is quite probable that new subtle problems will be discovered with the design. As a consequence, it is most likely that the design needs to be revised in the light of experience and insight.",
+      "zh-CHS": "我们还简要介绍了一些已知的微妙之处和不足之处，但讨论不可能详尽无遗。设计中很可能会发现新的微妙问题。因此，很可能需要根据经验和洞察力对设计进行修改。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We are grateful for: Hesham Soliman for reminding us about the threat explained in Section 5.3, Francis Dupont for first discussing the case of two mobile nodes talking to each other (Section 5.4) and for sundry other comments, Pekka Savola for his help in Section 1.1.1, and Elwyn Davies for his thorough editorial review.",
+      "zh-CHS": "我们感谢：Hesham Soliman提醒我们注意第5.3节中解释的威胁，Francis Dupont首次讨论了两个移动节点相互交谈的案例（第5.4节），以及其他各种评论，Pekka Savola在第1.1.1节中提供了帮助，Elwyn Davies进行了全面的编辑审查。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Informative References",
+      "section_title": true,
+      "zh-CHS": "8. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Aura, T., Roe, M., and J. Arkko, \"Security of Internet Location Management\", Proc. 18th Annual Computer Security Applications Conference, pages 78-87, Las Vegas, NV, USA, IEEE Press, December 2002.",
+      "zh-CHS": "[1] Aura，T.，Roe，M.，和J.Arkko，“互联网位置管理的安全”，Proc。第18届计算机安全应用年会，第78-87页，美国内华达州拉斯维加斯，IEEE出版社，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Narten, T., Nordmark, E., and W. Simpson, \"Neighbor Discovery for IP Version 6 (IPv6)\", RFC 2461, December 1998.",
+      "zh-CHS": "[2] Narten，T.，Nordmark，E.，和W.Simpson，“IP版本6（IPv6）的邻居发现”，RFC24611998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Narten, T. and R. Draves, \"Privacy Extensions for Stateless Address Autoconfiguration in IPv6\", RFC 3041, January 2001.",
+      "zh-CHS": "[3] Narten，T.和R.Draves，“IPv6中无状态地址自动配置的隐私扩展”，RFC3041，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Bush, R. and D. Meyer, \"Some Internet Architectural Guidelines and Philosophy\", RFC 3439, December 2002.",
+      "zh-CHS": "[4] Bush，R.和D.Meyer，“一些互联网架构指南和哲学”，RFC 3439，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Baker, F. and P. Savola, \"Ingress Filtering for Multihomed Networks\", BCP 84, RFC 3704, March 2004.",
+      "zh-CHS": "[5] Baker，F.和P.Savola，“多址网络的入口过滤”，BCP 84，RFC 37042004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Johnson, D., Perkins, C., and J. Arkko, \"Mobility Support in IPv6\", RFC 3775, June 2004.",
+      "zh-CHS": "[6] Johnson，D.，Perkins，C.，和J.Arkko，“IPv6中的移动支持”，RFC 37752004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Arkko, J., Devarapalli, V., and F. Dupont, \"Using IPsec to Protect Mobile IPv6 Signaling Between Mobile Nodes and Home Agents\", RFC 3776, June 2004.",
+      "zh-CHS": "[7] Arkko，J.，Devarapalli，V.，和F.Dupont，“使用IPsec保护移动节点和家庭代理之间的移动IPv6信令”，RFC 37762004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, March 2005.",
+      "zh-CHS": "[8] Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"Resource Records for the DNS Security Extensions\", RFC 4034, March 2005.",
+      "zh-CHS": "[9] Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全扩展的资源记录”，RFC 40342005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"Protocol Modifications for the DNS Security Extensions\", RFC 4035, March 2005.",
+      "zh-CHS": "[10] Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全扩展的协议修改”，RFC 4035，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Chiappa, J., \"Will The Real 'End-End Principle' Please Stand Up?\", Private Communication, April 2002.",
+      "zh-CHS": "[11] Chiapa，J.，“真正的‘终结原则’能站起来吗？”，私人通讯，2002年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Savage, S., Cardwell, N., Wetherall, D., and T. Anderson, \"TCP Congestion Control with a Misbehaving Receiver\", ACM Computer Communication Review, 29:5, October 1999.",
+      "zh-CHS": "[12] Savage，S.，Cardwell，N.，Wetherald，D.，和T.Anderson，“使用行为不正常接收器的TCP拥塞控制”，ACM计算机通信评论，1999年10月29:5。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Nikander, P., \"Denial-of-Service, Address Ownership, and Early Authentication in the IPv6 World\", Security Protocols 9th International Workshop, Cambridge, UK, April 25-27 2001, LNCS 2467, pages 12-26, Springer, 2002.",
+      "zh-CHS": "[13] Nikander，P.，“IPv6世界中的拒绝服务、地址所有权和早期身份验证”，安全协议第9届国际研讨会，英国剑桥，2001年4月25日至27日，LNCS 2467，第12-26页，Springer，2002年。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Chiappa, J., \"Endpoints and Endpoint Names: A Proposed Enhancement to the Internet Architecture\", Private Communication, 1999.",
+      "zh-CHS": "[14] Chiappa，J.，“端点和端点名称：对互联网架构的改进建议”，私人通信，1999年。"
+    },
+    {
+      "indent": 3,
+      "text": "[15] Arkko, J., Kempf, J., Zill, B., and P. Nikander, \"SEcure Neighbor Discovery (SEND)\", RFC 3971, March 2005.",
+      "zh-CHS": "[15] Arkko，J.，Kempf，J.，Zill，B.，和P.Nikander，“安全邻居发现（SEND）”，RFC 39712005年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Pekka Nikander Ericsson Research NomadicLab JORVAS FIN-02420 FINLAND",
+      "zh-CHS": "佩卡·尼坎德·爱立信研究实验室JORVAS FIN-02420芬兰"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +358 9 299 1\nEMail: pekka.nikander@nomadiclab.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Jari Arkko Ericsson Research NomadicLab JORVAS FIN-02420 FINLAND",
+      "zh-CHS": "雅丽阿尔科爱立信游牧研究实验室JORVAS FIN-02420芬兰"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jari.arkko@ericsson.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Tuomas Aura Microsoft Research Ltd. Roger Needham Building 7 JJ Thomson Avenue Cambridge CB3 0FB United Kingdom",
+      "zh-CHS": "Tuomas Aura微软研究有限公司Roger Needham大厦7号JJ汤姆逊大道剑桥CB3 0FB英国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Tuomaura@microsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Gabriel Montenegro Microsoft Corporation One Microsoft Way Redmond, WA 98052 USA",
+      "zh-CHS": "加布里埃尔黑山微软公司美国华盛顿州雷德蒙微软大道一号，邮编：98052"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: gabriel_montenegro_2000@yahoo.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Erik Nordmark Sun Microsystems 17 Network Circle Menlo Park, CA 94025 USA",
+      "zh-CHS": "Erik Nordmark Sun Microsystems 17 Network Circle Menlo Park，加利福尼亚州94025"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: erik.nordmark@sun.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

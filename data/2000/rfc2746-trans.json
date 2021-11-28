@@ -1,0 +1,1100 @@
+{
+  "title": {
+    "text": "RFC 2746:  RSVP Operation Over IP Tunnels ",
+    "zh-CHS": "RFC 2746"
+  },
+  "number": 2746,
+  "created_at": "2021-10-24 09:53:03.026951+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          A. Terzis\nRequest for Comments: 2746                                          UCLA\nCategory: Standards Track                                    J. Krawczyk\n                                               ArrowPoint Communications\n                                                           J. Wroclawski\n                                                                 MIT LCS\n                                                                L. Zhang\n                                                                    UCLA\n                                                            January 2000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 21,
+      "text": "RSVP Operation Over IP Tunnels",
+      "zh-CHS": "IP隧道上的RSVP操作"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2000). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2000年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an approach for providing RSVP protocol services over IP tunnels. We briefly describe the problem, the characteristics of possible solutions, and the design goals of our approach. We then present the details of an implementation which meets our design goals.",
+      "zh-CHS": "本文档描述了通过IP隧道提供RSVP协议服务的方法。我们简要描述了问题、可能解决方案的特征以及我们方法的设计目标。然后，我们将介绍满足设计目标的实现细节。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "IP-in-IP \"tunnels\" have become a widespread mechanism to transport datagrams in the Internet. Typically, a tunnel is used to route packets through portions of the network which do not directly implement the desired service (e.g. IPv6), or to augment and modify the behavior of the deployed routing architecture (e.g. multicast routing, mobile IP, Virtual Private Net).",
+      "zh-CHS": "IP“隧道”中的IP已成为在Internet上传输数据报的一种普遍机制。通常，隧道用于通过不直接实现所需服务（例如IPv6）的网络部分路由数据包，或用于增强和修改已部署路由架构（例如多播路由、移动IP、虚拟专用网）的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "Many IP-in-IP tunneling protocols exist today. [IP4INIP4] details a method of tunneling using an additional IPv4 header. [MINENC] describes a way to reduce the size of the \"inner\" IP header used in [IP4INIP4] when the original datagram is not fragmented. The generic tunneling method in [IPV6GEN] can be used to tunnel either IPv4 or IPv6 packets within IPv6. [RFC1933] describes how to tunnel IPv6",
+      "zh-CHS": "目前存在许多IP-in-IP隧道协议。[IP4INIP4]详细介绍了使用附加IPv4标头进行隧道传输的方法。[MINENC]描述了一种在原始数据报未分段时减小[IP4INIP4]中使用的“内部”IP报头大小的方法。[IPV6GEN]中的通用隧道方法可用于在IPv6中隧道IPv4或IPv6数据包。[RFC1933]描述了如何通过隧道传输IPv6"
+    },
+    {
+      "indent": 3,
+      "text": "datagrams through IPv4 networks. [RFC1701] describes a generic routing encapsulation, while [RFC1702] applies this encapsulation to IPv4. Finally, [ESP] describes a mechanism that can be used to tunnel an encrypted IP datagram.",
+      "zh-CHS": "通过IPv4网络发送数据报。[RFC1701]描述了一种通用路由封装，而[RFC1702]将此封装应用于IPv4。最后，[ESP]描述了一种可用于隧道加密IP数据报的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "From the perspective of traditional best-effort IP packet delivery, a tunnel behaves as any other link. Packets enter one end of the tunnel, and are delivered to the other end unless resource overload or error causes them to be lost.",
+      "zh-CHS": "从传统的尽力而为IP数据包交付的角度来看，隧道的行为与任何其他链路一样。数据包进入隧道的一端，并传递到另一端，除非资源过载或错误导致数据包丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "The RSVP setup protocol [RFC2205] is one component of a framework designed to extend IP to support multiple, controlled classes of service over a wide variety of link-level technologies. To deploy this technology with maximum flexibility, it is desirable for tunnels to act as RSVP-controllable links within the network.",
+      "zh-CHS": "RSVP设置协议[RFC2205]是一个框架的一个组件，该框架旨在扩展IP以支持多种链路级技术上的多个受控服务类。为了以最大的灵活性部署该技术，隧道需要充当网络中的RSVP可控链路。"
+    },
+    {
+      "indent": 3,
+      "text": "A tunnel, and in fact any sort of link, may participate in an RSVP-aware network in one of three ways, depending on the capabilities of the equipment from which the tunnel is constructed and the desires of the operator.",
+      "zh-CHS": "隧道以及实际上任何种类的链路可以三种方式之一参与RSVP感知网络，这取决于建造隧道的设备的能力和运营商的期望。"
+    },
+    {
+      "indent": 6,
+      "text": "1. The (logical) link may not support resource reservation or QoS control at all. This is a best-effort link. We refer to this as a best-effort or type 1 tunnel in this note. 2. The (logical) link may be able to promise that some overall level of resources is available to carry traffic, but not to allocate resources specifically to individual data flows. A configured resource allocation over a tunnel is an example of this. We refer to this case as a type 2 tunnel in this note. 3. The (logical) link may be able to make reservations for individual end-to-end data flows. We refer to this case as a type 3 tunnel. Note that the key feature that distinguishes type 3 tunnels from type 2 tunnels is that in the type 3 tunnel new tunnel reservations are created and torn down dynamically as end-to-end reservations come and go.",
+      "zh-CHS": "1. （逻辑）链路可能根本不支持资源预留或QoS控制。这是一个尽力而为的链接。在本说明中，我们将其称为尽力隧道或1型隧道。2.（逻辑）链路可能能够保证某些总体级别的资源可用于承载流量，但不能专门为单个数据流分配资源。隧道上配置的资源分配就是一个例子。在本说明中，我们将此案例称为2型隧道。3.（逻辑）链路可以为单个端到端数据流进行预留。我们将此案例称为3型隧道。请注意，将3型隧道与2型隧道区分开来的关键特征是，在3型隧道中，随着端到端预留的出现和消失，动态创建和拆除新的隧道预留。"
+    },
+    {
+      "indent": 3,
+      "text": "Type 1 tunnels exist when at least one of the routers comprising the tunnel endpoints does not support the scheme we describe here. In this case, the tunnel acts as a best-effort link. Our goal is simply to make sure that RSVP messages traverse the link correctly, and the presence of the non-controlled link is detected, as required by the integrated services framework.",
+      "zh-CHS": "当组成隧道端点的至少一个路由器不支持我们在这里描述的方案时，就存在类型1隧道。在这种情况下，隧道起到了尽力而为的连接作用。我们的目标只是确保RSVP消息正确地遍历链路，并按照集成服务框架的要求检测到非受控链路的存在。"
+    },
+    {
+      "indent": 3,
+      "text": "When the two end points of the tunnel are capable of supporting RSVP over tunnels, we would like to have proper resources reserved along the tunnel. Depending on the requirements of the situation, this might mean that one client's data flow is placed into a larger aggregate reservation (type 2 tunnels) or that possibly a new,",
+      "zh-CHS": "当隧道的两个端点能够支持隧道上方的RSVP时，我们希望在隧道沿线保留适当的资源。根据情况的要求，这可能意味着一个客户端的数据流被放入一个更大的聚合保留（类型2隧道），或者可能是一个新的，"
+    },
+    {
+      "indent": 3,
+      "text": "separate reservation is made for the data flow (type 3 tunnels). Note that an RSVP reservation between the two tunnel end points does not necessarily mean that all the intermediate routers along the tunnel path support RSVP, this is equivalent to the case of an existing end-to-end RSVP session transparently passing through non-RSVP cloud.",
+      "zh-CHS": "单独保留数据流（3类隧道）。请注意，两个隧道端点之间的RSVP保留并不一定意味着隧道路径上的所有中间路由器都支持RSVP，这相当于现有端到端RSVP会话透明地通过非RSVP云的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Currently, however, RSVP signaling over tunnels is not possible. RSVP packets entering the tunnel are encapsulated with an outer IP header that has a protocol number other than 46 (e.g. it is 4 for IP-in-IP encapsulation) and do not carry the Router-Alert option, making them virtually \"invisible\" to RSVP routers between the two tunnel endpoints. Moreover, the current IP-in-IP encapsulation scheme adds only an IP header as the external wrapper. It is impossible to distinguish between packets that use reservations and those that don't, or to differentiate packets belonging to different RSVP Sessions while they are in the tunnel, because no distinguishing information such as a UDP port is available in the encapsulation.",
+      "zh-CHS": "然而，目前不可能通过隧道发送RSVP信号。进入隧道的RSVP数据包由一个外部IP报头进行封装，该报头的协议号不是46（例如，IP-in-IP封装为4），并且不携带路由器警报选项，使得它们实际上对两个隧道端点之间的RSVP路由器“不可见”。此外，当前的IP-in-IP封装方案仅添加一个IP报头作为外部包装器。无法区分使用保留的数据包和不使用保留的数据包，也无法在数据包位于隧道中时区分属于不同RSVP会话的数据包，因为封装中没有UDP端口等区分信息。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an IP tunneling enhancement mechanism that allows RSVP to make reservations across all IP-in-IP tunnels. This mechanism is capable of supporting both type 2 and type 3 tunnels, as described above, and requires minimal changes to both RSVP and other parts of the integrated services framework.",
+      "zh-CHS": "本文档描述了一种IP隧道增强机制，该机制允许RSVP在IP隧道中跨所有IP进行预订。如上文所述，该机制能够支持2型和3型隧道，并且对RSVP和综合服务框架的其他部分的更改最少。"
+    },
+    {
+      "indent": 0,
+      "text": "2. The Design",
+      "section_title": true,
+      "zh-CHS": "2. 设计"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Design Goals",
+      "section_title": true,
+      "zh-CHS": "2.1. 设计目标"
+    },
+    {
+      "indent": 3,
+      "text": "Our design choices are motivated by several goals.",
+      "zh-CHS": "我们的设计选择是由几个目标驱动的。"
+    },
+    {
+      "indent": 6,
+      "text": "* Co-existing with most, if not all, current IP-in-IP tunneling schemes. * Limiting the changes to the RSVP spec to the minimum possible. * Limiting the necessary changes to only the two end points of a tunnel. This requirement leads to simpler deployment, lower overhead in the intermediate routers, and less chance of failure when the set of intermediate routers is modified due to routing changes. * Supporting correct inter-operation with RSVP routers that have not been upgraded to handle RSVP over tunnels and with non-RSVP tunnel endpoint routers. In these cases, the tunnel behaves as a non-RSVP link.",
+      "zh-CHS": "* 在IP隧道方案中与大多数（如果不是全部）当前IP共存。*将RSVP规范的更改限制在尽可能小的范围内。*将必要的更改仅限于隧道的两个端点。这一要求使得部署更简单，中间路由器的开销更低，并且当由于路由更改而修改中间路由器集时，失败的可能性更小。*支持与尚未升级以处理隧道上RSVP的RSVP路由器以及与非RSVP隧道端点路由器的正确交互操作。在这些情况下，隧道充当非RSVP链路。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Basic Approach",
+      "section_title": true,
+      "zh-CHS": "2.2. 基本方法"
+    },
+    {
+      "indent": 3,
+      "text": "The basic idea of the method described in this document is to recursively apply RSVP over the tunnel portion of the path. In this new session, the tunnel entry point Rentry sends PATH messages and the tunnel exit point Rexit sends RESV messages to reserve resources for the end-to-end sessions over the tunnel.",
+      "zh-CHS": "本文档中描述的方法的基本思想是在路径的隧道部分递归应用RSVP。在这个新会话中，隧道入口点Rentry发送路径消息，隧道出口点Rexit发送RESV消息，为隧道上的端到端会话保留资源。"
+    },
+    {
+      "indent": 3,
+      "text": "We discuss next two different aspects of the design: how to enhance an IP-in-IP tunnel with RSVP capability, and how to map end-to-end RSVP sessions to a tunnel session.",
+      "zh-CHS": "我们将讨论设计的下两个不同方面：如何使用RSVP功能增强IP-in-IP隧道，以及如何将端到端RSVP会话映射到隧道会话。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.1. Design Decisions",
+      "section_title": true,
+      "zh-CHS": "2.2.1. 设计决策"
+    },
+    {
+      "indent": 3,
+      "text": "To establish a RSVP reservation over a unicast IP-in-IP tunnel, we made the following design decisions:",
+      "zh-CHS": "为了在IP隧道中的单播IP上建立RSVP预留，我们做出了以下设计决策："
+    },
+    {
+      "indent": 3,
+      "text": "One or more Fixed-Filter style unicast reservations between the two end points of the tunnel will be used to reserve resources for packets traversing the tunnel. In the type 2 case, these reservations will be configured statically by a management interface. In the type 3 case, these reservations will be created and torn down on demand, as end-to-end reservation requests come and go.",
+      "zh-CHS": "隧道两个端点之间的一个或多个固定筛选器样式单播保留将用于为穿越隧道的数据包保留资源。在类型2的情况下，这些保留将由管理接口静态配置。在类型3的情况下，随着端到端预订请求的来来去去去，这些预订将根据需要创建和删除。"
+    },
+    {
+      "indent": 3,
+      "text": "Packets that do not require reservations are encapsulated in the normal way, e. g. being wrapped with an IP header only, specifying the tunnel entry point as source and the exit point as destination.",
+      "zh-CHS": "不需要保留的数据包以正常方式封装，例如。G仅使用IP头进行包装，将隧道入口点指定为源，出口点指定为目标。"
+    },
+    {
+      "indent": 3,
+      "text": "Data packets that require resource reservations within a tunnel must have some attribute other than the IP addresses visible to the intermediate routers, so that the routers may map the packet to an appropriate reservation. To allow intermediate routers to use standard RSVP filterspec handling, we choose to encapsulate such data packets by prepending an IP and a UDP header, and to use UDP port numbers to distinguish packets of different RSVP sessions. The protocol number in the outer IP header in this case will be UDP.",
+      "zh-CHS": "需要在隧道内保留资源的数据包必须具有某些属性，而不是中间路由器可见的IP地址，以便路由器可以将数据包映射到适当的保留。为了允许中间路由器使用标准RSVP filterspec处理，我们选择通过预先添加IP和UDP报头来封装此类数据包，并使用UDP端口号来区分不同RSVP会话的数据包。在这种情况下，外部IP报头中的协议号将是UDP。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 1 shows RSVP operating over a tunnel. Rentry is the tunnel entry router which encapsulates data into the tunnel. Some number of intermediate routers forward the data across the network based upon the encapsulating IP header added by Rentry. Rexit is the endpoint of the tunnel. It decapsulates the data and forwards it based upon the original, \"inner\" IP header.",
+      "zh-CHS": "图1显示了在隧道上方运行的RSVP。Rentry是隧道入口路由器，它将数据封装到隧道中。一些中间路由器根据Rentry添加的封装IP报头在网络上转发数据。雷克希特是隧道的终点。它解除数据的封装，并根据原始的“内部”IP头转发数据。"
+    },
+    {
+      "indent": 5,
+      "text": "...........             ...............            .............\n          :   _______   :             :   _____    :\n          :  |       |  :             :  |     |   :\nIntranet  :--| Rentry|===================|Rexit|___:Intranet\n          :  |_______|  :             :  |_____|   :\n..........:             :   Internet  :            :...........\n                        :..............\n                     |___________________|",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 1. An example IP Tunnel",
+      "zh-CHS": "图1。IP隧道示例"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.2. Mapping between End-to-End and Tunnel Sessions",
+      "section_title": true,
+      "zh-CHS": "2.2.2. 端到端会话和隧道会话之间的映射"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 2 shows a simple topology with a tunnel and a few hosts. The sending hosts H1 and H3 may be one or multiple IP hops away from Rentry; the receiving hosts H2 and H4 may also be either one or multiple IP hops away from Rexit.",
+      "zh-CHS": "图2显示了一个带有一个隧道和几个主机的简单拓扑。发送主机H1和H3可以是远离租用的一个或多个IP跃点；接收主机H2和H4也可以是距离Rexit的一个或多个IP跃点。"
+    },
+    {
+      "indent": 3,
+      "text": "          H1                                          H2\n          :                                            :\n          :                                            :\n      +--------+     +---+     +---+     +---+     +-------+\n      |        |     |   |     |   |     |   |     |       |\nH3... | Rentry |===================================| Rexit |.....  H4\n      |        |     |   |     |   |     |   |     |       |\n      +--------+     +---+     +---+     +---+     +-------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Figure 2: An example end-to-end path with a tunnel in the middle.",
+      "zh-CHS": "图2：一个示例性的端到端路径，中间有一个隧道。"
+    },
+    {
+      "indent": 3,
+      "text": "An RSVP session may be in place between endpoints at hosts H1 and H2. We refer to this session as the \"end-to-end\" (E2E for short) or \"original\" session, and to its PATH and RESV messages as the end-to-end messages. One or more RSVP sessions may be in place between Rentry and Rexit to provide resource reservation over the tunnel. We refer to these as the tunnel RSVP sessions, and to their PATH and RESV messages as the tunnel or tunneling messages. A tunnel RSVP session may exist independently from any end-to-end sessions. For example through network management interface one may create a RSVP session over the tunnel to provide QoS support for data flow from H3 to H4, although there is no end-to-end RSVP session between H3 and H4.",
+      "zh-CHS": "RSVP会话可能位于主机H1和H2的端点之间。我们将此会话称为“端到端”（简称E2E）或“原始”会话，将其路径和RESV消息称为端到端消息。Rentry和Rexit之间可能存在一个或多个RSVP会话，以通过隧道提供资源预留。我们将其称为隧道RSVP会话，将其路径和RESV消息称为隧道或隧道消息。隧道RSVP会话可以独立于任何端到端会话而存在。例如，通过网络管理接口，可以在隧道上创建RSVP会话，为从H3到H4的数据流提供QoS支持，尽管H3和H4之间没有端到端RSVP会话。"
+    },
+    {
+      "indent": 3,
+      "text": "When an end-to-end RSVP session crosses a RSVP-capable tunnel, there are two cases to consider in designing mechanisms to support an end-to-end reservation over the tunnel: mapping the E2E session to an existing tunnel RSVP session (type 2 tunnel), and dynamically creating a new tunnel RSVP session for each end-to-end session (type",
+      "zh-CHS": "当端到端RSVP会话穿越RSVP能力隧道时，在设计机制以支持通过隧道进行端到端保留时需要考虑两种情况：将E2E会话映射到现有隧道RSVP会话（类型2隧道），并动态地为每个端到端会话创建新的隧道RSVP会话（类型）"
+    },
+    {
+      "indent": 3,
+      "text": "3 tunnel). In either case, the picture looks like a recursive application of RSVP. The tunnel RSVP session views the two tunnel endpoints as two end hosts with a unicast Fixed-Filter style reservation in between. The original, end-to-end RSVP session views the tunnel as a single (logical) link on the path between the source(s) and destination(s).",
+      "zh-CHS": "3）隧道。在这两种情况下，图片看起来都像RSVP的递归应用程序。隧道RSVP会话将两个隧道端点视为两个终端主机，中间带有单播固定筛选器样式保留。原始端到端RSVP会话将隧道视为源和目标之间路径上的单个（逻辑）链路。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that in practice a tunnel may combine type 2 and type 3 characteristics. Some end-to-end RSVP sessions may trigger the creation of new tunnel sessions, while others may be mapped into an existing tunnel RSVP session. The choice of how an end-to-end session is treated at the tunnel is a matter of local policy.",
+      "zh-CHS": "请注意，在实践中，隧道可结合2型和3型特征。一些端到端RSVP会话可能会触发新隧道会话的创建，而其他会话可能会映射到现有的隧道RSVP会话。选择如何在隧道内处理端到端会话是当地政策的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "When an end-to-end RSVP session crosses a RSVP-capable tunnel, it is necessary to coordinate the actions of the two RSVP sessions, to determine whether or when the tunnel RSVP session should be created and torn down, and to correctly transfer error and ADSPEC information between the two RSVP sessions. We made the following design decision:",
+      "zh-CHS": "当端到端RSVP会话穿过支持RSVP的隧道时，有必要协调两个RSVP会话的操作，以确定是否或何时应创建和拆除隧道RSVP会话，并在两个RSVP会话之间正确传输错误和ADSPEC信息。我们做出了以下设计决策："
+    },
+    {
+      "indent": 6,
+      "text": "* End-to-end RSVP control messages being forwarded through a tunnel are encapsulated in the same way as normal IP packets, e.g. being wrapped with the tunnel IP header only, specifying the tunnel entry point as source and the exit point as destination.",
+      "zh-CHS": "* 通过隧道转发的端到端RSVP控制消息以与普通IP数据包相同的方式进行封装，例如，仅使用隧道IP头进行包装，将隧道入口点指定为源，将出口点指定为目标。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Major Issues",
+      "section_title": true,
+      "zh-CHS": "2.3. 主要问题"
+    },
+    {
+      "indent": 3,
+      "text": "As IP-in-IP tunnels are being used more widely for network traffic management purposes, it is clear we must support type 2 tunnels (tunnel reservation for aggregate end-to-end sessions). Furthermore, these type 2 tunnels should allow more than one (configurable, static) reservation to be used at once, to support different traffic classes within the tunnel. Whether it is necessary to support type 3 tunnels (dynamic per end-to-end session tunnel reservation) is a policy issue that should be left open. Our design supports both cases.",
+      "zh-CHS": "随着IP隧道中的IP越来越广泛地用于网络流量管理目的，很明显我们必须支持类型2隧道（聚合端到端会话的隧道预留）。此外，此类2型隧道应允许同时使用多个（可配置、静态）预留，以支持隧道内的不同交通等级。是否有必要支持类型3隧道（动态每端到端会话隧道预留）是一个政策问题，应该留待解决。我们的设计支持这两种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "If there is only one RSVP session configured over a tunnel, then all the end-to-end RSVP sessions (that are allowed to use this tunnel session) will be bound to this configured tunnel session. However when more than one RSVP session is in use over an IP tunnel, a second design issue is how the association, or binding, between an original RSVP reservation and a tunnel reservation is created and conveyed from one end of the tunnel to the other. The entry router Rentry and the exit router Rexit must agree on these associations so that",
+      "zh-CHS": "如果在隧道上只配置了一个RSVP会话，则所有端到端RSVP会话（允许使用此隧道会话）都将绑定到此配置的隧道会话。然而，当在IP隧道上使用多个RSVP会话时，第二个设计问题是如何创建原始RSVP保留和隧道保留之间的关联或绑定，并将其从隧道的一端传递到另一端。入口路由器Rentry和出口路由器Rexit必须就这些关联达成一致，以便"
+    },
+    {
+      "indent": 3,
+      "text": "changes in the original reservation state can be correctly mapped into changes in the tunnel reservation state, and that errors reported by intermediate routers to the tunnel end points can be correctly transformed into errors reported by the tunnel endpoints to the end-to-end RSVP session.",
+      "zh-CHS": "原始保留状态的更改可以正确映射为隧道保留状态的更改，中间路由器向隧道端点报告的错误可以正确转换为隧道端点向端到端RSVP会话报告的错误。"
+    },
+    {
+      "indent": 3,
+      "text": "We require that this same association mechanism work for both the case of bundled reservation over a tunnel (type 2 tunnel), and the case of one-to-one mapping between original and tunnel reservations (type 3 tunnel). In our scheme the association is created when a tunnel entry point first sees an end-to-end session's RESV message and either sets up a new tunnel session, or adds to an existing tunnel session. This new association must be conveyed to Rexit, so that Rexit can reserve resources for the end-to-end sessions inside the tunnel. This information includes the identifier and certain parameters of the tunnel session, and the identifier of the end-to-end session to which the tunnel session is being bound. In our scheme, all RSVP sessions between the same two routers Rentry and Rexit will have identical values for source IP address, destination IP address, and destination UDP port number. An individual session is identified primarily by the source port value.",
+      "zh-CHS": "我们要求相同的关联机制既适用于隧道上的捆绑预订（类型2隧道），也适用于原始预订和隧道预订之间的一对一映射（类型3隧道）。在我们的方案中，当隧道入口点第一次看到端到端会话的RESV消息并建立新的隧道会话或添加到现有的隧道会话时，就会创建关联。这个新的关联必须传递给Rexit，以便Rexit能够为隧道内的端到端会话保留资源。此信息包括隧道会话的标识符和某些参数，以及隧道会话绑定到的端到端会话的标识符。在我们的方案中，相同的两个路由器Rentry和Rexit之间的所有RSVP会话将具有相同的源IP地址、目标IP地址和目标UDP端口号值。单个会话主要由源端口值标识。"
+    },
+    {
+      "indent": 3,
+      "text": "We identified three possible choices for a binding mechanism:",
+      "zh-CHS": "我们确定了绑定机制的三种可能选择："
+    },
+    {
+      "indent": 6,
+      "text": "1. Define a new RSVP message that is exchanged only between two tunnel end points to convey the binding information. 2. Define a new RSVP object to be attached to end-to-end PATH messages at Rentry, associating the end-to-end session with one of the tunnel sessions. This new object is interpreted by Rexit associating the end-to-end session with one of the tunnel sessions generated at Rentry. 3. Apply the same UDP encapsulation to the end-to-end PATH messages as to data packets of the session. When Rexit decapsulates the PATH message, it deduces the relation between the source UDP port used in the encapsulation and the RSVP session that is specified in the original PATH message.",
+      "zh-CHS": "1. 定义仅在两个隧道端点之间交换的新RSVP消息，以传递绑定信息。2.定义要附加到Rentry的端到端路径消息的新RSVP对象，将端到端会话与其中一个隧道会话相关联。通过Rexit将端到端会话与Rentry生成的一个隧道会话相关联来解释这个新对象。3.对端到端路径消息应用与会话数据包相同的UDP封装。当Rexit解除封装PATH消息时，它会推断封装中使用的源UDP端口与原始PATH消息中指定的RSVP会话之间的关系。"
+    },
+    {
+      "indent": 3,
+      "text": "The last approach above does not require any new design. However it requires additional resources to be reserved for PATH messages (since they are now subject to the tunnel reservation). It also requires a priori knowledge of whether Rexit supports RSVP over tunnels by UDP encapsulation. If Rentry encapsulates all the end-to-end PATH messages with the UDP encapsulation, but Rexit does not understand this encapsulation, then the encapsulated PATH messages will be lost at Rexit.",
+      "zh-CHS": "上述最后一种方法不需要任何新的设计。但是，它需要为路径消息保留额外的资源（因为它们现在受隧道保留的约束）。它还需要了解Rexit是否通过UDP封装在隧道上支持RSVP。如果Rentry使用UDP封装封装所有端到端路径消息，但Rexit不理解此封装，则封装的路径消息将在Rexit丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "On the other hand, options (1) and (2) can handle this case transparently. They allow Rexit to pass on end-to-end PATHs received via the tunnel (because they are decapsulated normally), while throwing away the tunnel PATHs, all without any additional configuration. We chose Option (2) because it is simpler. We describe this object in the following section.",
+      "zh-CHS": "另一方面，选项（1）和（2）可以透明地处理这种情况。它们允许Rexit通过通过隧道接收到的端到端路径（因为它们通常是去封装的），同时丢弃隧道路径，而无需任何额外配置。我们选择选项（2），因为它更简单。我们将在下一节中描述此对象。"
+    },
+    {
+      "indent": 3,
+      "text": "Packet exchanges must follow the following constraints:",
+      "zh-CHS": "数据包交换必须遵循以下约束："
+    },
+    {
+      "indent": 6,
+      "text": "1. Rentry encapsulates and sends end-to-end PATH messages over the tunnel to Rexit where they get decapsulated and forwarded downstream. 2. When a corresponding end-to-end RESV message arrives at Rexit, Rexit encapsulates it and sends it to Rentry. 3. Based on some or all of the information in the end-to-end PATH messages, the flowspec in the end-to-end RESV message and local policies, Rentry decides if and how to map the end-to-end session to a tunnel session. 4. If the end-to-end session should be mapped to a tunnel session, Rentry either sends a PATH message for a new tunnel session or updates an existing one. 5. Rentry sends a E2E Path containing a SESSION_ASSOC object associating the end-to-end session with the tunnel session above. Rexit records the association and removes the object before forwarding the Path message further. 6. Rexit responds to the tunnel PATH message by sending a tunnel RESV message, reserving resources inside the tunnel. 7. Rentry UDP-encapsulates arriving packets only if a corresponding tunnel session reservation is actually in place for the packets.",
+      "zh-CHS": "1. Rentry通过隧道将端到端路径消息封装并发送到Rexit，在Rexit中，这些消息被解除封装并转发到下游。2.当相应的端到端RESV消息到达Rexit时，Rexit将其封装并发送给Rentry。3.Rentry根据端到端路径消息中的部分或全部信息、端到端RESV消息中的流程规范和本地策略，决定是否以及如何将端到端会话映射到隧道会话。4.如果端到端会话应映射到隧道会话，Rentry将为新的隧道会话发送路径消息，或更新现有的隧道会话。5.Rentry发送一个E2E路径，其中包含一个SESSION_ASSOC对象，该对象将端到端会话与上面的隧道会话相关联。Rexit记录关联并在进一步转发路径消息之前删除对象。6.Rexit通过发送隧道RESV消息来响应隧道路径消息，在隧道内保留资源。7.Rentry UDP仅在数据包的相应隧道会话保留实际到位时才封装到达的数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.1. SESSION_ASSOC Object",
+      "section_title": true,
+      "zh-CHS": "2.3.1. 会话助理对象"
+    },
+    {
+      "indent": 3,
+      "text": "The new object, called SESSION_ASSOC, is defined with the following format:",
+      "zh-CHS": "名为SESSION_ASSOC的新对象使用以下格式定义："
+    },
+    {
+      "indent": 4,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|          length               |  class        |     c-type    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|          SESSION object  (for the end-to-end session)         |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|           Sender FILTER-SPEC (for the tunnel session)         |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 27,
+      "text": "SESSION_ASSOC Object",
+      "zh-CHS": "会话助理对象"
+    },
+    {
+      "indent": 3,
+      "text": "Length",
+      "zh-CHS": "长"
+    },
+    {
+      "indent": 6,
+      "text": "This field contains the size of the SESSION_ASSOC object in bytes.",
+      "zh-CHS": "此字段包含会话\\u ASSOC对象的大小（以字节为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "Class",
+      "zh-CHS": "班"
+    },
+    {
+      "indent": 6,
+      "text": "Should be 192.",
+      "zh-CHS": "应该是192。"
+    },
+    {
+      "indent": 3,
+      "text": "Ctype",
+      "zh-CHS": "Ctype"
+    },
+    {
+      "indent": 6,
+      "text": "Should be sent as zero and ignored on receipt.",
+      "zh-CHS": "应作为零发送，并在收到时忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "SESSION object",
+      "zh-CHS": "会话对象"
+    },
+    {
+      "indent": 6,
+      "text": "The end-to-end SESSION contained in the object is to be mapped to the tunnel session described by the Sender FILTER-SPEC defined below.",
+      "zh-CHS": "对象中包含的端到端会话将映射到下面定义的发送方筛选器规范描述的隧道会话。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender FILTER-SPEC",
+      "zh-CHS": "发送器筛选器规范"
+    },
+    {
+      "indent": 6,
+      "text": "This is the tunnel session that the above mentioned end-to-end session maps to over the tunnel. As we mentioned above, a tunnel session is identified primarily by source port. This is why we use a Sender Filter-Spec for the tunnel session, in the place of a SESSION object.",
+      "zh-CHS": "这是上述端到端会话通过隧道映射到的隧道会话。如上所述，隧道会话主要由源端口标识。这就是为什么我们在隧道会话中使用发送方筛选器规范来代替会话对象。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.2. NODE_CHAR Object",
+      "section_title": true,
+      "zh-CHS": "2.3.2. 节点\\字符对象"
+    },
+    {
+      "indent": 3,
+      "text": "There has to be a way (other than through configuration) for Rexit to communicate to Rentry the fact that it is a tunnel endpoint supporting the scheme described in this document. We have defined for this reason a new object, called NODE_CHAR, carrying this information. If a node receives this object but does not understand it, it should drop it without producing any error report. Objects with Class-Num = 10bbbbbb (`b' represents a bit), as defined in the RSVP specification [RFC2205], have the characteristics we need. While for now this object only carries one bit of information, it can be used in the future to describe other characteristics of an RSVP capable node that are not part of the original RSVP specification.",
+      "zh-CHS": "Rexit必须有一种方式（而不是通过配置）来与Rentry通信，即它是支持本文档中描述的方案的隧道端点。为此，我们定义了一个名为NODE_CHAR的新对象，该对象携带此信息。如果节点接收到该对象但不理解该对象，则应在不生成任何错误报告的情况下删除该对象。类Num=10bbbbbb（`b'表示位）的对象，如RSVP规范[RFC2205]中定义的，具有我们需要的特性。虽然目前该对象仅携带一位信息，但它可以在将来用于描述支持RSVP的节点的其他特征，这些特征不是原始RSVP规范的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "The object NODE_CHAR has the following format:",
+      "zh-CHS": "对象节点_CHAR的格式如下："
+    },
+    {
+      "indent": 4,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|          length               |  class        |     c-type    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         Reserved                            |T|\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Length",
+      "zh-CHS": "长"
+    },
+    {
+      "indent": 6,
+      "text": "This field contains the size of the NODE_CHAR object in bytes. It should be set to eight.",
+      "zh-CHS": "此字段包含NODE_CHAR对象的大小（以字节为单位）。应该设置为8。"
+    },
+    {
+      "indent": 3,
+      "text": "Class",
+      "zh-CHS": "班"
+    },
+    {
+      "indent": 6,
+      "text": "An appropriate value should be assigned by the IANA. We propose this value to be 128.",
+      "zh-CHS": "IANA应指定适当的值。我们建议该值为128。"
+    },
+    {
+      "indent": 3,
+      "text": "Ctype",
+      "zh-CHS": "Ctype"
+    },
+    {
+      "indent": 6,
+      "text": "Should be sent as zero and ignored on receipt.",
+      "zh-CHS": "应作为零发送，并在收到时忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "T bit",
+      "zh-CHS": "丁字钻头"
+    },
+    {
+      "indent": 6,
+      "text": "This bit shows that the node is a RSVP-tunnel capable node.",
+      "zh-CHS": "此位表示该节点是支持RSVP隧道的节点。"
+    },
+    {
+      "indent": 3,
+      "text": "When Rexit receives an end-to-end reservation, it appends a NODE_CHAR object with the T bit set, to the RESV object, it encapsulates it and sends it to Rentry. When Rentry receives this RESV message it deduces that Rexit implements the mechanism described here and so it creates or adjusts a tunnel session and associates the tunnel session to the end-to-end session via a SESSION_ASSOC object. Rentry should remove the NODE_CHAR object, before forwarding the RESV message upstream. If",
+      "zh-CHS": "当Rexit接收到端到端保留时，它会将设置了T位的NODE_CHAR对象附加到RESV对象，然后封装它并将其发送到Rentry。当Rentry收到此RESV消息时，它推断Rexit实现了此处描述的机制，因此它创建或调整隧道会话，并通过session_ASSOC对象将隧道会话与端到端会话相关联。在向上游转发RESV消息之前，Rentry应删除NODE_CHAR对象。如果"
+    },
+    {
+      "indent": 3,
+      "text": "on the other hand, Rentry does not support the RSVP Tunnels mechanism it would simply ignore the NODE_CHAR object and not forward it further upstream.",
+      "zh-CHS": "另一方面，Rentry不支持RSVP隧道机制，它只会忽略NODE_CHAR对象，而不会将其进一步转发到上游。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Implementation",
+      "section_title": true,
+      "zh-CHS": "3. 实施"
+    },
+    {
+      "indent": 3,
+      "text": "In this section we discuss several cases separately, starting from the simplest scenario and moving to the more complex ones.",
+      "zh-CHS": "在本节中，我们将分别讨论几个案例，从最简单的场景开始，转到更复杂的场景。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Single Configured RSVP Session over an IP-in-IP Tunnel",
+      "section_title": true,
+      "zh-CHS": "3.1. 在IP-in-IP隧道中通过IP配置的单个RSVP会话"
+    },
+    {
+      "indent": 3,
+      "text": "Treating the two tunnel endpoints as a source and destination host, one easily sets up a FF-style reservation in between. Now the question is what kind of filterspec to use for the tunnel reservation, which directly relates to how packets get encapsulated over the tunnel. We discuss two cases below.",
+      "zh-CHS": "将两个隧道端点视为源主机和目标主机，可以轻松地在两者之间设置FF样式的保留。现在的问题是，隧道预订使用哪种filterspec，这直接关系到如何通过隧道封装数据包。下面我们讨论两个案例。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.1. In the Absence of End-to-End RSVP Session",
+      "section_title": true,
+      "zh-CHS": "3.1.1. 在没有端到端RSVP会话的情况下"
+    },
+    {
+      "indent": 3,
+      "text": "In the case where all the packets traversing a tunnel use the reserved resources, the current IP-in-IP encapsulation could be used. The RSVP session over the tunnel would simply specify a FF style reservation (with zero port number) with Rentry as the source address and Rexit as the destination address.",
+      "zh-CHS": "在穿越隧道的所有数据包都使用保留资源的情况下，可以使用当前的IP-In-IP封装。隧道上的RSVP会话只需指定FF样式的保留（端口号为零），Rentry作为源地址，Rexit作为目标地址。"
+    },
+    {
+      "indent": 3,
+      "text": "However if only some of the packets traversing the tunnel should benefit from the reservation, we must encapsulate the qualified packets in IP and UDP. This allows intermediate routers to use standard RSVP filterspec handling, without having to know about the existence of tunnels.",
+      "zh-CHS": "然而，如果只有一些通过隧道的数据包应该受益于保留，那么我们必须将符合条件的数据包封装在IP和UDP中。这允许中间路由器使用标准RSVP过滤器SPEC处理，而不必知道隧道的存在。"
+    },
+    {
+      "indent": 3,
+      "text": "Rather than supporting both cases we choose to simplify implementations by requiring all data packets using reservations to be encapsulated with an outer IP and UDP header. This reduces special case checking and handling.",
+      "zh-CHS": "我们不支持这两种情况，而是选择通过要求使用外部IP和UDP报头封装使用保留的所有数据包来简化实现。这减少了特殊情况的检查和处理。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2. In the Presence of End-to-End RSVP Session(s)",
+      "section_title": true,
+      "zh-CHS": "3.1.2. 在端到端RSVP会话存在的情况下"
+    },
+    {
+      "indent": 3,
+      "text": "According to the tunnel control policies, installed through some management interface, some or all end-to-end RSVP sessions may be allowed to map to the single RSVP session over the tunnel. In this case there is no need to provide dynamic binding information between end-to-end sessions and the tunnel session, given that the tunnel session is unique and pre-configured, and therefore well-known.",
+      "zh-CHS": "根据隧道控制策略，通过某些管理接口安装的部分或所有端到端RSVP会话可以映射到隧道上的单个RSVP会话。在这种情况下，不需要在端到端会话和隧道会话之间提供动态绑定信息，因为隧道会话是唯一的、预先配置的，因此是众所周知的。"
+    },
+    {
+      "indent": 3,
+      "text": "Binding multiple end-to-end sessions to one tunnel session, however, raises a new question of when and how the size of the tunnel reservation should be adjusted to accommodate the end-to-end sessions",
+      "zh-CHS": "然而，将多个端到端会话绑定到一个隧道会话会提出一个新问题，即何时以及如何调整隧道预留的大小以适应端到端会话"
+    },
+    {
+      "indent": 3,
+      "text": "mapped onto it. Again the tunnel manager makes such policy decision. Several scenarios are possible. In the first, the tunnel reservation is never adjusted. This makes the tunnel the rough equivalent of a fixed-capacity hardware link. In the second, the tunnel reservation is adjusted whenever a new end-to-end reservation arrives or an old one is torn down. In the third, the tunnel reservation is adjusted upwards or downwards occasionally, whenever the end-to-end reservation level has changed enough to warrant the adjustment. This trades off extra resource usage in the tunnel for reduced control traffic and overhead.",
+      "zh-CHS": "映射到它上面。隧道经理再次做出此类决策。有几种情况是可能的。在第一种情况下，隧道保留从未调整。这使得隧道大致相当于一个固定容量的硬件链路。在第二种情况下，每当新的端到端预留到达或旧的端到端预留被拆除时，隧道预留就会被调整。在第三种情况下，只要端到端预留水平变化到足以保证调整的程度，隧道预留偶尔会向上或向下调整。这将权衡隧道中的额外资源使用，以减少控制流量和开销。"
+    },
+    {
+      "indent": 3,
+      "text": "We call a tunnel whose reservation cannot be adjusted a \"hard pipe\", as opposed to a \"soft pipe\" where the amount of resources allocated is adjustable. Section 5.2 explains how the adjustment can be carried out for soft pipes.",
+      "zh-CHS": "我们把一条不能调整预留量的隧道称为“硬管”，而不是“软管”，因为它分配的资源量是可调整的。第5.2节说明了如何对软管进行调整。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Multiple Configured RSVP Sessions over an IP-in-IP Tunnel",
+      "section_title": true,
+      "zh-CHS": "3.2. 在IP-in-IP隧道中通过IP配置多个RSVP会话"
+    },
+    {
+      "indent": 3,
+      "text": "It is straightforward to build on the case of a single configured RSVP session over a tunnel by setting up multiple FF-style reservations between the two tunnel endpoints using a management interface. In this case Rentry must carefully encapsulate data packets with the proper UDP port numbers, so that packets belonging to different tunnel sessions will be distinguished by the intermediate RSVP routers. Note that this case and the one described before describe what we call type 2 tunnels.",
+      "zh-CHS": "通过使用管理接口在两个隧道端点之间设置多个FF样式的保留，可以直接在隧道上的单个已配置RSVP会话的情况下进行构建。在这种情况下，Rentry必须小心地用正确的UDP端口号封装数据包，以便中间RSVP路由器能够区分属于不同隧道会话的数据包。请注意，本案例和前面描述的案例描述了我们所称的2型隧道。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1. In the Absence of End-to-End RSVP Session",
+      "section_title": true,
+      "zh-CHS": "3.2.1. 在没有端到端RSVP会话的情况下"
+    },
+    {
+      "indent": 3,
+      "text": "Nothing more needs to be said in this case. Rentry classifies the packets and encapsulates them accordingly. Packets with no reservations are encapsulated with an outer IP header only, while packets qualified for reservations are encapsulated with a UDP header as well as an IP header. The UDP source port value should be properly set to map to the corresponding tunnel reservation the packet is supposed to use.",
+      "zh-CHS": "在这种情况下，无需多说。Rentry对数据包进行分类并相应地封装它们。没有保留的数据包仅用外部IP报头封装，而符合保留条件的数据包则用UDP报头和IP报头封装。UDP源端口值应正确设置为映射到数据包应该使用的相应隧道保留。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2. In the Presence of End-to-End RSVP Session(s)",
+      "section_title": true,
+      "zh-CHS": "3.2.2. 在端到端RSVP会话存在的情况下"
+    },
+    {
+      "indent": 3,
+      "text": "Since in this case, there is more than one RSVP session operating over the tunnel, one must explicitly bind each end-to-end RSVP session to its corresponding tunnel session. As discussed previously, this binding will be provided by the new SESSION_ASSOC object carried by the end-to-end PATH messages.",
+      "zh-CHS": "由于在这种情况下，有多个RSVP会话在隧道上运行，因此必须将每个端到端RSVP会话显式绑定到其相应的隧道会话。如前所述，此绑定将由端到端路径消息携带的新SESSION_ASSOC对象提供。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Dynamically Created Tunnel RSVP Sessions",
+      "section_title": true,
+      "zh-CHS": "3.3. 动态创建的隧道RSVP会话"
+    },
+    {
+      "indent": 3,
+      "text": "This is the case of a type 3 tunnel. The only differences between this case and that of Section 4.2 are that:",
+      "zh-CHS": "这是3型隧道的情况。本案例与第4.2节的唯一区别在于："
+    },
+    {
+      "indent": 6,
+      "text": "- The tunnel session is created when a new end-to-end session shows up. - There is a one-to-one mapping between the end-to-end and tunnel RSVP sessions, as opposed to possibly many-to-one mapping that is allowed in the case described in Section 4.2.",
+      "zh-CHS": "- 隧道会话是在新的端到端会话出现时创建的。-端到端和隧道RSVP会话之间存在一对一映射，而不是第4.2节中描述的情况下可能允许的多对一映射。"
+    },
+    {
+      "indent": 0,
+      "text": "4. RSVP Messages handling over an IP-in-IP Tunnel",
+      "section_title": true,
+      "zh-CHS": "4. 在IP隧道中通过IP处理RSVP消息"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. RSVP Messages for Configured Session(s) Over A Tunnel",
+      "section_title": true,
+      "zh-CHS": "4.1. 隧道上已配置会话的RSVP消息"
+    },
+    {
+      "indent": 3,
+      "text": "Here one or more RSVP sessions are set up over a tunnel through a management interface. The session reservation parameters never change for a \"hard pipe\" tunnel. The reservation parameters may change for a \"soft pipe\" tunnel. Tunnel session PATH messages generated by Rentry are addressed to Rexit, where they are processed and deleted.",
+      "zh-CHS": "这里，一个或多个RSVP会话通过管理界面在隧道上设置。“硬管道”隧道的会话保留参数永远不会更改。“软管”隧道的预留参数可能会发生变化。Rentry生成的隧道会话路径消息被发送到Rexit，并在那里进行处理和删除。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Handling of RSVP Messages at Tunnel Endpoints",
+      "section_title": true,
+      "zh-CHS": "4.2. 在隧道端点处处理RSVP消息"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.1. Handling End-to-End PATH Messages at Rentry",
+      "section_title": true,
+      "zh-CHS": "4.2.1. 在Rentry处理端到端路径消息"
+    },
+    {
+      "indent": 3,
+      "text": "When forwarding an end-to-end PATH message, a router acting as the tunnel entry point, Rentry, takes the following actions depending on the end-to-end session mentioned in the PATH message. There are two possible cases:",
+      "zh-CHS": "转发端到端路径消息时，充当隧道入口点Rentry的路由器根据路径消息中提到的端到端会话采取以下操作。有两种可能的情况："
+    },
+    {
+      "indent": 6,
+      "text": "1. The end-to-end PATH message is a refresh of a previously known end-to-end session. 2. The end-to-end PATH message is from a new end-to-end session.",
+      "zh-CHS": "1. 端到端路径消息是先前已知的端到端会话的刷新。2.端到端路径消息来自新的端到端会话。"
+    },
+    {
+      "indent": 3,
+      "text": "If the PATH message is a refresh of a previously known end-to-end session, then Rentry refreshes the Path state of the end-to-end session and checks to see if this session is mapped to a tunnel session. If this is the case, then when Rentry refreshes the end-to-end session, it includes in the end-to-end PATH message a SESSION_ASSOC object linking this session to its corresponding tunnel session It then encapsulates the end-to-end PATH message and sends it over the tunnel to Rexit. If the tunnel session was dynamically created, the end-to-end PATH message serves as a refresh for the local tunnel state at Rentry as well as for the end-to-end session.",
+      "zh-CHS": "如果路径消息是先前已知的端到端会话的刷新，则Rentry刷新端到端会话的路径状态，并检查此会话是否映射到隧道会话。如果是这种情况，则当Rentry刷新端到端会话时，它在端到端路径消息中包含一个会话\\u ASSOC对象，该对象将此会话链接到其相应的隧道会话，然后封装端到端路径消息，并通过隧道将其发送给Rexit。如果隧道会话是动态创建的，则端到端路径消息将作为Rentry的本地隧道状态以及端到端会话的刷新。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, if the PATH message is from a new end-to-end session that has not yet been mapped to a tunnel session, Rentry creates Path state for this new session setting the outgoing interface to be the tunnel interface. After that, Rentry encapsulates the PATH message and sends it to Rexit without adding a SESSION_ASSOC message.",
+      "zh-CHS": "否则，如果路径消息来自尚未映射到隧道会话的新端到端会话，Rentry将为此新会话创建路径状态，并将传出接口设置为隧道接口。之后，Rentry封装PATH消息并将其发送给Rexit，而无需添加SESSION_ASSOC消息。"
+    },
+    {
+      "indent": 3,
+      "text": "When an end-to-end PATH TEAR is received by Rentry, this node encapsulates and forwards the message to Rexit. If this end-to-end session has a one-to-one mapping to a tunnel session or if this is the last one of the many end-to-end sessions mapping to a tunnel session, Rentry tears down the tunnel session by sending a PATH TEAR for that session to Rexit. If, on the other hand, there are remaining end-to-end sessions mapping to the tunnel session, then Rentry sends a tunnel PATH message adjusting the Tspec of the tunnel session.",
+      "zh-CHS": "当Rentry接收到端到端路径撕裂时，该节点封装消息并将其转发给Rexit。如果此端到端会话具有到隧道会话的一对一映射，或者如果这是映射到隧道会话的多个端到端会话中的最后一个，Rentry将通过向Rexit发送该会话的路径撕裂来撕裂隧道会话。另一方面，如果有剩余的端到端会话映射到隧道会话，则Rentry发送隧道路径消息，调整隧道会话的Tspec。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.2. Handling End-to-End PATH Messages at Rexit",
+      "section_title": true,
+      "zh-CHS": "4.2.2. 在Rexit处理端到端路径消息"
+    },
+    {
+      "indent": 3,
+      "text": "Encapsulated end-to-end PATH messages are decapsulated and processed at Rexit. Depending on whether the end-to-end PATH message contains a SESSION_ASSOC object or not, Rexit takes the following steps:",
+      "zh-CHS": "封装的端到端路径消息在Rexit处被解封和处理。根据端到端路径消息是否包含会话\\关联对象，Rexit将执行以下步骤："
+    },
+    {
+      "indent": 6,
+      "text": "1. If the end-to-end PATH message does not contain a SESSION_ASSOC object, then Rentry sets the Non_RSVP flag at the Path state stored for this end-to-end sender, sets the global break bit in the ADSPEC and forwards the packets downstream. Alternatively, if tunnel sessions exist and none of them has the Non_RSVP flag set, Rexit can pick the worst-case Path ADSPEC params from the existing tunnel sessions and update the end-to-end ADSPEC using these values. This is a conservative estimation of the composed ADSPEC but it has the benefit of avoiding to set the break bit in the end-to-end ADSPEC before mapping information is available. In this case the Non_RSVP flag at the end-to-end Path state is not set.",
+      "zh-CHS": "1. 如果端到端路径消息不包含SESSION_ASSOC对象，则Rentry在为该端到端发送器存储的路径状态下设置Non_RSVP标志，在ADSPEC中设置全局中断位，并将数据包转发到下游。或者，如果存在隧道会话，并且其中没有一个设置了nonrsvp标志，则Rexit可以从现有隧道会话中选择最坏的路径ADSPEC参数，并使用这些值更新端到端ADSPEC。这是对合成ADSPEC的保守估计，但其优点是避免在映射信息可用之前在端到端ADSPEC中设置中断位。在这种情况下，未设置端到端路径状态下的非_RSVP标志。"
+    },
+    {
+      "indent": 6,
+      "text": "2. If the PATH message contains a SESSION_ASSOC object and no association for this end-to-end session already exists, then Rexit records the association between the end-to-end session and the tunnel session described by the object. If the end-to-end PATH arrives early before the tunnel PATH message arrives then it creates PATH state at Rexit for the tunnel session. When the actual PATH message for the tunnel session arrives it is treated as an update of the existing PATH state and it updates any information missing. We believe that this situation is another transient along with the others existing in RSVP and that it does not have any long-term effects on the correct operation of the mechanism described here.",
+      "zh-CHS": "2. 如果PATH消息包含一个SESSION_ASSOC对象，并且该端到端会话的关联不存在，则Rexit会记录该对象描述的端到端会话和隧道会话之间的关联。如果端到端路径在隧道路径消息到达之前提前到达，那么它将在Rexit为隧道会话创建路径状态。当隧道会话的实际路径消息到达时，它将被视为现有路径状态的更新，并更新丢失的任何信息。我们认为，这种情况与RSVP中存在的其他情况一样，是另一种暂时情况，对此处所述机制的正确运行没有任何长期影响。"
+    },
+    {
+      "indent": 9,
+      "text": "Before further forwarding the message to the next hop along the path to the destination, Rexit finds the corresponding tunnel session's recorded state and turns on Non_RSVP flag in the end-to-end Path state if the Non_RSVP bit was turned on for the tunnel session. If the end-to-end PATH message carries an ADSPEC object, Rexit performs composition of the characterization parameters contained in the ADSPEC. It does this by considering the tunnel session's overall (composed) characterization parameters as the local parameters for the logical link implemented by the tunnel, and composing these parameters with those in the end-to-end ADSPEC by executing each parameter's defined composition function. In the logical link's characterization parameters, the minimum path latency may take into account the encapsulation/decapsulation delay and the bandwidth estimate can represent the decrease in available bandwidth caused by the addition of the extra UDP header. ADSPECs and composition functions are discussed in great detail in [RFC2210].",
+      "zh-CHS": "在沿着到目的地的路径将消息进一步转发到下一个跃点之前，Rexit会找到相应的隧道会话的记录状态，并在端到端路径状态下打开Non_RSVP标志（如果为隧道会话打开了Non_RSVP位）。如果端到端路径消息携带ADSPEC对象，Rexit将执行ADSPEC中包含的特征参数的合成。它通过将隧道会话的总体（组合）特征参数视为隧道实现的逻辑链路的本地参数，并通过执行每个参数定义的组合函数，将这些参数与端到端ADSPEC中的参数组合来实现这一点。在逻辑链路的表征参数中，最小路径延迟可以考虑封装/去封装延迟，并且带宽估计可以表示由于添加额外UDP报头而导致的可用带宽的减少。[RFC2210]中详细讨论了ADSPEC和合成函数。"
+    },
+    {
+      "indent": 9,
+      "text": "If the end-to-end session has reservation state, while no reservation state for the matching tunnel session exists, Rexit send a tunnel RESV message to Rentry matching the reservation in the end-to-end session.",
+      "zh-CHS": "如果端到端会话具有保留状态，而匹配的隧道会话不存在保留状态，则Rexit会向端到端会话中匹配保留的Rentry发送隧道RESV消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If Rentry does not support RSVP tunneling, then Rexit will have no PATH state for the tunnel. In this case Rexit simply turns on the global break bit in the decapsulated end-to-end PATH message and forwards it.",
+      "zh-CHS": "如果Rentry不支持RSVP隧道，则Rexit将没有隧道的路径状态。在这种情况下，Rexit只需打开解除封装的端到端路径消息中的全局中断位并转发它。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.3. Handling End-to-End RESV Messages at Rexit",
+      "section_title": true,
+      "zh-CHS": "4.2.3. 在Rexit处理端到端RESV消息"
+    },
+    {
+      "indent": 3,
+      "text": "When forwarding a RESV message upstream, a router serving as the exit router, Rexit, may discover that one of the upstream interfaces is a tunnel. In this case the router performs a number of tests.",
+      "zh-CHS": "当向上游转发RESV消息时，用作出口路由器的路由器Rexit可能会发现其中一个上游接口是隧道。在这种情况下，路由器执行许多测试。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 1: Rexit must determine if there is a tunnel session bound to the end-to-end session given in the RESV message. If not, the tunnel is treated as a non-RSVP link, Rexit appends a NODE_CHAR object with the T bit set, to the RESV message and forwards it over the tunnel interface (where it is encapsulated as a normal IP datagram and forwarded towards Rentry).",
+      "zh-CHS": "步骤1：Rexit必须确定是否存在绑定到RESV消息中给出的端到端会话的隧道会话。如果不是，则将隧道视为非RSVP链路，Rexit将一个设置了T位的NODE_CHAR对象附加到RESV消息，并通过隧道接口将其转发（在该接口中，它被封装为普通IP数据报并转发到Rentry）。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 2: If a bound tunnel session is found, Rexit checks to see if a reservation is already in place for the tunnel session bound to the end-to-end session given in the RESV message. If the arriving end-to-end RESV message is a refresh of existing RESV state, then Rexit sends the original RESV through tunnel interface (after adding the NODE_CHAR object). For dynamic tunnel sessions, the end-to-end RESV",
+      "zh-CHS": "步骤2：如果找到绑定的隧道会话，Rexit将检查绑定到RESV消息中给定的端到端会话的隧道会话的保留是否已到位。如果到达的端到端RESV消息是对现有RESV状态的刷新，则Rexit通过隧道接口发送原始RESV（在添加NODE_CHAR对象之后）。对于动态隧道会话，端到端RESV"
+    },
+    {
+      "indent": 3,
+      "text": "message acts as a refresh for the tunnel session reservation state, while for configured tunnel sessions, reservation state never expires.",
+      "zh-CHS": "消息充当隧道会话保留状态的刷新，而对于已配置的隧道会话，保留状态永不过期。"
+    },
+    {
+      "indent": 3,
+      "text": "If the arriving end-to-end RESV message causes a change in the end-to-end RESV flowspec parameters, it may also trigger an attempt to change the tunnel session's flowspec parameters. In this case Rexit sends a tunnel session RESV, including a RESV_CONFIRM object.",
+      "zh-CHS": "如果到达的端到端RESV消息导致端到端RESV flowspec参数发生更改，则还可能触发更改隧道会话的flowspec参数的尝试。在这种情况下，Rexit发送一个隧道会话RESV，包括一个RESV_确认对象。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of a \"hard pipe\" tunnel, a new end-to-end reservation or change in the level of resources requested by an existing reservation may cause the total resource level needed by the end-to-end reservations to exceed the level of resources reserved by the tunnel reservation. This event should be treated as an admission control failure, identically to the case where RSVP requests exceed the level of resources available over a hardware link. A RESV_ERR message with Error Code set to 01 (Admission Control failure), should be sent back to the originator of the end-to-end RESV message.",
+      "zh-CHS": "在“硬管”隧道的情况下，新的端到端保留或现有保留请求的资源水平的变化可能导致端到端保留所需的总资源水平超过隧道保留所保留的资源水平。此事件应视为准入控制失败，与RSVP请求超过硬件链路上可用资源级别的情况相同。错误代码设置为01（准入控制失败）的RESV_ERR消息应发送回端到端RESV消息的发起人。"
+    },
+    {
+      "indent": 3,
+      "text": "If a RESV CONFIRM response arrives, the original RESV is encapsulated and sent through the tunnel. If the updated tunnel reservation fails, Rexit must send a RESV ERR to the originator of the end-to-end RESV message, using the error code and value fields from the ERROR_SPEC object of the received tunnel session RESV ERR message. Note that the pre-existing reservations through the tunnel stay in place. Rexit continues refreshing the tunnel RESV using the old flowspec.",
+      "zh-CHS": "如果收到RESV确认响应，原始RESV将被封装并通过隧道发送。如果更新的隧道保留失败，Rexit必须使用收到的隧道会话RESV ERR消息的error_SPEC对象中的错误代码和值字段，向端到端RESV消息的发起人发送RESV ERR。请注意，通过隧道的现有保留区保持不变。Rexit继续使用旧的flowspec刷新隧道RESV。"
+    },
+    {
+      "indent": 3,
+      "text": "Tunnel session state for a \"soft pipe\" may also be adjusted when an end-to-end reservation is deleted. The tunnel session gets reduced whenever one of the end-to-end sessions using the tunnel goes away (or gets reduced itself). However even when the last end-to-end session bound to that tunnel goes away, the configured tunnel session remains active, perhaps with a configured minimal flowspec.",
+      "zh-CHS": "删除端到端保留时，还可以调整“软管”的隧道会话状态。只要使用隧道的一个端到端会话消失（或自身减少），隧道会话就会减少。但是，即使绑定到该隧道的最后一个端到端会话消失，配置的隧道会话仍保持活动状态，可能使用配置的最小流规范。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that it will often be appropriate to use some hysteresis in the adjustment of the tunnel reservation parameters, rather than adjusting the tunnel reservation up and down with each arriving or departing end-to-end reservation. Doing this will require the tunnel exit router to keep track of the resources allocated to the tunnel (the tunnel flowspec) and the resources actually in use by end-to-end reservations (the sum or statistical sum of the end-to-end reservation flowspecs) separately.",
+      "zh-CHS": "请注意，在调整隧道预留参数时，通常应使用一些滞后，而不是在每次到达或离开端到端预留时上下调整隧道预留。这样做需要隧道出口路由器分别跟踪分配给隧道的资源（隧道流规范）和端到端预留实际使用的资源（端到端预留流规范的总和或统计总和）。"
+    },
+    {
+      "indent": 3,
+      "text": "When an end-to-end RESV TEAR is received by Rexit, it encapsulates and forwards the message to Rentry. If the end-to-end session had created a dynamic tunnel session, then a RESV TEAR for the corresponding tunnel session is send by Rexit.",
+      "zh-CHS": "当Rexit接收到端到端的RESV TEAR时，它封装消息并将其转发给Rentry。如果端到端会话创建了动态隧道会话，则Rexit会发送相应隧道会话的RESV撕裂。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.4. Handling of End-to-End RESV Messages at Rentry.",
+      "zh-CHS": "4.2.4. 在Rentry处理端到端RESV消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If the RESV message received is a refresh of an existing reservation then Rentry updates the reservation state and forwards the message upstream. On the other hand, if this is the first RESV message for this end-to-end session and a NODE_CHAR object with the T bit set is present, Rentry should initiate the mapping between this end-to-end session and some (possibly new) tunnel session. This mapping is based on some or all of the contents of the end-to-end PATH message, the contents of the end-to-end RESV message, and local policies. For example, there could be different tunnel sessions based on the bandwidth or delay requirements of end-to-end sessions)",
+      "zh-CHS": "如果收到的RESV消息是现有保留的刷新，则Rentry将更新保留状态并将消息转发到上游。另一方面，如果这是此端到端会话的第一条RESV消息，并且存在具有T位集的NODE_CHAR对象，则Rentry应启动此端到端会话和某些（可能是新的）隧道会话之间的映射。此映射基于端到端路径消息的部分或全部内容、端到端RESV消息的内容以及本地策略。例如，根据端到端会话的带宽或延迟要求，可能存在不同的隧道会话）"
+    },
+    {
+      "indent": 3,
+      "text": "If Rentry decides that this end-to-end session should be mapped to an existing configured tunnel session, it binds this end-to-end session to that tunnel session.",
+      "zh-CHS": "如果Rentry决定此端到端会话应映射到现有配置的隧道会话，则它会将此端到端会话绑定到该隧道会话。"
+    },
+    {
+      "indent": 3,
+      "text": "If this end-to-end RSVP session is allowed to set up a new tunnel session, Rentry sets up tunnel session PATH state as if it were a source of data by starting to send tunnel-session PATH messages to Rexit, which is treated as the unicast destination of the data. The Tspec in this new PATH message is computed from the original PATH message by adjusting the Tspec parameters to include the tunnel overhead of the encapsulation of data packets. In this case Rentry should also send a PATH message from the end-to-end session this time containing the SESSION_ASSOC object linking the two sessions. The receipt of this PATH message by Rexit will trigger an update of the end-to-end Path state which in turn will have the effect of Rexit sending a tunnel RESV message, allocating resources inside the tunnel.",
+      "zh-CHS": "如果允许此端到端RSVP会话设置新的隧道会话，Rentry将通过开始向Rexit发送隧道会话路径消息来设置隧道会话路径状态，就像它是数据源一样，Rexit被视为数据的单播目的地。通过调整Tspec参数以包括数据包封装的隧道开销，从原始路径消息计算此新路径消息中的Tspec。在这种情况下，Rentry这次还应该从端到端会话发送一条PATH消息，其中包含链接两个会话的session_ASSOC对象。Rexit收到此PATH消息将触发端到端路径状态的更新，这反过来将产生Rexit发送隧道RESV消息、在隧道内分配资源的效果。"
+    },
+    {
+      "indent": 3,
+      "text": "The last case is when the end-to-end session is not allowed to use the tunnel resources. In this case no association is created between this end-to-end session and a tunnel session and no new tunnel session is created.",
+      "zh-CHS": "最后一种情况是不允许端到端会话使用隧道资源。在这种情况下，不会在此端到端会话和隧道会话之间创建关联，也不会创建新的隧道会话。"
+    },
+    {
+      "indent": 3,
+      "text": "One limitation of our scheme is that the first RESV message of an end-to-end session determines the mapping between that end-to-end session and its corresponding session over the tunnel. Moreover as long as the reservation is active this mapping cannot change.",
+      "zh-CHS": "我们的方案的一个限制是，端到端会话的第一条RESV消息决定了该端到端会话与隧道上相应会话之间的映射。此外，只要保留处于活动状态，此映射就不能更改。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Forwarding Data",
+      "section_title": true,
+      "zh-CHS": "5. 转发数据"
+    },
+    {
+      "indent": 3,
+      "text": "When data packets arrive at the tunnel entry point Rentry, Rentry must decide whether to forward the packets using the normal IP-in-IP tunnel encapsulation or the IP+UDP encapsulation expected by the tunnel session. This decision is made by determining whether there is a resource reservation (not just PATH state) actually in place for the tunnel session bound to the arriving packet, that is, whether the packet matches any active filterspec.",
+      "zh-CHS": "当数据包到达隧道入口点Rentry时，Rentry必须决定是使用正常的IP-in-IP隧道封装还是隧道会话预期的IP+UDP封装转发数据包。通过确定绑定到到达数据包的隧道会话是否实际存在资源保留（不仅仅是路径状态），即数据包是否匹配任何活动filterspec，来做出此决定。"
+    },
+    {
+      "indent": 3,
+      "text": "If a reservation is in place, it means that both Rentry and Rexit are RSVP-tunneling aware routers, and the data will be correctly decapsulated at Rexit.",
+      "zh-CHS": "如果保留到位，则意味着Rentry和Rexit都是支持RSVP隧道的路由器，并且数据将在Rexit正确解封。"
+    },
+    {
+      "indent": 3,
+      "text": "If no tunnel session reservation is in place, the data should be encapsulated in the tunnel's normal format, regardless of whether end-to-end PATH state covering the data is present.",
+      "zh-CHS": "如果没有隧道会话保留，则应以隧道的正常格式封装数据，无论覆盖数据的端到端路径状态是否存在。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Details",
+      "section_title": true,
+      "zh-CHS": "6. 细节"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Selecting UDP port numbers",
+      "section_title": true,
+      "zh-CHS": "6.1. 选择UDP端口号"
+    },
+    {
+      "indent": 3,
+      "text": "There may be multiple end-to-end RSVP sessions between the two end points Rentry and Rexit. These sessions are distinguished by the source UDP port. Other components of the session ID, the source and destination IP addresses and the destination UDP port, are identical for all such sessions.",
+      "zh-CHS": "Rentry和Rexit两个端点之间可能有多个端到端RSVP会话。这些会话由源UDP端口区分。会话ID的其他组件、源和目标IP地址以及目标UDP端口对于所有此类会话都是相同的。"
+    },
+    {
+      "indent": 3,
+      "text": "The source UDP port is chosen by the tunnel entry point Rentry when it establishes the initial PATH state for a new tunnel session. The source UDP port associated with the new session is then conveyed to Rexit by the SESSION_ASSOC object.",
+      "zh-CHS": "隧道入口点Rentry在为新隧道会话建立初始路径状态时选择源UDP端口。然后，与新会话关联的源UDP端口由会话\\ U ASSOC对象传送给Rexit。"
+    },
+    {
+      "indent": 3,
+      "text": "The destination UDP port used in tunnel sessions should the one assigned by IANA (363).",
+      "zh-CHS": "隧道会话中使用的目标UDP端口应为IANA（363）分配的端口。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Error Reporting",
+      "section_title": true,
+      "zh-CHS": "6.2. 错误报告"
+    },
+    {
+      "indent": 3,
+      "text": "When a tunnel session PATH message encounters an error, it is reported back to Rentry. Rentry must relay the error report back to the original source of the end-to-end session.",
+      "zh-CHS": "当隧道会话路径消息遇到错误时，会将其报告回Rentry。Rentry必须将错误报告中继回端到端会话的原始源。"
+    },
+    {
+      "indent": 3,
+      "text": "When a tunnel session RESV request fails, an error message is returned to Rexit. Rexit must treat this as an error in crossing the logical link (the tunnel) and forward the error message back to the end host.",
+      "zh-CHS": "当隧道会话RESV请求失败时，将向Rexit返回一条错误消息。Rexit必须将此视为穿越逻辑链路（隧道）的错误，并将错误消息转发回终端主机。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. MTU Discovery",
+      "section_title": true,
+      "zh-CHS": "6.3. 最大传输单元发现"
+    },
+    {
+      "indent": 3,
+      "text": "Since the UDP encapsulated packets should not be fragmented, tunnel entry routers must support tunnel MTU discovery as discussed in section 5.1 of [IP4INIP4]. Alternatively, the Path MTU Discovery mechanism discussed in RFC 2210 [RFC2210] can be used.",
+      "zh-CHS": "由于UDP封装的数据包不应分段，隧道入口路由器必须支持[IP4INIP4]第5.1节中讨论的隧道MTU发现。或者，可以使用RFC 2210[RFC2210]中讨论的路径MTU发现机制。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4. Tspec and Flowspec Calculations",
+      "section_title": true,
+      "zh-CHS": "6.4. Tspec和Flowspec计算"
+    },
+    {
+      "indent": 3,
+      "text": "As multiple End-to-End sessions can be mapped to a single tunnel session, there is the need to compute the aggregate Tspec of all the senders of those End-to-End sessions. This aggregate Tspec will the Tspec of the representative tunnel session. The same operation needs to be performed for flowspecs of End-to-End reservations arriving at Rexit.",
+      "zh-CHS": "由于多个端到端会话可以映射到单个隧道会话，因此需要计算这些端到端会话的所有发送方的聚合Tspec。该总Tspec将成为代表性隧道会议的Tspec。对于到达Rexit的端到端预订流程规范，需要执行相同的操作。"
+    },
+    {
+      "indent": 3,
+      "text": "The semantics of these operations are not addressed here. The simplest way to do them is to compute a sum of the end-to-end Tspecs, as is defined in the specifications of the Controlled-Load and Guaranteed services (found at [RFC2211] and [RFC2212] respectively). However, it may also be appropriate to compute the aggregate reservation level for the tunnel using a more sophisticated statistical or measurement-based computation.",
+      "zh-CHS": "这里不讨论这些操作的语义。最简单的方法是计算端到端TSPEC的总和，如受控负载和保证服务规范中所定义（分别在[RFC2211]和[RFC2212]中找到）。然而，也可以使用更复杂的统计或基于测量的计算来计算隧道的总保留水平。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IPSEC Tunnels",
+      "section_title": true,
+      "zh-CHS": "7. IPSEC隧道"
+    },
+    {
+      "indent": 3,
+      "text": "In the case where the IP-in-IP tunnel supports IPSEC (especially ESP in Tunnel-Mode with or without AH) then the Tunnel Session uses the GPI SESSION and GPI SENDER_TEMPLATE/FILTER_SPEC as defined in [RSVPESP] for the PATH and RESV messages.",
+      "zh-CHS": "如果IP-In-IP隧道支持IPSEC（特别是隧道模式下的ESP，无论是否使用AH），则隧道会话将[RSVPESP]中定义的GPI会话和GPI发送者\\模板/过滤器\\规范用于路径和RESV消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Data packets are not encapsulated with a UDP header since the SPI can be used by the intermediate nodes for classification purposes. Notice that user oriented keying must be used between Rentry and Rexit, so that different SPIs are assigned to data packets that have reservation and \"best effort\" packets, as well as packets that belong to different Tunnel Sessions if those are supported.",
+      "zh-CHS": "数据包不使用UDP报头进行封装，因为中间节点可以使用SPI进行分类。请注意，必须在Rentry和Rexit之间使用面向用户的键控，以便将不同的SPI分配给具有保留和“尽力”数据包的数据包，以及属于不同隧道会话（如果支持这些会话）的数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "8. RSVP Support for Multicast and Multipoint Tunnels",
+      "section_title": true,
+      "zh-CHS": "8. 对多播和多点隧道的RSVP支持"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanisms described above are useful for unicast tunnels. Unicast tunnels provide logical point-to-point links in the IP infrastructure, though they may encapsulate and carry either unicast or multicast traffic between those points.",
+      "zh-CHS": "上述机制对于单播隧道是有用的。单播隧道在IP基础设施中提供逻辑点到点链路，尽管它们可以封装和承载这些点之间的单播或多播流量。"
+    },
+    {
+      "indent": 3,
+      "text": "Two other types of tunnels may be imagined. The first of these is a \"multicast\" tunnel. In this type of tunnel, packets arriving at an entry point are encapsulated and transported (multicast) to -all- of the exit points. This sort of tunnel might prove useful for implementing a hierarchical multicast distribution network, or for emulating efficiently some portion of a native multicast distribution tree.",
+      "zh-CHS": "可以设想另外两种类型的隧道。第一个是“多播”隧道。在这种类型的隧道中，到达入口点的数据包被封装并传输（多播）到所有出口点。这种隧道对于实现分层多播分发网络或有效地模拟本机多播分发树的某些部分可能很有用。"
+    },
+    {
+      "indent": 3,
+      "text": "A second possible type of tunnel is the \"multipoint\" tunnel. In this type of tunnel, packets arriving at an entry point are normally encapsulated and transported to -one- of the exit points, according to some route selection algorithm.",
+      "zh-CHS": "第二种可能的隧道类型是“多点”隧道。在这种类型的隧道中，根据某些路由选择算法，到达入口点的数据包通常被封装并传输到一个出口点。"
+    },
+    {
+      "indent": 3,
+      "text": "This type of tunnel differs from all previous types in that the ' shape' of the usual data distribution path does not match the 'shape' of the tunnel. The topology of the tunnel does not by itself define the data transmission function that the tunnel performs. Instead, the tunnel becomes a way to express some shared property of the set of connected tunnel endpoints. For example, the \"tunnel\" may be used to create and embed a logical shared broadcast network within some larger network. In this case the tunnel endpoints are the nodes connected to the logical shared broadcast network. Data traffic may be unicast between two such nodes, broadcast to all connected nodes, or multicast between some subset of the connected nodes. The tunnel itself is used to define a domain in which to manage routing and resource management - essentially a virtual private network.",
+      "zh-CHS": "这种类型的隧道不同于以前所有类型的隧道，因为通常数据分发路径的“形状”与隧道的“形状”不匹配。隧道拓扑本身并不定义隧道执行的数据传输功能。相反，隧道成为表示连接的隧道端点集的某些共享属性的一种方式。例如，“隧道”可用于在某个较大的网络中创建和嵌入逻辑共享广播网络。在这种情况下，隧道端点是连接到逻辑共享广播网络的节点。数据流量可以是两个这样的节点之间的单播、向所有连接的节点广播或在连接的节点的某个子集之间的多播。隧道本身用于定义一个域，在该域中管理路由和资源管理—本质上是一个虚拟专用网络。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that while a VPN of this form can always be implemented using a multicast tunnel to emulate the broadcast medium, this approach will be very inefficient in the case of wide area VPNs, and a multipoint tunnel with appropriate control mechanisms will be preferable.",
+      "zh-CHS": "注意，尽管这种形式的VPN总是可以使用多播隧道来模拟广播介质来实现，但是在广域VPN的情况下，这种方法将非常低效，并且具有适当控制机制的多点隧道将是优选的。"
+    },
+    {
+      "indent": 3,
+      "text": "The following paragraphs provide some brief commentary on the use of RSVP in these situations. Future versions of this note will provide more concrete details and specifications.",
+      "zh-CHS": "以下段落提供了一些关于在这些情况下使用RSVP的简要评论。本说明的未来版本将提供更具体的细节和规范。"
+    },
+    {
+      "indent": 3,
+      "text": "Using RSVP to provide resource management over a multicast tunnel is relatively straightforward. As in the unicast case, one or more RSVP sessions may be used, and end-to-end RSVP sessions may be mapped onto tunnel RSVP sessions on a many-to-one or one-to-one basis. Unlike the unicast, case, however, the mapping is complicated by RSVP's heterogeneity semantics. If different receivers have made different reservation requests, it may be that the RESV messages arriving at the tunnel would logically map the receiver's requests to different tunnel sessions. Since the data can actually be placed into only one session, the choice of session must be reconciled (merged) to select the one that will meet the needs of all applications. This requires a relatively simple extension to the session mapping mechanism.",
+      "zh-CHS": "使用RSVP通过多播隧道提供资源管理相对简单。与单播情况一样，可以使用一个或多个RSVP会话，并且端到端RSVP会话可以基于多对一或一对一映射到隧道RSVP会话。然而，与单播不同，case的映射由于RSVP的异构语义而变得复杂。如果不同的接收器发出了不同的保留请求，则到达隧道的RESV消息可能会在逻辑上将接收器的请求映射到不同的隧道会话。由于数据实际上只能放在一个会话中，因此必须协调（合并）会话的选择，以选择满足所有应用程序需求的会话。这需要对会话映射机制进行相对简单的扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "Use of RSVP to support multipoint tunnels is somewhat more difficult. In this case, the goal is to give the tunnel as a whole a specific level of resources. For example, we may wish to emulate a \"logical shared 10 megabit Ethernet\" rather than a \"logical shared Ethernet\". However, the problem is complicated by the fact that in this type of tunnel the data does not always go to all tunnel endpoints. This implies that we cannot use the destination address of the encapsulated packets as part of the packet classification filter, because the destination address will vary for different packets within the tunnel.",
+      "zh-CHS": "使用RSVP支持多点隧道有些困难。在这种情况下，目标是为整个隧道提供特定级别的资源。例如，我们可能希望模拟“逻辑共享10兆位以太网”，而不是“逻辑共享以太网”。然而，由于在这种类型的隧道中，数据并不总是到达所有隧道端点，因此问题变得复杂。这意味着我们不能将封装数据包的目标地址用作数据包分类过滤器的一部分，因为隧道内不同数据包的目标地址会有所不同。"
+    },
+    {
+      "indent": 3,
+      "text": "This implies the need for an extension to current RSVP session semantics in which the Session ID (destination IP address) is used -only- to identify the session state within network nodes, but is not used to classify packets. Other than this, the use of RSVP for multipoint tunnels follows that of multicast tunnels. A multicast group is created to represent the set of nodes that are tunnel endpoints, and one or more tunnel RSVP sessions are created to reserve resources for the encapsulated packets. In the case of a tunnel implementing a simple VPN, it is most likely that there will be one session to reserve resources for the whole VPN. Each tunnel endpoint will participate both as a source of PATH messages and a source of (FF or SE) RESV messages for this single session, effectively creating a single shared reservation for the entire logical shared medium. Tunnel endpoints MUST NOT make wildcard reservations over multipoint tunnels.",
+      "zh-CHS": "这意味着需要对当前RSVP会话语义进行扩展，其中会话ID（目标IP地址）仅用于标识网络节点内的会话状态，而不用于对数据包进行分类。除此之外，多点隧道使用RSVP的方式与多播隧道相同。创建多播组以表示作为隧道端点的节点集，并创建一个或多个隧道RSVP会话以为封装的数据包保留资源。在隧道实现简单VPN的情况下，很可能会有一个会话为整个VPN保留资源。每个隧道端点将作为单个会话的路径消息源和（FF或SE）RESV消息源参与，从而有效地为整个逻辑共享介质创建单个共享保留。隧道端点不得对多点隧道进行通配符保留。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Extensions to the RSVP/Routing Interface",
+      "section_title": true,
+      "zh-CHS": "9. RSVP/路由接口的扩展"
+    },
+    {
+      "indent": 3,
+      "text": "The RSVP specification [RFC2205] states that through the RSVP/Routing Interface, the RSVP daemon must be able to learn the list of local interfaces along with their IP addresses. In the RSVP Tunnels case, the RSVP daemon needs also to learn which of the local interface(s) is (are) IP-in-IP tunnel(s) having the capabilities described here. The RSVP daemon can acquire this information, either by directly querying the underlying network and physical layers or by using any existing interface between RSVP and the routing protocol properly extended to provide this information.",
+      "zh-CHS": "RSVP规范[RFC2205]规定，通过RSVP/路由接口，RSVP守护进程必须能够了解本地接口列表及其IP地址。在RSVP隧道的情况下，RSVP守护进程还需要了解哪些本地接口是IP隧道中的IP，具有此处所述的功能。RSVP守护进程可以通过直接查询底层网络和物理层，或者通过使用RSVP和适当扩展的路由协议之间的任何现有接口来获取此信息。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "10. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The introduction of RSVP Tunnels raises no new security issues other than those associated with the use of RSVP and tunnels. Regarding RSVP, the major issue is the need to control and authenticate access to enhanced qualities of service. This requirement is discussed further in [RFC2205]. [RSVPCRYPTO] describes the mechanism used to protect the integrity of RSVP messages carrying the information described here. The security issues associated with IP-in-IP tunnels are discussed in [IPINIP4] and [IPV6GEN].",
+      "zh-CHS": "RSVP隧道的引入不会带来新的安全问题，除了与RSVP和隧道的使用相关的问题。关于RSVP，主要问题是需要控制和验证对增强服务质量的访问。[RFC2205]中进一步讨论了该要求。[RSVPCRYPTO]描述了用于保护承载此处所述信息的RSVP消息完整性的机制。[IPINIP4]和[IPV6GEN]中讨论了IP隧道中与IP相关的安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "11. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "11. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA should assign a Class number for the NODE_CHAR object defined in Section 3.3.2. This number should be in the 10bbbbbb range. The suggested value is 128.",
+      "zh-CHS": "IANA应为第3.3.2节中定义的NODE_CHAR对象分配一个类号。此数字应在10bbbbbb范围内。建议值为128。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "12. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We thank Bob Braden for his insightful comments that helped us to produce this updated version of the document.",
+      "zh-CHS": "我们感谢鲍勃·布莱登（Bob Braden）的富有洞察力的评论，这些评论帮助我们制作了本文件的更新版本。"
+    },
+    {
+      "indent": 0,
+      "text": "13. References",
+      "section_title": true,
+      "zh-CHS": "13. 工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[ESP] Atkinson, R., \"IP Encapsulating Security Payload (ESP)\", RFC 1827, August 1995.",
+      "zh-CHS": "[ESP]阿特金森，R.，“IP封装安全有效载荷（ESP）”，RFC 1827，1995年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IP4INIP4] Perkins, C., \"IP Encapsulation within IP\", RFC 2003, October 1996.",
+      "zh-CHS": "[IP4INIP4]Perkins，C.，“IP内的IP封装”，RFC 2003，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IPV6GEN] Conta, A. and S. Deering, \"Generic Packet Tunneling in IPv6 Specification\", RFC 2473, December 1998.",
+      "zh-CHS": "[IPV6GEN]Conta，A.和S.Deering，“IPv6规范中的通用数据包隧道”，RFC 2473，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MINENC] Perkins, C., \"Minimal Encapsulation within IP\", RFC 2004, October 1996.",
+      "zh-CHS": "[MINENC]Perkins，C.，“IP内的最小封装”，RFC 2004，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1701] Hanks, S., Li, T., Farinacci, D. and P. Traina, \"Generic Routing Encapsulation (GRE)\", RFC 1701, October 1994.",
+      "zh-CHS": "[RFC1701]Hanks，S.，Li，T.，Farinaci，D.和P.Traina，“通用路由封装（GRE）”，RFC 17011994年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1702] Hanks, S., Li, T., Farinacci, D. and P. Traina, \"Generic Routing Encapsulation over IPv4 Networks\", RFC 1702, October 1994.",
+      "zh-CHS": "[RFC1702]Hanks，S.，Li，T.，Farinaci，D.和P.Traina，“IPv4网络上的通用路由封装”，RFC 1702，1994年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1933] Gilligan, R. and E. Nordmark, \"Transition Mechanisms for IPv6 Hosts and Routers\", RFC 1933, April 1996.",
+      "zh-CHS": "[RFC1933]Gilligan，R.和E.Nordmark，“IPv6主机和路由器的过渡机制”，RFC 1933，1996年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2210] Wroclawski, J., \"The Use of RSVP with IETF Integrated Services\", RFC 2210, September 1997.",
+      "zh-CHS": "[RFC2210]Wroclawski，J.，“RSVP与IETF集成服务的使用”，RFC 2210，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2211] Wroclawski, J., \"Specification of the Controlled-Load Network Element Service\", RFC 2211, September 1997.",
+      "zh-CHS": "[RFC2211]Wroclawski，J.，“受控负荷网元服务规范”，RFC2211，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2212] Shenker, S., Partridge, C. and R. Guerin, \"Specification of the Guaranteed Quality of Service\", RFC 2212, September 1997.",
+      "zh-CHS": "[RFC2212]Shenker，S.，Partridge，C.和R.Guerin，“保证服务质量规范”，RFC 2212，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2205] Braden, R., Zhang, L., Berson, S., Herzog, S. and S. Jamin, \"Resource ReSerVation Protocol (RSVP) -- Version 1 Functional Specification\", RFC 2205, September 1997.",
+      "zh-CHS": "[RFC2205]Braden，R.，Zhang，L.，Berson，S.，Herzog，S.和S.Jamin，“资源预留协议（RSVP）——第1版功能规范”，RFC 22052997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RSVPESP] Berger, L. and T. O'Malley, \"RSVP Extensions for IPSEC Data Flows\", RFC 2207, September 1997.",
+      "zh-CHS": "[RSVPESP]Berger，L.和T.O'Malley，“IPSEC数据流的RSVP扩展”，RFC 2207，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RSVPCRYPTO] Baker, F., Lindell, B. and M. Talwar, \"RSVP Cryptographic Authentication\", RFC 2747, January 2000.",
+      "zh-CHS": "[RSVPCRYPTO]Baker，F.，Lindell，B.和M.Talwar，“RSVP加密认证”，RFC 2747，2000年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "14. Authors' Addresses",
+      "section_title": true,
+      "zh-CHS": "14. 作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "John Krawczyk ArrowPoint Communications 50 Nagog Park Acton, MA 01720",
+      "zh-CHS": "John Krawczyk ArrowPoint Communications马萨诸塞州纳戈公园阿克顿50号01720"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 978-206-3027 EMail: jj@arrowpoint.com",
+      "zh-CHS": "电话：978-206-3027电子邮件：jj@arrowpoint.com"
+    },
+    {
+      "indent": 3,
+      "text": "John Wroclawski MIT Laboratory for Computer Science 545 Technology Sq. Cambridge, MA 02139",
+      "zh-CHS": "约翰·沃克罗夫斯基麻省理工学院计算机科学实验室，马萨诸塞州剑桥545技术广场，邮编：02139"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 617-253-7885 Fax: 617-253-2673 EMail: jtw@lcs.mit.edu",
+      "zh-CHS": "电话：617-253-7885传真：617-253-2673电子邮件：jtw@lcs.mit.edu"
+    },
+    {
+      "indent": 3,
+      "text": "Lixia Zhang UCLA 4531G Boelter Hall Los Angeles, CA 90095",
+      "zh-CHS": "加利福尼亚州洛杉矶加利福尼亚大学洛杉矶分校张丽霞4531G博尔特大厅，邮编90095"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 310-825-2695 EMail: lixia@cs.ucla.edu",
+      "zh-CHS": "电话：310-825-2695电子邮件：lixia@cs.ucla.edu"
+    },
+    {
+      "indent": 3,
+      "text": "Andreas Terzis UCLA 4677 Boelter Hall Los Angeles, CA 90095",
+      "zh-CHS": "加州大学洛杉矶分校安德烈亚斯·特齐斯4677博尔特大厅，加利福尼亚州洛杉矶，邮编90095"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 310-267-2190 EMail: terzis@cs.ucla.edu",
+      "zh-CHS": "电话：310-267-2190电子邮件：terzis@cs.ucla.edu"
+    },
+    {
+      "indent": 0,
+      "text": "15. Full Copyright Statement",
+      "section_title": true,
+      "zh-CHS": "15. 完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2000). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2000年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

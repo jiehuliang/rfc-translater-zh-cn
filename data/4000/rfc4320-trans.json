@@ -1,0 +1,406 @@
+{
+  "title": {
+    "text": "RFC 4320: Actions Addressing Identified Issues with the Session Initiation Protocol's (SIP) Non-INVITE Transaction",
+    "zh-CHS": "RFC 4320"
+  },
+  "number": 4320,
+  "created_at": "2021-11-13 13:21:02.988790+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          R. Sparks\nRequest for Comments: 4320                              Estacado Systems\nUpdates: 3261                                               January 2006\nCategory: Standards Track",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": " Actions Addressing Identified Issues with the Session Initiation Protocol's (SIP) Non-INVITE Transaction",
+      "zh-CHS": "解决会话启动协议（SIP）非邀请事务中已识别问题的操作"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes modifications to the Session Initiation Protocol (SIP) to address problems that have been identified with the SIP non-INVITE transaction. These modifications reduce the probability of messages losing the race condition inherent in the non-INVITE transaction and reduce useless network traffic. They also improve the robustness of SIP networks when elements stop responding. These changes update behavior defined in RFC 3261.",
+      "zh-CHS": "本文档描述了对会话启动协议（SIP）的修改，以解决SIP non INVITE事务中发现的问题。这些修改降低了消息丢失非邀请事务中固有的竞争条件的概率，并减少了无用的网络流量。当元件停止响应时，它们还提高了SIP网络的健壮性。这些更改将更新RFC 3261中定义的行为。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Improving the Situation When Responses Are Only Delayed .........2\n   2.1. Action 1: Make the best use of provisional responses .......2\n   2.2. Action 2: Remove the useless late-response storm ...........3\n3. Improving the Situation When an Element Is Not Going to\n   Respond .........................................................4\n4. Normative Updates to RFC 3261 ...................................4\n   4.1. Action 1 ...................................................4\n   4.2. Action 2 ...................................................5\n5. Security Considerations .........................................5\n6. Contributors ....................................................5\n7. Normative References ............................................6",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "There are a number of unpleasant edge conditions created by the SIP non-INVITE transaction (NIT) model's fixed duration. The negative aspects of some of these are exacerbated by the effect that provisional responses have on the non-INVITE transaction state machines. These problems are documented in [3]. In summary:",
+      "zh-CHS": "SIP non INVITE transaction（NIT）模型的固定持续时间造成了许多令人不快的边缘条件。临时响应对非INVITE事务状态机的影响加剧了其中一些负面影响。这些问题记录在[3]中。总之："
+    },
+    {
+      "indent": 6,
+      "text": "A non-INVITE transaction must complete immediately or risk losing a race",
+      "zh-CHS": "非邀请交易必须立即完成，否则可能会失去竞争"
+    },
+    {
+      "indent": 6,
+      "text": "Losing the race will cause the requester to stop sending traffic to the responder (the responder will be temporarily blacklisted)",
+      "zh-CHS": "失去竞争将导致请求者停止向响应者发送通信量（响应者将被临时列入黑名单）"
+    },
+    {
+      "indent": 6,
+      "text": "Provisional responses can delay recovery from lost final responses",
+      "zh-CHS": "临时响应可能会延迟从丢失的最终响应中恢复"
+    },
+    {
+      "indent": 6,
+      "text": "The 408 response is useless for the non-INVITE transaction",
+      "zh-CHS": "408响应对于非INVITE事务无效"
+    },
+    {
+      "indent": 6,
+      "text": "As non-INVITE transactions through N proxies time-out, there can be an O(N^2) storm of the useless 408 responses",
+      "zh-CHS": "由于通过N个代理进行的非INVITE事务超时，所以可能会出现O（N^2）个无用的408响应风暴"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies updates to RFC 3261 [1] to improve the behavior of SIP elements when these edge conditions arise.",
+      "zh-CHS": "本文档指定了RFC 3261[1]的更新，以在出现这些边缘条件时改进SIP元素的行为。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Improving the Situation When Responses Are Only Delayed",
+      "section_title": true,
+      "zh-CHS": "2. 改善仅延迟响应的情况"
+    },
+    {
+      "indent": 3,
+      "text": "There are two goals to achieve when we constrain the problem to those cases where all elements are ultimately responsive and networks ultimately deliver messages:",
+      "zh-CHS": "当我们将问题限制在所有元素都最终响应且网络最终传递消息的情况下，有两个目标需要实现："
+    },
+    {
+      "indent": 3,
+      "text": "o Reduce the probability of losing the race, preferably to the point that it is negligible",
+      "zh-CHS": "o 减少输掉比赛的可能性，最好是可以忽略不计"
+    },
+    {
+      "indent": 3,
+      "text": "o Reduce or eliminate useless messaging",
+      "zh-CHS": "o 减少或消除无用的消息传递"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Action 1: Make the best use of provisional responses",
+      "section_title": true,
+      "zh-CHS": "2.1. 行动1：充分利用临时答复"
+    },
+    {
+      "indent": 3,
+      "text": "o Disallow non-100 provisionals to non-INVITE requests",
+      "zh-CHS": "o 不允许非100名临时人员进行非邀请请求"
+    },
+    {
+      "indent": 3,
+      "text": "o Disallow 100 Trying to non-INVITE requests before Timer E reaches T2 (for UDP hops)",
+      "zh-CHS": "o 禁止100在计时器E到达T2之前尝试非邀请请求（对于UDP跃点）"
+    },
+    {
+      "indent": 3,
+      "text": "o Allow 100 Trying after Timer E reaches T2 (for UDP hops)",
+      "zh-CHS": "o 允许在计时器E达到T2后尝试100次（对于UDP跃点）"
+    },
+    {
+      "indent": 3,
+      "text": "o Allow 100 Trying for hops over reliable transports",
+      "zh-CHS": "o 允许在可靠传输上尝试100次跃点"
+    },
+    {
+      "indent": 3,
+      "text": "Since non-INVITE transactions must complete rapidly ([3]), any information beyond \"I'm here\" (which can be provided by a 100 Trying) can be just as usefully delayed to the final response. Sending non-100 provisionals wastes bandwidth.",
+      "zh-CHS": "由于非邀请事务必须快速完成（[3]），因此任何超出“我在这里”（可以通过100次尝试提供）的信息都可以延迟到最终响应。发送非100临时数据会浪费带宽。"
+    },
+    {
+      "indent": 3,
+      "text": "As shown in [3], sending any provisional response inside a NIT before Timer E reaches T2 damages recovery from failure of an unreliable transport.",
+      "zh-CHS": "如[3]所示，在定时器E到达T2之前在NIT内发送任何临时响应都会损害从不可靠传输故障中恢复的能力。"
+    },
+    {
+      "indent": 3,
+      "text": "Without a provisional, a late final response is the same as no response at all and will likely result in blacklisting the late-responding element ([3]). If an element is delaying its final response at all, sending a 100 Trying after Timer E reaches T2 prevents this blacklisting without damaging recovery from unreliable transport failure.",
+      "zh-CHS": "如果没有临时响应，延迟的最终响应与根本没有响应是一样的，并且很可能导致将延迟响应元素列入黑名单（[3]）。如果一个元素完全延迟了它的最终响应，那么在计时器E到达T2后发送一个100 Trying可以防止这个黑名单，而不会破坏从不可靠的传输故障中恢复的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "Blacklisting on a late response occurs even over reliable transports. Thus, if an element processing a request received over a reliable transport is delaying its final response at all, sending a 100 Trying well in advance of the timeout will prevent blacklisting. Sending a 100 Trying immediately will not harm the transaction as it would over UDP, but a policy of always sending such a message results in unnecessary traffic. A policy of sending a 100 Trying after the period of time in which Timer E reaches T2 had this been a UDP hop is one reasonable compromise.",
+      "zh-CHS": "即使在可靠的传输上，延迟响应也会被列入黑名单。因此，如果处理通过可靠传输接收的请求的元素完全延迟了其最终响应，那么在超时之前发送100次重试将防止黑名单。立即发送100 Trying不会像在UDP上那样损害事务，但始终发送此类消息的策略会导致不必要的通信量。如果是UDP跳，则在计时器E到达T2的时间段之后发送100次尝试的策略是一种合理的折衷方案。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Action 2: Remove the useless late-response storm",
+      "section_title": true,
+      "zh-CHS": "2.2. 行动2：移除无用的延迟响应风暴"
+    },
+    {
+      "indent": 3,
+      "text": "o Disallow 408 to non-INVITE requests",
+      "zh-CHS": "o 不允许408进行非邀请请求"
+    },
+    {
+      "indent": 3,
+      "text": "o Absorb stray non-INVITE responses at proxies",
+      "zh-CHS": "o 吸收代理上的非邀请响应"
+    },
+    {
+      "indent": 3,
+      "text": "A 408 to non-INVITE will always arrive too late to be useful ([3]), The client already has full knowledge of the timeout. The only information this message would convey is whether or not the server believed the transaction timed out. However, with the current design of the NIT, a client cannot do anything with this knowledge. Thus, the 408 is simply wasting network resources and contributes to the response bombardment illustrated in [3].",
+      "zh-CHS": "408到非邀请将总是来得太晚而没有用处（[3]），客户端已经完全知道超时。此消息传递的唯一信息是服务器是否认为事务超时。然而，在NIT的当前设计中，客户无法利用这些知识做任何事情。因此，408只是在浪费网络资源，并且有助于[3]中所示的响应轰炸。"
+    },
+    {
+      "indent": 3,
+      "text": "Late non-INVITE responses by definition arrive after the client transaction's Timer F has fired and the client transaction has entered the Terminated state. Thus, these responses cannot be distinguished from strays. Changing the protocol behavior to prohibit forwarding non-INVITE stray responses stops the late-response storm. It also improves the proxy's defenses against malicious users counting on the RFC 3261 requirement to forward such strays.",
+      "zh-CHS": "根据定义，延迟的非INVITE响应在客户端事务的计时器F启动且客户端事务进入终止状态后到达。因此，这些反应无法与迷路者区分开来。更改协议行为以禁止转发非INVITE杂散响应将停止延迟响应风暴。它还提高了代理对依靠RFC3261要求转发此类错误的恶意用户的防御能力。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Improving the Situation When an Element Is Not Going to Respond",
+      "section_title": true,
+      "zh-CHS": "3. 改善当一个元素不响应时的情况"
+    },
+    {
+      "indent": 3,
+      "text": "When we expand the scope of the problem to also deal with element or network failure, we have more goals to achieve:",
+      "zh-CHS": "当我们将问题的范围扩大到处理元件或网络故障时，我们有更多的目标要实现："
+    },
+    {
+      "indent": 3,
+      "text": "o Identifying when an element is non-responsive",
+      "zh-CHS": "o 识别元件何时无响应"
+    },
+    {
+      "indent": 3,
+      "text": "o Minimizing or eliminating falsely identifying responsive elements as non-responsive",
+      "zh-CHS": "o 尽量减少或消除错误地将响应元件识别为非响应元件"
+    },
+    {
+      "indent": 3,
+      "text": "o Avoiding non-responsive elements with future requests",
+      "zh-CHS": "o 在未来的请求中避免非响应元素"
+    },
+    {
+      "indent": 3,
+      "text": "Action 1 helps with the first two goals, dramatically improving an element's ability to distinguish between failure and delayed response from the next downstream element. Some response, either provisional or final, will almost certainly be received before the transaction times out. So, an element can more safely assume that no response at all indicates that the peer is not available and follow the existing requirements in [1] and [2] for that case.",
+      "zh-CHS": "行动1有助于实现前两个目标，显著提高了元件区分故障和下一个下游元件延迟响应的能力。在交易超时之前，几乎肯定会收到一些临时或最终响应。因此，元素可以更安全地假设根本没有响应表明对等方不可用，并遵循[1]和[2]中针对该情况的现有要求。"
+    },
+    {
+      "indent": 3,
+      "text": "Achieving the third goal requires more aggressive changes to the protocol. As noted in [3], future non-INVITE transactions are likely to fail again unless the implementation takes steps beyond what is defined in [1] and [2] to remember non-responsive destinations between transactions. Standardizing these extra steps is left to future work.",
+      "zh-CHS": "实现第三个目标需要对协议进行更积极的修改。如[3]中所述，未来的非INVITE事务可能再次失败，除非实现采取超出[1]和[2]中定义的步骤来记住事务之间的非响应目的地。这些额外步骤的标准化将留待以后的工作进行。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Normative Updates to RFC 3261",
+      "section_title": true,
+      "zh-CHS": "4. RFC 3261的规范性更新"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Action 1",
+      "section_title": true,
+      "zh-CHS": "4.1. 行动1"
+    },
+    {
+      "indent": 3,
+      "text": "An SIP element MUST NOT send any provisional response with a Status-Code other than 100 to a non-INVITE request.",
+      "zh-CHS": "SIP元素不得向非INVITE请求发送状态代码为100以外的任何临时响应。"
+    },
+    {
+      "indent": 3,
+      "text": "An SIP element MUST NOT respond to a non-INVITE request with a Status-Code of 100 over any unreliable transport, such as UDP, before the amount of time it takes a client transaction's Timer E to be reset to T2.",
+      "zh-CHS": "SIP元素在客户端事务的计时器E重置为T2之前，不得通过任何不可靠的传输（如UDP）响应状态代码为100的非INVITE请求。"
+    },
+    {
+      "indent": 3,
+      "text": "An SIP element MAY respond to a non-INVITE request with a Status-Code of 100 over a reliable transport at any time.",
+      "zh-CHS": "SIP元素可以在任何时候通过可靠传输响应状态代码为100的非INVITE请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Without regard to transport, an SIP element MUST respond to a non-INVITE request with a Status-Code of 100 if it has not otherwise responded after the amount of time it takes a client transaction's Timer E to be reset to T2.",
+      "zh-CHS": "在不考虑传输的情况下，如果SIP元素在客户端事务的计时器E重置为T2所用的时间量之后没有响应，则它必须响应状态代码为100的非INVITE请求。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Action 2",
+      "section_title": true,
+      "zh-CHS": "4.2. 行动2"
+    },
+    {
+      "indent": 3,
+      "text": "A transaction-stateful SIP element MUST NOT send a response with Status-Code of 408 to a non-INVITE request. As a consequence, an element that cannot respond before the transaction expires will not send a final response at all.",
+      "zh-CHS": "事务状态SIP元素不得向非INVITE请求发送状态代码为408的响应。因此，在事务到期之前无法响应的元素根本不会发送最终响应。"
+    },
+    {
+      "indent": 3,
+      "text": "A transaction-stateful SIP proxy MUST NOT send any response to a non-INVITE request unless it has a matching server transaction that is not in the Terminated state. As a consequence, this proxy will not forward any \"late\" non-INVITE responses.",
+      "zh-CHS": "事务状态SIP代理不得向非INVITE请求发送任何响应，除非其具有不处于终止状态的匹配服务器事务。因此，此代理不会转发任何“延迟”的非邀请响应。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document makes a number of small changes to the core SIP specification [1] to improve the robustness of SIP non-INVITE transactions. Many of these actions also prevent flooding and denial-of-service attacks.",
+      "zh-CHS": "本文对核心SIP规范[1]进行了一些小的修改，以提高SIP非邀请事务的健壮性。其中许多操作还可以防止洪水和拒绝服务攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "One change prohibits proxies and user agents from sending 408 responses to non-INVITE transactions. Without this change, proxies automatically generate a storm of useless responses as described in [3]. An attacker could capitalize on this by enticing user agents to send non-INVITE requests to a black hole (through social engineering or DNS poisoning) or by selectively dropping responses.",
+      "zh-CHS": "一个变更禁止代理和用户代理向非邀请事务发送408响应。如果不进行此更改，代理将自动生成大量无用的响应，如[3]中所述。攻击者可以通过诱使用户代理将非邀请请求发送到黑洞（通过社会工程或DNS中毒）或有选择地丢弃响应来利用此漏洞。"
+    },
+    {
+      "indent": 3,
+      "text": "Another change prohibits proxies from forwarding late responses. Without this change, an attacker could easily forge messages that appear to be late responses. All proxies compliant with RFC 3261 are required to forward these responses, wasting bandwidth and CPU and potentially overwhelming target user agents (especially those with low-speed connections).",
+      "zh-CHS": "另一个更改禁止代理转发延迟响应。如果没有此更改，攻击者很容易伪造似乎是延迟响应的消息。所有符合RFC 3261的代理都需要转发这些响应，这会浪费带宽和CPU，并可能会压倒目标用户代理（尤其是那些具有低速连接的代理）。"
+    },
+    {
+      "indent": 3,
+      "text": "The remainder of these changes do not affect the security of the SIP protocol.",
+      "zh-CHS": "这些更改的其余部分不会影响SIP协议的安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Contributors",
+      "section_title": true,
+      "zh-CHS": "6. 贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "Rohan Mahy provided the Security Considerations section.",
+      "zh-CHS": "Rohan Mahy提供了安全注意事项部分。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Normative References",
+      "section_title": true,
+      "zh-CHS": "7. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M., and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002.",
+      "zh-CHS": "[1] Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.，和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Rosenberg, J. and H. Schulzrinne, \"Session Initiation Protocol (SIP): Locating SIP Servers\", RFC 3263, June 2002.",
+      "zh-CHS": "[2] Rosenberg，J.和H.Schulzrinne，“会话启动协议（SIP）：定位SIP服务器”，RFC3263，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Sparks, R., \"Problems Identified Associated with the Session Initiation Protocol's (SIP) Non-INVITE Transaction\", RFC 4321, January 2006.",
+      "zh-CHS": "[3] Sparks，R.，“与会话启动协议（SIP）非邀请事务相关的问题识别”，RFC 4321，2006年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Robert J. Sparks Estacado Systems 17210 Campbell Road Suite 250 Dallas, TX 75252-4203",
+      "zh-CHS": "Robert J.Sparks Estacado Systems 17210坎贝尔路250号套房德克萨斯州达拉斯75252-4203"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rjsparks@estacado.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

@@ -1,0 +1,939 @@
+{
+  "title": {
+    "text": "RFC 5267: Contexts for IMAP4",
+    "zh-CHS": "RFC 5267"
+  },
+  "number": 5267,
+  "created_at": "2021-11-10 16:58:53.801034+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        D. Cridland\nRequest for Comments: 5267                                       C. King\nCategory: Standards Track                                  Isode Limited\n                                                               July 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 27,
+      "text": "Contexts for IMAP4",
+      "zh-CHS": "IMAP4的上下文"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The IMAP4rev1 protocol has powerful search facilities as part of the core protocol, but lacks the ability to create live, updated results that can be easily handled. This memo provides such an extension, and shows how it can be used to provide a facility similar to virtual mailboxes.",
+      "zh-CHS": "IMAP4rev1协议作为核心协议的一部分，具有强大的搜索功能，但缺乏创建可轻松处理的实时更新结果的能力。此备忘录提供了这样一个扩展，并展示了如何使用它来提供类似于虚拟邮箱的功能。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3\n2.  Conventions Used in This Document  . . . . . . . . . . . . . .  3\n3.  Extended Sort Syntax . . . . . . . . . . . . . . . . . . . . .  3\n  3.1.  ESORT Extension  . . . . . . . . . . . . . . . . . . . . .  4\n  3.2.  Ranges in Extended Sort Results  . . . . . . . . . . . . .  4\n  3.3.  Extended SORT Example  . . . . . . . . . . . . . . . . . .  4\n4.  Contexts . . . . . . . . . . . . . . . . . . . . . . . . . . .  5\n  4.1.  Overview . . . . . . . . . . . . . . . . . . . . . . . . .  5\n  4.2.  Context Hint . . . . . . . . . . . . . . . . . . . . . . .  5\n  4.3.  Notifications of Changes . . . . . . . . . . . . . . . . .  6\n    4.3.1.  Refusing to Update Contexts  . . . . . . . . . . . . .  7\n    4.3.2.  Common Features of ADDTO and REMOVEFROM  . . . . . . .  8\n    4.3.3.  ADDTO Return Data Item . . . . . . . . . . . . . . . .  8\n    4.3.4.  REMOVEFROM Return Data Item  . . . . . . . . . . . . .  9\n    4.3.5.  The CANCELUPDATE Command . . . . . . . . . . . . . . . 10\n  4.4.  Partial Results  . . . . . . . . . . . . . . . . . . . . . 10\n  4.5.  Caching Results  . . . . . . . . . . . . . . . . . . . . . 11\n5.  Formal Syntax  . . . . . . . . . . . . . . . . . . . . . . . . 12\n6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 13\n7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 13\n8.  Acknowledgements . . . . . . . . . . . . . . . . . . . . . . . 13\n9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 14\n  9.1.  Normative References . . . . . . . . . . . . . . . . . . . 14\n  9.2.  Informative References . . . . . . . . . . . . . . . . . . 14\nAppendix A.  Cookbook  . . . . . . . . . . . . . . . . . . . . . . 15\n  A.1.  Virtual Mailboxes  . . . . . . . . . . . . . . . . . . . . 15\n  A.2.  Trash Mailboxes  . . . . . . . . . . . . . . . . . . . . . 15\n  A.3.  Immediate EXPUNGE Notifications  . . . . . . . . . . . . . 15\n  A.4.  Monitoring Counts  . . . . . . . . . . . . . . . . . . . . 15\n  A.5.  Resynchronizing Contexts . . . . . . . . . . . . . . . . . 16\nAppendix B.  Server Implementation Notes . . . . . . . . . . . . . 16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Although the basic SEARCH command defined in [IMAP], and as enhanced by [ESEARCH], is relatively compact in its representation, this reduction saves only a certain amount of data, and huge mailboxes might overwhelm the storage available for results on even relatively high-end desktop machines.",
+      "zh-CHS": "尽管[IMAP]中定义的基本搜索命令以及[ESEARCH]所增强的基本搜索命令在其表示形式上相对紧凑，但这种缩减只保存了一定数量的数据，而且即使是在相对高端的桌面计算机上，巨大的邮箱也可能会压倒结果的可用存储空间。"
+    },
+    {
+      "indent": 3,
+      "text": "The SORT command defined in [SORT] provides useful features, but is hard to use effectively on changing mailboxes over low-bandwidth connections.",
+      "zh-CHS": "[SORT]中定义的SORT命令提供了有用的功能，但在通过低带宽连接更改邮箱时很难有效使用。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo borrows concepts from [ACAP], such as providing a windowed view onto search or sort results, and making updates that are bandwidth and round-trip efficient. These are provided by two extensions: \"ESORT\" and \"CONTEXT\".",
+      "zh-CHS": "本备忘录借用了[ACAP]的概念，例如提供搜索或排序结果的窗口视图，并进行带宽和往返高效的更新。它们由两个扩展提供：“ESORT”和“上下文”。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "2. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "In examples, \"C:\" and \"S:\" indicate lines sent by the client messaging user agent and IMAP4rev1 ([IMAP]) server, respectively. \"//\" indicates inline comments not part of the protocol exchange. Line breaks are liberally inserted for clarity. Examples are intended to be read in order, such that the state remains from one example to the next.",
+      "zh-CHS": "在示例中，“C:”和“S:”分别表示客户端消息传递用户代理和IMAP4rev1（[IMAP]）服务器发送的行。“//”表示不属于协议交换的内联注释。为清晰起见，可随意插入换行符。示例旨在按顺序阅读，以便从一个示例到下一个示例保持状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Although the examples show a server that supports [ESEARCH], this is not a strict requirement of this specification.",
+      "zh-CHS": "尽管示例显示了支持[ESEARCH]的服务器，但这不是本规范的严格要求。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [KEYWORDS].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[关键词]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Other capitalized words are typically names of IMAP extensions or commands -- these are uppercased for clarity only, and are case-insensitive.",
+      "zh-CHS": "其他大写的单词通常是IMAP扩展名或命令的名称——它们仅为清晰起见而大写，不区分大小写。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Extended Sort Syntax",
+      "section_title": true,
+      "zh-CHS": "3. 扩展排序语法"
+    },
+    {
+      "indent": 3,
+      "text": "Servers implementing the extended SORT provide a suite of extensions to the SORT and UID SORT commands defined in [SORT]. This allows for return options, as used with SEARCH and specified in [IMAP-ABNF], to be used with SORT in a similar manner.",
+      "zh-CHS": "实现扩展排序的服务器为[SORT]中定义的SORT和UID SORT命令提供了一套扩展。这允许返回选项（与搜索一起使用，[IMAP-ABNF]中指定）以类似方式与排序一起使用。"
+    },
+    {
+      "indent": 3,
+      "text": "The SORT and UID SORT commands are extended by the addition of an optional list of return options that follow a RETURN atom immediately after the command. If this is missing, the server will return results as specified in [SORT].",
+      "zh-CHS": "SORT和UID SORT命令通过添加可选的返回选项列表进行扩展，这些选项紧跟在命令后面的返回原子后面。如果缺少此项，服务器将返回[排序]中指定的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "The extended SORT command always returns results in the requested sort order, but is otherwise identical in its behaviour to the extended SEARCH command defined in [IMAP-ABNF], as extended by [ESEARCH]. In particular, the extended SORT command returns results in an ESEARCH response.",
+      "zh-CHS": "扩展排序命令始终按请求的排序顺序返回结果，但在其他方面，它的行为与[IMAP-ABNF]中定义的扩展搜索命令（由[ESEARCH]扩展）相同。特别是，扩展的SORT命令返回一个ESEARCH响应结果。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. ESORT Extension",
+      "section_title": true,
+      "zh-CHS": "3.1. ESORT扩展"
+    },
+    {
+      "indent": 3,
+      "text": "Servers advertising the capability \"ESORT\" support the return options specified in [ESEARCH] in the SORT command. These return options are adapted as follows:",
+      "zh-CHS": "宣传“ESORT”功能的服务器支持在SORT命令的[ESEARCH]中指定的返回选项。这些返回选项调整如下："
+    },
+    {
+      "indent": 3,
+      "text": "MIN Return the message number/UID of the lowest sorted message satisfying the search criteria.",
+      "zh-CHS": "MIN返回满足搜索条件的最低排序邮件的邮件编号/UID。"
+    },
+    {
+      "indent": 3,
+      "text": "MAX Return the message number/UID of the highest sorted message satisfying the search criteria.",
+      "zh-CHS": "MAX返回满足搜索条件的排序最高的邮件的邮件编号/UID。"
+    },
+    {
+      "indent": 3,
+      "text": "ALL Return all message numbers/UIDs which match the search criteria, in the requested sort order, using a sequence-set. Note the use of ranges described below in Section 3.2.",
+      "zh-CHS": "ALL使用序列集以请求的排序顺序返回与搜索条件匹配的所有邮件编号/UID。请注意第3.2节中所述范围的使用。"
+    },
+    {
+      "indent": 3,
+      "text": "COUNT As in [ESEARCH].",
+      "zh-CHS": "在[ESEARCH]中计数。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Ranges in Extended Sort Results",
+      "section_title": true,
+      "zh-CHS": "3.2. 扩展排序结果中的范围"
+    },
+    {
+      "indent": 3,
+      "text": "Any ranges given by the server, including those given as part of the sequence-set, in an ESEARCH response resulting from an extended SORT or UID SORT command, MUST be ordered in increasing numerical order after expansion, as per usual [IMAP] rules.",
+      "zh-CHS": "根据通常的[IMAP]规则，在扩展排序或UID排序命令生成的ESEARCH响应中，服务器给定的任何范围（包括作为序列集的一部分给定的范围）必须在扩展后按递增的数字顺序排序。"
+    },
+    {
+      "indent": 3,
+      "text": "In particular this means that 10:12 is equivalent to 12:10, and 10,11,12. To avoid confusion, servers SHOULD present ranges only when the first seq-number is lower than the second; that is, either of the forms 10:12 or 10,11,12 is acceptable, but 12:10 SHOULD be avoided.",
+      "zh-CHS": "特别是，这意味着10:12相当于12:10和10,11,12。为避免混淆，服务器应仅在第一个序号低于第二个序号时才显示范围；也就是说，形式10:12或10,11,12中的任何一种都是可以接受的，但应避免使用12:10。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Extended SORT Example",
+      "section_title": true,
+      "zh-CHS": "3.3. 扩展排序示例"
+    },
+    {
+      "indent": 3,
+      "text": "If the list of return options is present but empty, then the server provides the ALL return data item in an ESEARCH response. This is functionally equivalent to an unextended UID SORT command, but can use a smaller representation:",
+      "zh-CHS": "如果返回选项列表存在但为空，则服务器将在ESEARCH响应中提供所有返回数据项。这在功能上等同于未扩展的UID排序命令，但可以使用较小的表示形式："
+    },
+    {
+      "indent": 9,
+      "text": "C: E01 UID SORT RETURN () (REVERSE DATE) UTF-8 UNDELETED\n   UNKEYWORD $Junk\nS: * ESEARCH (TAG \"E01\") UID ALL 23765,23764,23763,23761,[...]\nS: E01 OK Sort completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that the initial three results are not represented as the range 23765:23763 as mandated in Section 3.2.",
+      "zh-CHS": "请注意，最初的三个结果未表示为第3.2节规定的23765:23763范围。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Contexts",
+      "section_title": true,
+      "zh-CHS": "4. 上下文"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Overview",
+      "section_title": true,
+      "zh-CHS": "4.1. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "The Contexts extension is present in any IMAP4rev1 server that includes the string \"CONTEXT=SEARCH\", and/or \"CONTEXT=SORT\", within its advertised capabilities.",
+      "zh-CHS": "Contexts扩展存在于任何IMAP4rev1服务器中，该服务器在其公布的功能中包含字符串“CONTEXT=SEARCH”和/或“CONTEXT=SORT”。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of CONTEXT=SEARCH, the server supports the extended SEARCH command syntax described in [IMAP-ABNF], and accepts three additional return options.",
+      "zh-CHS": "在CONTEXT=SEARCH的情况下，服务器支持[IMAP-ABNF]中描述的扩展搜索命令语法，并接受三个额外的返回选项。"
+    },
+    {
+      "indent": 3,
+      "text": "Servers advertising CONTEXT=SORT also advertise the SORT capability, as described in [SORT], support the extended SORT command syntax described in Section 3, and accept three additional return options for this extended SORT.",
+      "zh-CHS": "Servers advertising CONTEXT=SORT还宣传排序功能，如[SORT]中所述，支持第3节中所述的扩展排序命令语法，并接受此扩展排序的三个附加返回选项。"
+    },
+    {
+      "indent": 3,
+      "text": "These additional return options allow for notifications of changes to the results of SEARCH or SORT commands, and also allow for access to partial results.",
+      "zh-CHS": "这些附加的返回选项允许通知搜索或排序命令的结果的更改，还允许访问部分结果。"
+    },
+    {
+      "indent": 3,
+      "text": "A server advertising the CONTEXT=SEARCH extension will order all SEARCH results, whether from a UID SEARCH or SEARCH command, in mailbox order -- that is, by message number and UID. Therefore, the UID SEARCH, SEARCH, UID SORT, or SORT command used -- collectively known as the searching command -- will always have an order, the requested order, which will be the mailbox order for UID SEARCH and SEARCH commands.",
+      "zh-CHS": "发布CONTEXT=SEARCH扩展名的服务器将按邮箱顺序排列所有搜索结果，无论是来自UID搜索还是搜索命令，即按邮件号和UID排列。因此，使用的UID搜索、搜索、UID排序或排序命令（统称为搜索命令）将始终具有一个顺序，即请求的顺序，这将是UID搜索和搜索命令的邮箱顺序。"
+    },
+    {
+      "indent": 3,
+      "text": "All of the return specifiers have no interaction with either each other or any return specifiers defined in [ESEARCH] or Section 3.1; however, it is believed that implementations supporting CONTEXT will also support ESEARCH and ESORT.",
+      "zh-CHS": "所有返回说明符之间或[ESEARCH]或第3.1节中定义的任何返回说明符之间都没有交互作用；然而，人们相信支持上下文的实现也将支持ESEARCH和ESORT。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Context Hint",
+      "section_title": true,
+      "zh-CHS": "4.2. 上下文提示"
+    },
+    {
+      "indent": 3,
+      "text": "The return option CONTEXT SHOULD be used by a client to indicate that subsequent use of the search criteria are likely. Servers MAY ignore this return option or use it as a hint to maintain a full result cache, or index.",
+      "zh-CHS": "客户机应使用返回选项上下文来指示后续可能会使用搜索条件。服务器可能会忽略此返回选项，或将其用作维护完整结果缓存或索引的提示。"
+    },
+    {
+      "indent": 3,
+      "text": "A client might choose to obtain a count of matching messages prior to obtaining actual results. Here, the client signals its intention to fetch the results themselves:",
+      "zh-CHS": "客户端可能会选择在获得实际结果之前获取匹配消息的计数。在这里，客户机表示其打算自己获取结果："
+    },
+    {
+      "indent": 7,
+      "text": "C: A01 SEARCH RETURN (CONTEXT COUNT) UNDELETED\n   UNKEYWORD $Junk\nS: * ESEARCH (TAG \"A01\") COUNT 23765\nS: A01 OK Search completed.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Notifications of Changes",
+      "section_title": true,
+      "zh-CHS": "4.3. 更改通知"
+    },
+    {
+      "indent": 3,
+      "text": "The search return option UPDATE, if used by a client, causes the server to issue unsolicited notifications containing updates to the results that would be returned by an unmodified searching command. These update sets are carried in ADDTO and REMOVEFROM data items in ESEARCH responses.",
+      "zh-CHS": "如果客户端使用“搜索返回”选项“更新”，则会导致服务器发出未经请求的通知，其中包含未经修改的搜索命令将返回的结果更新。这些更新集包含在ESEARCH响应中的ADDTO和REMOVEFROM数据项中。"
+    },
+    {
+      "indent": 3,
+      "text": "These ESEARCH responses carry a search correlator of the searching command, hence clients MUST NOT reuse tags, as already specified in Section 2.2.1 of [IMAP]. An attempt to use UPDATE where a tag is already in use with a previous searching command that itself used UPDATE SHALL result in the server rejecting the searching command with a BAD response.",
+      "zh-CHS": "这些ESEARCH响应带有搜索命令的搜索相关器，因此客户端不得重复使用标记，如[IMAP]第2.2.1节所述。如果试图使用UPDATE，而标记已与先前使用UPDATE的搜索命令一起使用，则服务器将拒绝该搜索命令，并给出错误响应。"
+    },
+    {
+      "indent": 3,
+      "text": "Both ADDTO and REMOVEFROM data items SHOULD be delivered to clients in a timely manner, as and when results change, whether by new messages arriving in the mailbox, metadata such as flags being changed, or messages being expunged.",
+      "zh-CHS": "ADDTO和REMOVEFROM数据项都应在结果发生变化时及时传递给客户端，无论是通过邮箱中的新邮件、元数据（如标志）发生变化还是删除邮件。"
+    },
+    {
+      "indent": 3,
+      "text": "Typically, this would occur at the same time as the FETCH, EXISTS, or EXPUNGE responses carrying the source of the change.",
+      "zh-CHS": "通常，这将在获取、存在或删除包含更改源的响应的同时发生。"
+    },
+    {
+      "indent": 3,
+      "text": "Updates will cease when the mailbox is no longer selected, or when the CANCELUPDATE command, defined in Section 4.3.5, is issued by the client, whichever is sooner.",
+      "zh-CHS": "当不再选择邮箱或客户端发出第4.3.5节中定义的CANCELUPDATE命令时（以较早者为准），更新将停止。"
+    },
+    {
+      "indent": 3,
+      "text": "Unlike [ACAP], there is no requirement that a context need be created with CONTEXT to use UPDATE, and in addition, the lack of UPDATE with a CONTEXT does not affect the results caused by later searching commands -- there is no snapshot facility.",
+      "zh-CHS": "与[ACAP]不同的是，不需要使用上下文创建上下文才能使用更新，此外，缺少上下文更新不会影响后续搜索命令所导致的结果——没有快照功能。"
+    },
+    {
+      "indent": 3,
+      "text": "There is no interaction between UPDATE and any other return options; therefore, use of RETURN (UPDATE MIN), for example, does not notify about the minimum UID or sequence number, but notifies instead about all changes to the set of matching messages. In particular, this means that a client using UPDATE and PARTIAL on the same search program could receive notifications about messages that do not currently interest it.",
+      "zh-CHS": "更新和任何其他返回选项之间没有交互；因此，例如，使用RETURN（UPDATE MIN）不会通知最小UID或序列号，而是通知对匹配消息集的所有更改。特别是，这意味着在同一搜索程序上使用UPDATE和PARTIAL的客户端可能会收到关于当前不感兴趣的消息的通知。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, as specified in the errata to [IMAP], any message sequence numbers used in the search program are evaluated at the time the command is received; therefore, if the messages referred to by such message sequence numbers change, no notifications will be emitted.",
+      "zh-CHS": "最后，按照[IMAP]勘误表中的规定，在收到命令时，对搜索程序中使用的任何消息序列号进行评估；因此，如果此类消息序列号所引用的消息发生更改，则不会发出通知。"
+    },
+    {
+      "indent": 3,
+      "text": "This time, the client will require notifications of updates and chooses to obtain a count:",
+      "zh-CHS": "这一次，客户端将需要更新通知，并选择获取计数："
+    },
+    {
+      "indent": 7,
+      "text": "C: B01 UID SEARCH RETURN (UPDATE COUNT) DELETED\n   KEYWORD $Junk\nS: * ESEARCH (TAG \"B01\") COUNT 74\nS: B01 OK Search completed, will notify.\n// Note that the following is rejected, and has no effect:\nC: B01 SORT RETURN (UPDATE) FLAGGED\nS: B01 BAD Tag reuse",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.3.1. Refusing to Update Contexts",
+      "section_title": true,
+      "zh-CHS": "4.3.1. 拒绝更新上下文"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, the server MAY refuse to provide updates, such as if an internal limit on the number of update contexts is reached. In such a case, an untagged NO is generated during processing of the command with a response-code of NOUPDATE. The response-code contains, as argument, the tag of the search command for which the server is refusing to honour the UPDATE request.",
+      "zh-CHS": "在某些情况下，服务器可能拒绝提供更新，例如，如果达到了更新上下文数量的内部限制。在这种情况下，在处理响应代码为NOUPDATE的命令期间生成未标记的NO。响应代码包含搜索命令的标记（作为参数），服务器拒绝对其执行更新请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Other return options specified SHALL still be honoured.",
+      "zh-CHS": "其他规定的退货选项仍应予以遵守。"
+    },
+    {
+      "indent": 3,
+      "text": "Servers MUST provide at least one updating context per client, and SHOULD provide more -- see Appendix B for strategies on reducing the impact of additional updating contexts. Since sorted contexts require a higher implementation cost than unsorted contexts, refusal to provide updates for a SORT command does not imply that SEARCH contexts will also be refused.",
+      "zh-CHS": "服务器必须为每个客户机提供至少一个更新上下文，并且应该提供更多的更新上下文--有关减少额外更新上下文影响的策略，请参见附录B。由于排序上下文比未排序上下文需要更高的实现成本，因此拒绝为排序命令提供更新并不意味着搜索上下文也将被拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "This time, the client will require notifications of updates, and chooses to obtain a count:",
+      "zh-CHS": "这一次，客户端将需要更新通知，并选择获取计数："
+    },
+    {
+      "indent": 7,
+      "text": "C: B02 UID SORT RETURN (UPDATE COUNT) UTF-8\n   KEYWORD $Junk\nS: * ESEARCH (TAG \"B02\") COUNT 74\nS: * NO [NOUPDATE \"B02\"] Too many contexts\nS: B02 OK Search completed, will not notify.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Client handling might be to retry with a UID SEARCH command, or else cancel an existing context; see Section 4.3.5.",
+      "zh-CHS": "客户端处理可能是使用UID搜索命令重试，或者取消现有上下文；见第4.3.5节。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.2. Common Features of ADDTO and REMOVEFROM",
+      "section_title": true,
+      "zh-CHS": "4.3.2. ADDTO和REMOVEFROM的常见功能"
+    },
+    {
+      "indent": 3,
+      "text": "The result update set included in the return data item is specified as UIDs or message numbers, depending on how the UPDATE was specified. If the UPDATE was present in a SEARCH or SORT command, the results will be message numbers; in a UID SEARCH or UID SORT command, they will be UIDs.",
+      "zh-CHS": "返回数据项中包含的结果更新集指定为UID或消息编号，具体取决于更新的指定方式。如果更新出现在搜索或排序命令中，则结果将是消息编号；在UID搜索或UID排序命令中，它们将是UID。"
+    },
+    {
+      "indent": 3,
+      "text": "The client MUST process ADDTO and REMOVEFROM return data items in the order they appear, including those within a single ESEARCH response. Correspondingly, servers MUST generate ADDTO and REMOVEFROM responses such that the results are maintained in the requested order.",
+      "zh-CHS": "客户端必须按照返回数据项的显示顺序处理ADDTO和removfrom，包括单个ESEARCH响应中的数据项。相应地，服务器必须生成ADDTO和REMOVEFROM响应，以便按照请求的顺序维护结果。"
+    },
+    {
+      "indent": 3,
+      "text": "As with any response aside from EXPUNGE, ESEARCH responses carrying ADDTO and/or REMOVEFROM return data items MAY be sent at any time. In particular, servers MAY send such responses when no command is in progress, during the processing of any command, or when the client is using the IDLE facility described in [IDLE]. Implementors are recommended to read [NOTIFY] as a mechanism for clients to signal servers that they are willing to process responses at any time, and are also recommended to pay close attention to Section 5.3 of [IMAP].",
+      "zh-CHS": "与除删除之外的任何响应一样，可以随时发送带有ADDTO和/或REMOVEFROM返回数据项的ESEARCH响应。特别是，当没有命令正在执行时、在任何命令的处理过程中，或者当客户端正在使用[IDLE]中所述的空闲设施时，服务器可以发送此类响应。建议实施者将[NOTIFY]作为一种机制来阅读，以便客户端向服务器发出信号，表示他们愿意随时处理响应，同时建议实施者密切关注[IMAP]的第5.3节。"
+    },
+    {
+      "indent": 3,
+      "text": "It is anticipated that typical server implementations will emit ADDTO when they normally emit the causal FETCH or EXISTS, and similarly emit REMOVEFROM when they normally emit the causal FETCH or EXPUNGE.",
+      "zh-CHS": "可以预期，典型的服务器实现在正常发出因果提取或存在时将发出ADDTO，在正常发出因果提取或删除时也会发出REMOVEFROM。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.3. ADDTO Return Data Item",
+      "section_title": true,
+      "zh-CHS": "4.3.3. 添加以返回数据项"
+    },
+    {
+      "indent": 3,
+      "text": "The ADDTO return data item contains, as payload, a list containing pairs of a context position and a set of result updates in the requested order to be inserted at the context position. Where the searching command is a SEARCH or UID SEARCH command, the context position MAY be zero. Each pair is processed in the order that it appears.",
+      "zh-CHS": "ADDTO return数据项包含一个列表（作为有效负载），该列表包含一对上下文位置和一组按请求顺序插入到上下文位置的结果更新。如果搜索命令是搜索或UID搜索命令，则上下文位置可能为零。每一对都按其出现的顺序进行处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that an ADDTO containing message sequence numbers added as a result of those messages being delivered or appended MUST be sent after the EXISTS notification itself, in order that those sequence numbers are valid.",
+      "zh-CHS": "请注意，包含由于传递或追加这些消息而添加的消息序列号的ADDTO必须在EXISTS通知本身之后发送，以便这些序列号有效。"
+    },
+    {
+      "indent": 3,
+      "text": "If the context position is non-zero, the result update is inserted at the given context position, meaning that the first result in the set will occupy the new context position after insertion, and any prior existing result at that context position will be shifted to a later context position.",
+      "zh-CHS": "如果上下文位置非零，则结果更新将插入到给定的上下文位置，这意味着集合中的第一个结果将在插入后占据新的上下文位置，并且该上下文位置上先前的任何现有结果都将移动到后面的上下文位置。"
+    },
+    {
+      "indent": 3,
+      "text": "Where the context position is zero, the client MAY insert the message numbers or UIDs in the result list such that the result list is maintained in mailbox order. In this case, servers are RECOMMENDED to order the result update into mailbox order to produce the shortest representation in set-syntax.",
+      "zh-CHS": "在上下文位置为零的情况下，客户端可以在结果列表中插入消息编号或UID，以便按照邮箱顺序维护结果列表。在这种情况下，建议服务器将结果更新排序到邮箱中，以便以集合语法生成最短的表示形式。"
+    },
+    {
+      "indent": 7,
+      "text": "[...]\nS: * 23762 FETCH (FLAGS (\\Deleted \\Seen))\nS: * 23763 FETCH (FLAGS ($Junk \\Seen))\nS: * ESEARCH (TAG \"B01\") UID ADDTO (0 32768:32769)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that this example assumes messages 23762 and 23763 with UIDs 32768 and 32769 (respectively) previously had neither \\Deleted nor $Junk set. Also note that only the ADDTO is included, and not the (now changed) COUNT.",
+      "zh-CHS": "请注意，此示例假定具有UID 32768和32769（分别）的消息23762和23763以前既没有\\Deleted也没有$Junk设置。还要注意，只包括ADDTO，而不包括（现在已更改）计数。"
+    },
+    {
+      "indent": 3,
+      "text": "If the searching command \"C01\" initially generated a result list of 2734:2735, then the following three responses are equivalent, and yield a result list of 2731:2735:",
+      "zh-CHS": "如果搜索命令“C01”最初生成的结果列表为2734:2735，则以下三个响应是等效的，并且生成的结果列表为2731:2735："
+    },
+    {
+      "indent": 7,
+      "text": "[...]\nS: * ESEARCH (TAG \"C01\") UID ADDTO (1 2733 1 2732 1 2731)\nS: * ESEARCH (TAG \"C01\") UID ADDTO (1 2733) ADDTO (1 2731:2732)\nS: * ESEARCH (TAG \"C01\") UID ADDTO (1 2731:2733)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The last is the preferred representation.",
+      "zh-CHS": "最后一种是首选的表示形式。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.4. REMOVEFROM Return Data Item",
+      "section_title": true,
+      "zh-CHS": "4.3.4. 从返回数据项中移除"
+    },
+    {
+      "indent": 3,
+      "text": "The REMOVEFROM return data item contains, as payload, a list containing pairs of a context position and a set of result updates in the requested order to be removed starting from the context position. Where the searching command is a SEARCH or UID SEARCH command, the context position MAY be zero. Each pair is processed in the order that it appears.",
+      "zh-CHS": "REMOVEFROM返回数据项包含一个列表（作为有效负载），该列表包含一对上下文位置和一组结果更新，按照从上下文位置开始删除的请求顺序。如果搜索命令是搜索或UID搜索命令，则上下文位置可能为零。每一对都按其出现的顺序进行处理。"
+    },
+    {
+      "indent": 3,
+      "text": "If the context position is non-zero, the results are removed at the given context position, meaning that the first result in the set will occupy the given context position before removal, and any prior existing result at that context position will be shifted to an earlier context position.",
+      "zh-CHS": "如果上下文位置非零，则结果将在给定上下文位置处移除，这意味着集合中的第一个结果将在移除之前占据给定上下文位置，并且该上下文位置处先前存在的任何结果将被移动到更早的上下文位置。"
+    },
+    {
+      "indent": 3,
+      "text": "Where the context position is zero, the client removes the message numbers or UIDs in the result list wherever they occur, and servers are RECOMMENDED to order the result list in mailbox order to obtain the best benefit from the set-syntax.",
+      "zh-CHS": "在上下文位置为零的情况下，客户端将删除结果列表中出现的邮件编号或UID，建议服务器按邮箱顺序排列结果列表，以从设置的语法中获得最佳好处。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that a REMOVEFROM containing message sequence numbers removed as a result of those messages being expunged MUST be sent prior to the expunge notification itself, in order that those sequence numbers remain valid.",
+      "zh-CHS": "请注意，包含因删除这些消息而删除的消息序列号的REMOVEFROM必须在删除通知本身之前发送，以便这些序列号保持有效。"
+    },
+    {
+      "indent": 3,
+      "text": "Here, a message in the result list is expunged. The REMOVEFROM is shown to happen without any command in progress; see Section 4.3.2. Note that EXPUNGE responses do not have this property.",
+      "zh-CHS": "这里，结果列表中的一条消息被删除。显示REMOVEFROM在没有任何正在执行的命令的情况下发生；见第4.3.2节。请注意，删除响应没有此属性。"
+    },
+    {
+      "indent": 7,
+      "text": "[...]\nS: * ESEARCH (TAG \"B01\") UID REMOVEFROM (0 32768)\nC: B03 NOOP\nS: * 23762 EXPUNGE\nS: B03 OK Nothing done.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.3.5. The CANCELUPDATE Command",
+      "section_title": true,
+      "zh-CHS": "4.3.5. 取消更新命令"
+    },
+    {
+      "indent": 3,
+      "text": "When a client no longer wishes to receive updates, it may issue the CANCELUPDATE command, which will prevent all updates to the contexts named in the arguments from being transmitted by the server. The command takes, as arguments, one or more tags of the commands used to request updates.",
+      "zh-CHS": "当客户端不再希望接收更新时，它可能会发出CANCELUPDATE命令，这将阻止服务器传输对参数中指定的上下文的所有更新。该命令将用于请求更新的命令的一个或多个标记作为参数。"
+    },
+    {
+      "indent": 3,
+      "text": "The server MAY free any resource associated with a context so disabled -- however, the client is free to issue further searching commands with the same criteria and requested order, including PARTIAL requests.",
+      "zh-CHS": "服务器可以释放与如此禁用的上下文相关联的任何资源——但是，客户端可以自由地发出具有相同条件和请求顺序的进一步搜索命令，包括部分请求。"
+    },
+    {
+      "indent": 7,
+      "text": "C: B04 CANCELUPDATE \"B01\"\nS: B04 OK No further updates.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Partial Results",
+      "section_title": true,
+      "zh-CHS": "4.4. 部分结果"
+    },
+    {
+      "indent": 3,
+      "text": "The PARTIAL search return option causes the server to provide in an ESEARCH response a subset of the results denoted by the sequence range given as the mandatory argument. The first result is 1; thus, the first 500 results would be obtained by a return option of \"PARTIAL 1:500\", and the second 500 by \"PARTIAL 501:1000\". This intentionally mirrors message sequence numbers.",
+      "zh-CHS": "部分搜索返回选项使服务器在ESEARCH响应中提供结果的子集，这些结果由作为强制参数给出的序列范围表示。第一个结果是1；因此，前500个结果将通过“部分1:500”的返回选项获得，第二500个结果将通过“部分501:1000”获得。这有意镜像消息序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "A single command MUST NOT contain more than one PARTIAL or ALL search return option -- that is, either one PARTIAL, one ALL, or neither PARTIAL nor ALL is allowed.",
+      "zh-CHS": "单个命令不能包含多个部分或全部搜索返回选项——即，不允许包含一个部分、一个全部或既不包含部分也不包含全部。"
+    },
+    {
+      "indent": 3,
+      "text": "For SEARCH results, the entire result list MUST be ordered in mailbox order, that is, in UID or message sequence number order.",
+      "zh-CHS": "对于搜索结果，整个结果列表必须按邮箱顺序排列，即按UID或邮件序列号排列。"
+    },
+    {
+      "indent": 3,
+      "text": "Where a PARTIAL search return option references results that do not exist, by using a range which starts or ends higher than the current number of results, then the server returns the results that are in the set. This yields a PARTIAL return data item that has, as payload, the original range and a potentially missing set of results that may be shorter than the extent of the range.",
+      "zh-CHS": "如果部分搜索返回选项引用不存在的结果，则通过使用比当前结果数高的开始或结束范围，服务器将返回集合中的结果。这将生成一个部分返回数据项，该数据项作为有效负载具有原始范围和可能缺少的结果集，这些结果集可能短于范围的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients need not request PARTIAL results in any particular order. Because mailboxes may change, clients will often wish to use PARTIAL in combination with UPDATE, especially if the intent is to walk a large set of results; however, these return options do not interact -- the UPDATE will provide notifications for all matching results.",
+      "zh-CHS": "客户端不需要以任何特定顺序请求部分结果。由于邮箱可能会发生变化，客户端通常希望结合使用PARTIAL和UPDATE，特别是当其目的是查看大量结果时；但是，这些返回选项不会交互——更新将为所有匹配结果提供通知。"
+    },
+    {
+      "indent": 7,
+      "text": "// Recall from A01 that there are 23764 results.\nC: A02 UID SEARCH RETURN (PARTIAL 23500:24000) UNDELETED\n   UNKEYWORD $Junk\nC: A03 UID SEARCH RETURN (PARTIAL 1:500) UNDELETED\n   UNKEYWORD $Junk\nC: A04 UID SEARCH RETURN (PARTIAL 24000:24500) UNDELETED\n   UNKEYWORD $Junk\nS: * ESEARCH (TAG \"A02\") UID PARTIAL (23500:24000 ...)\n// 264 results in set syntax elided,\n// this spans the end of the results.\nS: A02 OK Completed.\nS: * ESEARCH (TAG \"A03\") UID PARTIAL (1:500 ...)\n// 500 results in set syntax elided.\nS: A03 OK Completed.\nS: * ESEARCH (TAG \"A04\") UID PARTIAL (24000:24500 NIL)\n// No results are present, this is beyond the end of the results.\nS: A04 OK Completed.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Caching Results",
+      "section_title": true,
+      "zh-CHS": "4.5. 缓存结果"
+    },
+    {
+      "indent": 3,
+      "text": "Server implementations MAY cache results from a SEARCH or SORT, whether or not hinted to by CONTEXT, in order to make subsequent searches more efficient, perhaps by recommencing a subsequent PARTIAL search where a previous search left off. However, servers MUST behave identically whether or not internal caching is taking place; therefore, any such cache is required to be updated as changes to the mailbox occur. An alternate strategy would be to discard results when any change occurs to the mailbox.",
+      "zh-CHS": "服务器实现可以缓存搜索或排序的结果，无论是否由上下文暗示，以便使后续搜索更高效，可能是通过在先前搜索停止的地方重新开始后续部分搜索。但是，无论是否正在进行内部缓存，服务器的行为都必须相同；因此，当邮箱发生更改时，需要更新任何此类缓存。另一种策略是在邮箱发生任何更改时丢弃结果。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Formal Syntax",
+      "section_title": true,
+      "zh-CHS": "5. 形式语法"
+    },
+    {
+      "indent": 3,
+      "text": "The collected formal syntax. This uses ABNF as defined in [ABNF]. It includes definitions from [IMAP], [IMAP-ABNF], and [SORT].",
+      "zh-CHS": "收集的正式语法。它使用[ABNF]中定义的ABNF。它包括来自[IMAP]、[IMAP-ABNF]和[SORT]的定义。"
+    },
+    {
+      "indent": 3,
+      "text": "capability          =/ \"CONTEXT=SEARCH\" / \"CONTEXT=SORT\" / \"ESORT\"\n    ;; <capability> from [IMAP]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "command-select      =/ \"CANCELUPDATE\" 1*(SP quoted)\n    ;; <command-select> from [IMAP]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "context-position      = number\n    ;; Context position may be 0 for SEARCH result additions.\n    ;; <number> from [IMAP]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "modifier-context    = \"CONTEXT\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "modifier-partial = \"PARTIAL\" SP partial-range",
+      "zh-CHS": "修饰符partial=“partial”SP部分范围"
+    },
+    {
+      "indent": 3,
+      "text": "partial-range       = nz-number \":\" nz-number\n    ;; A range 500:400 is the same as 400:500.\n    ;; This is similar to <seq-range> from [IMAP],\n    ;; but cannot contain \"*\".",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "modifier-update     = \"UPDATE\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "search-return-opt   =/ modifier-context / modifier-partial /\n                       modifier-update\n    ;; All conform to <search-return-opt>, from [IMAP-ABNF]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "resp-text-code      =/ \"NOUPDATE\" SP quoted\n    ;; <resp-text-code> from [IMAP]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ret-data-addto      = \"ADDTO\"\n                       SP \"(\" context-position SP sequence-set\n                       *(SP context-position SP sequence-set)\n                       \")\"\n    ;; <sequence-set> from [IMAP]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ret-data-partial = \"PARTIAL\" SP \"(\" partial-range SP partial-results \")\" ;; <partial-range> is the requested range.",
+      "zh-CHS": "ret data partial=“partial”SP”（“部分范围SP部分结果”）”<部分范围>是请求的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "partial-results = sequence-set / \"NIL\" ;; <sequence-set> from [IMAP] ;; NIL indicates no results correspond to the requested range.",
+      "zh-CHS": "部分结果=序列集/“零”<序列集>来自[IMAP]；；NIL表示没有与请求范围对应的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "ret-data-removefrom = \"REMOVEFROM\"\n                       SP \"(\" context-position SP sequence-set\n                       *(SP context-position SP sequence-set)\n                       \")\"\n    ;; <sequence-set> from [IMAP]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "search-return-data  =/ ret-data-partial / ret-data-addto /\n                       ret-data-removefrom\n    ;; All conform to <search-return-data>, from [IMAP-ABNF]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "sort                =/ extended-sort\n    ;; <sort> from [SORT]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "extended-sort       = [\"UID\" SP] \"SORT\" search-return-opts\n                      SP sort-criteria SP search-criteria\n    ;; <search-return-opts> from [IMAP-ABNF]\n    ;; <sort-criteria> and <search-criteria> from [SORT]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines additional IMAP4 capabilities. As such, it does not change the underlying security considerations of [IMAP]. The authors and reviewers believe that no new security issues are introduced with these additional IMAP4 capabilities.",
+      "zh-CHS": "本文档定义了其他IMAP4功能。因此，它不会改变[IMAP]的基本安全考虑因素。作者和评论员认为，这些额外的IMAP4功能不会带来新的安全问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Creation of a large number of contexts may provide an avenue for denial-of-service attacks by authorized users. Implementors may reduce this by limiting the number of contexts possible to create, via the protocol features described in Section 4.3.1; by reducing the impact of contexts by the implementation strategies described in Appendix B; and by logging context creation and usage so that administrative remedies may be applied.",
+      "zh-CHS": "创建大量上下文可能会为授权用户提供拒绝服务攻击的途径。实施者可以通过第4.3.1节中描述的协议功能限制可能创建的上下文数量，从而减少这种情况；通过附录B中描述的实施策略减少环境的影响；通过记录上下文的创建和使用，以便可以应用管理补救措施。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IMAP4 capabilities are registered by publishing a Standards Track or IESG-approved Experimental RFC.",
+      "zh-CHS": "IMAP4功能通过发布标准跟踪或IESG批准的实验RFC进行注册。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the ESORT, CONTEXT=SEARCH, and CONTEXT=SORT IMAP capabilities. IANA has added them to the registry accordingly.",
+      "zh-CHS": "本文档定义了ESORT、CONTEXT=SEARCH和CONTEXT=SORT IMAP功能。IANA已相应地将其添加到注册表中。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Much of the design of this extension can be found in ACAP. Valuable comments, both in agreement and in dissent, were received from Alexey Melnikov, Arnt Gulbrandsen, Cyrus Daboo, Filip Navara, Mark Crispin, Peter Coates, Philip Van Hoof, Randall Gellens, Timo Sirainen, Zoltan",
+      "zh-CHS": "此扩展的大部分设计可以在ACAP中找到。Alexey Melnikov、Arnt Gulbrandsen、Cyrus Daboo、Filip Navara、Mark Crispin、Peter Coates、Philip Van Hoof、Randall Gellens、Timo Sirainen、Zoltan提出了有价值的意见，无论是一致意见还是不同意见"
+    },
+    {
+      "indent": 3,
+      "text": "Ordogh, and others, and many of these comments have had significant influence on the design or the text. The authors are grateful to all those involved, including those not mentioned here.",
+      "zh-CHS": "奥多格等，其中许多评论对设计或文本产生了重大影响。作者感谢所有相关人员，包括此处未提及的人员。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[ABNF] Crocker, D. and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", STD 68, RFC 5234, January 2008.",
+      "zh-CHS": "[ABNF]Crocker，D.和P.Overell，“语法规范的扩充BNF:ABNF”，STD 68，RFC 5234，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ESEARCH] Melnikov, A. and D. Cridland, \"IMAP4 Extension to SEARCH Command for Controlling What Kind of Information Is Returned\", RFC 4731, November 2006.",
+      "zh-CHS": "[ESEARCH]Melnikov，A.和D.Cridland，“用于控制返回何种信息的搜索命令的IMAP4扩展”，RFC 47312006年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IMAP] Crispin, M., \"INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1\", RFC 3501, March 2003.",
+      "zh-CHS": "[IMAP]Crispin，M.，“互联网消息访问协议-版本4rev1”，RFC 35012003年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IMAP-ABNF] Melnikov, A. and C. Daboo, \"Collected Extensions to IMAP4 ABNF\", RFC 4466, April 2006.",
+      "zh-CHS": "[IMAP-ABNF]Melnikov，A.和C.Daboo，“IMAP4 ABNF的收集扩展”，RFC 4466，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KEYWORDS] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SORT] Crispin, M. and K. Murchison, \"Internet Message Access Protocol - SORT and THREAD Extensions\", RFC 5256, June 2008.",
+      "zh-CHS": "[SORT]Crispin，M.和K.Murchison，“互联网消息访问协议-排序和线程扩展”，RFC 5256，2008年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ACAP] Newman, C. and J. Myers, \"ACAP -- Application Configuration Access Protocol\", RFC 2244, November 1997.",
+      "zh-CHS": "[ACAP]Newman，C.和J.Myers，“ACAP——应用程序配置访问协议”，RFC22441997年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IDLE] Leiba, B., \"IMAP4 IDLE command\", RFC 2177, June 1997.",
+      "zh-CHS": "[IDLE]Leiba，B.，“IMAP4 IDLE命令”，RFC 2177，1997年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NOTIFY] Melnikov, A., Gulbrandsen, A., and C. King, \"The IMAP NOTIFY Extension\", Work in Progress, March 2008.",
+      "zh-CHS": "[通知]Melnikov，A.，Gulbrandsen，A.，和C.King，“IMAP通知扩展”，正在进行的工作，2008年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Cookbook",
+      "section_title": true,
+      "zh-CHS": "附录A.食谱"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. Virtual Mailboxes",
+      "section_title": true,
+      "zh-CHS": "A.1. 虚拟邮箱"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible to use the facilities described within this memo to create a facility largely similar to a virtual mailbox, but handled on the client side.",
+      "zh-CHS": "可以使用本备忘录中描述的功能创建一个与虚拟邮箱基本相似但在客户端处理的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "Initially, the client SELECTs the real \"backing\" mailbox. Next, it can switch to a filtered view at any time by issuing a RETURN (COUNT UPDATE CONTEXT), and using RETURN (PARTIAL x:y) as the user scrolls, feeding the results into a FETCH as required to populate summary views.",
+      "zh-CHS": "最初，客户端选择真正的“备份”邮箱。接下来，它可以随时切换到过滤视图，方法是发出一个RETURN（COUNT UPDATE CONTEXT），并在用户滚动时使用RETURN（PARTIAL x:y），根据需要将结果输入FETCH以填充摘要视图。"
+    },
+    {
+      "indent": 3,
+      "text": "A typically useful view is \"UID SORT (DATE) RETURN (...) UTF-8 UNSEEN UNDELETED\", which can be used to show the mailbox sorted into INTERNALDATE order, filtered to only show messages which are unread and not yet deleted.",
+      "zh-CHS": "一个典型的有用视图是“UID排序（日期）返回（…）UTF-8 UNSEEN UNDELETED”，它可用于显示按INTERNALDATE顺序排序的邮箱，过滤后仅显示未读且尚未删除的邮件。"
+    },
+    {
+      "indent": 0,
+      "text": "A.2. Trash Mailboxes",
+      "section_title": true,
+      "zh-CHS": "A.2. 垃圾箱"
+    },
+    {
+      "indent": 3,
+      "text": "Certain contexts are particularly useful for client developers wishing to present something similar to the common trash mailbox metaphor in limited bandwidth. The simple criteria of UNDELETED only matches undeleted messages, and the corresponding DELETED search key can be used to display a per-mailbox trash-like virtual mailbox.",
+      "zh-CHS": "某些上下文对于希望在有限带宽内呈现类似于常见垃圾邮箱隐喻的客户端开发人员特别有用。“取消删除”的简单条件仅匹配取消删除的邮件，相应的“已删除”搜索键可用于显示每个邮箱垃圾，如虚拟邮箱。"
+    },
+    {
+      "indent": 0,
+      "text": "A.3. Immediate EXPUNGE Notifications",
+      "section_title": true,
+      "zh-CHS": "A.3. 立即删除通知"
+    },
+    {
+      "indent": 3,
+      "text": "The command \"SEARCH RETURN (UPDATE) ALL\" can be used to create a context that notifies immediately about expunged messages, yet will not affect message sequence numbers until the normal EXPUNGE message can be sent. This may be useful for clients wishing to show this behavior without losing the benefit of sequence numbering.",
+      "zh-CHS": "“SEARCH RETURN（UPDATE）ALL”命令可用于创建一个上下文，该上下文可立即通知已删除的消息，但在发送正常的删除消息之前不会影响消息序列号。这对于希望显示此行为而不失去序列编号优势的客户可能很有用。"
+    },
+    {
+      "indent": 0,
+      "text": "A.4. Monitoring Counts",
+      "section_title": true,
+      "zh-CHS": "A.4. 监测计数"
+    },
+    {
+      "indent": 3,
+      "text": "A client need not maintain any result cache at all, but instead it can maintain a simple count of messages matching the search criteria. Typically, this would use the SEARCH command, as opposed to UID SEARCH, due to its smaller representation. Such usage might prove useful in monitoring the number of flagged, but unanswered, messages, for example, with \"SEARCH RETURN (UPDATE COUNT) FLAGGED UNANSWERED\".",
+      "zh-CHS": "客户机根本不需要维护任何结果缓存，而是可以维护与搜索条件匹配的简单消息计数。通常，这将使用SEARCH命令，而不是UID SEARCH，因为它的表示形式较小。这种用法在监视标记但未应答的消息数量时可能很有用，例如，“搜索返回（更新计数）标记未应答”。"
+    },
+    {
+      "indent": 0,
+      "text": "A.5. Resynchronizing Contexts",
+      "section_title": true,
+      "zh-CHS": "A.5. 重新同步上下文"
+    },
+    {
+      "indent": 3,
+      "text": "The creation of a context, and immediate access to it, can all be accomplished in a single round-trip. Therefore, whilst it is possible to elide resynchronization if no changes have occurred, it is simpler in most cases to resynchronize by simply recreating the context.",
+      "zh-CHS": "上下文的创建和即时访问都可以在一次往返中完成。因此，虽然在没有发生更改的情况下可以省略重新同步，但在大多数情况下，通过简单地重新创建上下文来重新同步更简单。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Server Implementation Notes",
+      "section_title": true,
+      "zh-CHS": "附录B.服务器实施说明"
+    },
+    {
+      "indent": 3,
+      "text": "Although a server may cache the results, this is neither mandated nor required, especially when the client uses SEARCH or UID SEARCH commands. UPDATE processing, for example, can be achieved efficiently by comparison of the old flag state (if any) and the new, and PARTIAL can be achieved by re-running the search until the suitable window is required. This is a result of there being no snapshot facility.",
+      "zh-CHS": "虽然服务器可以缓存结果，但这既不是强制的，也不是必需的，尤其是当客户端使用搜索或UID搜索命令时。例如，可以通过比较旧的标志状态（如果有的话）和新的标志状态来有效地实现更新处理，并且可以通过重新运行搜索直到需要合适的窗口来实现部分更新处理。这是因为没有快照功能。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, on a new message, the server can simply test for matches against all current UPDATE context search programs, and for any that match, send the ADDTO return data.",
+      "zh-CHS": "例如，在一条新消息上，服务器可以简单地针对所有当前更新上下文搜索程序测试匹配项，对于任何匹配项，发送ADDTO返回数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, for a flag change on an existing message, the server can check whether the message matched with its old flags, whether it matches with new flags, and provide ADDTO or REMOVEFROM return data accordingly if these results differ.",
+      "zh-CHS": "类似地，对于现有消息上的标志更改，服务器可以检查消息是否与其旧标志匹配，是否与新标志匹配，如果这些结果不同，则相应地提供ADDTO或REMOVEFROM返回数据。"
+    },
+    {
+      "indent": 3,
+      "text": "For PARTIAL requests, the server can perform a full search, discarding results until the lower bound is hit, and stopping the search when sufficient results have been obtained.",
+      "zh-CHS": "对于部分请求，服务器可以执行完全搜索，丢弃结果直到达到下限，并在获得足够的结果时停止搜索。"
+    },
+    {
+      "indent": 3,
+      "text": "With some additional state, it is possible to restart PARTIAL searches, thus avoiding performing the initial discard phase.",
+      "zh-CHS": "通过一些附加状态，可以重新启动部分搜索，从而避免执行初始放弃阶段。"
+    },
+    {
+      "indent": 3,
+      "text": "For the best performance, however, caching the full search results is needed, which can allow for faster responses at the expense of memory. One reasonable strategy would be to balance this trade-off at run-time, discarding search results after a suitable timeout, and regenerating them as required.",
+      "zh-CHS": "但是，为了获得最佳性能，需要缓存完整的搜索结果，这样可以在牺牲内存的情况下实现更快的响应。一个合理的策略是在运行时平衡这种权衡，在适当的超时后丢弃搜索结果，并根据需要重新生成它们。"
+    },
+    {
+      "indent": 3,
+      "text": "This yields state requirements of storing the search program for any UPDATE contexts, and optionally storing both search program and (updated) results for further contexts as required.",
+      "zh-CHS": "这将产生存储任何更新上下文的搜索程序的状态要求，并根据需要存储更多上下文的搜索程序和（更新的）结果。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that in the absence of a server-side results cache, it may be impossible to know if an expunged message previously matched unless the original message is still available. Therefore, some implementations may be forced into using a results cache in many circumstances.",
+      "zh-CHS": "请注意，在没有服务器端结果缓存的情况下，除非原始消息仍然可用，否则可能无法知道先前已删除的消息是否匹配。因此，在许多情况下，一些实现可能会被迫使用结果缓存。"
+    },
+    {
+      "indent": 3,
+      "text": "UPDATE contexts created with SORT or UID SORT will almost certainly require some form of results caching, however.",
+      "zh-CHS": "然而，使用SORT或UID SORT创建的更新上下文几乎肯定需要某种形式的结果缓存。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Dave Cridland Isode Limited 5 Castle Business Village 36, Station Road Hampton, Middlesex TW12 2BX GB",
+      "zh-CHS": "戴夫·克里德兰·伊索德有限公司位于米德尔塞克斯郡汉普顿车站路36号城堡商业村5号，邮编：TW12 2BX GB"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: dave.cridland@isode.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Curtis King Isode Limited 5 Castle Business Village 36, Station Road Hampton, Middlesex TW12 2BX GB",
+      "zh-CHS": "柯蒂斯·金·伊索德有限公司位于米德尔塞克斯郡汉普顿车站路36号城堡商业村5号，邮编：TW12 2BX GB"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: cking@mumbo.ca",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

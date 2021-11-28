@@ -1,0 +1,516 @@
+{
+  "title": {
+    "text": "RFC 8437: IMAP UNAUTHENTICATE Extension for Connection Reuse",
+    "zh-CHS": "RFC 8437"
+  },
+  "number": 8437,
+  "created_at": "2021-10-29 22:20:36.457499+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                         C. Newman\nRequest for Comments: 8437                                        Oracle\nUpdates: 3501                                                August 2018\nCategory: Standards Track\nISSN: 2070-1721",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "IMAP UNAUTHENTICATE Extension for Connection Reuse",
+      "zh-CHS": "用于连接重用的IMAP未经身份验证扩展"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This specification extends the Internet Message Access Protocol (IMAP) to allow an administrative client to reuse the same IMAP connection on behalf of multiple IMAP user identities.",
+      "zh-CHS": "此规范扩展了Internet消息访问协议（IMAP），允许管理客户端代表多个IMAP用户标识重用同一IMAP连接。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at https://www.rfc-editor.org/info/rfc8437.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问https://www.rfc-editor.org/info/rfc8437."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2018 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2018 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(https://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2\n2.  Conventions Used in This Document . . . . . . . . . . . . . .   2\n3.  UNAUTHENTICATE Command  . . . . . . . . . . . . . . . . . . .   3\n4.  Interactions  . . . . . . . . . . . . . . . . . . . . . . . .   4\n  4.1.  Stateful Extensions . . . . . . . . . . . . . . . . . . .   4\n  4.2.  Client Certificates, SASL EXTERNAL, and imaps . . . . . .   5\n5.  Revised State Machine . . . . . . . . . . . . . . . . . . . .   6\n6.  Formal Syntax . . . . . . . . . . . . . . . . . . . . . . . .   7\n7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   7\n8.  Security Considerations . . . . . . . . . . . . . . . . . . .   7\n9.  Privacy Considerations  . . . . . . . . . . . . . . . . . . .   8\n10. References  . . . . . . . . . . . . . . . . . . . . . . . . .   8\n  10.1.  Normative References . . . . . . . . . . . . . . . . . .   8\n  10.2.  Informative References . . . . . . . . . . . . . . . . .   9\nAppendix A.  Design Considerations  . . . . . . . . . . . . . . .  11\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  11\nAuthor's Address  . . . . . . . . . . . . . . . . . . . . . . . .  11",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Modern IMAP [RFC3501] server deployments often have peer systems with administrative privilege that perform actions on behalf of IMAP end users. For example, a voicemail gateway can use IMAP to store a user's voicemail and mark that voicemail as \\Seen when the user listens to it via the phone interface. These systems can issue the IMAP AUTHENTICATE command with administrative credentials to act on behalf of other users. However, with the IMAP base specification, these specialized IMAP clients must close the connection and create a new connection for each user. For efficiency reasons, it is desirable for these clients to reuse the same connection, particularly if SSL has been negotiated. This specification proposes the UNAUTHENTICATE command to achieve this goal.",
+      "zh-CHS": "现代IMAP[RFC3501]服务器部署通常具有代表IMAP最终用户执行操作的具有管理权限的对等系统。例如，语音邮件网关可以使用IMAP存储用户的语音邮件，并在用户通过电话接口收听语音邮件时将该语音邮件标记为可见。这些系统可以使用管理凭据发出IMAP AUTHENTICATE命令以代表其他用户。但是，使用IMAP基本规范，这些专用IMAP客户端必须关闭连接并为每个用户创建新连接。出于效率原因，这些客户机希望重用相同的连接，特别是在协商SSL的情况下。本规范建议使用UNAUTHENTICATE命令来实现此目标。"
+    },
+    {
+      "indent": 3,
+      "text": "The IMAP state machine described in Section 3 of RFC 3501 does not have a transition from authenticated or selected state to not authenticated state. The UNAUTHENTICATE command adds this transition.",
+      "zh-CHS": "RFC 3501第3节中描述的IMAP状态机没有从已验证或选定状态转换为未验证状态。UNAUTHENTICATE命令添加此转换。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "2. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14[RFC2119][RFC8174]所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. UNAUTHENTICATE Command",
+      "section_title": true,
+      "zh-CHS": "3. 未经验证的命令"
+    },
+    {
+      "indent": 3,
+      "text": "Arguments: None",
+      "zh-CHS": "论点：无"
+    },
+    {
+      "indent": 3,
+      "text": "Responses: No specific response for this command",
+      "zh-CHS": "响应：此命令没有特定响应"
+    },
+    {
+      "indent": 3,
+      "text": "Result: OK - Completed, now in not authenticated state BAD - Command unknown or arguments invalid",
+      "zh-CHS": "结果：确定-完成，现在处于未验证状态错误-命令未知或参数无效"
+    },
+    {
+      "indent": 3,
+      "text": "This command directs the server to reset all connection state except for the state of the TLS [RFC8446] layer. Upon completion, the server connection is placed in not authenticated state. This represents Transition 7 in the State Machine Diagram (Section 5).",
+      "zh-CHS": "此命令指示服务器重置除TLS[RFC8446]层状态之外的所有连接状态。完成后，服务器连接将处于未验证状态。这表示状态机图（第5节）中的转换7。"
+    },
+    {
+      "indent": 3,
+      "text": "If a mailbox was selected, the mailbox ceases to be selected, but no expunge event is generated. If a Simple Authentication and Security Layer (SASL) [RFC4422] was active, the server terminates its outgoing security layer immediately after sending the CRLF following the OK response. The client's outgoing security layer terminates immediately after the CRLF following the UNAUTHENTICATE command. Note that a BAD response only occurs if UNAUTHENTICATE is issued in an invalid state, is not advertised by the server, or does not follow the command syntax in the specification. A NO response is not permitted. As a result, specification-compliant implementations will interoperate across security layer termination.",
+      "zh-CHS": "如果选择了邮箱，则将停止选择该邮箱，但不会生成删除事件。如果简单身份验证和安全层（SASL）[RFC4422]处于活动状态，则服务器在发出OK响应后立即终止其传出安全层。客户端的传出安全层在CRLF发出UNAUTHENTICATE命令后立即终止。请注意，只有在无效状态下发出UNAUTHENTICATE、服务器未公布或未遵循规范中的命令语法时，才会发生错误响应。不允许无响应。因此，符合规范的实现将跨安全层进行互操作。"
+    },
+    {
+      "indent": 3,
+      "text": "After sending this command, the client is free to issue a new AUTHENTICATE or LOGIN command as permitted based on the server's capabilities. If no SASL security layer was active, the client is permitted to pipeline the UNAUTHENTICATE command with a subsequent AUTHENTICATE command. If the IMAP server also advertises SASL-IR [RFC4959], this permits an administrative client to re-authenticate in one round trip. Because of this pipelining optimization, a server advertising UNAUTHENTICATE is not permitted to respond to the UNAUTHENTICATE command with a NO response if it is unable to reset the state associated with the connection. Servers MAY close the connection with an untagged BYE response if this preferably rare situation occurs.",
+      "zh-CHS": "发送此命令后，客户机可以根据服务器的功能在允许的情况下自由发出新的身份验证或登录命令。如果没有活动的SASL安全层，则允许客户端通过管道将UNAUTHENTICATE命令与后续的AUTHENTICATE命令连接起来。如果IMAP服务器还播发SASL-IR[RFC4959]，则允许管理客户端在一次往返中重新验证。由于此管道优化，如果服务器无法重置与连接关联的状态，则不允许发布UNAUTHENTICATE的服务器响应UNAUTHENTICATE命令而不响应。如果出现这种情况，服务器可能会使用未标记的BYE响应关闭连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Servers MAY choose to advertise the UNAUTHENTICATE capability only after authentication has completed. As a result, clients may need to issue an IMAP CAPABILITY command after authentication in order to determine the availability of UNAUTHENTICATE.",
+      "zh-CHS": "只有在身份验证完成后，服务器才可以选择公布未经身份验证的功能。因此，客户端可能需要在身份验证后发出IMAP能力命令，以确定未经身份验证的可用性。"
+    },
+    {
+      "indent": 3,
+      "text": "The IMAP ID [RFC2971] command provides properties about the client primarily for use in server log or audit files. Because IMAP ID is not related to application authentication or user identity in any way, and caching it for the duration of the client connection can be useful, the interaction between IMAP ID and the UNAUTHENTICATE command is defined by the implementation.",
+      "zh-CHS": "IMAP ID[RFC2971]命令提供有关客户端的属性，主要用于服务器日志或审核文件。由于IMAP ID与应用程序身份验证或用户标识没有任何关系，并且在客户端连接期间对其进行缓存可能很有用，因此IMAP ID和UNAUTHENTICATE命令之间的交互由实现定义。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Interactions",
+      "section_title": true,
+      "zh-CHS": "4. 相互作用"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes interactions between this extension and other IMAP extensions or usage models.",
+      "zh-CHS": "本节描述此扩展与其他IMAP扩展或使用模型之间的交互。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Stateful Extensions",
+      "section_title": true,
+      "zh-CHS": "4.1. 有状态扩展"
+    },
+    {
+      "indent": 3,
+      "text": "The connection state for the following list of IMAP extensions MUST be reset if both a) the specified extension is advertised and b) the UNAUTHENTICATE command is advertised and used. This list may not be complete; the requirement to reset the connection state applies to all current and future extensions except STARTTLS and ID. Additional requirements apply to specific stateful extensions as follows:",
+      "zh-CHS": "如果a）播发了指定的扩展，b）播发并使用了UNAUTHENTICATE命令，则必须重置以下IMAP扩展列表的连接状态。此列表可能不完整；重置连接状态的要求适用于除STARTTLS和ID之外的所有当前和未来扩展。其他要求适用于特定的有状态扩展，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "o Cached identity information, such as group memberships, that are used to evaluate access control lists [RFC4314] MUST be reset.",
+      "zh-CHS": "o 用于评估访问控制列表[RFC4314]的缓存身份信息（如组成员身份）必须重置。"
+    },
+    {
+      "indent": 3,
+      "text": "o After an UNAUTHENTICATE command is issued, CONDSTORE servers [RFC7162] MUST behave as if no CONDSTORE-enabling command was issued.",
+      "zh-CHS": "o 发出未经身份验证的命令后，CONDSTORE服务器[RFC7162]的行为必须与未发出CONDSTORE启用命令的行为相同。"
+    },
+    {
+      "indent": 3,
+      "text": "o If IMAP COMPRESS [RFC4978] is active, the server terminates its outgoing compression layer after it sends the CRLF following the OK response. The client terminates its outgoing compression layer after the CRLF following the UNAUTHENTICATE command. When it matters, the compression layer terminates before a SASL layer terminates.",
+      "zh-CHS": "o 如果IMAP COMPRESS[RFC4978]处于活动状态，则服务器在收到OK响应后发送CRLF后终止其传出压缩层。客户机在CRLF发出UNAUTHENTICATE命令后终止其传出压缩层。重要的是，压缩层在SASL层终止之前终止。"
+    },
+    {
+      "indent": 3,
+      "text": "o Any extensions enabled by the IMAP ENABLE [RFC5161] command cease to be enabled when the UNAUTHENTICATE command is issued. This includes, but is not limited to, CONDSTORE [RFC7162], QRESYNC [RFC7162], METADATA [RFC5464], METADATA-SERVER [RFC5464], and UTF8=ACCEPT [RFC6855].",
+      "zh-CHS": "o 发出UNAUTHENTICATE命令时，IMAP ENABLE[RFC5161]命令启用的任何扩展将停止启用。这包括但不限于CONDSTORE[RFC7162]、QRESYNC[RFC7162]、METADATA[RFC5464]、METADATA-SERVER[RFC5464]和UTF8=ACCEPT[RFC6855]。"
+    },
+    {
+      "indent": 3,
+      "text": "o A server advertising SEARCHRES [RFC5182] discards any saved search results so that '$' subsequently represents the empty set.",
+      "zh-CHS": "o 服务器广告SEARCHRES[RFC5182]丢弃任何保存的搜索结果，以便“$”随后表示空集。"
+    },
+    {
+      "indent": 3,
+      "text": "o A server advertising LANGUAGE [RFC5255] will revert to the \"i-default\" language.",
+      "zh-CHS": "o 服务器广告语言[RFC5255]将恢复为“i-default”语言。"
+    },
+    {
+      "indent": 3,
+      "text": "o When a server advertises CONTEXT=SEARCH or CONTEXT=SORT [RFC5267], the UNAUTHENTICATE command includes an implicit CANCELUPDATE for all server contexts.",
+      "zh-CHS": "o 当服务器播发CONTEXT=SEARCH或CONTEXT=SORT[RFC5267]时，UNAUTHENTICATE命令包含一个针对所有服务器上下文的隐式CANCELUPDATE。"
+    },
+    {
+      "indent": 3,
+      "text": "o When a server advertises NOTIFY [RFC5465], the UNAUTHENTICATE command cancels the server state related to the NOTIFY command and reverts to default IMAP base-specification behavior for notifications.",
+      "zh-CHS": "o 当服务器播发NOTIFY[RFC5465]时，UNAUTHENTICATE命令取消与NOTIFY命令相关的服务器状态，并恢复为通知的默认IMAP基本规范行为。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Client Certificates, SASL EXTERNAL, and imaps",
+      "section_title": true,
+      "zh-CHS": "4.2. 客户端证书、SASL外部和IMAP"
+    },
+    {
+      "indent": 3,
+      "text": "When a TLS [RFC8446] security layer is negotiated using either the STARTTLS command or the imaps port [RFC8314], IMAP servers may be configured to request a client certificate, and IMAP clients may provide one. Client credentials at the TLS layer do not normally impact the application layer; however, they do have an impact when the SASL EXTERNAL mechanism [RFC4422] in an IMAP AUTHENTICATE command is used to direct the server to use the provided client certificate to authenticate as the specified IMAP user. The UNAUTHENTICATE command breaks any application-level binding of the TLS client credentials but does not discard the client credentials. As a result, an administrative client may use a client certificate with administrative privilege to act on behalf of multiple IMAP users in the same connection via the EXTERNAL mechanism and the UNAUTHENTICATE command.",
+      "zh-CHS": "当使用STARTTLS命令或imaps端口[RFC8314]协商TLS[RFC8446]安全层时，IMAP服务器可以配置为请求客户端证书，IMAP客户端可以提供一个。TLS层的客户端凭据通常不会影响应用层；但是，当IMAP AUTHENTICATE命令中的SASL外部机制[RFC4422]用于指示服务器使用提供的客户端证书作为指定的IMAP用户进行身份验证时，它们确实会产生影响。UNAUTHENTICATE命令会断开TLS客户端凭据的任何应用程序级绑定，但不会丢弃客户端凭据。因此，管理客户端可以使用具有管理权限的客户端证书，通过外部机制和UNAUTHENTICATE命令代表同一连接中的多个IMAP用户。"
+    },
+    {
+      "indent": 3,
+      "text": "Some server implementations using the imaps port will request and use a TLS client certificate to authenticate immediately as the default IMAP identity associated with that certificate. These implementations indicate this behavior by using the PREAUTH greeting, as indicated by Transition 2 in the State Machine Diagram (Section 5). As a result, TLS client certificates cannot be used for administrative proxy authentication with the imaps port unless the UNAUTHENTICATE command is also advertised. In that case, an administrative client can respond to the PREAUTH greeting with an UNAUTHENTICATE command and then issue an AUTHENTICATE EXTERNAL command.",
+      "zh-CHS": "某些使用imaps端口的服务器实现将请求并使用TLS客户端证书作为与该证书关联的默认IMAP标识立即进行身份验证。这些实现通过使用PREAUTH问候语来指示此行为，如状态机图（第5节）中的转换2所示。因此，TLS客户端证书不能用于imaps端口的管理代理身份验证，除非同时公布UNAUTHENTICATE命令。在这种情况下，管理客户端可以使用UNAUTHENTICATE命令响应预授权问候语，然后发出AUTHENTICATE外部命令。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Revised State Machine",
+      "section_title": true,
+      "zh-CHS": "5. 修正状态机"
+    },
+    {
+      "indent": 15,
+      "text": "       +----------------------+\n       |connection established|\n       +----------------------+\n                  ||\n                  \\/\n+--------------------------------------+\n|          server greeting             |\n+--------------------------------------+\n          || (1)       || (2)        || (3)\n          \\/           ||            ||\n+-----------------+    ||            ||\n|Not Authenticated|<===||=========++ ||\n+-----------------+    ||     (7) || ||\n || (8)   || (4)       ||         || ||\n ||       \\/           \\/         || ||\n ||     +----------------+        || ||\n ||     |                |========++ ||\n ||     | Authenticated  |<=++    || ||\n ||     +----------------+  ||    || ||\n ||       || (8)   || (5)   ||(6) || ||\n ||       ||       \\/       ||    || ||\n ||       ||    +--------+  ||    || ||\n ||       ||    |Selected|==++    || ||\n ||       ||    |        |========++ ||\n ||       ||    +--------+           ||\n ||       ||       || (8)            ||\n \\/       \\/       \\/                \\/\n+--------------------------------------+\n|               Logout                 |\n+--------------------------------------+\n                  ||\n                  \\/\n    +-------------------------------+\n    |both sides close the connection|\n    +-------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Revised IMAP state machine transitions:",
+      "zh-CHS": "修订的IMAP状态机转换："
+    },
+    {
+      "indent": 3,
+      "text": "1. Connection without pre-authentication (OK greeting)",
+      "zh-CHS": "1. 未经预验证的连接（OK）"
+    },
+    {
+      "indent": 3,
+      "text": "2. Pre-authenticated connection (PREAUTH greeting)",
+      "zh-CHS": "2. 预认证连接（预认证问候语）"
+    },
+    {
+      "indent": 3,
+      "text": "3. Rejected connection (BYE greeting)",
+      "zh-CHS": "3. 拒绝的连接（再见问候语）"
+    },
+    {
+      "indent": 3,
+      "text": "4. Successful LOGIN or AUTHENTICATE command",
+      "zh-CHS": "4. 成功登录或验证命令"
+    },
+    {
+      "indent": 3,
+      "text": "5. Successful SELECT or EXAMINE command",
+      "zh-CHS": "5. 成功选择或检查命令"
+    },
+    {
+      "indent": 3,
+      "text": "6. CLOSE, UNSELECT [RFC3691], or failed SELECT or EXAMINE command",
+      "zh-CHS": "6. 关闭、取消选择[RFC3691]，或选择或检查命令失败"
+    },
+    {
+      "indent": 3,
+      "text": "7. UNAUTHENTICATE command",
+      "zh-CHS": "7. 未经验证的命令"
+    },
+    {
+      "indent": 3,
+      "text": "8. LOGOUT command, server shutdown, or connection closed",
+      "zh-CHS": "8. 注销命令、服务器关闭或连接关闭"
+    },
+    {
+      "indent": 0,
+      "text": "6. Formal Syntax",
+      "section_title": true,
+      "zh-CHS": "6. 形式语法"
+    },
+    {
+      "indent": 3,
+      "text": "The following syntax specification uses the Augmented Backus-Naur Form (ABNF), as described in [RFC5234]. Amended terms are defined in [RFC3501].",
+      "zh-CHS": "如[RFC5234]所述，以下语法规范使用了扩展的Backus-Naur形式（ABNF）。[RFC3501]中定义了修订后的术语。"
+    },
+    {
+      "indent": 5,
+      "text": "capability =/ \"UNAUTHENTICATE\"",
+      "zh-CHS": "能力=/“未经验证”"
+    },
+    {
+      "indent": 5,
+      "text": "command-auth =/ \"UNAUTHENTICATE\"",
+      "zh-CHS": "命令auth=/“取消身份验证”"
+    },
+    {
+      "indent": 5,
+      "text": "command-select =/ \"UNAUTHENTICATE\"",
+      "zh-CHS": "命令选择=/“取消身份验证”"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has added the UNAUTHENTICATE capability to the \"IMAP Capabilities\" registry.",
+      "zh-CHS": "IANA已将未经身份验证的功能添加到“IMAP功能”注册表中。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The original IMAP state machine was designed to allow a server-implementation approach in which each IMAP authentication identity matches an operating system identity and the server revokes all administrative privilege once authentication completes. This extension is not compatible with that implementation approach. However, that approach has significant performance costs on Unix systems, and this extension is designed for environments where efficiency is a relatively high-priority deployment goal. This extension is therefore appropriate for some deployments but may not be appropriate for the most security-sensitive environments.",
+      "zh-CHS": "最初的IMAP状态机设计为允许服务器实现方法，其中每个IMAP身份验证标识与操作系统标识匹配，并且一旦身份验证完成，服务器将撤销所有管理权限。此扩展与该实现方法不兼容。但是，这种方法在Unix系统上会带来巨大的性能成本，并且此扩展是为效率是相对较高优先级部署目标的环境而设计的。因此，此扩展适用于某些部署，但可能不适用于最安全敏感的环境。"
+    },
+    {
+      "indent": 3,
+      "text": "IMAP server implementations are complicated and can retain a lot of state related to an authenticated user. Server implementers need to take care to reset all server state such that authentication as a subsequent user does not inherit any data or privileges from the previous user. State data associated with a user can include cached identity information such as group membership used to evaluate access control lists [RFC4314], active notifications [RFC5465], access to per-user data such as flags, etc.",
+      "zh-CHS": "IMAP服务器实现非常复杂，可以保留许多与经过身份验证的用户相关的状态。服务器实现者需要注意重置所有服务器状态，以便作为后续用户的身份验证不会从先前用户继承任何数据或权限。与用户关联的状态数据可以包括缓存的身份信息，例如用于评估访问控制列表[RFC4314]、活动通知[RFC5465]的组成员资格、对每用户数据（例如标志）的访问权等。"
+    },
+    {
+      "indent": 3,
+      "text": "IMAP server systems are often deployed in a two-tier model where a server-side IMAP proxy routes to an IMAP backend that handles all connections for a subset of possible users. Some IMAP proxies enter a pass-through mode after authentication. If enabled, the UNAUTHENTICATE command would allow a client, on a subsequent authentication, to bypass any security restrictions present in the proxy layer but not in the backend server layer. As a result, IMAP server implementations of this extension MUST provide a way to disable it when it is not needed. Use of an IMAP proxy that processes the UNAUTHENTICATE command at the proxy layer eliminates this concern. Another option to mitigate this concern is for servers to only enable the UNAUTHENTICATE extension if the supplied authentication credentials are associated with an administrative identity.",
+      "zh-CHS": "IMAP服务器系统通常部署在两层模型中，其中服务器端IMAP代理路由到IMAP后端，后者处理可能用户子集的所有连接。某些IMAP代理在身份验证后进入直通模式。如果启用，UNAUTHENTICATE命令将允许客户机在后续身份验证时绕过代理层中存在的任何安全限制，而不是后端服务器层。因此，此扩展的IMAP服务器实现必须提供一种在不需要时禁用它的方法。使用在代理层处理UNAUTHENTICATE命令的IMAP代理可以消除这一问题。缓解此问题的另一个选项是，服务器仅在提供的身份验证凭据与管理标识关联时才启用未经身份验证的扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Privacy Considerations",
+      "section_title": true,
+      "zh-CHS": "9. 隐私考虑"
+    },
+    {
+      "indent": 3,
+      "text": "For the most part, this extension will have no impact on the privacy considerations already present in an IMAP implementation. However, if this extension were used between data centers, it could improve end-user privacy by increasing the difficultly of traffic analysis due to connection reuse.",
+      "zh-CHS": "在大多数情况下，此扩展不会影响IMAP实现中已经存在的隐私考虑。但是，如果在数据中心之间使用此扩展，则会由于连接重用而增加流量分析的难度，从而提高最终用户的隐私。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <https://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<https://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3501] Crispin, M., \"INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1\", RFC 3501, DOI 10.17487/RFC3501, March 2003, <https://www.rfc-editor.org/info/rfc3501>.",
+      "zh-CHS": "[RFC3501]Crispin，M.，“互联网消息访问协议-版本4rev1”，RFC 3501，DOI 10.17487/RFC3501，2003年3月<https://www.rfc-editor.org/info/rfc3501>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5234] Crocker, D., Ed. and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", STD 68, RFC 5234, DOI 10.17487/RFC5234, January 2008, <https://www.rfc-editor.org/info/rfc5234>.",
+      "zh-CHS": "[RFC5234]Crocker，D.，Ed.和P.Overell，“语法规范的扩充BNF:ABNF”，STD 68，RFC 5234，DOI 10.17487/RFC5234，2008年1月<https://www.rfc-editor.org/info/rfc5234>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8174] Leiba, B., \"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words\", BCP 14, RFC 8174, DOI 10.17487/RFC8174, May 2017, <https://www.rfc-editor.org/info/rfc8174>.",
+      "zh-CHS": "[RFC8174]Leiba，B.，“RFC 2119关键词中大写与小写的歧义”，BCP 14，RFC 8174，DOI 10.17487/RFC8174，2017年5月<https://www.rfc-editor.org/info/rfc8174>."
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2971] Showalter, T., \"IMAP4 ID extension\", RFC 2971, DOI 10.17487/RFC2971, October 2000, <https://www.rfc-editor.org/info/rfc2971>.",
+      "zh-CHS": "[RFC2971]Showalter，T.，“IMAP4 ID扩展”，RFC 2971，DOI 10.17487/RFC297119000年10月<https://www.rfc-editor.org/info/rfc2971>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3691] Melnikov, A., \"Internet Message Access Protocol (IMAP) UNSELECT command\", RFC 3691, DOI 10.17487/RFC3691, February 2004, <https://www.rfc-editor.org/info/rfc3691>.",
+      "zh-CHS": "[RFC3691]Melnikov，A.，“互联网消息访问协议（IMAP）取消选择命令”，RFC 3691，DOI 10.17487/RFC3691，2004年2月<https://www.rfc-editor.org/info/rfc3691>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4314] Melnikov, A., \"IMAP4 Access Control List (ACL) Extension\", RFC 4314, DOI 10.17487/RFC4314, December 2005, <https://www.rfc-editor.org/info/rfc4314>.",
+      "zh-CHS": "[RFC4314]Melnikov，A.，“IMAP4访问控制列表（ACL）扩展”，RFC 4314，DOI 10.17487/RFC4314，2005年12月<https://www.rfc-editor.org/info/rfc4314>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4422] Melnikov, A., Ed. and K. Zeilenga, Ed., \"Simple Authentication and Security Layer (SASL)\", RFC 4422, DOI 10.17487/RFC4422, June 2006, <https://www.rfc-editor.org/info/rfc4422>.",
+      "zh-CHS": "[RFC4422]Melnikov，A.，Ed.和K.Zeilenga，Ed.，“简单身份验证和安全层（SASL）”，RFC 4422，DOI 10.17487/RFC4422，2006年6月<https://www.rfc-editor.org/info/rfc4422>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4959] Siemborski, R. and A. Gulbrandsen, \"IMAP Extension for Simple Authentication and Security Layer (SASL) Initial Client Response\", RFC 4959, DOI 10.17487/RFC4959, September 2007, <https://www.rfc-editor.org/info/rfc4959>.",
+      "zh-CHS": "[RFC4959]Siemborski，R.和A.Gulbrandsen，“简单身份验证和安全层（SASL）初始客户端响应的IMAP扩展”，RFC 4959，DOI 10.17487/RFC4959，2007年9月<https://www.rfc-editor.org/info/rfc4959>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4978] Gulbrandsen, A., \"The IMAP COMPRESS Extension\", RFC 4978, DOI 10.17487/RFC4978, August 2007, <https://www.rfc-editor.org/info/rfc4978>.",
+      "zh-CHS": "[RFC4978]Gulbrandsen，A.，“IMAP压缩扩展”，RFC 4978，DOI 10.17487/RFC4978，2007年8月<https://www.rfc-editor.org/info/rfc4978>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5161] Gulbrandsen, A., Ed. and A. Melnikov, Ed., \"The IMAP ENABLE Extension\", RFC 5161, DOI 10.17487/RFC5161, March 2008, <https://www.rfc-editor.org/info/rfc5161>.",
+      "zh-CHS": "[RFC5161]Gulbrandsen，A.，Ed.和A.Melnikov，Ed.，“IMAP启用扩展”，RFC 5161，DOI 10.17487/RFC5161，2008年3月<https://www.rfc-editor.org/info/rfc5161>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5182] Melnikov, A., \"IMAP Extension for Referencing the Last SEARCH Result\", RFC 5182, DOI 10.17487/RFC5182, March 2008, <https://www.rfc-editor.org/info/rfc5182>.",
+      "zh-CHS": "[RFC5182]Melnikov，A.，“引用最后搜索结果的IMAP扩展”，RFC 5182，DOI 10.17487/RFC5182，2008年3月<https://www.rfc-editor.org/info/rfc5182>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5255] Newman, C., Gulbrandsen, A., and A. Melnikov, \"Internet Message Access Protocol Internationalization\", RFC 5255, DOI 10.17487/RFC5255, June 2008, <https://www.rfc-editor.org/info/rfc5255>.",
+      "zh-CHS": "[RFC5255]Newman，C.，Gulbrandsen，A.，和A.Melnikov，“互联网消息访问协议国际化”，RFC 5255，DOI 10.17487/RFC5255，2008年6月<https://www.rfc-editor.org/info/rfc5255>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5267] Cridland, D. and C. King, \"Contexts for IMAP4\", RFC 5267, DOI 10.17487/RFC5267, July 2008, <https://www.rfc-editor.org/info/rfc5267>.",
+      "zh-CHS": "[RFC5267]Cridland，D.和C.King，“IMAP4的上下文”，RFC 5267，DOI 10.17487/RFC5267，2008年7月<https://www.rfc-editor.org/info/rfc5267>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5464] Daboo, C., \"The IMAP METADATA Extension\", RFC 5464, DOI 10.17487/RFC5464, February 2009, <https://www.rfc-editor.org/info/rfc5464>.",
+      "zh-CHS": "[RFC5464]Daboo，C.，“IMAP元数据扩展”，RFC 5464，DOI 10.17487/RFC5464，2009年2月<https://www.rfc-editor.org/info/rfc5464>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5465] Gulbrandsen, A., King, C., and A. Melnikov, \"The IMAP NOTIFY Extension\", RFC 5465, DOI 10.17487/RFC5465, February 2009, <https://www.rfc-editor.org/info/rfc5465>.",
+      "zh-CHS": "[RFC5465]Gulbrandsen，A.，King，C.，和A.Melnikov，“IMAP通知扩展”，RFC 5465，DOI 10.17487/RFC5465，2009年2月<https://www.rfc-editor.org/info/rfc5465>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6855] Resnick, P., Ed., Newman, C., Ed., and S. Shen, Ed., \"IMAP Support for UTF-8\", RFC 6855, DOI 10.17487/RFC6855, March 2013, <https://www.rfc-editor.org/info/rfc6855>.",
+      "zh-CHS": "[RFC6855]Resnick，P.，Ed.，Newman，C.，Ed.，和S.Shen，Ed.，“UTF-8的IMAP支持”，RFC 6855，DOI 10.17487/RFC6855，2013年3月<https://www.rfc-editor.org/info/rfc6855>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7162] Melnikov, A. and D. Cridland, \"IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC)\", RFC 7162, DOI 10.17487/RFC7162, May 2014, <https://www.rfc-editor.org/info/rfc7162>.",
+      "zh-CHS": "[RFC7162]Melnikov，A.和D.Cridland，“IMAP扩展：快速标志更改再同步（CONDSTORE）和快速邮箱再同步（QRESYNC）”，RFC 7162，DOI 10.17487/RFC7162，2014年5月<https://www.rfc-editor.org/info/rfc7162>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8314] Moore, K. and C. Newman, \"Cleartext Considered Obsolete: Use of Transport Layer Security (TLS) for Email Submission and Access\", RFC 8314, DOI 10.17487/RFC8314, January 2018, <https://www.rfc-editor.org/info/rfc8314>.",
+      "zh-CHS": "[RFC8314]Moore，K.和C.Newman，“被认为过时的明文：使用传输层安全（TLS）提交和访问电子邮件”，RFC 8314，DOI 10.17487/RFC8314，2018年1月<https://www.rfc-editor.org/info/rfc8314>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8446] Rescorla, E., \"The Transport Layer Security (TLS) Protocol Version 1.3\", RFC 8446, DOI 10.17487/RFC8446, August 2018, <https://www.rfc-editor.org/info/rfc8446>.",
+      "zh-CHS": "[RFC8446]Rescorla，E.“传输层安全（TLS）协议版本1.3”，RFC 8446，DOI 10.17487/RFC8446，2018年8月<https://www.rfc-editor.org/info/rfc8446>."
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Design Considerations",
+      "section_title": true,
+      "zh-CHS": "附录A.设计注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "The author deliberately chose to add a separate UNAUTHENTICATE command instead of allowing the LOGIN or AUTHENTICATE commands to be issued when the connection is in a state other than unauthenticated. The primary reason for this choice is that the code that transitions from not authenticated state to authenticated state in a server is often the most security-sensitive code, because it needs to assume and handle unconditionally hostile attackers. That sensitive code is simpler if it only handles a single server state (unauthenticated) and the state transition is as simple as possible. Smaller and simpler code is easier to audit and write in a secure way.",
+      "zh-CHS": "作者故意选择添加一个单独的UNAUTHENTICATE命令，而不是在连接处于非UNAUTHENTICATE状态时允许发出LOGIN或AUTHENTICATE命令。选择此选项的主要原因是，服务器中从未验证状态转换到验证状态的代码通常是最安全敏感的代码，因为它需要假设并处理无条件的恶意攻击者。如果敏感代码只处理单个服务器状态（未经身份验证），并且状态转换尽可能简单，那么敏感代码就更简单。更小更简单的代码更容易以安全的方式进行审核和编写。"
+    },
+    {
+      "indent": 3,
+      "text": "A secondary reason to have a separate command is that it is simpler to enable or disable the feature with that design. See the discussion in the Security Considerations section recommending that implementations provide a way to disable this extension.",
+      "zh-CHS": "使用单独命令的第二个原因是，使用该设计启用或禁用功能更简单。请参阅“安全注意事项”一节中的讨论，其中建议实现提供一种禁用此扩展的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Fred Batty for implementing UNAUTHENTICATE and to Cyrus Daboo for constructive suggestions to improve this document.",
+      "zh-CHS": "感谢Fred Batty实施未经认证，感谢Cyrus Daboo为改进本文档提出建设性建议。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Chris Newman Oracle 440 E. Huntington Dr., Suite 400 Arcadia, CA 91006 United States of America",
+      "zh-CHS": "Chris Newman Oracle 440 E.Huntington博士，美国加利福尼亚州阿卡迪亚400室，91006"
+    },
+    {
+      "indent": 3,
+      "text": "Email: chris.newman@oracle.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

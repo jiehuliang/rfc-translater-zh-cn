@@ -1,0 +1,446 @@
+{
+  "title": {
+    "text": "RFC 2649:  An LDAP Control and Schema for Holding Operation Signatures ",
+    "zh-CHS": "RFC 2649"
+  },
+  "number": 2649,
+  "created_at": "2021-10-24 01:52:53.712995+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       B. Greenblatt\nRequest for Comments: 2649                                     P. Richard\nCategory: Experimental                                        August 1999",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "An LDAP Control and Schema for Holding Operation Signatures",
+      "zh-CHS": "用于保存操作签名的LDAP控件和模式"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines an Experimental Protocol for the Internet community. It does not specify an Internet standard of any kind. Discussion and suggestions for improvement are requested. Distribution of this memo is unlimited.",
+      "zh-CHS": "这份备忘录为互联网社区定义了一个实验性协议。它没有规定任何类型的互联网标准。要求进行讨论并提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (1999). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（1999年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "In many environments clients require the ability to validiate the source and integrity of information provided by the directory. This document describes an LDAP message control which allows for the retrieval of digitally signed information. This document defines an LDAP v3 based mechanism for signing directory operations in order to create a secure journal of changes that have been made to each directory entry. Both client and server based signatures are supported. An object class for subsequent retrieval are \"journal entries\" is also defined. This document specifies LDAP v3 controls that enable this functionality. It also defines an LDAP v3 schema that allows for subsequent browsing of the journal information.",
+      "zh-CHS": "在许多环境中，客户端需要能够验证目录提供的信息的源和完整性。本文档描述了一个LDAP消息控件，该控件允许检索数字签名信息。本文档定义了一种基于LDAP v3的机制，用于对目录操作进行签名，以创建对每个目录项所做更改的安全日志。同时支持基于客户端和服务器的签名。还定义了用于后续检索的对象类“日记账分录”。本文档指定了启用此功能的LDAP v3控件。它还定义了一个LDAP v3模式，允许后续浏览日志信息。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2\n1.1 Audit Trail Mechanism  . . . . . . . . . . . . . . . . . . .   2\n1.2. Handling the Delete Operation . . . . . . . . . . . . . . .   5\n2. Signed Results Mechanism  . . . . . . . . . . . . . . . . . .   6\n3. Security Considerations and Other Notes   . . . . . . . . . .   7\n4. References  . . . . . . . . . . . . . . . . . . . . . . . . .   8\n5. Authors' Addresses  . . . . . . . . . . . . . . . . . . . . .   9\n6. Full Copyright Statement  . . . . . . . . . . . . . . . . . .  10",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "In many environments clients require the ability to validiate the source and integrity of information provided by the directory. This document describes an LDAP message control which allows for the retrieval of digitally signed information. The perspective of this document is that the origin of the information that is stored in LDAP v3 accessible directories is the LDAP v3 client that creates the information. The source and integrity of the information is guaranteed by allowing for the digital signing of the operations that make changes to entries in the directory. The source and integrity of an individual LDAP connection can be guaranteed by making use of an underlying session layer that provides such services, such as TLS. Note that the integrity of an individual connection does not, in and of itself guarantee the integrity of the data that comes across the connection. This is due to the fact that the LDAP server is only capable of providing information that it has stored. In distributed and replicated environments, the fact that an entry has been successfully retrieved from a server may not be completely reassuring, if the entry in question was replicated from an untrusted domain.",
+      "zh-CHS": "在许多环境中，客户端需要能够验证目录提供的信息的源和完整性。本文档描述了一个LDAP消息控件，该控件允许检索数字签名信息。本文档的观点是，存储在LDAP v3可访问目录中的信息的来源是创建信息的LDAP v3客户端。允许对目录中的条目进行更改的操作进行数字签名，从而保证信息的来源和完整性。通过使用提供此类服务（如TLS）的底层会话层，可以保证单个LDAP连接的源和完整性。请注意，单个连接的完整性本身并不能保证通过连接的数据的完整性。这是因为LDAP服务器只能提供它存储的信息。在分布式和复制的环境中，如果某个条目是从不受信任的域复制的，那么从服务器成功检索该条目的事实可能并不完全令人放心。"
+    },
+    {
+      "indent": 3,
+      "text": "By making use of public key technology, and creating digitally signed transactions that are created by the LDAP v3 client as entries are created and modified, a complete journal of the history of the entry is available. Since each entry in the journal has been digitally signed with the private key of the creator, or modifier of the entry, the source and integrity of the directory entry can be validated by verifying the signature of each entry in the journal. Note that not all of the journal entries will have been signed by the same user.",
+      "zh-CHS": "通过使用公钥技术，并在创建和修改条目时创建由LDAP v3客户端创建的数字签名事务，可以获得条目历史的完整日志。由于日志中的每个条目都已使用该条目的创建者或修改者的私钥进行了数字签名，因此可以通过验证日志中每个条目的签名来验证目录条目的源和完整性。请注意，并非所有日记账分录都由同一用户签名。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Audit Trail Mechanism",
+      "section_title": true,
+      "zh-CHS": "1.1. 审计追踪机制"
+    },
+    {
+      "indent": 3,
+      "text": "Signed directory operations is a straightforward application of S/MIME technology that also leverages the extensible framework that is provided by LDAP version 3. LDAP version 3 is defined in [4], and S/MIME is defined in [2]. The security used in S/MIME is based in the definitions in [1]. The basic idea is that the submitter of an LDAP operation that changes the directory information includes an LDAP version 3 control that includes either a signature of the operation, or a request that the LDAP server sign the operation on the behalf of the LDAP client. The result of the operation (in addition to the change of the directory information), is additional information that is attached to directory objects, that includes the audit trail of signed operations. The LDAP control is (OID = 1.2.840.113549.6.0.0):",
+      "zh-CHS": "签名目录操作是S/MIME技术的直接应用，它还利用了LDAP版本3提供的可扩展框架。LDAP版本3在[4]中定义，S/MIME在[2]中定义。S/MIME中使用的安全性基于[1]中的定义。其基本思想是，更改目录信息的LDAP操作的提交者包括一个LDAP版本3控件，该控件包含操作的签名或LDAP服务器代表LDAP客户端对操作进行签名的请求。操作的结果（除了目录信息的更改之外）是附加到目录对象的附加信息，包括已签名操作的审核跟踪。LDAP控件是（OID=1.2.840.113549.6.0.0）："
+    },
+    {
+      "indent": 6,
+      "text": "SignedOperation ::= CHOICE {\n     signbyServer   NULL,\n     signatureIncluded   OCTET STRING\n }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the SignatureIncluded CHOICE is used, then the OCTET string is just an S/MIME message of the multipart/signed variety, that is composed of a single piece, that is the signature of the directory operation. Multipart/signed MIME objects are defined in [3]. If the SignbyServer CHOICE us used, then the LDAP server creates the signature on behalf of the client, using its own identity and not the identity of the client, in order to produce the audit trail entry. In either case the successful result of processing the control is the creation of additional information in the directory entry that is being modified or created. The signature of the LDAP operation is computed on the LDAPMessage prior to the inclusion of the SignedOperation control. The procedure is as follows:",
+      "zh-CHS": "如果使用SignatureIncluded选项，则八位字节字符串只是多部分/有符号类型的S/MIME消息，它由一个片段组成，即目录操作的签名。[3]中定义了多部分/签名MIME对象。如果SignbyServer选择使用us，则LDAP服务器将代表客户机使用其自己的标识而不是客户机的标识创建签名，以生成审计跟踪条目。无论哪种情况，处理控件的成功结果都是在正在修改或创建的目录项中创建附加信息。LDAP操作的签名是在包含SignedOperation控件之前在LDAPMessage上计算的。程序如下："
+    },
+    {
+      "indent": 6,
+      "text": "- Build LDAPMessage without the SignedOperation control - Compute signature on the above LDAPMessage - Create new LDAPMessage that includes the old MessageID, protocolOp and any control fields from the previous LDAPMessage, plus the computed signature formatted as an S/MIME message.",
+      "zh-CHS": "- 构建不带SignedOperation控件的LDAPMessage-在上述LDAPMessage上计算签名-创建新的LDAPMessage，其中包括旧的MessageID、protocolOp和前一个LDAPMessage中的任何控件字段，以及格式化为S/MIME消息的计算签名。"
+    },
+    {
+      "indent": 3,
+      "text": "No control is defined for the server to return in the LDAPResult as defined in [4]. The LDAP server MAY attempt to parse and verify the signature included in the SignedOperation control, but is not required to. The server can accept the signed operation without verifying the signature. Signature verification can be quite a lengthy operation, requiring complex certificate chain traversals. This allows a more timely creation of the audit trail by the server. Any LDAP client browsing the directory that retrieves the 'Changes' (defined in the following paragraphs) attributes, should verify the signature of each value according to the local signature verification policies. Even if the LDAP server verifies the signature contained in the singed operation, the LDAP client has no way of knowing what policies were followed by the server in order to verify the signature.",
+      "zh-CHS": "没有为服务器定义要在LDAPResult中返回的控件，如[4]中所定义。LDAP服务器可能会尝试解析和验证SignedOperation控件中包含的签名，但不需要这样做。服务器可以接受已签名的操作，而无需验证签名。签名验证可能是一个相当长的操作，需要复杂的证书链遍历。这允许服务器更及时地创建审核跟踪。任何浏览目录以检索“更改”（在以下段落中定义）属性的LDAP客户端都应根据本地签名验证策略验证每个值的签名。即使LDAP服务器验证签名操作中包含的签名，LDAP客户端也无法知道服务器遵循了哪些策略来验证签名。"
+    },
+    {
+      "indent": 3,
+      "text": "If the LDAP server is unable to verify the signature and wishes to return an error then the error code unwillingToPerform(53) should be returned, and the entire LDAP operation fails. In this situation, an appropriate message (e.g. \"Unable to verify signature\") MAY be included in the errorMessage of the LDAPResult. The SignedOperation Control MAY be marked CRITICAL, and if it is CRITICAL then if the LDAP Server performs the LDAP operation, then must include the signature in the signedAuditTrail information.",
+      "zh-CHS": "如果LDAP服务器无法验证签名并希望返回错误，则应返回错误代码UnwillingOperform（53），并且整个LDAP操作将失败。在这种情况下，LDAPResult的errorMessage中可能包含适当的消息（例如“无法验证签名”）。SignedOperation控件可能被标记为CRITICAL，如果它是CRITICAL，则如果LDAP服务器执行LDAP操作，则必须在SignedAuditRail信息中包含该签名。"
+    },
+    {
+      "indent": 6,
+      "text": "The schema definition for the signedAuditTrail information is:",
+      "zh-CHS": "SignedAuditRail信息的架构定义为："
+    },
+    {
+      "indent": 6,
+      "text": "( 1.2.840.113549.6.1.0 NAME 'signedAuditTrail' SUP top AUXILIARY MUST ( Changes ) )",
+      "zh-CHS": "（1.2.840.113549.6.1.0名称“SignedAuditRail”辅助顶部辅助必须（更改））"
+    },
+    {
+      "indent": 6,
+      "text": "The format of the Changes attribute is:",
+      "zh-CHS": "“更改”属性的格式为："
+    },
+    {
+      "indent": 6,
+      "text": "( 1.2.840.113549.6.2.0 NAME 'Changes' DESC 'a set of changes applied to an entry' SYNTAX 'Binary' )",
+      "zh-CHS": "（1.2.840.113549.6.2.0名称'Changes'DESC'应用于条目'SYNTAX'Binary'的一组更改）"
+    },
+    {
+      "indent": 6,
+      "text": "The actual format of the Changes attribute is:",
+      "zh-CHS": "“更改”属性的实际格式为："
+    },
+    {
+      "indent": 6,
+      "text": "Changes ::= SEQUENCE {\n     sequenceNumber [0] INTEGER (0 .. maxInt),\n     signedOperation [1] OCTET STRING }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The SignedOperation attribute is a multipart/signed S/MIME message. Part 1 of the message is the directory operation, and part 2 is the signature. Sequence number 0 (if present) always indicates the starting point directory object as represented by the definitions in \"A MIME Content-Type for Directory Information\", as defined in [5]. Subsequent sequence numbers indicate the sequence of changes that have been made to this directory object. Note that the sequence of the changes can be verified due to the fact that the signed directory object will have a timestamp as part of the signature object, and that the sequence numbering as part of the change attribute should be considered to be an unverified aid to the LDAP client. Sequence numbers are meaningful only within the context of a single directory entry, and LDAP servers are not expected to maintain these sequence numbers across all entries in the directory.",
+      "zh-CHS": "SignedOperation属性是一个多部分/已签名的S/MIME消息。消息的第1部分是目录操作，第2部分是签名。序号0（如果存在）始终表示起始点目录对象，如[5]中定义的“目录信息的MIME内容类型”中的定义所示。后续序列号指示对此目录对象所做更改的顺序。请注意，由于签名目录对象将具有时间戳作为签名对象的一部分，并且作为更改属性的一部分的序列编号应被视为对LDAP客户端的未经验证的帮助，因此可以验证更改的顺序。序列号仅在单个目录条目的上下文中有意义，LDAP服务器不需要在目录中的所有条目中维护这些序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "Some LDAP servers will only allow operations that include the SignedOperation control. This is indicated by the inclusion of a 'signedDirectoryOperationSupport' attribute in the rootDSE. This attribute is defined as:",
+      "zh-CHS": "某些LDAP服务器只允许包含SignedOperation控件的操作。这通过在rootDSE中包含“signedDirectoryOperationSupport”属性来表示。此属性定义为："
+    },
+    {
+      "indent": 6,
+      "text": "1.2.840.113549.6.2.2 NAME 'signedDirectoryOperationSupport' DESC 'how many of the LDAP operations must be signed' SYNTAX 'Integer' SINGLE-VALUE )",
+      "zh-CHS": "1.2.840.113549.6.2.2 NAME“signedDirectoryOperationSupport”DESC“多少LDAP操作必须有符号”“SYNTAX”“Integer”“单值”）"
+    },
+    {
+      "indent": 3,
+      "text": "The 'signedDirectoryOperationSupport' attribute above may have one of the values, '0', '1' or '2' with the following meanings:",
+      "zh-CHS": "上面的“signedDirectoryOperationSupport”属性可能具有以下含义的值“0”、“1”或“2”之一："
+    },
+    {
+      "indent": 6,
+      "text": "- '0' Directory Operations may be signed - '1' Directory Operations must always be signed - '2' Directory Operations must never be signed",
+      "zh-CHS": "- “0”目录操作可能已签名-“1”目录操作必须始终已签名-“2”目录操作不得已签名"
+    },
+    {
+      "indent": 3,
+      "text": "Some LDAP servers will desire that the audit trail be continuous, and not contain any gaps that would result from unsigned operations. Such server will include a signature on each LDAP operation that changes a directory entry, even when the LDAP client does not include a signed-Operation control.",
+      "zh-CHS": "一些LDAP服务器希望审计跟踪是连续的，并且不包含任何由未签名操作导致的间隙。这样的服务器将在更改目录项的每个LDAP操作上包含签名，即使LDAP客户端不包含签名的操作控件。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Handling the Delete Operation",
+      "section_title": true,
+      "zh-CHS": "1.2. 处理删除操作"
+    },
+    {
+      "indent": 3,
+      "text": "The LDAP Delete operation represents an interesting case for Signed Directory Operations. This is due to the case that subsequent to the successful completion of the Delete Operation, the object that would have held the latest 'Changes' attribute no longer exists. In order to handle this situation, a new object class is defined to represent a directory object that has been deleted.",
+      "zh-CHS": "LDAP删除操作代表了签名目录操作的一个有趣案例。这是因为在成功完成删除操作后，将保存最新“更改”属性的对象不再存在。为了处理这种情况，定义了一个新的对象类来表示已删除的目录对象。"
+    },
+    {
+      "indent": 6,
+      "text": "( 1.2.840.113549.6.1.2 NAME 'zombieObject' SUP top STRUCTURAL MUST ( Cn $ Changes $ OriginalObject ) )",
+      "zh-CHS": "（1.2.840.113549.6.1.2名称“僵尸对象”辅助顶部结构必须（Cn$Changes$OriginalObject））"
+    },
+    {
+      "indent": 6,
+      "text": "The format of the OriginalObject attribute is:",
+      "zh-CHS": "OriginalObject属性的格式为："
+    },
+    {
+      "indent": 6,
+      "text": "( 1.2.840.113549.6.2.1 NAME OriginalObject DESC 'The LDAP URL of an object that has been deleted from the directory' SYNTAX 'Binary' )",
+      "zh-CHS": "（1.2.840.113549.6.2.1 NAME OriginalObject DESC'已从目录'SYNTAX'Binary'中删除的对象的LDAP URL）"
+    },
+    {
+      "indent": 3,
+      "text": "The OriginalObject attribute contains the URL of the object that was deleted from the directory. It is formatted in accordance with RFC 2255. Directory servers that comply with this specification SHOULD create a zombieObject when performing the delete Operation that contains a SignedOperation LDAPControl. The Cn attribute of the",
+      "zh-CHS": "OriginalObject属性包含从目录中删除的对象的URL。它的格式符合RFC 2255。符合此规范的目录服务器应在执行包含SignedOperation LDAPControl的删除操作时创建一个zombieObject。的Cn属性"
+    },
+    {
+      "indent": 3,
+      "text": "zombieObject is synthesized by the LDAP server, and may or may not be related to the original name of the directory entry that was deleted. All changes attributes that were attached to the original entry are copied over to the zombieObject. In addition the LDAP Server MUST attach the signature of the Delete operation as the last successful change that was made to the entry.",
+      "zh-CHS": "zombieObject由LDAP服务器合成，可能与已删除的目录项的原始名称相关，也可能与之无关。附加到原始条目的所有更改属性都将复制到Zombie对象。此外，LDAP服务器必须附加删除操作的签名，作为对条目所做的最后一次成功更改。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Signed Results Mechanism",
+      "section_title": true,
+      "zh-CHS": "2. 签名结果机制"
+    },
+    {
+      "indent": 3,
+      "text": "A control is also defined that allows the LDAP v3 client to request that the server sign the results that it returns. It is intended that this control is primarily used in concert with the LDAPSearch operation. This control MAY be marked as CRITICAL. If it is marked as CRITICAL and the LDAP Server supports this operation, then all search results MUST be returned with a signature as attached in the SignedResult control if it is willing to sign results for this user. If the server supports this control but does not wish to sign the results for this user then the error code unwillingToPerform(53) should be returned, and the LDAP search will have failed. In this situation, an appropriate message (e.g. \"Unwilling to sign results for you!\") MUST be included in the errorMessage of the LDAPResult. If the LDAPSigType has the value FALSE then the client is requesting that the server not sign this operation. This may be done in situations where servers are configured to always sign their operations.",
+      "zh-CHS": "还定义了一个控件，允许LDAP v3客户端请求服务器对其返回的结果进行签名。此控件主要与LDAPSearch操作配合使用。此控件可能被标记为关键控件。如果它被标记为关键，并且LDAP服务器支持此操作，则如果它愿意为此用户的结果签名，则必须返回所有搜索结果，并在SignedResult控件中附加签名。如果服务器支持此控件，但不希望为此用户的结果签名，则应返回错误代码UnwillingOperform（53），LDAP搜索将失败。在这种情况下，LDAPResult的errorMessage中必须包含适当的消息（例如“不愿意为您签署结果！”）。如果LDAPSigType的值为FALSE，则客户端请求服务器不要对此操作进行签名。这可以在服务器配置为始终对其操作进行签名的情况下完成。"
+    },
+    {
+      "indent": 3,
+      "text": "The LDAP control to include in the LDAP request is (OID = 1.2.840.113549.6.0.1):",
+      "zh-CHS": "LDAP请求中包含的LDAP控件是（OID=1.2.840.113549.6.0.1）："
+    },
+    {
+      "indent": 6,
+      "text": "DemandSignedResult ::=  LDAPSigType",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "LDAPSigType ::= BOOLEAN",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In response to a DemandSignedResult control, the LDAP v3 server will return a SignedResult control in addition to the normal result as defined by the operation (assuming that the server understands the con- trol, and is willing to perform it). The SignedResult control MUST NOT be marked CRITICAL. Some LDAP v3 servers may be configured to sign all of their operations. In this situation the server always returns a SignedResult control, unless instructed otherwise by the DemandSigne-dResult Control. Since the SignedResult control is not marked critical, the LDAP client is allowed to ignore it. The signature field below includes the signature of the enitre LDAPResult formatted as an S/MIME pkcs-7/signature object, as defined in [2].",
+      "zh-CHS": "作为对DemandSignedResult控件的响应，LDAP v3服务器将在操作定义的正常结果之外返回SignedResult控件（假设服务器理解控件并愿意执行）。SignedResult控件不得标记为严重。某些LDAP v3服务器可能配置为对其所有操作进行签名。在这种情况下，服务器总是返回SignedResult控件，除非DemandSigne dResult控件另有指示。由于SignedResult控件未标记为critical，因此允许LDAP客户端忽略它。下面的签名字段包括格式为S/MIME pkcs-7/signature对象的enitre LDAPResult的签名，如[2]中所定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedure for creating the signature of the signedResult control is the same as the procedure for the creation of the signedOperation control. The LDAP control in the LDAP response is (OID = 1.2.840.113549.6.0.2):",
+      "zh-CHS": "创建signedResult控件的签名的过程与创建signedOperation控件的过程相同。LDAP响应中的LDAP控件为（OID=1.2.840.113549.6.0.2）："
+    },
+    {
+      "indent": 6,
+      "text": "SignedResult ::= CHOICE {\n     signature     OCTET STRING }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3. Security Considerations and Other Notes",
+      "section_title": true,
+      "zh-CHS": "3. 安全注意事项和其他注意事项"
+    },
+    {
+      "indent": 6,
+      "text": "The base OIDs are:",
+      "zh-CHS": "基本OID是："
+    },
+    {
+      "indent": 6,
+      "text": "rsadsiLdap ::= {1 2 840 113549 6}\nrsadsiLdapControls ::=  {1 2 840 113549 6 0}\nrsadsiLdapObjectClasses ::= {1 2 840 113549 6 1}\nrsadsiLdapAttributes ::= {1 2 840 113549 6 2}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "The complete ASN.1 module for this specification is:",
+      "zh-CHS": "本规范的完整ASN.1模块为："
+    },
+    {
+      "indent": 6,
+      "text": "SIGNEDOPERATIONS DEFINITIONS ::=\nBEGIN",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "SignedOperation ::= CHOICE {\n     signbyServer   NULL,\n     signatureIncluded   OCTET STRING\n }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Changes ::= SEQUENCE {\n     sequenceNumber [0] INTEGER (0 .. maxInt),\n     signedOperation [1] OCTET STRING }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "DemandSignedResult ::=  LDAPSigType",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "LDAPSigType ::= BOOLEAN",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "SignedResult ::= CHOICE {\n     signature     OCTET STRING }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "END",
+      "zh-CHS": "终止"
+    },
+    {
+      "indent": 3,
+      "text": "If any of the controls in this specification are supported by an LDAP v3 server then that server MUST make available its certificate (if any) in the userCertificate attribute of its rootDSE object. The UserCertificate attribute is defined in [6], and contains the public key of the server that is used in the creation of the various signatures defined in this specification.",
+      "zh-CHS": "如果LDAP v3服务器支持此规范中的任何控件，则该服务器必须在其rootDSE对象的userCertificate属性中提供其证书（如果有）。UserCertificate属性在[6]中定义，并包含用于创建本规范中定义的各种签名的服务器公钥。"
+    },
+    {
+      "indent": 3,
+      "text": "It is not the intention of this specification to provide a mechanism that guarantees the origin and integrity of LDAP v3 operations. Such a service is best provided by the use of an underlying protocol such as TLS [8]. TLS defines additional features such as encryption and compression. This specification does not define support for encrypted operations.",
+      "zh-CHS": "本规范的目的不是提供一种机制来保证LDAP v3操作的起源和完整性。这种服务最好通过使用底层协议（如TLS）来提供[8]。TLS定义了加密和压缩等附加功能。本规范未定义对加密操作的支持。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo proposes protocol elements for transmission and storage of the digital signatures of LDAP operations. Though the LDAP server may have verified the operation signatures prior to their storage and subsequent retrieval, it is prudent for LDAP clients to verify the signatures contained in the chained attribute upon their retrieval. The issuing Certification Authorities of the signer's certificate should also be consulted in order to determine if the signer's private key has been compromised or the certificate has been otherwise revoked. Security considerations are discussed throughout this memo.",
+      "zh-CHS": "本备忘录提出了LDAP操作数字签名传输和存储的协议元素。虽然LDAP服务器可能在存储和后续检索之前验证了操作签名，但LDAP客户端在检索时验证包含在chained属性中的签名是谨慎的。还应咨询签名者证书的颁发认证机构，以确定签名者的私钥是否已被泄露或证书是否已被撤销。本备忘录中讨论了安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "4. References",
+      "section_title": true,
+      "zh-CHS": "4. 工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Kaliski, B., \"PKCS 7: Cryptographic Message Syntax Version 1-5\", RFC 2315, March 1998.",
+      "zh-CHS": "[1] Kaliski，B.，“PKCS 7：加密消息语法版本1-5”，RFC 2315，1998年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Dusse, S., Hoffman, P., Ramsdell, B., Lundblade, L. and L. Repka., \"S/MIME Version 2 Message Specification\", RFC 2311, March 1998.",
+      "zh-CHS": "[2] Dusse，S.，Hoffman，P.，Ramsdell，B.，Lundblade，L.和L.Repka.，“S/MIME版本2消息规范”，RFC 2311，1998年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Galvin, J., Murphy, S., Crocker, S. and N. Freed, \"Security Multiparts for MIME: Multipart/Signed and Multipart/Encrypted\", RFC 1847, October 1995.",
+      "zh-CHS": "[3] Galvin，J.，Murphy，S.，Crocker，S.和N.Freed，“MIME的安全多部分：多部分/签名和多部分/加密”，RFC 1847，1995年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Wahl, M., Howes, T. and S. Kille, \"Lightweight Directory Access Protocol (v3)\", RFC 2251, December 1997.",
+      "zh-CHS": "[4] Wahl，M.，Howes，T.和S.Kille，“轻量级目录访问协议（v3）”，RFC 2251，1997年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Howes, T., Smith, M. and F. Dawson, \"A MIME Content-Type for Directory Information\", RFC 2425, September 1998.",
+      "zh-CHS": "[5] Howes，T.，Smith，M.和F.Dawson，“目录信息的MIME内容类型”，RFC2425，1998年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Wahl, M., \"A Summary of the X.500(96) User Schema for use with LDAPv3\", RFC 2256, December 1997.",
+      "zh-CHS": "[6] Wahl，M.，“与LDAPv3一起使用的X.500（96）用户模式摘要”，RFC 2256，1997年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Howes, T. and M. Smith, \"The LDAP URL Format\", RFC 2255, December 1997.",
+      "zh-CHS": "[7] Howes，T.和M.Smith，“LDAP URL格式”，RFC 2255，1997年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Dierks, T. and C. Allen, \"The TLS Protocol Version 1.0\", RFC 2246, January 1999.",
+      "zh-CHS": "[8] Dierks，T.和C.Allen，“TLS协议1.0版”，RFC 2246，1999年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Authors' Addresses",
+      "section_title": true,
+      "zh-CHS": "5. 作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Bruce Greenblatt San Jose, CA 95119 USA",
+      "zh-CHS": "美国加利福尼亚州圣何塞市布鲁斯·格林布拉特95119"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1-408-224-5349\nEMail: bgreenblatt@directory-applications.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Pat Richard Xcert Software, Inc. Suite 1001 - 701 W. Georgia Vancouver, BC CANADA V6G 1C9",
+      "zh-CHS": "Pat Richard Xcert软件公司位于加拿大不列颠哥伦比亚省温哥华佐治亚州西1001-701室V6G 1C9"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: patr@xcert.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Full Copyright Statement",
+      "section_title": true,
+      "zh-CHS": "6. 完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (1999). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（1999年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,769 @@
+{
+  "title": {
+    "text": "RFC 8405: Shortest Path First (SPF) Back-Off Delay Algorithm for Link-State IGPs",
+    "zh-CHS": "RFC 8405"
+  },
+  "number": 8405,
+  "created_at": "2021-10-29 17:08:55.906799+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                       B. Decraene\nRequest for Comments: 8405                                        Orange\nCategory: Standards Track                                   S. Litkowski\nISSN: 2070-1721                                  Orange Business Service\n                                                              H. Gredler\n                                                            RtBrick Inc.\n                                                               A. Lindem\n                                                           Cisco Systems\n                                                             P. Francois",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 50,
+      "text": " C. Bowers Juniper Networks, Inc. June 2018",
+      "zh-CHS": "C.Bowers Juniper Networks，Inc.2018年6月"
+    },
+    {
+      "indent": 1,
+      "text": "Shortest Path First (SPF) Back-Off Delay Algorithm for Link-State IGPs",
+      "zh-CHS": "链路状态IGPs的最短路径优先（SPF）退避延迟算法"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a standard algorithm to temporarily postpone or \"back off\" link-state IGP Shortest Path First (SPF) computations. This reduces the computational load and churn on IGP nodes when multiple temporally close network events trigger multiple SPF computations.",
+      "zh-CHS": "本文件定义了一种标准算法，用于暂时推迟或“退出”链路状态IGP最短路径优先（SPF）计算。当多个暂时关闭的网络事件触发多个SPF计算时，这减少了IGP节点上的计算负载和搅动。"
+    },
+    {
+      "indent": 3,
+      "text": "Having one standard algorithm improves interoperability by reducing the probability and/or duration of transient forwarding loops during the IGP convergence when the IGP reacts to multiple temporally close IGP events.",
+      "zh-CHS": "当IGP对多个暂时关闭的IGP事件作出反应时，在IGP收敛期间，使用一个标准算法通过降低瞬时转发循环的概率和/或持续时间来提高互操作性。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at https://www.rfc-editor.org/info/rfc8405.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问https://www.rfc-editor.org/info/rfc8405."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2018 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2018 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(https://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2\n  1.1.  Requirements Language . . . . . . . . . . . . . . . . . .   3\n2.  High-Level Goals  . . . . . . . . . . . . . . . . . . . . . .   3\n3.  Definitions and Parameters  . . . . . . . . . . . . . . . . .   4\n4.  Principles of the SPF Delay Algorithm . . . . . . . . . . . .   5\n5.  Specification of the SPF Delay State Machine  . . . . . . . .   6\n  5.1.  State Machine . . . . . . . . . . . . . . . . . . . . . .   6\n  5.2.  States  . . . . . . . . . . . . . . . . . . . . . . . . .   7\n  5.3.  Timers  . . . . . . . . . . . . . . . . . . . . . . . . .   7\n  5.4.  FSM Events  . . . . . . . . . . . . . . . . . . . . . . .   7\n6.  Parameters  . . . . . . . . . . . . . . . . . . . . . . . . .   9\n7.  Partial Deployment  . . . . . . . . . . . . . . . . . . . . .  10\n8.  Impact on Micro-loops . . . . . . . . . . . . . . . . . . . .  11\n9.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  11\n10. Security Considerations . . . . . . . . . . . . . . . . . . .  11\n11. References  . . . . . . . . . . . . . . . . . . . . . . . . .  11\n  11.1.  Normative References . . . . . . . . . . . . . . . . . .  11\n  11.2.  Informative References . . . . . . . . . . . . . . . . .  11\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  13\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  13",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Link-state IGPs, such as IS-IS [ISO10589], OSPF [RFC2328], and OSPFv3 [RFC5340], perform distributed route computation on all routers in the area/level. In order to have consistent routing tables across the network, such distributed computation requires that all routers have the same version of the network topology (Link-State Database (LSDB)) and perform their computation essentially at the same time.",
+      "zh-CHS": "链路状态IGP，如IS-IS[ISO10589]、OSPF[RFC2328]和OSPFv3[RFC5340]，在区域/级别的所有路由器上执行分布式路由计算。为了在网络上具有一致的路由表，这种分布式计算要求所有路由器具有相同版本的网络拓扑（链路状态数据库（LSDB）），并且基本上同时执行它们的计算。"
+    },
+    {
+      "indent": 3,
+      "text": "In general, when the network is stable, there is a desire to trigger a new Shortest Path First (SPF) computation as soon as a failure is detected in order to quickly route around the failure. However, when the network is experiencing multiple failures over a short period of time, there is a conflicting desire to limit the frequency of SPF computations, which would allow a reduction in control plane resources used by IGPs and all protocols/subsystems reacting to the attendant route change, such as LDP [RFC5036], RSVP-TE [RFC3209], BGP [RFC4271], Fast Reroute computations (e.g., Loop-Free Alternates (LFAs) [RFC5286]), FIB updates, etc. This also reduces network churn and, in particular, reduces side effects (such as micro-loops [RFC5715]) that ensue during IGP convergence.",
+      "zh-CHS": "通常，当网络稳定时，一旦检测到故障，就需要触发新的最短路径优先（SPF）计算，以便快速绕过故障。然而，当网络在短时间内经历多个故障时，存在限制SPF计算频率的矛盾愿望，这将允许减少IGP和所有协议/子系统（如LDP[RFC5036]、RSVP-TE[RFC3209]、BGP）对伴随路由变化作出反应时使用的控制平面资源[RFC4271]、快速重路由计算（例如，无环路交替（LFA）[RFC5286]）、FIB更新等。这也减少了网络波动，特别是减少了IGP收敛期间产生的副作用（如微环路[RFC5715]）。"
+    },
+    {
+      "indent": 3,
+      "text": "To allow for this, IGPs usually implement an SPF Back-Off Delay algorithm that postpones or backs off the SPF computation. However, different implementations chose different algorithms. Hence, in a multi-vendor network, it's not possible to ensure that all routers trigger their SPF computation after the same delay. This situation increases the average and maximum differential delay between routers completing their SPF computation. It also increases the probability that different routers compute their FIBs based on different LSDB versions. Both factors increase the probability and/or duration of micro-loops as discussed in Section 8.",
+      "zh-CHS": "考虑到这一点，IGPs通常实施SPF退避延迟算法，该算法推迟或退避SPF计算。然而，不同的实现选择了不同的算法。因此，在多供应商网络中，不可能确保所有路由器在相同延迟后触发其SPF计算。这种情况增加了路由器之间完成SPF计算的平均和最大差分延迟。它还增加了不同路由器基于不同LSDB版本计算FIB的概率。如第8节所述，这两个因素都会增加微循环的概率和/或持续时间。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies a standard algorithm to allow multi-vendor networks to have all routers delay their SPF computations for the same duration.",
+      "zh-CHS": "本文件规定了一种标准算法，允许多供应商网络让所有路由器将其SPF计算延迟相同的时间。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Requirements Language",
+      "section_title": true,
+      "zh-CHS": "1.1. 需求语言"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14[RFC2119][RFC8174]所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. High-Level Goals",
+      "section_title": true,
+      "zh-CHS": "2. 高级别目标"
+    },
+    {
+      "indent": 3,
+      "text": "The high-level goals of this algorithm are the following:",
+      "zh-CHS": "该算法的高级目标如下："
+    },
+    {
+      "indent": 3,
+      "text": "o very fast convergence for a single event (e.g., link failure),",
+      "zh-CHS": "o 单个事件（如链路故障）的收敛速度非常快，"
+    },
+    {
+      "indent": 3,
+      "text": "o paced fast convergence for multiple temporally close IGP events while IGP stability is considered acceptable,",
+      "zh-CHS": "o 当IGP稳定性被认为是可接受时，多个时间接近IGP事件的快收敛速度，"
+    },
+    {
+      "indent": 3,
+      "text": "o delayed convergence when IGP stability is problematic (this will allow the IGP and related processes to conserve resources during the period of instability), and",
+      "zh-CHS": "o 当IGP稳定性有问题时，延迟收敛（这将允许IGP和相关过程在不稳定期间节约资源），以及"
+    },
+    {
+      "indent": 3,
+      "text": "o avoidance of having different SPF_DELAY timer values (Section 3) across different routers in the area/level. This requires specific consideration as different routers may receive IGP messages at different intervals, or even in different orders, due to differences both in the distance from the originator of the IGP event and in flooding implementations.",
+      "zh-CHS": "o 避免在区域/级别的不同路由器上具有不同的SPF_延迟计时器值（第3节）。这需要特别考虑，因为不同的路由器可能会以不同的间隔接收IGP消息，或者甚至以不同的顺序接收IGP消息，这是由于与IGP事件发起者的距离和泛洪实现的不同。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Definitions and Parameters",
+      "section_title": true,
+      "zh-CHS": "3. 定义和参数"
+    },
+    {
+      "indent": 3,
+      "text": "IGP event: The reception or origination of an IGP LSDB change requiring a new routing table computation. Some examples are a topology change, a prefix change, and a metric change on a link or prefix. Note that locally triggering a routing table computation is not considered an IGP event since other IGP routers are unaware of this occurrence.",
+      "zh-CHS": "IGP事件：接收或发起需要新路由表计算的IGP LSDB更改。一些示例包括拓扑更改、前缀更改和链接或前缀上的度量更改。请注意，本地触发路由表计算不被视为IGP事件，因为其他IGP路由器不知道这种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Routing table computation, in this document, is scoped to the IGP; so, this is the computation of the IGP RIB, performed by the IGP, using the IGP LSDB. No distinction is made between the type of computation performed, e.g., full SPF, incremental SPF, or Partial Route Computation (PRC); the type of computation is a local consideration. This document may interchangeably use the terms \"routing table computation\" and \"SPF computation\".",
+      "zh-CHS": "在本文件中，路由表计算适用于IGP；因此，这是IGP肋的计算，由IGP使用IGP LSDB执行。所执行的计算类型之间没有区别，例如，全SPF、增量SPF或部分路线计算（PRC）；计算类型是局部考虑的因素。本文件可交替使用术语“路由表计算”和“SPF计算”。"
+    },
+    {
+      "indent": 3,
+      "text": "SPF_DELAY: The delay between the first IGP event triggering a new routing table computation and the start of that routing table computation. It can take the following values:",
+      "zh-CHS": "SPF_延迟：触发新路由表计算的第一个IGP事件与开始该路由表计算之间的延迟。它可以采用以下值："
+    },
+    {
+      "indent": 4,
+      "text": "INITIAL_SPF_DELAY: A very small delay to quickly handle a single isolated link failure, e.g., 0 milliseconds.",
+      "zh-CHS": "初始_SPF_延迟：快速处理单个隔离链路故障的非常小的延迟，例如0毫秒。"
+    },
+    {
+      "indent": 4,
+      "text": "SHORT_SPF_DELAY: A small delay to provide fast convergence in the case of a single component failure (such as a node failure or Shared Risk Link Group (SRLG) failure) that leads to multiple IGP events, e.g., 50-100 milliseconds.",
+      "zh-CHS": "短_SPF_延迟：在单个组件故障（例如节点故障或共享风险链路组（SRLG）故障）导致多个IGP事件（例如50-100毫秒）的情况下提供快速收敛的小延迟。"
+    },
+    {
+      "indent": 4,
+      "text": "LONG_SPF_DELAY: A long delay when the IGP is unstable, e.g., 2 seconds. Note that this allows the IGP network to stabilize.",
+      "zh-CHS": "长延时：IGP不稳定时的长延时，例如2秒。注意，这允许IGP网络稳定。"
+    },
+    {
+      "indent": 3,
+      "text": "TIME_TO_LEARN_INTERVAL: This is the maximum duration typically needed to learn all the IGP events related to a single component failure (such as router failure or SRLG failure), e.g., 1 second. It's mostly dependent on failure detection time variation between all routers that are adjacent to the failure. Additionally, it may depend on the different IGP implementations/parameters across the network and their relation to the origination and flooding of link state advertisements.",
+      "zh-CHS": "时间-学习间隔：这是学习与单个组件故障（如路由器故障或SRLG故障）相关的所有IGP事件通常需要的最长持续时间，例如1秒。这主要取决于与故障相邻的所有路由器之间的故障检测时间变化。此外，它可能取决于网络上的不同IGP实现/参数及其与链路状态广告的发起和泛滥的关系。"
+    },
+    {
+      "indent": 3,
+      "text": "HOLDDOWN_INTERVAL: The time required with no received IGP event before considering the IGP to be stable again and allowing the SPF_DELAY to be restored to INITIAL_SPF_DELAY, e.g., a HOLDDOWN_INTERVAL of 3 seconds. The HOLDDOWN_INTERVAL MUST be defaulted or configured to be longer than the TIME_TO_LEARN_INTERVAL.",
+      "zh-CHS": "抑制间隔：在认为IGP再次稳定并允许SPF\\U延迟恢复到初始SPF\\U延迟之前，在没有收到IGP事件的情况下所需的时间，例如，3秒的抑制间隔。按住时间间隔必须设置为默认值，或配置为长于时间间隔。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Principles of the SPF Delay Algorithm",
+      "section_title": true,
+      "zh-CHS": "4. SPF延迟算法的原理"
+    },
+    {
+      "indent": 3,
+      "text": "For the first IGP event, we assume that there has been a single simple change in the network, which can be taken into account using a single routing computation (e.g., link failure, prefix (metric) change), and we optimize for very fast convergence by delaying the initial routing computation for a small interval, INITIAL_SPF_DELAY. Under this assumption, there is no benefit in delaying the routing computation. In a typical network, this is the most common type of IGP event. Hence, it makes sense to optimize this case.",
+      "zh-CHS": "对于第一个IGP事件，我们假设网络中存在一个简单的变化，可以使用单个路由计算（例如，链路故障、前缀（度量）变化）将其考虑在内，并且我们通过将初始路由计算延迟一个小的间隔、初始SPF延迟来优化非常快的收敛。在此假设下，延迟路由计算没有任何好处。在典型网络中，这是最常见的IGP事件类型。因此，优化这种情况是有意义的。"
+    },
+    {
+      "indent": 3,
+      "text": "If subsequent IGP events are received in a short period of time (TIME_TO_LEARN_INTERVAL), we then assume that a single component failed, but that this failure requires the knowledge of multiple IGP events in order for IGP routing to converge. Under this assumption, we want fast convergence since this is a normal network situation. However, there is a benefit in waiting for all IGP events related to this single component failure: the IGP can then compute the post-failure routing table in a single additional route computation. In this situation, we delay the routing computation by SHORT_SPF_DELAY.",
+      "zh-CHS": "如果随后的IGP事件在短时间内（从时间到学习时间间隔）收到，则我们假设单个组件发生故障，但该故障需要了解多个IGP事件，以便IGP路由收敛。在这种假设下，我们希望快速收敛，因为这是一种正常的网络情况。然而，等待与此单组件故障相关的所有IGP事件有一个好处：IGP可以在单个额外的路由计算中计算故障后路由表。在这种情况下，我们通过较短的SPF延迟来延迟路由计算。"
+    },
+    {
+      "indent": 3,
+      "text": "If IGP events are still received after TIME_TO_LEARN_INTERVAL from the initial IGP event received in QUIET state (see Section 5.1), then the network is presumably experiencing multiple independent failures. In this case, while waiting for network stability, the computations are delayed for a longer time, which is represented by LONG_SPF_DELAY. This SPF delay is used until no IGP events are received for HOLDDOWN_INTERVAL.",
+      "zh-CHS": "如果在安静状态下接收到的初始IGP事件的时间间隔（参见第5.1节）之后仍然接收到IGP事件，则网络可能正在经历多个独立故障。在这种情况下，在等待网络稳定的同时，计算会延迟更长的时间，这表现为长_SPF_延迟。此SPF延迟将一直使用，直到没有接收到用于保持间隔的IGP事件。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that in order to increase the consistency network wide, the algorithm uses a delay (TIME_TO_LEARN_INTERVAL) from the initial IGP event rather than the number of SPF computations performed. Indeed, as all routers may receive the IGP events at different times, we cannot assume that all routers will perform the same number of SPF computations. For example, assuming that the SPF delay is 50 milliseconds, router R1 may receive three IGP events (E1, E2, E3) in those 50 milliseconds and hence will perform a single routing computation, while another router R2 may only receive two events (E1, E2) in those 50 milliseconds and hence will schedule another routing computation when receiving E3.",
+      "zh-CHS": "注意，为了增加网络范围内的一致性，该算法使用来自初始IGP事件的延迟（时间到学习间隔），而不是执行的SPF计算数量。实际上，由于所有路由器可能在不同的时间接收IGP事件，我们不能假设所有路由器将执行相同数量的SPF计算。例如，假设SPF延迟为50毫秒，路由器R1可能在这50毫秒内接收三个IGP事件（E1、E2、E3），因此将执行单个路由计算，而另一个路由器R2可能在这50毫秒内仅接收两个事件（E1、E2），因此在接收E3时将安排另一个路由计算。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Specification of the SPF Delay State Machine",
+      "section_title": true,
+      "zh-CHS": "5. SPF延迟状态机规范"
+    },
+    {
+      "indent": 3,
+      "text": "This section specifies the Finite State Machine (FSM) intended to control the timing of the execution of SPF calculations in response to IGP events.",
+      "zh-CHS": "本节规定了有限状态机（FSM），用于控制执行SPF计算的时间，以响应IGP事件。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. State Machine",
+      "section_title": true,
+      "zh-CHS": "5.1. 状态机"
+    },
+    {
+      "indent": 3,
+      "text": "The FSM is initialized to the QUIET state with all three timers (SPF_TIMER, HOLDDOWN_TIMER, and LEARN_TIMER) deactivated.",
+      "zh-CHS": "FSM初始化为安静状态，同时所有三个定时器（SPF_定时器、按住_定时器和读入_定时器）均已停用。"
+    },
+    {
+      "indent": 3,
+      "text": "The events that may change the FSM states are an IGP event or the expiration of one timer (SPF_TIMER, HOLDDOWN_TIMER, or LEARN_TIMER).",
+      "zh-CHS": "可能改变FSM状态的事件为IGP事件或一个计时器（SPF_计时器、保持_计时器或学习_计时器）过期。"
+    },
+    {
+      "indent": 3,
+      "text": "The following diagram briefly describes the state transitions.",
+      "zh-CHS": "下图简要描述了状态转换。"
+    },
+    {
+      "indent": 11,
+      "text": "          +-------------------+\n    +---->|                   |<-------------------+\n    |     |      QUIET        |                    |\n    +-----|                   |<---------+         |\n7:        +-------------------+          |         |\nSPF_TIMER           |                    |         |\nexpiration          |                    |         |\n                    | 1: IGP event       |         |\n                    |                    |         |\n                    v                    |         |\n          +-------------------+          |         |\n    +---->|                   |          |         |\n    |     |    SHORT_WAIT     |----->----+         |\n    +-----|                   |                    |\n2:        +-------------------+  6: HOLDDOWN_TIMER |\nIGP event           |               expiration     |\n8: SPF_TIMER        |                              |\n   expiration       |                              |\n                    | 3: LEARN_TIMER               |\n                    |    expiration                |\n                    |                              |\n                    v                              |\n          +-------------------+                    |\n    +---->|                   |                    |\n    |     |     LONG_WAIT     |------------>-------+\n    +-----|                   |\n4:        +-------------------+  5: HOLDDOWN_TIMER\nIGP event                           expiration\n9: SPF_TIMER expiration",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "Figure 1: State Machine",
+      "zh-CHS": "图1：状态机"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. States",
+      "section_title": true,
+      "zh-CHS": "5.2. 州"
+    },
+    {
+      "indent": 3,
+      "text": "The naming and semantics of each state corresponds directly to the SPF delay used for IGP events received in that state. Three states are defined:",
+      "zh-CHS": "每个状态的命名和语义直接对应于在该状态下接收的IGP事件所使用的SPF延迟。定义了三种状态："
+    },
+    {
+      "indent": 3,
+      "text": "QUIET: This is the initial state, when no IGP events have occurred for at least HOLDDOWN_INTERVAL since the last routing table computation. The state is meant to handle link failures very quickly.",
+      "zh-CHS": "安静：这是初始状态，自上一次路由表计算以来至少有一段时间没有发生IGP事件。该状态旨在非常快速地处理链路故障。"
+    },
+    {
+      "indent": 3,
+      "text": "SHORT_WAIT: This is the state entered when an IGP event has been received in QUIET state. This state is meant to handle a single component failure requiring multiple IGP events (e.g., node, SRLG).",
+      "zh-CHS": "SHORT_WAIT：这是在安静状态下收到IGP事件时输入的状态。该状态旨在处理需要多个IGP事件（例如，节点、SRLG）的单个组件故障。"
+    },
+    {
+      "indent": 3,
+      "text": "LONG_WAIT: This is the state reached after TIME_TO_LEARN_INTERVAL in state SHORT_WAIT. This state is meant to handle multiple independent component failures during periods of IGP instability.",
+      "zh-CHS": "LONG_WAIT（长等待）：这是在状态为SHORT_WAIT（短等待）的时间间隔后达到的状态。该状态旨在处理IGP不稳定期间的多个独立部件故障。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Timers",
+      "section_title": true,
+      "zh-CHS": "5.3. 计时器"
+    },
+    {
+      "indent": 3,
+      "text": "SPF_TIMER: This is the FSM timer that uses the computed SPF delay. Upon expiration, the routing table computation (as defined in Section 3) is performed.",
+      "zh-CHS": "SPF_定时器：这是使用计算出的SPF延迟的FSM定时器。到期时，执行路由表计算（如第3节所定义）。"
+    },
+    {
+      "indent": 3,
+      "text": "HOLDDOWN_TIMER: This is the FSM timer that is (re)started when an IGP event is received and set to HOLDDOWN_INTERVAL. Upon expiration, the FSM is moved to the QUIET state.",
+      "zh-CHS": "保持计时器：这是在收到IGP事件并设置为保持计时器间隔时（重新）启动的FSM计时器。到期时，FSM移动到安静状态。"
+    },
+    {
+      "indent": 3,
+      "text": "LEARN_TIMER: This is the FSM timer that is started when an IGP event is received while the FSM is in the QUIET state. Upon expiration, the FSM is moved to the LONG_WAIT state.",
+      "zh-CHS": "读入定时器：这是FSM定时器，在FSM处于静默状态时收到IGP事件时启动。到期时，FSM移动到长等待状态。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. FSM Events",
+      "section_title": true,
+      "zh-CHS": "5.4. FSM事件"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the events and the actions performed in response.",
+      "zh-CHS": "本节描述了响应中执行的事件和操作。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 1: IGP event while in QUIET state",
+      "zh-CHS": "过渡1：处于安静状态时的IGP事件"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 1:",
+      "zh-CHS": "对事件1采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o If SPF_TIMER is not already running, start it with value INITIAL_SPF_DELAY.",
+      "zh-CHS": "o 如果SPF_计时器尚未运行，请使用值INITIAL_SPF_DELAY启动它。"
+    },
+    {
+      "indent": 3,
+      "text": "o Start LEARN_TIMER with TIME_TO_LEARN_INTERVAL.",
+      "zh-CHS": "o 启动学习计时器，时间间隔为。"
+    },
+    {
+      "indent": 3,
+      "text": "o Start HOLDDOWN_TIMER with HOLDDOWN_INTERVAL.",
+      "zh-CHS": "o 以按住时间间隔启动按住计时器。"
+    },
+    {
+      "indent": 3,
+      "text": "o Transition to SHORT_WAIT state.",
+      "zh-CHS": "o 转换到短_等待状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 2: IGP event while in SHORT_WAIT",
+      "zh-CHS": "转换2:IGP事件处于短暂等待状态"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 2:",
+      "zh-CHS": "对事件2采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Reset HOLDDOWN_TIMER to HOLDDOWN_INTERVAL.",
+      "zh-CHS": "o 将保持时间计时器重置为保持时间间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "o If SPF_TIMER is not already running, start it with value SHORT_SPF_DELAY.",
+      "zh-CHS": "o 如果SPF_计时器尚未运行，请使用SHORT_SPF_DELAY值启动它。"
+    },
+    {
+      "indent": 3,
+      "text": "o Remain in current state.",
+      "zh-CHS": "o 保持现状。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 3: LEARN_TIMER expiration",
+      "zh-CHS": "过渡3：学习计时器过期"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 3:",
+      "zh-CHS": "就事件3采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Transition to LONG_WAIT state.",
+      "zh-CHS": "o 转换到长时间等待状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 4: IGP event while in LONG_WAIT",
+      "zh-CHS": "转换4：长时间等待时发生IGP事件"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 4:",
+      "zh-CHS": "就事件4采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Reset HOLDDOWN_TIMER to HOLDDOWN_INTERVAL.",
+      "zh-CHS": "o 将保持时间计时器重置为保持时间间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "o If SPF_TIMER is not already running, start it with value LONG_SPF_DELAY.",
+      "zh-CHS": "o 如果SPF_计时器尚未运行，请使用LONG_SPF_DELAY值启动它。"
+    },
+    {
+      "indent": 3,
+      "text": "o Remain in current state.",
+      "zh-CHS": "o 保持现状。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 5: HOLDDOWN_TIMER expiration while in LONG_WAIT",
+      "zh-CHS": "转换5：长时间等待时按住计时器过期"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 5:",
+      "zh-CHS": "关于活动5的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Transition to QUIET state.",
+      "zh-CHS": "o 过渡到安静状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 6: HOLDDOWN_TIMER expiration while in SHORT_WAIT",
+      "zh-CHS": "转换6：短时间等待时按住计时器过期"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 6:",
+      "zh-CHS": "就事件6采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Deactivate LEARN_TIMER.",
+      "zh-CHS": "o 停用学习定时器。"
+    },
+    {
+      "indent": 3,
+      "text": "o Transition to QUIET state.",
+      "zh-CHS": "o 过渡到安静状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 7: SPF_TIMER expiration while in QUIET",
+      "zh-CHS": "转换7:SPF_计时器在安静状态下过期"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 7:",
+      "zh-CHS": "就事件7采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Compute SPF.",
+      "zh-CHS": "o 计算SPF。"
+    },
+    {
+      "indent": 3,
+      "text": "o Remain in current state.",
+      "zh-CHS": "o 保持现状。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 8: SPF_TIMER expiration while in SHORT_WAIT",
+      "zh-CHS": "转换8:SPF_计时器在短时间等待时过期"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 8:",
+      "zh-CHS": "关于活动8的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Compute SPF.",
+      "zh-CHS": "o 计算SPF。"
+    },
+    {
+      "indent": 3,
+      "text": "o Remain in current state.",
+      "zh-CHS": "o 保持现状。"
+    },
+    {
+      "indent": 3,
+      "text": "Transition 9: SPF_TIMER expiration while in LONG_WAIT",
+      "zh-CHS": "转换9:SPF_计时器在长时间等待时过期"
+    },
+    {
+      "indent": 3,
+      "text": "Actions on event 9:",
+      "zh-CHS": "对事件9采取的行动："
+    },
+    {
+      "indent": 3,
+      "text": "o Compute SPF.",
+      "zh-CHS": "o 计算SPF。"
+    },
+    {
+      "indent": 3,
+      "text": "o Remain in current state.",
+      "zh-CHS": "o 保持现状。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Parameters",
+      "section_title": true,
+      "zh-CHS": "6. 参数"
+    },
+    {
+      "indent": 3,
+      "text": "All the parameters MUST be configurable at the protocol instance level. They MAY be configurable on a per IGP LSDB basis (e.g., IS-IS level, OSPF area, or IS-IS Level 1 area). All the delays (INITIAL_SPF_DELAY, SHORT_SPF_DELAY, LONG_SPF_DELAY, TIME_TO_LEARN_INTERVAL, and HOLDDOWN_INTERVAL) SHOULD be configurable with a granularity of a millisecond. They MUST be configurable with a granularity of at least a tenth of a second. The configurable range for all the parameters SHOULD be from 0 milliseconds to at least 6000 milliseconds. The HOLDDOWN_INTERVAL MUST be defaulted or configured to be longer than the TIME_TO_LEARN_INTERVAL.",
+      "zh-CHS": "所有参数必须在协议实例级别可配置。它们可以在每个IGP LSDB的基础上进行配置（例如，IS-IS级别、OSPF区域或IS-IS级别1区域）。所有延迟（初始SPF延迟、短SPF延迟、长SPF延迟、时间到学习间隔和保持间隔）应可配置为毫秒的粒度。它们必须是可配置的，粒度至少为十分之一秒。所有参数的可配置范围应为0毫秒至至少6000毫秒。按住时间间隔必须设置为默认值，或配置为长于时间间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "If this SPF Back-Off algorithm is enabled by default, then in order to have consistent SPF delays between implementations with default configuration, the following default values SHOULD be implemented:",
+      "zh-CHS": "如果默认情况下启用此SPF退避算法，则为了在使用默认配置的实现之间具有一致的SPF延迟，应实现以下默认值："
+    },
+    {
+      "indent": 6,
+      "text": "INITIAL_SPF_DELAY 50 ms SHORT_SPF_DELAY 200 ms LONG_SPF_DELAY 5000 ms TIME_TO_LEARN_INTERVAL 500 ms HOLDDOWN_INTERVAL 10000 ms",
+      "zh-CHS": "初始SPF延迟50毫秒短SPF延迟200毫秒长SPF延迟5000毫秒学习时间间隔500毫秒保持时间间隔10000毫秒"
+    },
+    {
+      "indent": 3,
+      "text": "In order to satisfy the goals stated in Section 2, operators are RECOMMENDED to configure delay intervals such that INITIAL_SPF_DELAY <= SHORT_SPF_DELAY and SHORT_SPF_DELAY <= LONG_SPF_DELAY.",
+      "zh-CHS": "为了满足第2节中所述的目标，建议操作员配置延迟间隔，使初始SPF延迟<=短SPF延迟和短SPF延迟<=长SPF延迟。"
+    },
+    {
+      "indent": 3,
+      "text": "When setting (default) values, one should consider the customers and their application requirements, the computational power of the routers, the size of the network as determined primarily by the number of IP prefixes advertised in the IGP, the frequency and number",
+      "zh-CHS": "当设置（默认）值时，应该考虑客户和它们的应用需求、路由器的计算能力、网络的大小，主要取决于IGP中公布的IP前缀的数量、频率和数量。"
+    },
+    {
+      "indent": 3,
+      "text": "of IGP events, and the number of protocol reactions/computations triggered by IGP SPF computation (e.g., BGP, Path Computation Element Communication Protocol (PCEP), Traffic Engineering Constrained SPF (CSPF), and Fast Reroute computations). Note that some or all of these factors may change over the life of the network. In case of doubt, it's RECOMMENDED that timer intervals should be chosen conservatively (i.e., longer timer values).",
+      "zh-CHS": "IGP事件的数量，以及由IGP SPF计算触发的协议反应/计算的数量（例如，BGP、路径计算元素通信协议（PCEP）、流量工程约束SPF（CSPF）和快速重路由计算）。请注意，这些因素中的一部分或全部可能会在网络寿命期间发生变化。如有疑问，建议保守地选择计时器间隔（即更长的计时器值）。"
+    },
+    {
+      "indent": 3,
+      "text": "For the standard algorithm to be effective in mitigating micro-loops, it is RECOMMENDED that all routers in the IGP domain, or at least all the routers in the same area/level, have exactly the same configured values.",
+      "zh-CHS": "为了使标准算法能够有效缓解微循环，建议IGP域中的所有路由器，或至少相同区域/级别中的所有路由器具有完全相同的配置值。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Partial Deployment",
+      "section_title": true,
+      "zh-CHS": "7. 部分部署"
+    },
+    {
+      "indent": 3,
+      "text": "In general, the SPF Back-Off Delay algorithm is only effective in mitigating micro-loops if it is deployed with the same parameters on all routers in the IGP domain or, at least, all routers in an IGP area/level. The impact of partial deployment is dependent on the particular event, the topology, and the algorithm(s) used on other routers in the IGP area/level. In cases where the previous SPF Back-Off Delay algorithm was implemented uniformly, partial deployment will increase the frequency and duration of micro-loops. Hence, it is RECOMMENDED that all routers in the IGP domain, or at least within the same area/level, be migrated to the SPF algorithm described herein at roughly the same time.",
+      "zh-CHS": "一般来说，SPF退避延迟算法只有在IGP域中的所有路由器上或至少在IGP区域/级别中的所有路由器上使用相同参数部署时，才能有效缓解微循环。部分部署的影响取决于IGP区域/级别中其他路由器上使用的特定事件、拓扑和算法。如果以前的SPF退避延迟算法是统一实现的，则部分部署将增加微环路的频率和持续时间。因此，建议IGP域中或至少在相同区域/级别内的所有路由器大致同时迁移到本文所述的SPF算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this is not a new consideration; over time, network operators have changed SPF delay parameters in order to accommodate new customer requirements for fast convergence, as permitted by new software and hardware. They may also have progressively replaced an implementation using a given SPF Back-Off Delay algorithm with another implementation using a different one.",
+      "zh-CHS": "请注意，这不是一个新的考虑因素；随着时间的推移，网络运营商已经改变了SPF延迟参数，以适应新的客户对快速收敛的要求，这是新的软件和硬件所允许的。他们也可能已经逐渐地用另一个使用不同算法的实现替换了使用给定SPF退避延迟算法的实现。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Impact on Micro-loops",
+      "section_title": true,
+      "zh-CHS": "8. 对微环的影响"
+    },
+    {
+      "indent": 3,
+      "text": "Micro-loops during IGP convergence are due to a non-synchronized or non-ordered update of FIBs [RFC5715] [RFC6976] [SPF-MICRO]. FIBs are installed after multiple steps, such as flooding of the IGP event across the network, SPF wait time, SPF computation, FIB distribution across line cards, and FIB update. This document only addresses the contribution from the SPF wait time. This standardized procedure reduces the probability and/or duration of micro-loops when IGPs experience multiple temporally close events. It does not prevent all micro-loops; however, it is beneficial and is less complex and costly to implement when compared to full solutions such as Distributed Tunnels [RFC5715], Synchronized FIB Update [RFC5715], or the ordered FIB approach [RFC6976].",
+      "zh-CHS": "IGP收敛期间的微循环是由于FIBs[RFC5715][RFC6976][SPF-Micro]的非同步或非有序更新引起的。FIB是在多个步骤后安装的，例如IGP事件在网络中的泛滥、SPF等待时间、SPF计算、FIB在线路卡上的分布以及FIB更新。本文档仅说明SPF等待时间的贡献。当IGP经历多个临时闭合事件时，该标准化程序降低了微回路的概率和/或持续时间。它不能阻止所有的微环；然而，与分布式隧道[RFC5715]、同步FIB更新[RFC5715]或有序FIB方法[RFC6976]等完整解决方案相比，它是有益的，并且实现起来不那么复杂和昂贵。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document has no IANA actions.",
+      "zh-CHS": "本文档没有IANA操作。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "10. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm presented in this document does not compromise IGP security. An attacker having the ability to generate IGP events would be able to delay the IGP convergence time. The LONG_SPF_DELAY state may help mitigate the effects of Denial-of-Service (DoS) attacks generating many IGP events.",
+      "zh-CHS": "本文中提出的算法不会影响IGP安全性。能够生成IGP事件的攻击者将能够延迟IGP收敛时间。LONG_SPF_延迟状态可能有助于减轻拒绝服务（DoS）攻击产生的许多IGP事件的影响。"
+    },
+    {
+      "indent": 0,
+      "text": "11. References",
+      "section_title": true,
+      "zh-CHS": "11. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "11.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "11.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <https://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<https://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8174] Leiba, B., \"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words\", BCP 14, RFC 8174, DOI 10.17487/RFC8174, May 2017, <https://www.rfc-editor.org/info/rfc8174>.",
+      "zh-CHS": "[RFC8174]Leiba，B.，“RFC 2119关键词中大写与小写的歧义”，BCP 14，RFC 8174，DOI 10.17487/RFC8174，2017年5月<https://www.rfc-editor.org/info/rfc8174>."
+    },
+    {
+      "indent": 0,
+      "text": "11.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "11.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ISO10589] International Organization for Standardization, \"Information technology -- Telecommunications and information exchange between systems -- Intermediate System to Intermediate System intra-domain routeing information exchange protocol for use in conjunction with the protocol for providing the connectionless-mode network service (ISO 8473)\", ISO/IEC 10589:2002, Second Edition, November 2002.",
+      "zh-CHS": "[ISO10589]国际标准化组织，“信息技术——系统间电信和信息交换——与提供无连接模式网络服务协议一起使用的中间系统到中间系统域内路由信息交换协议（ISO 8473）”，ISO/IEC 10589:2002，第二版，2002年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2328] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, DOI 10.17487/RFC2328, April 1998, <https://www.rfc-editor.org/info/rfc2328>.",
+      "zh-CHS": "[RFC2328]Moy，J.，“OSPF版本2”，STD 54，RFC 2328，DOI 10.17487/RFC2328，1998年4月<https://www.rfc-editor.org/info/rfc2328>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3209] Awduche, D., Berger, L., Gan, D., Li, T., Srinivasan, V., and G. Swallow, \"RSVP-TE: Extensions to RSVP for LSP Tunnels\", RFC 3209, DOI 10.17487/RFC3209, December 2001, <https://www.rfc-editor.org/info/rfc3209>.",
+      "zh-CHS": "[RFC3209]Awduche，D.，Berger，L.，Gan，D.，Li，T.，Srinivasan，V.，和G.Swallow，“RSVP-TE：LSP隧道RSVP的扩展”，RFC 3209，DOI 10.17487/RFC3209，2001年12月<https://www.rfc-editor.org/info/rfc3209>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4271] Rekhter, Y., Ed., Li, T., Ed., and S. Hares, Ed., \"A Border Gateway Protocol 4 (BGP-4)\", RFC 4271, DOI 10.17487/RFC4271, January 2006, <https://www.rfc-editor.org/info/rfc4271>.",
+      "zh-CHS": "[RFC4271]Rekhter，Y.，Ed.，Li，T.，Ed.，和S.Hares，Ed.，“边境网关协议4（BGP-4）”，RFC 4271，DOI 10.17487/RFC4271，2006年1月<https://www.rfc-editor.org/info/rfc4271>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5036] Andersson, L., Ed., Minei, I., Ed., and B. Thomas, Ed., \"LDP Specification\", RFC 5036, DOI 10.17487/RFC5036, October 2007, <https://www.rfc-editor.org/info/rfc5036>.",
+      "zh-CHS": "[RFC5036]Andersson，L.，Ed.，Minei，I.，Ed.，和B.Thomas，Ed.“LDP规范”，RFC 5036，DOI 10.17487/RFC5036，2007年10月<https://www.rfc-editor.org/info/rfc5036>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5286] Atlas, A., Ed. and A. Zinin, Ed., \"Basic Specification for IP Fast Reroute: Loop-Free Alternates\", RFC 5286, DOI 10.17487/RFC5286, September 2008, <https://www.rfc-editor.org/info/rfc5286>.",
+      "zh-CHS": "[RFC5286]Atlas，A.，Ed.和A.Zinin，Ed.，“IP快速重路由的基本规范：无环路交替”，RFC 5286，DOI 10.17487/RFC5286，2008年9月<https://www.rfc-editor.org/info/rfc5286>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5340] Coltun, R., Ferguson, D., Moy, J., and A. Lindem, \"OSPF for IPv6\", RFC 5340, DOI 10.17487/RFC5340, July 2008, <https://www.rfc-editor.org/info/rfc5340>.",
+      "zh-CHS": "[RFC5340]Coltun，R.，Ferguson，D.，Moy，J.，和A.Lindem，“IPv6的OSPF”，RFC 5340，DOI 10.17487/RFC5340，2008年7月<https://www.rfc-editor.org/info/rfc5340>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5715] Shand, M. and S. Bryant, \"A Framework for Loop-Free Convergence\", RFC 5715, DOI 10.17487/RFC5715, January 2010, <https://www.rfc-editor.org/info/rfc5715>.",
+      "zh-CHS": "[RFC5715]Shand，M.和S.Bryant，“无环收敛框架”，RFC 5715DOI 10.17487/RFC57152010年1月<https://www.rfc-editor.org/info/rfc5715>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6976] Shand, M., Bryant, S., Previdi, S., Filsfils, C., Francois, P., and O. Bonaventure, \"Framework for Loop-Free Convergence Using the Ordered Forwarding Information Base (oFIB) Approach\", RFC 6976, DOI 10.17487/RFC6976, July 2013, <https://www.rfc-editor.org/info/rfc6976>.",
+      "zh-CHS": "[RFC6976]Shand，M.，Bryant，S.，Previdi，S.，Filsfils，C.，Francois，P.，和O.Bonaventure，“使用有序转发信息库（oFIB）方法的无循环收敛框架”，RFC 6976，DOI 10.17487/RFC6976，2013年7月<https://www.rfc-editor.org/info/rfc6976>."
+    },
+    {
+      "indent": 3,
+      "text": "[SPF-MICRO] Litkowski, S., Decraene, B., and M. Horneffer, \"Link State protocols SPF trigger and delay algorithm impact on IGP micro-loops\", Work in Progress, draft-ietf-rtgwg-spf-uloop-pb-statement-07, May 2018.",
+      "zh-CHS": "[SPF-MICRO]Litkowski，S.，DeClaene，B.，和M.Horneffer，“链路状态协议SPF触发器和延迟算法对IGP微环路的影响”，正在进行的工作，草稿-ietf-rtgwg-SPF-uloop-pb-statement-07，2018年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We would like to acknowledge Les Ginsberg, Uma Chunduri, Mike Shand, and Alexander Vainshtein for the discussions and comments related to this document.",
+      "zh-CHS": "我们感谢Les Ginsberg、Uma Chunduri、Mike Shand和Alexander Vainstein对本文件的讨论和评论。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Bruno Decraene Orange",
+      "zh-CHS": "布鲁诺橙"
+    },
+    {
+      "indent": 3,
+      "text": "Email: bruno.decraene@orange.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Stephane Litkowski Orange Business Service",
+      "zh-CHS": "Stephane Litkowski橙色商务服务"
+    },
+    {
+      "indent": 3,
+      "text": "Email: stephane.litkowski@orange.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Hannes Gredler RtBrick Inc.",
+      "zh-CHS": "汉内斯·格雷德勒RtBrick公司。"
+    },
+    {
+      "indent": 3,
+      "text": "Email: hannes@rtbrick.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Acee Lindem Cisco Systems 301 Midenhall Way Cary, NC 27513 United States of America",
+      "zh-CHS": "Acee Lindem思科系统301美国北卡罗来纳州米登霍尔大道卡里27513号"
+    },
+    {
+      "indent": 3,
+      "text": "Email: acee@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Pierre Francois",
+      "zh-CHS": "皮埃尔·弗朗索瓦"
+    },
+    {
+      "indent": 3,
+      "text": "Email: pfrpfr@gmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Chris Bowers Juniper Networks, Inc. 1194 N. Mathilda Ave. Sunnyvale, CA 94089 United States of America",
+      "zh-CHS": "Chris Bowers Juniper Networks，Inc.美国加利福尼亚州桑尼维尔市马蒂尔达大道北1194号，邮编94089"
+    },
+    {
+      "indent": 3,
+      "text": "Email: cbowers@juniper.net",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

@@ -1,0 +1,369 @@
+{
+  "title": {
+    "text": "RFC 8109: Initializing a DNS Resolver with Priming Queries",
+    "zh-CHS": "RFC 8109"
+  },
+  "number": 8109,
+  "created_at": "2021-10-28 18:58:13.751319+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                           P. Koch\nRequest for Comments: 8109                                      DENIC eG\nBCP: 209                                                       M. Larson\nCategory: Best Current Practice                               P. Hoffman\nISSN: 2070-1721                                                    ICANN\n                                                              March 2017",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Initializing a DNS Resolver with Priming Queries",
+      "zh-CHS": "使用启动查询初始化DNS解析程序"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the queries that a DNS resolver should emit to initialize its cache. The result is that the resolver gets both a current NS Resource Record Set (RRset) for the root zone and the necessary address information for reaching the root servers.",
+      "zh-CHS": "本文档描述DNS解析程序在初始化其缓存时应发出的查询。结果是，冲突解决程序获取根区域的当前NS资源记录集（RRset）和到达根服务器所需的地址信息。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo documents an Internet Best Current Practice.",
+      "zh-CHS": "本备忘录记录了互联网最佳实践。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on BCPs is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关BCP的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc8109.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc8109."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2017 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2017 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Description of Priming ..........................................3\n3. Priming Queries .................................................3\n   3.1. Repeating Priming Queries ..................................4\n   3.2. Target Selection ...........................................4\n   3.3. DNSSEC with Priming Queries ................................4\n4. Priming Responses ...............................................5\n   4.1. Expected Properties of the Priming Response ................5\n   4.2. Completeness of the Response ...............................5\n5. Security Considerations .........................................6\n6. IANA Considerations .............................................6\n7. Normative References ............................................6\nAcknowledgements ...................................................7\nAuthors' Addresses .................................................7",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Recursive DNS resolvers need a starting point to resolve queries. [RFC1034] describes a common scenario for recursive resolvers: they begin with an empty cache and some configuration for finding the names and addresses of the DNS root servers. [RFC1034] describes that configuration as a list of servers that will give authoritative answers to queries about the root. This has become a common implementation choice for recursive resolvers, and is the topic of this document.",
+      "zh-CHS": "递归DNS解析程序需要一个起点来解析查询。[RFC1034]描述了递归解析程序的常见场景：它们从一个空缓存和一些用于查找DNS根服务器的名称和地址的配置开始。[RFC1034]将该配置描述为一个服务器列表，该列表将为有关根目录的查询提供权威答案。这已成为递归解析器的常见实现选择，也是本文档的主题。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the steps needed for this common implementation choice. Note that this is not the only way to start a recursive name server with an empty cache, but it is the only one described in [RFC1034]. Some implementers have chosen other directions, some of which work well and others of which fail (sometimes disastrously) under different conditions. For example, an implementation that only gets the addresses of the root name servers from configuration, not from the DNS as described in this document, will have stale data that could cause slower resolution.",
+      "zh-CHS": "本文档描述了此常见实现选择所需的步骤。请注意，这不是使用空缓存启动递归名称服务器的唯一方法，但它是[RFC1034]中描述的唯一方法。一些实现者选择了其他方向，其中一些方向工作良好，而另一些方向在不同的条件下失败（有时是灾难性的）。例如，如果一个实现只从配置中获取根名称服务器的地址，而不是从本文档中描述的DNS中获取，则该实现将具有过时的数据，这可能会导致较慢的解析速度。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "This document only deals with recursive name servers (recursive resolvers, resolvers) for the IN class.",
+      "zh-CHS": "本文档仅处理类中的递归名称服务器（递归解析器、解析器）。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Description of Priming",
+      "section_title": true,
+      "zh-CHS": "2. 启动说明"
+    },
+    {
+      "indent": 3,
+      "text": "Priming is the act of finding the list of root servers from a configuration that lists some or all of the purported IP addresses of some or all of those root servers. A recursive resolver starts with no information about the root servers, and ends up with a list of their names and their addresses.",
+      "zh-CHS": "启动是从列出部分或所有根服务器的部分或全部声称IP地址的配置中查找根服务器列表的行为。递归解析器开始时没有关于根服务器的信息，最后是它们的名称和地址列表。"
+    },
+    {
+      "indent": 3,
+      "text": "Priming is described in Sections 5.3.2 and 5.3.3 of [RFC1034]. The scenario used in that description, that of a recursive server that is also authoritative, is no longer as common.",
+      "zh-CHS": "[RFC1034]第5.3.2节和第5.3.3节描述了底漆。该描述中使用的场景，也就是具有权威性的递归服务器的场景，已不再常见。"
+    },
+    {
+      "indent": 3,
+      "text": "The configured list of IP addresses for the root servers usually comes from the vendor or distributor of the recursive server software. This list is usually correct and complete when shipped, but may become out of date over time.",
+      "zh-CHS": "根服务器的IP地址配置列表通常来自递归服务器软件的供应商或分销商。此列表在装运时通常是正确和完整的，但随着时间的推移可能会过时。"
+    },
+    {
+      "indent": 3,
+      "text": "The list of root server operators and the domain name associated with each one has been stable since 1997. However, there are address changes for the root server domain names, both for IPv4 and IPv6 addresses. However, research shows that after those addresses change, some resolvers never get the new addresses. Therefore, it is important that resolvers be able to cope with change, even without relying upon configuration updates to be applied by their operator. Root server change is the main reason that resolvers need to do priming instead of just going from a configured list to get a full and accurate list of root servers.",
+      "zh-CHS": "自1997年以来，根服务器运营商的列表以及与每个运营商相关的域名一直保持稳定。但是，根服务器域名（IPv4和IPv6地址）存在地址更改。然而，研究表明，在这些地址改变之后，一些解析器永远不会得到新的地址。因此，即使不依赖操作员应用的配置更新，解析程序也必须能够应对更改。根服务器更改是冲突解决程序需要执行启动的主要原因，而不仅仅是从配置的列表中获取完整而准确的根服务器列表。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Priming Queries",
+      "section_title": true,
+      "zh-CHS": "3. 启动查询"
+    },
+    {
+      "indent": 3,
+      "text": "A priming query is a DNS query used to get the root server information in a resolver. It has a QNAME of \".\" and a QTYPE of NS, and is sent to one of the addresses in the configuration for the recursive resolver. The priming query can be sent over either UDP or TCP. If the query is sent over UDP, the source port SHOULD be randomly selected (see [RFC5452]). The Recursion Desired (RD) bit MAY be set to 0 or 1, although the meaning of it being set to 1 is undefined for priming queries.",
+      "zh-CHS": "启动查询是用于在解析程序中获取根服务器信息的DNS查询。它的QNAME为“”，QTYPE为NS，并发送到递归解析器配置中的一个地址。启动查询可以通过UDP或TCP发送。如果通过UDP发送查询，则应随机选择源端口（请参阅[RFC5452]）。所需递归（RD）位可以设置为0或1，尽管设置为1的含义对于启动查询是未定义的。"
+    },
+    {
+      "indent": 3,
+      "text": "The recursive resolver SHOULD use EDNS(0) [RFC6891] for priming queries and SHOULD announce and handle a reassembly size of at least 1024 octets [RFC3226]. Doing so allows responses that cover the size of a full priming response (see Section 4.2) for the current set of root servers. See Section 3.3 for discussion of setting the DNSSEC OK (DO) bit (defined in [RFC4033]).",
+      "zh-CHS": "递归解析器应使用EDN（0）[RFC6891]启动查询，并应宣布和处理至少1024个八位字节[RFC3226]的重组大小。这样做允许响应覆盖当前根服务器集的完全启动响应大小（参见第4.2节）。有关设置DNSSEC OK（DO）位（在[RFC4033]中定义）的讨论，请参见第3.3节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Repeating Priming Queries",
+      "section_title": true,
+      "zh-CHS": "3.1. 重复启动查询"
+    },
+    {
+      "indent": 3,
+      "text": "The recursive resolver SHOULD send a priming query only when it is needed, such as when the resolver starts with an empty cache and when the NS RRset for the root zone has expired. Because the NS records for the root are not special, the recursive resolver expires those NS records according to their TTL values. (Note that a recursive resolver MAY pre-fetch the NS RRset before it expires.)",
+      "zh-CHS": "递归解析程序应该仅在需要时发送启动查询，例如当解析程序以空缓存启动时，以及当根区域的NS RRset过期时。因为根目录的NS记录不是特殊的，所以递归解析器根据这些NS记录的TTL值使其过期。（请注意，递归解析器可能会在NS RRset过期之前预取它。）"
+    },
+    {
+      "indent": 3,
+      "text": "If a priming query does not get a response, the recursive resolver needs to retry the query with a different target address from the configuration.",
+      "zh-CHS": "如果启动查询没有得到响应，递归解析器需要使用与配置不同的目标地址重试该查询。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Target Selection",
+      "section_title": true,
+      "zh-CHS": "3.2. 目标选择"
+    },
+    {
+      "indent": 3,
+      "text": "In order to spread the load across all the root server domain names, the recursive resolver SHOULD select the target for a priming query randomly from the list of addresses. The recursive resolver might choose either IPv4 or IPv6 addresses based on its knowledge of whether the system on which it is running has adequate connectivity on either type of address.",
+      "zh-CHS": "为了将负载分散到所有根服务器域名上，递归解析器应该从地址列表中随机选择启动查询的目标。递归冲突解决程序可以根据其对运行它的系统是否在任一类型的地址上具有足够的连接的了解来选择IPv4或IPv6地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this recommended method is not the only way to choose from the list in a recursive resolver's configuration. Two other common methods include picking the first from the list, and remembering which address in the list gave the fastest response earlier and using that one. There are probably other methods in use today. However, the random method listed above SHOULD be used for priming.",
+      "zh-CHS": "请注意，在递归解析器的配置中，此推荐方法不是从列表中选择的唯一方法。另外两种常见的方法包括从列表中选择第一个地址，记住列表中哪个地址更早给出了最快的响应，然后使用那个地址。今天可能还有其他方法在使用。但是，应使用上面列出的随机方法进行打底。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. DNSSEC with Priming Queries",
+      "section_title": true,
+      "zh-CHS": "3.3. 带启动查询的DNSSEC"
+    },
+    {
+      "indent": 3,
+      "text": "The resolver MAY set the DNSSEC OK (DO) bit. At the time of publication, there is little use to performing DNSSEC validation on the priming query. Currently, all root name server names end in \"root-servers.net\" and the AAAA and A RRsets for the root server names reside in the \"root-servers.net\" zone. All root servers are also authoritative for this zone, allowing priming responses to include the appropriate root name server A and AAAA RRsets. But, because the \"root-servers.net\" zone is not currently signed, these RRsets cannot be validated.",
+      "zh-CHS": "分解器可以设置DNSSEC OK（DO）位。在发布时，对启动查询执行DNSSEC验证几乎没有用处。目前，所有根名称服务器名称都以“根服务器.net”结尾，根服务器名称的AAAA和RRA集位于“根服务器.net”区域。所有根服务器也都是此区域的权威服务器，允许启动响应包括适当的根名称服务器A和AAAA RRSET。但是，由于“根服务器.net”区域当前未签名，因此无法验证这些RRSET。"
+    },
+    {
+      "indent": 3,
+      "text": "A man-in-the-middle attack on the priming query could direct a resolver to a rogue root name server. Note, however, that a validating resolver will not accept responses from rogue root name servers if they are different from the real responses because the",
+      "zh-CHS": "对启动查询的中间人攻击可能会将解析程序指向恶意根名称服务器。但是，请注意，验证解析程序不会接受来自恶意根名称服务器的响应，如果它们与实际响应不同，因为"
+    },
+    {
+      "indent": 3,
+      "text": "resolver has a trust anchor for the root and the answers from the root are signed. Thus, if there is a man-in-the-middle attack on the priming query, the only result for a validating resolver will be a denial of service, not the resolver's accepting the bad responses.",
+      "zh-CHS": "解析程序具有根的信任锚点，并且对根的答案进行签名。因此，如果有中间人攻击启动查询，验证解析程序的唯一结果将是拒绝服务，而不是解析程序接受错误响应。"
+    },
+    {
+      "indent": 3,
+      "text": "If the \"root-servers.net\" zone is later signed, or if the root servers are named in a different zone and that zone is signed, having DNSSEC validation for the priming queries might be valuable.",
+      "zh-CHS": "如果“root servers.net”区域后来被签名，或者如果根服务器在不同的区域中命名并且该区域被签名，那么对启动查询进行DNSSEC验证可能是有价值的。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Priming Responses",
+      "section_title": true,
+      "zh-CHS": "4. 启动反应"
+    },
+    {
+      "indent": 3,
+      "text": "A priming query is a normal DNS query. Thus, a root name server cannot distinguish a priming query from any other query for the root NS RRset. Thus, the root server's response will also be a normal DNS response.",
+      "zh-CHS": "启动查询是正常的DNS查询。因此，根名称服务器无法将启动查询与根集合的任何其他查询区分开来。因此，根服务器的响应也将是正常的DNS响应。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Expected Properties of the Priming Response",
+      "section_title": true,
+      "zh-CHS": "4.1. 启动反应的预期性质"
+    },
+    {
+      "indent": 3,
+      "text": "The priming response is expected to have an RCODE of NOERROR, and to have the Authoritative Answer (AA) bit set. Also, it is expected to have an NS RRset in the Answer section (because the NS RRset originates from the root zone), and an empty Authority section (because the NS RRset already appears in the Answer section). There will also be an Additional section with A and/or AAAA RRsets for the root name servers pointed at by the NS RRset.",
+      "zh-CHS": "启动响应应具有NOERROR的RCODE，并设置权威答案（AA）位。此外，预计在应答部分中会有一个NS RRset（因为NS RRset来自根区域），以及一个空的授权部分（因为NS RRset已经出现在应答部分中）。还将有一个附加部分，其中包含NS RRset指向的根名称服务器的A和/或AAAA RRset。"
+    },
+    {
+      "indent": 3,
+      "text": "Resolver software SHOULD treat the response to the priming query as a normal DNS response, just as it would use any other data fed to its cache. Resolver software SHOULD NOT expect exactly 13 NS RRs because, historically, some root servers have returned fewer.",
+      "zh-CHS": "解析器软件应将对启动查询的响应视为正常DNS响应，就像它将使用任何其他数据馈送到其缓存一样。冲突解决程序软件不应期望准确的13 NS RRs，因为从历史上看，某些根服务器返回的数量较少。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Completeness of the Response",
+      "section_title": true,
+      "zh-CHS": "4.2. 答复的完整性"
+    },
+    {
+      "indent": 3,
+      "text": "There are currently 13 root servers. All have one IPv4 address and one IPv6 address. Not even counting the NS RRset, the combined size of all the A and AAAA RRsets exceeds the original 512-octet payload limit from [RFC1035].",
+      "zh-CHS": "目前有13个根服务器。它们都有一个IPv4地址和一个IPv6地址。即使不算NS RRset，所有A和AAAA RRset的组合大小也超过了[RFC1035]中最初的512八位字节有效负载限制。"
+    },
+    {
+      "indent": 3,
+      "text": "In the event of a response where the Additional section omits certain root server address information, re-issuing of the priming query does not help with those root name servers that respond with a fixed order of addresses in the Additional section. Instead, the recursive resolver needs to issue direct queries for A and AAAA RRsets for the remaining names. Currently, these RRsets would be authoritatively available from the root name servers.",
+      "zh-CHS": "如果响应中的附加部分忽略了某些根服务器地址信息，则重新发出启动查询对那些在附加部分中以固定地址顺序响应的根名称服务器没有帮助。相反，递归解析器需要直接查询A和AAAA rrset，查询其余名称。目前，这些RRSET将从根名称服务器授权提供。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Spoofing a response to a priming query can be used to redirect all of the queries originating from a victim recursive resolver to one or more servers for the attacker. Until the responses to priming queries are protected with DNSSEC, there is no definitive way to prevent such redirection.",
+      "zh-CHS": "欺骗对启动查询的响应可用于将来自受害者递归解析器的所有查询重定向到攻击者的一个或多个服务器。除非对启动查询的响应受到DNSSEC的保护，否则没有明确的方法来阻止这种重定向。"
+    },
+    {
+      "indent": 3,
+      "text": "An on-path attacker who sees a priming query coming from a resolver can inject false answers before a root server can give correct answers. If the attacker's answers are accepted, this can set up the ability to give further false answers for future queries to the resolver. False answers for root servers are more dangerous than, say, false answers for Top-Level Domains (TLDs), because the root is the highest node of the DNS. See Section 3.3 for more discussion.",
+      "zh-CHS": "路径上攻击者看到来自解析程序的启动查询时，可以在根服务器给出正确答案之前注入错误答案。如果攻击者的答案被接受，这可以设置为在将来向解析器查询时提供更多错误答案的能力。根服务器的错误应答比顶级域（TLD）的错误应答更危险，因为根是DNS的最高节点。更多讨论见第3.3节。"
+    },
+    {
+      "indent": 3,
+      "text": "In both of the scenarios above, a validating resolver will be able to detect the attack if its chain of queries comes to a zone that is signed, but not for those that are unsigned.",
+      "zh-CHS": "在上述两种情况下，如果验证解析器的查询链到达已签名的区域，而不是未签名的区域，则验证解析器将能够检测到攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not require any IANA actions.",
+      "zh-CHS": "本文件不要求IANA采取任何行动。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Normative References",
+      "section_title": true,
+      "zh-CHS": "7. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1034] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, DOI 10.17487/RFC1034, November 1987, <http://www.rfc-editor.org/info/rfc1034>.",
+      "zh-CHS": "[RFC1034]Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，DOI 10.17487/RFC1034，1987年11月<http://www.rfc-editor.org/info/rfc1034>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1035] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, DOI 10.17487/RFC1035, November 1987, <http://www.rfc-editor.org/info/rfc1035>.",
+      "zh-CHS": "[RFC1035]Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 1035，DOI 10.17487/RFC1035，1987年11月<http://www.rfc-editor.org/info/rfc1035>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3226] Gudmundsson, O., \"DNSSEC and IPv6 A6 aware server/resolver message size requirements\", RFC 3226, DOI 10.17487/RFC3226, December 2001, <http://www.rfc-editor.org/info/rfc3226>.",
+      "zh-CHS": "[RFC3226]Gudmundsson，O.，“DNSSEC和IPv6 A6感知服务器/解析器消息大小要求”，RFC 3226，DOI 10.17487/RFC3226，2001年12月<http://www.rfc-editor.org/info/rfc3226>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4033] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, DOI 10.17487/RFC4033, March 2005, <http://www.rfc-editor.org/info/rfc4033>.",
+      "zh-CHS": "[RFC4033]Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，DOI 10.17487/RFC4033，2005年3月<http://www.rfc-editor.org/info/rfc4033>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5452] Hubert, A. and R. van Mook, \"Measures for Making DNS More Resilient against Forged Answers\", RFC 5452, DOI 10.17487/RFC5452, January 2009, <http://www.rfc-editor.org/info/rfc5452>.",
+      "zh-CHS": "[RFC5452]Hubert，A.和R.van Mook，“使DNS对伪造答案更具弹性的措施”，RFC 5452，DOI 10.17487/RFC5452，2009年1月<http://www.rfc-editor.org/info/rfc5452>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6891] Damas, J., Graff, M., and P. Vixie, \"Extension Mechanisms for DNS (EDNS(0))\", STD 75, RFC 6891, DOI 10.17487/RFC6891, April 2013, <http://www.rfc-editor.org/info/rfc6891>.",
+      "zh-CHS": "[RFC6891]Damas，J.，Graff，M.，和P.Vixie，“DNS的扩展机制（EDNS（0）），STD 75，RFC 6891，DOI 10.17487/RFC68911913年4月<http://www.rfc-editor.org/info/rfc6891>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This document is the product of the DNSOP WG and benefitted from the reviews done there.",
+      "zh-CHS": "本文件是DNSOP工作组的产品，并从审查中受益。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Peter Koch DENIC eG Kaiserstrasse 75-77 Frankfurt 60329 Germany",
+      "zh-CHS": "彼得·科赫·丹尼克德国法兰克福凯撒大街75-77号，邮编60329"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +49 69 27235 0\nEmail: pk@DENIC.DE",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Matt Larson ICANN",
+      "zh-CHS": "马特·拉森·伊坎"
+    },
+    {
+      "indent": 3,
+      "text": "Email: matt.larson@icann.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Paul Hoffman ICANN",
+      "zh-CHS": "保罗·霍夫曼·伊坎"
+    },
+    {
+      "indent": 3,
+      "text": "Email: paul.hoffman@icann.org",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

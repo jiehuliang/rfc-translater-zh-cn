@@ -1,0 +1,664 @@
+{
+  "title": {
+    "text": "RFC 3263:  Session Initiation Protocol (SIP): Locating SIP Servers ",
+    "zh-CHS": "RFC 3263"
+  },
+  "number": 3263,
+  "created_at": "2021-10-26 11:48:17.609074+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       J. Rosenberg\nRequest for Comments: 3263                                   dynamicsoft\nObsoletes: 2543                                           H. Schulzrinne\nCategory: Standards Track                                    Columbia U.\n                                                               June 2002",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Session Initiation Protocol (SIP): Locating SIP Servers",
+      "zh-CHS": "会话启动协议（SIP）：定位SIP服务器"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2002). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2002年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Session Initiation Protocol (SIP) uses DNS procedures to allow a client to resolve a SIP Uniform Resource Identifier (URI) into the IP address, port, and transport protocol of the next hop to contact. It also uses DNS to allow a server to send a response to a backup client if the primary client has failed. This document describes those DNS procedures in detail.",
+      "zh-CHS": "会话启动协议（SIP）使用DNS过程允许客户端将SIP统一资源标识符（URI）解析为要联系的下一跳的IP地址、端口和传输协议。它还使用DNS允许服务器在主客户端出现故障时向备份客户端发送响应。本文档详细描述了这些DNS过程。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1          Introduction ........................................    2\n2          Problems DNS is Needed to Solve .....................    2\n3          Terminology .........................................    5\n4          Client Usage ........................................    5\n4.1        Selecting a Transport Protocol ......................    6\n4.2        Determining Port and IP Address .....................    8\n4.3        Details of RFC 2782 Process .........................    9\n4.4        Consideration for Stateless Proxies .................   10\n5          Server Usage ........................................   11\n6          Constructing SIP URIs ...............................   12\n7          Security Considerations .............................   12\n8          The Transport Determination Application .............   13\n9          IANA Considerations .................................   14\n10         Acknowledgements ....................................   14\n11         Normative References ................................   15\n12         Informative References ..............................   15",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "13         Authors' Addresses ..................................   16\n14         Full Copyright Statement ............................   17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1 Introduction",
+      "zh-CHS": "1导言"
+    },
+    {
+      "indent": 3,
+      "text": "The Session Initiation Protocol (SIP) (RFC 3261 [1]) is a client-server protocol used for the initiation and management of communications sessions between users. SIP end systems are called user agents, and intermediate elements are known as proxy servers. A typical SIP configuration, referred to as the SIP \"trapezoid\", is shown in Figure 1. In this diagram, a caller in domain A (UA1) wishes to call Joe in domain B (joe@B). To do so, it communicates with proxy 1 in its domain (domain A). Proxy 1 forwards the request to the proxy for the domain of the called party (domain B), which is proxy 2. Proxy 2 forwards the call to the called party, UA 2.",
+      "zh-CHS": "会话发起协议（SIP）（RFC 3261[1]）是用于发起和管理用户之间通信会话的客户机-服务器协议。SIP终端系统称为用户代理，中间元素称为代理服务器。图1显示了一种典型的SIP配置，称为SIP“梯形”。在此图中，域a（UA1）中的调用方希望调用域B中的Joe(joe@B). 为此，它在其域（域A）中与代理1通信。代理1将请求转发给被叫方域（域B）的代理，即代理2。代理2将呼叫转发给被叫方UA 2。"
+    },
+    {
+      "indent": 3,
+      "text": "As part of this call flow, proxy 1 needs to determine a SIP server for domain B. To do this, proxy 1 makes use of DNS procedures, using both SRV [2] and NAPTR [3] records. This document describes the specific problems that SIP uses DNS to help solve, and provides a solution.",
+      "zh-CHS": "作为此呼叫流的一部分，代理1需要确定域B的SIP服务器。为此，代理1使用DNS过程，同时使用SRV[2]和NAPTR[3]记录。本文档描述SIP使用DNS帮助解决的特定问题，并提供解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "2 Problems DNS is Needed to Solve",
+      "zh-CHS": "DNS需要解决的两个问题"
+    },
+    {
+      "indent": 3,
+      "text": "DNS is needed to help solve two aspects of the general call flow described in the Introduction. The first is for proxy 1 to discover the SIP server in domain B, in order to forward the call for joe@B. The second is for proxy 2 to identify a backup for proxy 1 in the event it fails after forwarding the request.",
+      "zh-CHS": "DNS需要帮助解决引言中描述的一般呼叫流的两个方面。第一个是代理1发现域B中的SIP服务器，以便转发对的调用joe@B.第二个是代理2在转发请求失败时为代理1标识备份。"
+    },
+    {
+      "indent": 3,
+      "text": "For the first aspect, proxy 1 specifically needs to determine the IP address, port, and transport protocol for the server in domain B. The choice of transport protocol is particularly noteworthy. Unlike many other protocols, SIP can run over a variety of transport protocols, including TCP, UDP, and SCTP. SIP can also use TLS. Currently, use of TLS is defined for TCP only. Thus, clients need to be able to automatically determine which transport protocols are available. The proxy sending the request has a particular set of transport protocols it supports and a preference for using those transport protocols. Proxy 2 has its own set of transport protocols it supports, and relative preferences for those transport protocols. All proxies must implement both UDP and TCP, along with TLS over TCP, so that there is always an intersection of capabilities. Some form of DNS procedures are needed for proxy 1 to discover the available transport protocols for SIP services at domain B, and the relative preferences of those transport protocols. Proxy 1 intersects its list of supported transport protocols with those of proxy 2 and then chooses the protocol preferred by proxy 2.",
+      "zh-CHS": "对于第一个方面，代理1特别需要确定域B中服务器的IP地址、端口和传输协议。传输协议的选择特别值得注意。与许多其他协议不同，SIP可以运行在各种传输协议上，包括TCP、UDP和SCTP。SIP也可以使用TLS。目前，TLS的使用仅定义为TCP。因此，客户端需要能够自动确定哪些传输协议可用。发送请求的代理具有其支持的一组特定的传输协议以及使用这些传输协议的首选项。Proxy 2有自己支持的一组传输协议，以及这些传输协议的相对首选项。所有代理必须同时实现UDP和TCP，以及TCP上的TLS，以便始终存在功能交叉。代理1需要某种形式的DNS过程来发现域B上SIP服务的可用传输协议，以及这些传输协议的相对首选项。代理1将其支持的传输协议列表与代理2的传输协议列表相交，然后选择代理2首选的协议。"
+    },
+    {
+      "indent": 4,
+      "text": "............................          ..............................\n.                          .          .                            .\n.                +-------+ .          . +-------+                  .\n.                |       | .          . |       |                  .\n.                | Proxy |------------- | Proxy |                  .\n.                |   1   | .          . |  2    |                  .\n.                |       | .          . |       |                  .\n.              / +-------+ .          . +-------+ \\                .\n.             /            .          .            \\               .\n.            /             .          .             \\              .\n.           /              .          .              \\             .\n.          /               .          .               \\            .\n.         /                .          .                \\           .\n.        /                 .          .                 \\          .\n.       /                  .          .                  \\         .\n.   +-------+              .          .                +-------+   .\n.   |       |              .          .                |       |   .\n.   |       |              .          .                |       |   .\n.   | UA 1  |              .          .                | UA 2  |   .\n.   |       |              .          .                |       |   .\n.   +-------+              .          .                +-------+   .\n.              Domain A    .          .   Domain B                 .\n............................          ..............................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "Figure 1: The SIP trapezoid",
+      "zh-CHS": "图1:SIP梯形图"
+    },
+    {
+      "indent": 3,
+      "text": "It is important to note that DNS lookups can be used multiple times throughout the processing of a call. In general, an element that wishes to send a request (called a client) may need to perform DNS processing to determine the IP address, port, and transport protocol of a next hop element, called a server (it can be a proxy or a user agent). Such processing could, in principle, occur at every hop between elements.",
+      "zh-CHS": "需要注意的是，DNS查找可以在整个呼叫处理过程中多次使用。通常，希望发送请求的元素（称为客户端）可能需要执行DNS处理，以确定称为服务器的下一跳元素（可以是代理或用户代理）的IP地址、端口和传输协议。原则上，这种处理可以发生在元素之间的每一跳。"
+    },
+    {
+      "indent": 3,
+      "text": "Since SIP is used for the establishment of interactive communications services, the time it takes to complete a transaction between a caller and called party is important. Typically, the time from when the caller initiates a call until the time the called party is alerted should be no more than a few seconds. Given that there can be multiple hops, each of which is doing DNS lookups in addition to other potentially time-intensive operations, the amount of time available for DNS lookups at each hop is limited.",
+      "zh-CHS": "由于SIP用于建立交互式通信服务，因此完成呼叫者和被叫方之间的事务所需的时间非常重要。通常，从呼叫方发起呼叫到被呼叫方收到警报的时间不应超过几秒钟。考虑到可能存在多个跃点，其中每个跃点除了执行其他可能需要大量时间的操作外，还进行DNS查找，因此每个跃点处可用于DNS查找的时间量是有限的。"
+    },
+    {
+      "indent": 3,
+      "text": "Scalability and high availability are important in SIP. SIP services scale up through clustering techniques. Typically, in a realistic version of the network in Figure 1, proxy 2 would be a cluster of homogeneously configured proxies. DNS needs to provide the ability",
+      "zh-CHS": "可扩展性和高可用性在SIP中非常重要。SIP服务通过集群技术进行扩展。通常，在图1中网络的真实版本中，代理2将是一组均匀配置的代理。DNS需要提供这种能力"
+    },
+    {
+      "indent": 3,
+      "text": "for domain B to configure a set of servers, along with prioritization and weights, in order to provide a crude level of capacity-based load balancing.",
+      "zh-CHS": "域B配置一组服务器，以及优先级和权重，以便提供粗略的基于容量的负载平衡。"
+    },
+    {
+      "indent": 3,
+      "text": "SIP assures high availability by having upstream elements detect failures. For example, assume that proxy 2 is implemented as a cluster of two proxies, proxy 2.1 and proxy 2.2. If proxy 1 sends a request to proxy 2.1 and the request fails, it retries the request by sending it to proxy 2.2. In many cases, proxy 1 will not know which domains it will ultimately communicate with. That information would be known when a user actually makes a call to another user in that domain. Proxy 1 may never communicate with that domain again after the call completes. Proxy 1 may communicate with thousands of different domains within a few minutes, and proxy 2 could receive requests from thousands of different domains within a few minutes. Because of this \"many-to-many\" relationship, and the possibly long intervals between communications between a pair of domains, it is not generally possible for an element to maintain dynamic availability state for the proxies it will communicate with. When a proxy gets its first call with a particular domain, it will try the servers in that domain in some order until it finds one that is available. The identity of the available server would ideally be cached for some amount of time in order to reduce call setup delays of subsequent calls. The client cannot query a failed server continuously to determine when it becomes available again, since this does not scale. Furthermore, the availability state must eventually be flushed in order to redistribute load to recovered elements when they come back online.",
+      "zh-CHS": "SIP通过让上游元件检测故障来确保高可用性。例如，假设proxy 2实现为两个代理（proxy 2.1和proxy 2.2）的集群。如果代理1向代理2.1发送请求，但请求失败，它将通过向代理2.2发送请求来重试该请求。在许多情况下，代理1不知道最终将与哪些域通信。当一个用户实际呼叫该域中的另一个用户时，就会知道该信息。在调用完成后，代理1可能再也不会与该域通信。代理1可以在几分钟内与数千个不同的域通信，代理2可以在几分钟内接收来自数千个不同域的请求。由于这种“多对多”关系，以及一对域之间的通信间隔可能很长，因此元素通常不可能为其将要通信的代理保持动态可用性状态。当代理收到对特定域的第一次调用时，它将以某种顺序尝试该域中的服务器，直到找到可用的服务器为止。理想情况下，可用服务器的标识将被缓存一段时间，以减少后续调用的呼叫设置延迟。客户端无法连续查询发生故障的服务器，以确定其何时再次可用，因为这无法扩展。此外，最终必须刷新可用性状态，以便在恢复的元素重新联机时将负载重新分配给它们。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible for elements to fail in the middle of a transaction. For example, after proxy 2 forwards the request to UA 2, proxy 1 fails. UA 2 sends its response to proxy 2, which tries to forward it to proxy 1, which is no longer available. The second aspect of the flow in the introduction for which DNS is needed, is for proxy 2 to identify a backup for proxy 1 that it can send the response to. This problem is more realistic in SIP than it is in other transactional protocols. The reason is that some SIP responses can take a long time to be generated, because a human user frequently needs to be consulted in order to generate that response. As such, it is not uncommon for tens of seconds to elapse between a call request and its acceptance.",
+      "zh-CHS": "元素在事务中间失败是可能的。例如，在代理2将请求转发给UA 2后，代理1失败。UA 2将其响应发送到代理2，代理2尝试将其转发到不再可用的代理1。介绍中需要DNS的流程的第二个方面是，代理2为代理1标识一个备份，它可以向该备份发送响应。这个问题在SIP中比在其他事务协议中更现实。原因是一些SIP响应可能需要很长时间才能生成，因为为了生成该响应，经常需要咨询人类用户。因此，在一个呼叫请求和它的接受之间经过几十秒并不罕见。"
+    },
+    {
+      "indent": 0,
+      "text": "3 Terminology",
+      "zh-CHS": "3术语"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, the key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" are to be interpreted as described in RFC 2119 [4] and indicate requirement levels for compliant SIP implementations.",
+      "zh-CHS": "在本文件中，关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”将按照RFC 2119[4]中的描述进行解释，并表示符合SIP实施的要求级别。"
+    },
+    {
+      "indent": 0,
+      "text": "4 Client Usage",
+      "zh-CHS": "4客户端使用"
+    },
+    {
+      "indent": 3,
+      "text": "Usage of DNS differs for clients and for servers. This section discusses client usage. We assume that the client is stateful (either a User Agent Client (UAC) or a stateful proxy). Stateless proxies are discussed in Section 4.4.",
+      "zh-CHS": "对于客户端和服务器，DNS的使用有所不同。本节讨论客户端使用。我们假设客户端是有状态的（用户代理客户端（UAC）或有状态代理）。第4.4节讨论了无状态代理。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedures here are invoked when a client needs to send a request to a resource identified by a SIP or SIPS (secure SIP) URI. This URI can identify the desired resource to which the request is targeted (in which case, the URI is found in the Request-URI), or it can identify an intermediate hop towards that resource (in which case, the URI is found in the Route header). The procedures defined here in no way affect this URI (i.e., the URI is not rewritten with the result of the DNS lookup), they only result in an IP address, port and transport protocol where the request can be sent. RFC 3261 [1] provides guidelines on determining which URI needs to be resolved in DNS to determine the host that the request needs to be sent to. In some cases, also documented in [1], the request can be sent to a specific intermediate proxy not identified by a SIP URI, but rather, by a hostname or numeric IP address. In that case, a temporary URI, used for purposes of this specification, is constructed. That URI is of the form sip:<proxy>, where <proxy> is the FQDN or numeric IP address of the next-hop proxy. As a result, in all cases, the problem boils down to resolution of a SIP or SIPS URI in DNS to determine the IP address, port, and transport of the host to which the request is to be sent.",
+      "zh-CHS": "当客户端需要向由SIP或SIPS（安全SIP）URI标识的资源发送请求时，将调用此处的过程。此URI可以标识请求所针对的所需资源（在这种情况下，URI位于请求URI中），或者可以标识指向该资源的中间跃点（在这种情况下，URI位于路由头中）。此处定义的过程不会影响此URI（即，不会使用DNS查找的结果重写URI），它们只会生成一个IP地址、端口和传输协议，在该协议中可以发送请求。RFC 3261[1]提供了关于确定需要在DNS中解析哪个URI以确定请求需要发送到的主机的指导原则。在某些情况下，也如[1]中所述，可以将请求发送到特定的中间代理，该代理不由SIP URI标识，而是由主机名或数字IP地址标识。在这种情况下，将构造用于本规范的临时URI。该URI的形式为sip:<proxy>，其中<proxy>是下一跳代理的FQDN或数字IP地址。因此，在所有情况下，问题都归结为解析DNS中的SIP或SIPS URI，以确定将请求发送到的主机的IP地址、端口和传输。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedures here MUST be done exactly once per transaction, where transaction is as defined in [1]. That is, once a SIP server has successfully been contacted (success is defined below), all retransmissions of the SIP request and the ACK for non-2xx SIP responses to INVITE MUST be sent to the same host. Furthermore, a CANCEL for a particular SIP request MUST be sent to the same SIP server that the SIP request was delivered to.",
+      "zh-CHS": "此处的过程必须在每个事务中执行一次，其中事务如[1]中所定义。也就是说，一旦成功联系SIP服务器（成功定义如下），所有SIP请求的重传和INVITE的非2xx SIP响应的ACK都必须发送到同一主机。此外，必须将特定SIP请求的取消发送到SIP请求传递到的同一SIP服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Because the ACK request for 2xx responses to INVITE constitutes a different transaction, there is no requirement that it be delivered to the same server that received the original request (indeed, if that server did not record-route, it will not get the ACK).",
+      "zh-CHS": "因为对INVITE的2xx响应的ACK请求构成了一个不同的事务，所以不需要将其发送到接收原始请求的同一服务器（实际上，如果该服务器没有记录路由，它将不会获得ACK）。"
+    },
+    {
+      "indent": 3,
+      "text": "We define TARGET as the value of the maddr parameter of the URI, if present, otherwise, the host value of the hostport component of the URI. It identifies the domain to be contacted. A description of the SIP and SIPS URIs and a definition of these parameters can be found in [1].",
+      "zh-CHS": "我们将TARGET定义为URI的maddr参数的值（如果存在），否则定义为URI的hostport组件的主机值。它标识要联系的域。SIP和SIPS URI的描述以及这些参数的定义见[1]。"
+    },
+    {
+      "indent": 3,
+      "text": "We determine the transport protocol, port and IP address of a suitable instance of TARGET in Sections 4.1 and 4.2.",
+      "zh-CHS": "我们在第4.1节和第4.2节中确定目标的适当实例的传输协议、端口和IP地址。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1 Selecting a Transport Protocol",
+      "section_title": true,
+      "zh-CHS": "4.1 选择传输协议"
+    },
+    {
+      "indent": 3,
+      "text": "First, the client selects a transport protocol.",
+      "zh-CHS": "首先，客户端选择一个传输协议。"
+    },
+    {
+      "indent": 3,
+      "text": "If the URI specifies a transport protocol in the transport parameter, that transport protocol SHOULD be used.",
+      "zh-CHS": "如果URI在传输参数中指定了传输协议，则应使用该传输协议。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, if no transport protocol is specified, but the TARGET is a numeric IP address, the client SHOULD use UDP for a SIP URI, and TCP for a SIPS URI. Similarly, if no transport protocol is specified, and the TARGET is not numeric, but an explicit port is provided, the client SHOULD use UDP for a SIP URI, and TCP for a SIPS URI. This is because UDP is the only mandatory transport in RFC 2543 [6], and thus the only one guaranteed to be interoperable for a SIP URI. It was also specified as the default transport in RFC 2543 when no transport was present in the SIP URI. However, another transport, such as TCP, MAY be used if the guidelines of SIP mandate it for this particular request. That is the case, for example, for requests that exceed the path MTU.",
+      "zh-CHS": "否则，如果未指定传输协议，但目标是数字IP地址，则客户端应将UDP用于SIP URI，将TCP用于SIPS URI。类似地，如果未指定传输协议，且目标不是数字，但提供了显式端口，则客户端应将UDP用于SIP URI，将TCP用于SIPS URI。这是因为UDP是RFC 2543[6]中唯一的强制传输，因此是唯一保证可对SIP URI进行互操作的传输。当SIPURI中不存在传输时，它也被指定为RFC2543中的默认传输。但是，如果SIP的指导方针要求使用另一种传输，例如TCP，则可以使用这种传输。例如，对于超过路径MTU的请求，就是这种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, if no transport protocol or port is specified, and the target is not a numeric IP address, the client SHOULD perform a NAPTR query for the domain in the URI. The services relevant for the task of transport protocol selection are those with NAPTR service fields with values \"SIP+D2X\" and \"SIPS+D2X\", where X is a letter that corresponds to a transport protocol supported by the domain. This specification defines D2U for UDP, D2T for TCP, and D2S for SCTP. We also establish an IANA registry for NAPTR service name to transport protocol mappings.",
+      "zh-CHS": "否则，如果未指定传输协议或端口，且目标不是数字IP地址，则客户端应在URI中对域执行NAPTR查询。与传输协议选择任务相关的服务是具有值为“SIP+D2X”和“SIPS+D2X”的NAPTR服务字段的服务，其中X是对应于域支持的传输协议的字母。本规范定义了用于UDP的D2U、用于TCP的D2T和用于SCTP的D2S。我们还为NAPTR服务名称到传输协议映射建立了IANA注册表。"
+    },
+    {
+      "indent": 3,
+      "text": "These NAPTR records provide a mapping from a domain to the SRV record for contacting a server with the specific transport protocol in the NAPTR services field. The resource record will contain an empty regular expression and a replacement value, which is the SRV record for that particular transport protocol. If the server supports multiple transport protocols, there will be multiple NAPTR records, each with a different service value. As per RFC 2915 [3], the client discards any records whose services fields are not applicable. For the purposes of this specification, several rules are defined.",
+      "zh-CHS": "这些NAPTR记录提供了从域到SRV记录的映射，以便使用NAPTR服务字段中的特定传输协议联系服务器。资源记录将包含一个空正则表达式和一个替换值，这是该特定传输协议的SRV记录。如果服务器支持多个传输协议，则将有多个NAPTR记录，每个记录具有不同的服务值。根据RFC 2915[3]，客户将丢弃其服务字段不适用的任何记录。在本规范中，定义了若干规则。"
+    },
+    {
+      "indent": 3,
+      "text": "First, a client resolving a SIPS URI MUST discard any services that do not contain \"SIPS\" as the protocol in the service field. The converse is not true, however. A client resolving a SIP URI SHOULD retain records with \"SIPS\" as the protocol, if the client supports TLS. Second, a client MUST discard any service fields that identify a resolution service whose value is not \"D2X\", for values of X that indicate transport protocols supported by the client. The NAPTR processing as described in RFC 2915 will result in the discovery of the most preferred transport protocol of the server that is supported by the client, as well as an SRV record for the server. It will also allow the client to discover if TLS is available and its preference for its usage.",
+      "zh-CHS": "首先，解析SIPS URI的客户机必须放弃服务字段中不包含“SIPS”作为协议的任何服务。然而，情况并非如此。如果客户端支持TLS，解析SIP URI的客户端应保留以“SIPS”作为协议的记录。其次，客户机必须放弃标识值不是“D2X”的解析服务的任何服务字段，即表示客户机支持的传输协议的X值。RFC 2915中描述的NAPTR处理将发现客户端支持的服务器的最首选传输协议，以及服务器的SRV记录。它还允许客户机发现TLS是否可用及其使用偏好。"
+    },
+    {
+      "indent": 3,
+      "text": "As an example, consider a client that wishes to resolve sip:user@example.com. The client performs a NAPTR query for that domain, and the following NAPTR records are returned:",
+      "zh-CHS": "作为一个例子，考虑一个希望解决SIP的客户端：user@example.com. 客户端对该域执行NAPTR查询，并返回以下NAPTR记录："
+    },
+    {
+      "indent": 3,
+      "text": "; order pref flags service regexp replacement IN NAPTR 50 50 \"s\" \"SIPS+D2T\" \"\" _sips._tcp.example.com. IN NAPTR 90 50 \"s\" \"SIP+D2T\" \"\" _sip._tcp.example.com IN NAPTR 100 50 \"s\" \"SIP+D2U\" \"\" _sip._udp.example.com.",
+      "zh-CHS": "; order pref标志NAPTR 50 50“s”“SIPS+D2T”“”中的服务regexp替换。\\u tcp.example.com。在NAPTR 90 50 s“SIP+D2T”中，在NAPTR 100 50 s“SIP+D2U”中，在NAPTR 90 50 s“SIP+D2T”中，在NAPTR 100 50 s“SIP+D2U”中，在NAPTR 90 50 s“SIP+D2T”中，在NAPTR 100 50 s“SIP+D2U”中，在NAPTR 90 50 s。"
+    },
+    {
+      "indent": 3,
+      "text": "This indicates that the server supports TLS over TCP, TCP, and UDP, in that order of preference. Since the client supports TCP and UDP, TCP will be used, targeted to a host determined by an SRV lookup of _sip._tcp.example.com. That lookup would return:",
+      "zh-CHS": "这表示服务器支持TCP、TCP和UDP上的TLS，优先顺序为。由于客户端支持TCP和UDP，因此将使用TCP，目标主机由_sip._TCP.example.com的SRV查找确定。该查找将返回："
+    },
+    {
+      "indent": 3,
+      "text": ";; Priority Weight Port Target IN SRV 0 1 5060 server1.example.com IN SRV 0 2 5060 server2.example.com",
+      "zh-CHS": ";; SRV 0 2 5060 server2.example.com中SRV 0 1 5060 server1.example.com中的优先级权重端口目标"
+    },
+    {
+      "indent": 3,
+      "text": "If a SIP proxy, redirect server, or registrar is to be contacted through the lookup of NAPTR records, there MUST be at least three records - one with a \"SIP+D2T\" service field, one with a \"SIP+D2U\" service field, and one with a \"SIPS+D2T\" service field. The records with SIPS as the protocol in the service field SHOULD be preferred (i.e., have a lower value of the order field) above records with SIP as the protocol in the service field. A record with a \"SIPS+D2U\" service field SHOULD NOT be placed into the DNS, since it is not possible to use TLS over UDP.",
+      "zh-CHS": "如果要通过查找NAPTR记录来联系SIP代理、重定向服务器或注册器，则必须至少有三条记录—一条带有“SIP+D2T”服务字段，一条带有“SIP+D2U”服务字段，另一条带有“SIPS+D2T”服务字段。服务字段中以SIP作为协议的记录应优先于服务字段中以SIP作为协议的记录（即，订单字段的值较低）。带有“SIPS+D2U”服务字段的记录不应放入DNS中，因为无法通过UDP使用TLS。"
+    },
+    {
+      "indent": 3,
+      "text": "It is not necessary for the domain suffixes in the NAPTR replacement field to match the domain of the original query (i.e., example.com above). However, for backwards compatibility with RFC 2543, a domain MUST maintain SRV records for the domain of the original query, even if the NAPTR record is in a different domain. As an example, even though the SRV record for TCP is _sip._tcp.school.edu, there MUST also be an SRV record at _sip._tcp.example.com.",
+      "zh-CHS": "NAPTR replacement字段中的域后缀不必与原始查询的域匹配（即上面的example.com）。但是，为了向后兼容RFC 2543，域必须维护原始查询域的SRV记录，即使NAPTR记录位于不同的域中。例如，即使TCP的SRV记录是_sip._TCP.school.edu，也必须在_sip._TCP.example.com上有SRV记录。"
+    },
+    {
+      "indent": 6,
+      "text": "RFC 2543 will look up the SRV records for the domain directly. If these do not exist because the NAPTR replacement points to a different domain, the client will fail.",
+      "zh-CHS": "RFC 2543将直接查找域的SRV记录。如果由于NAPTR替换指向不同的域而导致这些域不存在，则客户端将失败。"
+    },
+    {
+      "indent": 3,
+      "text": "For NAPTR records with SIPS protocol fields, (if the server is using a site certificate), the domain name in the query and the domain name in the replacement field MUST both be valid based on the site certificate handed out by the server in the TLS exchange. Similarly, the domain name in the SRV query and the domain name in the target in the SRV record MUST both be valid based on the same site certificate. Otherwise, an attacker could modify the DNS records to contain replacement values in a different domain, and the client could not validate that this was the desired behavior or the result of an attack.",
+      "zh-CHS": "对于具有SIPS协议字段的NAPTR记录（如果服务器正在使用站点证书），根据服务器在TLS exchange中分发的站点证书，查询中的域名和替换字段中的域名必须都有效。同样，基于相同的站点证书，SRV查询中的域名和SRV记录中目标中的域名必须都有效。否则，攻击者可以修改DNS记录以在不同域中包含替换值，客户端无法验证这是否是所需行为或攻击的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "If no NAPTR records are found, the client constructs SRV queries for those transport protocols it supports, and does a query for each. Queries are done using the service identifier \"_sip\" for SIP URIs and \"_sips\" for SIPS URIs. A particular transport is supported if the query is successful. The client MAY use any transport protocol it desires which is supported by the server.",
+      "zh-CHS": "如果找不到NAPTR记录，客户端将为其支持的传输协议构造SRV查询，并对每个传输协议执行查询。对于sip URI，使用服务标识符“_sip”进行查询；对于sips URI，使用服务标识符“_sips”进行查询。如果查询成功，则支持特定传输。客户端可以使用服务器支持的任何传输协议。"
+    },
+    {
+      "indent": 6,
+      "text": "This is a change from RFC 2543. It specified that a client would lookup SRV records for all transports it supported, and merge the priority values across those records. Then, it would choose the most preferred record.",
+      "zh-CHS": "这是对RFC 2543的更改。它指定客户端将查找其支持的所有传输的SRV记录，并合并这些记录的优先级值。然后，它会选择最喜欢的记录。"
+    },
+    {
+      "indent": 3,
+      "text": "If no SRV records are found, the client SHOULD use TCP for a SIPS URI, and UDP for a SIP URI. However, another transport protocol, such as TCP, MAY be used if the guidelines of SIP mandate it for this particular request. That is the case, for example, for requests that exceed the path MTU.",
+      "zh-CHS": "如果未找到SRV记录，则客户端应将TCP用于SIPS URI，将UDP用于SIP URI。但是，如果SIP的指导方针要求使用另一种传输协议，例如TCP，则可以使用该协议来处理该特定请求。例如，对于超过路径MTU的请求，就是这种情况。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2 Determining Port and IP Address",
+      "section_title": true,
+      "zh-CHS": "4.2 确定端口和IP地址"
+    },
+    {
+      "indent": 3,
+      "text": "Once the transport protocol has been determined, the next step is to determine the IP address and port.",
+      "zh-CHS": "一旦确定了传输协议，下一步就是确定IP地址和端口。"
+    },
+    {
+      "indent": 3,
+      "text": "If TARGET is a numeric IP address, the client uses that address. If the URI also contains a port, it uses that port. If no port is specified, it uses the default port for the particular transport protocol.",
+      "zh-CHS": "如果目标是数字IP地址，则客户端使用该地址。如果URI还包含一个端口，它将使用该端口。如果未指定端口，它将使用特定传输协议的默认端口。"
+    },
+    {
+      "indent": 3,
+      "text": "If the TARGET was not a numeric IP address, but a port is present in the URI, the client performs an A or AAAA record lookup of the domain name. The result will be a list of IP addresses, each of which can be contacted at the specific port from the URI and transport protocol",
+      "zh-CHS": "如果目标不是数字IP地址，但URI中存在端口，则客户端将对域名执行a或AAAA记录查找。结果将是一个IP地址列表，每个IP地址都可以通过URI和传输协议在特定端口进行联系"
+    },
+    {
+      "indent": 3,
+      "text": "determined previously. The client SHOULD try the first record. If an attempt should fail, based on the definition of failure in Section 4.3, the next SHOULD be tried, and if that should fail, the next SHOULD be tried, and so on.",
+      "zh-CHS": "以前确定的。客户端应该尝试第一条记录。如果一次尝试失败，根据第4.3节中失败的定义，应尝试下一次，如果失败，应尝试下一次，依此类推。"
+    },
+    {
+      "indent": 6,
+      "text": "This is a change from RFC 2543. Previously, if the port was explicit, but with a value of 5060, SRV records were used. Now, A or AAAA records will be used.",
+      "zh-CHS": "这是对RFC 2543的更改。以前，如果端口是显式的，但值为5060，则使用SRV记录。现在，将使用A或AAAA记录。"
+    },
+    {
+      "indent": 3,
+      "text": "If the TARGET was not a numeric IP address, and no port was present in the URI, the client performs an SRV query on the record returned from the NAPTR processing of Section 4.1, if such processing was performed. If it was not, because a transport was specified explicitly, the client performs an SRV query for that specific transport, using the service identifier \"_sips\" for SIPS URIs. For a SIP URI, if the client wishes to use TLS, it also uses the service identifier \"_sips\" for that specific transport, otherwise, it uses \"_sip\". If the NAPTR processing was not done because no NAPTR records were found, but an SRV query for a supported transport protocol was successful, those SRV records are selected. Irregardless of how the SRV records were determined, the procedures of RFC 2782, as described in the section titled \"Usage rules\" are followed, augmented by the additional procedures of Section 4.3 of this document.",
+      "zh-CHS": "如果目标不是数字IP地址，并且URI中不存在任何端口，则客户端将对从第4.1节的NAPTR处理返回的记录执行SRV查询（如果执行了此类处理）。如果不是，因为显式指定了传输，客户端将使用sips URI的服务标识符“_sips”对该特定传输执行SRV查询。对于SIPURI，如果客户端希望使用TLS，它还将使用服务标识符“_sips”用于该特定传输，否则，它将使用“_SIP”。如果由于未找到任何NAPTR记录而未完成NAPTR处理，但支持的传输协议的SRV查询成功，则会选择这些SRV记录。不管SRV记录是如何确定的，遵循RFC 2782的程序，如标题为“使用规则”的章节所述，并通过本文件第4.3节的附加程序进行补充。"
+    },
+    {
+      "indent": 3,
+      "text": "If no SRV records were found, the client performs an A or AAAA record lookup of the domain name. The result will be a list of IP addresses, each of which can be contacted using the transport protocol determined previously, at the default port for that transport. Processing then proceeds as described above for an explicit port once the A or AAAA records have been looked up.",
+      "zh-CHS": "如果未找到SRV记录，客户端将对域名执行A或AAAA记录查找。结果将是一个IP地址列表，可以使用先前确定的传输协议在该传输的默认端口联系每个IP地址。然后，在查找A或AAAA记录后，按照上述方式对显式端口进行处理。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3 Details of RFC 2782 Process",
+      "section_title": true,
+      "zh-CHS": "4.3 RFC2782流程的详细信息"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 2782 spells out the details of how a set of SRV records are sorted and then tried. However, it only states that the client should \"try to connect to the (protocol, address, service)\" without giving any details on what happens in the event of failure. Those details are described here for SIP.",
+      "zh-CHS": "RFC2782详细说明了如何对一组SRV记录进行排序，然后进行尝试。但是，它只说明客户机应该“尝试连接到（协议、地址、服务）”，而没有给出发生故障时发生的任何细节。这些细节在这里为SIP描述。"
+    },
+    {
+      "indent": 3,
+      "text": "For SIP requests, failure occurs if the transaction layer reports a 503 error response or a transport failure of some sort (generally, due to fatal ICMP errors in UDP or connection failures in TCP). Failure also occurs if the transaction layer times out without ever having received any response, provisional or final (i.e., timer B or timer F in RFC 3261 [1] fires). If a failure occurs, the client SHOULD create a new request, which is identical to the previous, but",
+      "zh-CHS": "对于SIP请求，如果事务层报告503错误响应或某种传输故障（通常是由于UDP中的致命ICMP错误或TCP中的连接故障），则会发生故障。如果事务层在没有收到任何临时或最终响应（即RFC 3261[1]中的计时器B或计时器F）的情况下超时，也会发生故障。如果出现故障，客户端应创建一个新请求，该请求与前一个请求相同，但"
+    },
+    {
+      "indent": 3,
+      "text": "has a different value of the Via branch ID than the previous (and therefore constitutes a new SIP transaction). That request is sent to the next element in the list as specified by RFC 2782.",
+      "zh-CHS": "具有与上一个不同的Via分支ID值（因此构成新的SIP事务）。该请求被发送到RFC 2782指定的列表中的下一个元素。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4 Consideration for Stateless Proxies",
+      "section_title": true,
+      "zh-CHS": "4.4 考虑无状态代理"
+    },
+    {
+      "indent": 3,
+      "text": "The process of the previous sections is highly stateful. When a server is contacted successfully, all retransmissions of the request for the transaction, as well as ACK for a non-2xx final response, and CANCEL requests for that transaction, MUST go to the same server.",
+      "zh-CHS": "前面几节的过程非常有状态。成功联系服务器后，事务请求的所有重传、非2xx最终响应的ACK以及该事务的取消请求必须转到同一服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "The identity of the successfully contacted server is a form of transaction state. This presents a challenge for stateless proxies, which still need to meet the requirement for sending all requests in the transaction to the same server.",
+      "zh-CHS": "成功联系的服务器的标识是事务状态的一种形式。这对无状态代理提出了挑战，它们仍然需要满足将事务中的所有请求发送到同一服务器的要求。"
+    },
+    {
+      "indent": 3,
+      "text": "The problem is similar, but different, to the problem of HTTP transactions within a cookie session getting routed to different servers based on DNS randomization. There, such distribution is not a problem. Farms of servers generally have common back-end data stores, where the session data is stored. Whenever a server in the farm receives an HTTP request, it takes the session identifier, if present, and extracts the needed state to process the request. A request without a session identifier creates a new one. The problem with stateless proxies is at a lower layer; it is retransmitted requests within a transaction that are being potentially spread across servers. Since none of these retransmissions carries a \"session identifier\" (a complete dialog identifier in SIP terms), a new dialog would be created identically at each server. This could, for example result in multiple phone calls to be made to the same phone. Therefore, it is critical to prevent such a thing from happening in the first place.",
+      "zh-CHS": "该问题与cookie会话中的HTTP事务基于DNS随机化路由到不同服务器的问题类似，但有所不同。在那里，这种分配不是问题。服务器场通常具有公共后端数据存储，其中存储会话数据。每当服务器场中的服务器接收到HTTP请求时，它都会获取会话标识符（如果存在），并提取处理请求所需的状态。没有会话标识符的请求将创建一个新的会话标识符。无状态代理的问题在较低的一层；它是在事务中重新传输的请求，这些请求可能分布在服务器上。由于这些重传都没有携带“会话标识符”（SIP术语中的完整对话标识符），因此将在每台服务器上创建相同的新对话。例如，这可能导致对同一部手机拨打多个电话。因此，从一开始就防止这样的事情发生至关重要。"
+    },
+    {
+      "indent": 3,
+      "text": "The requirement is not difficult to meet in the simple case where there were no failures when attempting to contact a server. Whenever the stateless proxy receives the request, it performs the appropriate DNS queries as described above. However, the procedures of RFC 2782 are not guaranteed to be deterministic. This is because records that contain the same priority have no specified order. The stateless proxy MUST define a deterministic order to the records in that case, using any algorithm at its disposal. One suggestion is to alphabetize them, or, more generally, sort them by ASCII-compatible encoding. To make processing easier for stateless proxies, it is RECOMMENDED that domain administrators make the weights of SRV records with equal priority different (for example, using weights of 1000 and 1001 if two servers are equivalent, rather than assigning both a weight of 1000), and similarly for NAPTR records. If the first server is contacted successfully, the proxy can remain",
+      "zh-CHS": "在尝试联系服务器时没有出现故障的简单情况下，不难满足此要求。每当无状态代理收到请求时，它都会执行上述适当的DNS查询。但是，不能保证RFC 2782的程序具有确定性。这是因为包含相同优先级的记录没有指定顺序。在这种情况下，无状态代理必须使用任何可使用的算法为记录定义确定性顺序。一个建议是按字母顺序排列，或者更一般地说，按ASCII兼容编码对它们进行排序。为了使无状态代理的处理更容易，建议域管理员使具有相同优先级的SRV记录的权重不同（例如，如果两台服务器相等，则使用1000和1001的权重，而不是同时分配1000的权重），对于NAPTR记录也是如此。如果成功联系第一台服务器，则代理可以保留"
+    },
+    {
+      "indent": 3,
+      "text": "stateless. However, if the first server is not contacted successfully, and a subsequent server is, the proxy cannot remain stateless for this transaction. If it were stateless, a retransmission could very well go to a different server if the failed one recovers between retransmissions. As such, whenever a proxy does not successfully contact the first server, it SHOULD act as a stateful proxy.",
+      "zh-CHS": "无国籍。但是，如果未成功联系第一台服务器，而后续服务器已成功联系，则此事务的代理不能保持无状态。如果它是无状态的，那么如果失败的服务器在重新传输之间恢复，那么重新传输很可能会转到另一台服务器。因此，每当代理未成功联系第一台服务器时，它都应充当有状态代理。"
+    },
+    {
+      "indent": 3,
+      "text": "Unfortunately, it is still possible for a stateless proxy to deliver retransmissions to different servers, even if it follows the recommendations above. This can happen if the DNS TTLs expire in the middle of a transaction, and the entries had changed. This is unavoidable. Network implementors should be aware of this limitation, and not use stateless proxies that access DNS if this error is deemed critical.",
+      "zh-CHS": "不幸的是，即使遵循上述建议，无状态代理仍有可能向不同的服务器提供重新传输。如果DNS TTLS在事务中间过期，并且条目已更改，则可能发生这种情况。这是不可避免的。网络实现者应该意识到这个限制，如果这个错误被认为是严重的，就不要使用访问DNS的无状态代理。"
+    },
+    {
+      "indent": 0,
+      "text": "5 Server Usage",
+      "zh-CHS": "5服务器使用情况"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3261 [1] defines procedures for sending responses from a server back to the client. Typically, for unicast UDP requests, the response is sent back to the source IP address where the request came from, using the port contained in the Via header. For reliable transport protocols, the response is sent over the connection the request arrived on. However, it is important to provide failover support when the client element fails between sending the request and receiving the response.",
+      "zh-CHS": "RFC 3261[1]定义了将响应从服务器发送回客户端的过程。通常，对于单播UDP请求，使用Via标头中包含的端口将响应发送回请求来自的源IP地址。对于可靠的传输协议，响应通过请求到达的连接发送。但是，当客户端元素在发送请求和接收响应之间失败时，提供故障切换支持非常重要。"
+    },
+    {
+      "indent": 3,
+      "text": "A server, according to RFC 3261 [1], will send a response on the connection it arrived on (in the case of reliable transport protocols), and for unreliable transport protocols, to the source address of the request, and the port in the Via header field. The procedures here are invoked when a server attempts to send to that location and that response fails (the specific conditions are detailed in RFC 3261). \"Fails\" is defined as any closure of the transport connection the request came in on before the response can be sent, or communication of a fatal error from the transport layer.",
+      "zh-CHS": "根据RFC 3261[1]，服务器将根据其到达的连接（在可靠传输协议的情况下）和不可靠传输协议向请求的源地址和Via标头字段中的端口发送响应。当服务器尝试发送到该位置且响应失败时，将调用此处的过程（具体条件详见RFC 3261）。“Fails”被定义为在响应可以发送之前请求进入的传输连接的任何关闭，或者来自传输层的致命错误的通信。"
+    },
+    {
+      "indent": 3,
+      "text": "In these cases, the server examines the value of the sent-by construction in the topmost Via header. If it contains a numeric IP address, the server attempts to send the response to that address, using the transport protocol from the Via header, and the port from sent-by, if present, else the default for that transport protocol. The transport protocol in the Via header can indicate \"TLS\", which refers to TLS over TCP. When this value is present, the server MUST use TLS over TCP to send the response.",
+      "zh-CHS": "在这些情况下，服务器在最顶端的Via头中检查由构造发送的值。如果包含数字IP地址，服务器将尝试使用Via标头中的传输协议和发送方（如果存在）的端口（否则为该传输协议的默认端口）向该地址发送响应。Via标头中的传输协议可以指示“TLS”，它指的是TCP上的TLS。当此值存在时，服务器必须使用TCP上的TLS发送响应。"
+    },
+    {
+      "indent": 3,
+      "text": "If, however, the sent-by field contained a domain name and a port number, the server queries for A or AAAA records with that name. It tries to send the response to each element on the resulting list of IP addresses, using the port from the Via, and the transport protocol from the Via (again, a value of TLS refers to TLS over TCP). As in the client processing, the next entry in the list is tried if the one before it results in a failure.",
+      "zh-CHS": "但是，如果“发送人”字段包含域名和端口号，则服务器将查询具有该名称的a或AAAA记录。它尝试使用来自Via的端口和来自Via的传输协议（同样，TLS值指TCP上的TLS），将响应发送到IP地址结果列表中的每个元素。与在客户端处理中一样，如果列表中的下一个条目导致失败，则尝试该条目。"
+    },
+    {
+      "indent": 3,
+      "text": "If, however, the sent-by field contained a domain name and no port, the server queries for SRV records at that domain name using the service identifier \"_sips\" if the Via transport is \"TLS\", \"_sip\" otherwise, and the transport from the topmost Via header (\"TLS\" implies that the transport protocol in the SRV query is TCP). The resulting list is sorted as described in [2], and the response is sent to the topmost element on the new list described there. If that results in a failure, the next entry on the list is tried.",
+      "zh-CHS": "但是，如果sent by字段包含域名且没有端口，则服务器使用服务标识符“_sips”（如果Via传输为“TLS”）、否则为“_sip”，在该域名上查询SRV记录，并且来自最顶端的Via头的传输（“TLS”表示SRV查询中的传输协议为TCP）。结果列表按[2]中所述进行排序，并将响应发送到新列表中最顶层的元素。如果这导致失败，将尝试列表中的下一项。"
+    },
+    {
+      "indent": 0,
+      "text": "6 Constructing SIP URIs",
+      "zh-CHS": "6构建SIPURI"
+    },
+    {
+      "indent": 3,
+      "text": "In many cases, an element needs to construct a SIP URI for inclusion in a Contact header in a REGISTER, or in a Record-Route header in an INVITE. According to RFC 3261 [1], these URIs have to have the property that they resolve to the specific element that inserted them. However, if they are constructed with just an IP address, for example:",
+      "zh-CHS": "在许多情况下，元素需要构造SIPURI，以便包含在寄存器中的联系人标头或INVITE中的记录路由标头中。根据RFC3261[1]，这些URI必须具有解析为插入它们的特定元素的属性。但是，如果它们仅使用IP地址构造，例如："
+    },
+    {
+      "indent": 3,
+      "text": "sip:1.2.3.4",
+      "zh-CHS": "sip:1.2.3.4"
+    },
+    {
+      "indent": 3,
+      "text": "then should the element fail, there is no way to route the request or response through a backup.",
+      "zh-CHS": "如果元素失败，则无法通过备份路由请求或响应。"
+    },
+    {
+      "indent": 3,
+      "text": "SRV provides a way to fix this. Instead of using an IP address, a domain name that resolves to an SRV record can be used:",
+      "zh-CHS": "SRV提供了一种解决此问题的方法。可以使用解析为SRV记录的域名，而不是使用IP地址："
+    },
+    {
+      "indent": 3,
+      "text": "sip:server23.provider.com",
+      "zh-CHS": "sip:server23.provider.com"
+    },
+    {
+      "indent": 3,
+      "text": "The SRV records for a particular target can be set up so that there is a single record with a low value for the priority field (indicating the preferred choice), and this record points to the specific element that constructed the URI. However, there are additional records with higher values of the priority field that point to backup elements that would be used in the event of failure. This allows the constraint of RFC 3261 [1] to be met while allowing for robust operation.",
+      "zh-CHS": "可以设置特定目标的SRV记录，以便有一条优先级字段值较低的记录（指示首选项），并且该记录指向构造URI的特定元素。但是，还有一些优先级字段值较高的附加记录指向发生故障时将使用的备份元素。这允许满足RFC 3261[1]的约束，同时允许稳健操作。"
+    },
+    {
+      "indent": 0,
+      "text": "7 Security Considerations",
+      "zh-CHS": "7安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "DNS NAPTR records are used to allow a client to discover that the server supports TLS. An attacker could potentially modify these records, resulting in a client using a non-secure transport when TLS is in fact available and preferred.",
+      "zh-CHS": "DNS NAPTR记录用于允许客户端发现服务器支持TLS。攻击者可能会修改这些记录，导致客户端在TLS实际上可用且首选时使用非安全传输。"
+    },
+    {
+      "indent": 3,
+      "text": "This is partially mitigated by the presence of the sips URI scheme, which is always sent only over TLS. An attacker cannot force a bid down through deletion or modification of DNS records. In the worst case, they can prevent communication from occurring by deleting all records. A sips URI itself is generally exchanged within a secure context, frequently on a business card or secure web page, or within a SIP message which has already been secured with TLS. See RFC 3261 [1] for details. The sips URI is therefore preferred when security is truly needed, but we allow TLS to be used for requests resolved by a SIP URI to allow security that is better than no TLS at all.",
+      "zh-CHS": "sips URI方案的存在部分缓解了这一问题，该方案始终仅通过TLS发送。攻击者无法通过删除或修改DNS记录来强制降低出价。在最坏的情况下，它们可以通过删除所有记录来阻止通信。sips URI本身通常在安全上下文中交换，通常在名片或安全网页上交换，或者在已经用TLS保护的SIP消息中交换。详见RFC 3261[1]。因此，当确实需要安全性时，sips URI是首选的，但我们允许将TLS用于由SIP URI解析的请求，以实现比根本没有TLS更好的安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "The bid down attack can also be mitigated through caching. A client which frequently contacts the same domain SHOULD cache whether or not its NAPTR records contain SIPS in the services field. If such records were present, but in later queries cease to appear, it is a sign of a potential attack. In this case, the client SHOULD generate some kind of alert or alarm, and MAY reject the request.",
+      "zh-CHS": "还可以通过缓存来缓解出价下降攻击。经常联系同一域的客户端应缓存其NAPTR记录是否包含服务字段中的SIP。如果存在此类记录，但在以后的查询中不再出现，则表明存在潜在的攻击。在这种情况下，客户端应生成某种警报或警报，并可能拒绝请求。"
+    },
+    {
+      "indent": 3,
+      "text": "An additional problem is that proxies, which are intermediaries between the users of the system, are frequently the clients that perform the NAPTR queries. It is therefore possible for a proxy to ignore SIPS entries even though they are present, resulting in downgraded security. There is very little that can be done to prevent such attacks. Clients are simply dependent on proxy servers for call completion, and must trust that they implement the protocol properly in order for security to be provided. Falsifying DNS records can be done by tampering with wire traffic (in the absence of DNSSEC), whereas compromising and commandeering a proxy server requires a break-in, and is seen as the considerably less likely downgrade threat.",
+      "zh-CHS": "另一个问题是，作为系统用户之间中介的代理常常是执行NAPTR查询的客户端。因此，即使存在SIPS条目，代理也可能忽略这些条目，从而导致安全性降级。要防止这种袭击，我们所能做的很少。客户端仅仅依赖于代理服务器来完成呼叫，并且必须相信它们正确地实现了协议才能提供安全性。伪造DNS记录可以通过篡改有线通信（在没有DNSSEC的情况下）来完成，而破坏和征用代理服务器需要入侵，被视为降级威胁的可能性要小得多。"
+    },
+    {
+      "indent": 0,
+      "text": "8 The Transport Determination Application",
+      "zh-CHS": "8运输确定应用程序"
+    },
+    {
+      "indent": 3,
+      "text": "This section more formally defines the NAPTR usage of this specification, using the Dynamic Delegation Discovery System (DDDS) framework as a guide [7]. DDDS represents the evolution of the NAPTR resource record. DDDS defines applications, which can make use of the NAPTR record for specific resolution services. This application is called the Transport Determination Application, and its goal is to map an incoming SIP or SIPS URI to a set of SRV records for the various servers that can handle the URI.",
+      "zh-CHS": "本节以动态委托发现系统（DDDS）框架为指导，更正式地定义了本规范的NAPTR用法[7]。DDDS代表NAPTR资源记录的演变。DDDS定义应用程序，这些应用程序可以将NAPTR记录用于特定的解析服务。此应用程序称为传输确定应用程序，其目标是将传入的SIP或SIPS URI映射到可处理URI的各种服务器的一组SRV记录。"
+    },
+    {
+      "indent": 3,
+      "text": "The following is the information that DDDS requests an application to provide:",
+      "zh-CHS": "以下是DDDS请求应用程序提供的信息："
+    },
+    {
+      "indent": 6,
+      "text": "Application Unique String: The Application Unique String (AUS) is the input to the resolution service. For this application, it is the URI to resolve.",
+      "zh-CHS": "应用程序唯一字符串：应用程序唯一字符串（AUS）是解析服务的输入。对于此应用程序，它是要解析的URI。"
+    },
+    {
+      "indent": 6,
+      "text": "First Well Known Rule: The first well known rule extracts a key from the AUS. For this application, the first well known rule extracts the host portion of the SIP or SIPS URI.",
+      "zh-CHS": "第一条已知规则：第一条已知规则从AUS提取密钥。对于该应用程序，第一条众所周知的规则提取SIP或SIPS URI的主机部分。"
+    },
+    {
+      "indent": 6,
+      "text": "Valid Databases: The key resulting from the first well known rule is looked up in a single database, the DNS [8].",
+      "zh-CHS": "有效数据库：根据第一条已知规则生成的密钥在单个数据库DNS中查找[8]。"
+    },
+    {
+      "indent": 6,
+      "text": "Expected Output: The result of the application is an SRV record for the server to contact.",
+      "zh-CHS": "预期输出：应用程序的结果是服务器要联系的SRV记录。"
+    },
+    {
+      "indent": 0,
+      "text": "9 IANA Considerations",
+      "zh-CHS": "9 IANA考虑因素"
+    },
+    {
+      "indent": 3,
+      "text": "The usage of NAPTR records described here requires well known values for the service fields for each transport supported by SIP. The table of mappings from service field values to transport protocols is to be maintained by IANA. New entries in the table MAY be added through the publication of standards track RFCs, as described in RFC 2434 [5].",
+      "zh-CHS": "这里描述的NAPTR记录的使用需要SIP支持的每个传输的服务字段的已知值。IANA将维护从服务字段值到传输协议的映射表。如RFC 2434[5]所述，可通过发布标准轨道RFC来添加表中的新条目。"
+    },
+    {
+      "indent": 3,
+      "text": "The registration in the RFC MUST include the following information:",
+      "zh-CHS": "RFC中的注册必须包括以下信息："
+    },
+    {
+      "indent": 6,
+      "text": "Service Field: The service field being registered. An example for a new fictitious transport protocol called NCTP might be \"SIP+D2N\".",
+      "zh-CHS": "服务字段：正在注册的服务字段。新的虚拟传输协议NCTP的一个例子可能是“SIP+D2N”。"
+    },
+    {
+      "indent": 6,
+      "text": "Protocol: The specific transport protocol associated with that service field. This MUST include the name and acronym for the protocol, along with reference to a document that describes the transport protocol. For example - \"New Connectionless Transport Protocol (NCTP), RFC 5766\".",
+      "zh-CHS": "协议：与该服务字段关联的特定传输协议。这必须包括协议的名称和首字母缩略词，以及对描述传输协议的文档的引用。例如，“新的无连接传输协议（NCTP），RFC 5766”。"
+    },
+    {
+      "indent": 6,
+      "text": "Name and Contact Information: The name, address, email address and telephone number for the person performing the registration.",
+      "zh-CHS": "姓名和联系信息：执行注册的人员的姓名、地址、电子邮件地址和电话号码。"
+    },
+    {
+      "indent": 3,
+      "text": "The following values have been placed into the registry:",
+      "zh-CHS": "已将以下值放入注册表："
+    },
+    {
+      "indent": 3,
+      "text": "Services Field Protocol SIP+D2T TCP SIPS+D2T TCP SIP+D2U UDP SIP+D2S SCTP (RFC 2960)",
+      "zh-CHS": "服务域协议SIP+D2T TCP SIPS+D2T TCP SIP+D2U UDP SIP+D2S SCTP（RFC 2960）"
+    },
+    {
+      "indent": 0,
+      "text": "10 Acknowledgements",
+      "zh-CHS": "10致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Randy Bush, Leslie Daigle, Patrik Faltstrom, Jo Hornsby, Rohan Mahy, Allison Mankin, Michael Mealling, Thomas Narten, and Jon Peterson for their useful comments.",
+      "zh-CHS": "作者要感谢兰迪·布什、莱斯利·戴格尔、帕特里克·法尔茨特罗姆、乔·霍恩斯比、罗汉·马伊、艾利森·曼金、迈克尔·米林、托马斯·纳滕和乔恩·彼得森的有用评论。"
+    },
+    {
+      "indent": 0,
+      "text": "11 Normative References",
+      "zh-CHS": "11规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M. and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002.",
+      "zh-CHS": "[1] Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Gulbrandsen, A., Vixie, P. and L. Esibov, \"A DNS RR for Specifying the Location of Services (DNS SRV)\", RFC 2782, February 2000.",
+      "zh-CHS": "[2] Gulbrandsen，A.，Vixie，P.和L.Esibov，“用于指定服务位置（DNS SRV）的DNS RR”，RFC 2782，2000年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Mealling, M. and R. Daniel, \"The Naming Authority Pointer (NAPTR) DNS Resource Record\", RFC 2915, September 2000.",
+      "zh-CHS": "[3] Mealling，M.和R.Daniel，“命名机构指针（NAPTR）DNS资源记录”，RFC 2915，2000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Bradner, S., \"Key Words for Use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[4] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[5] Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 0,
+      "text": "12 Informative References",
+      "zh-CHS": "12参考资料"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Handley, M., Schulzrinne, H., Schooler, E. and J. Rosenberg, \"SIP: Session Initiation Protocol\", RFC 2543, March 1999.",
+      "zh-CHS": "[6] Handley，M.，Schulzrinne，H.，Schooler，E.和J.Rosenberg，“SIP：会话启动协议”，RFC 25431999年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Mealling, M., \"Dynamic Delegation Discovery System (DDDS) Part One: The Comprehensive DDDS Standard\", Work in Progress.",
+      "zh-CHS": "[7] Mealling，M.“动态委托发现系统（DDDS）第一部分：综合DDDS标准”，正在进行的工作。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Mealling, M., \"Dynamic Delegation Discovery System (DDDS) Part Three: The DNS Database\", Work in Progress.",
+      "zh-CHS": "[8] Mealling，M.，“动态委托发现系统（DDDS）第三部分：DNS数据库”，正在进行中。"
+    },
+    {
+      "indent": 0,
+      "text": "13 Authors' Addresses",
+      "zh-CHS": "13作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Jonathan Rosenberg dynamicsoft 72 Eagle Rock Avenue First Floor East Hanover, NJ 07936",
+      "zh-CHS": "Jonathan Rosenberg dynamicsoft 72 Eagle Rock大道一楼东汉诺威，NJ 07936"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jdrosen@dynamicsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Henning Schulzrinne Columbia University M/S 0401 1214 Amsterdam Ave. New York, NY 10027-7003",
+      "zh-CHS": "亨宁·舒尔兹林内哥伦比亚大学M/S 0401 1214纽约州纽约市阿姆斯特丹大道10027-7003"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: schulzrinne@cs.columbia.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "14 Full Copyright Statement",
+      "zh-CHS": "14完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2002). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2002年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,618 @@
+{
+  "title": {
+    "text": "RFC 3522:  The Eifel Detection Algorithm for TCP ",
+    "zh-CHS": "RFC 3522"
+  },
+  "number": 3522,
+  "created_at": "2021-10-27 10:01:58.587654+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          R. Ludwig\nRequest for Comments: 3522                                      M. Meyer\nCategory: Experimental                                 Ericsson Research\n                                                              April 2003",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "The Eifel Detection Algorithm for TCP",
+      "zh-CHS": "TCP的Eifel检测算法"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines an Experimental Protocol for the Internet community. It does not specify an Internet standard of any kind. Discussion and suggestions for improvement are requested. Distribution of this memo is unlimited.",
+      "zh-CHS": "这份备忘录为互联网社区定义了一个实验性协议。它没有规定任何类型的互联网标准。要求进行讨论并提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2003). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2003年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Eifel detection algorithm allows a TCP sender to detect a posteriori whether it has entered loss recovery unnecessarily. It requires that the TCP Timestamps option defined in RFC 1323 be enabled for a connection. The Eifel detection algorithm makes use of the fact that the TCP Timestamps option eliminates the retransmission ambiguity in TCP. Based on the timestamp of the first acceptable ACK that arrives during loss recovery, it decides whether loss recovery was entered unnecessarily. The Eifel detection algorithm provides a basis for future TCP enhancements. This includes response algorithms to back out of loss recovery by restoring a TCP sender's congestion control state.",
+      "zh-CHS": "Eifel检测算法允许TCP发送方检测后验概率是否不必要地进入了丢失恢复。它要求为连接启用RFC 1323中定义的TCP时间戳选项。Eifel检测算法利用TCP时间戳选项消除TCP中的重传模糊性这一事实。根据丢失恢复期间到达的第一个可接受ACK的时间戳，它决定是否不必要地输入了丢失恢复。Eifel检测算法为未来的TCP增强提供了基础。这包括通过恢复TCP发送方的拥塞控制状态来退出丢失恢复的响应算法。"
+    },
+    {
+      "indent": 0,
+      "text": "Terminology",
+      "zh-CHS": "术语"
+    },
+    {
+      "indent": 3,
+      "text": "The keywords MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, MAY, and OPTIONAL, when they appear in this document, are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中出现的关键词必须、不得、必需、应、不应、应、不应、建议、可和可选时，应按照[RFC2119]中的说明进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "We refer to the first-time transmission of an octet as the 'original transmit'. A subsequent transmission of the same octet is referred to as a 'retransmit'. In most cases, this terminology can likewise be applied to data segments as opposed to octets. However, with repacketization, a segment can contain both first-time transmissions and retransmissions of octets. In that case, this terminology is only consistent when applied to octets. For the Eifel detection algorithm, this makes no difference as it also operates correctly when repacketization occurs.",
+      "zh-CHS": "我们将八位字节的首次传输称为“原始传输”。同一八位组的后续传输称为“重传”。在大多数情况下，这个术语同样适用于数据段，而不是八位字节。然而，通过重新打包，一个段可以包含八位字节的首次传输和重新传输。在这种情况下，这个术语只有在应用于八位字节时才是一致的。对于Eifel检测算法，这没有什么区别，因为它在重新打包时也能正确运行。"
+    },
+    {
+      "indent": 3,
+      "text": "We use the term 'acceptable ACK' as defined in [RFC793]. That is an ACK that acknowledges previously unacknowledged data. We use the term 'duplicate ACK', and the variable 'dupacks' as defined in [WS95]. The variable 'dupacks' is a counter of duplicate ACKs that have already been received by a TCP sender before the fast retransmit is sent. We use the variable 'DupThresh' to refer to the so-called duplicate acknowledgement threshold, i.e., the number of duplicate ACKs that need to arrive at a TCP sender to trigger a fast retransmit. Currently, DupThresh is specified as a fixed value of three [RFC2581]. Future TCPs might implement an adaptive DupThresh.",
+      "zh-CHS": "我们使用[RFC793]中定义的术语“可接受的确认”。这是一个确认以前未确认的数据的应答。我们使用术语“duplicate ACK”和[WS95]中定义的变量“dupacks”。变量'dupacks'是TCP发送方在发送快速重传之前已经接收到的重复ACK的计数器。我们使用变量“dupsthresh”来表示所谓的重复确认阈值，即需要到达TCP发送方以触发快速重传的重复确认数。目前，DupThresh被指定为三个固定值[RFC2581]。未来的TCP可能会实现一个自适应的DupThresh。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The retransmission ambiguity problem [Zh86], [KP87] is a TCP sender's inability to distinguish whether the first acceptable ACK that arrives after a retransmit was sent in response to the original transmit or the retransmit. This problem occurs after a timeout-based retransmit and after a fast retransmit. The Eifel detection algorithm uses the TCP Timestamps option defined in [RFC1323] to eliminate the retransmission ambiguity. It thereby allows a TCP sender to detect a posteriori whether it has entered loss recovery unnecessarily.",
+      "zh-CHS": "重传歧义问题[Zh86]，[KP87]是TCP发送方无法区分重传后到达的第一个可接受ACK是响应原始传输还是重传而发送的。此问题发生在基于超时的重新传输和快速重新传输之后。Eifel检测算法使用[RFC1323]中定义的TCP时间戳选项来消除重传模糊性。因此，它允许TCP发送方检测后验概率是否不必要地进入了丢失恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "This added capability of a TCP sender is useful in environments where TCP's loss recovery and congestion control algorithms may often get falsely triggered. This can be caused by packet reordering, packet duplication, or a sudden delay increase in the data or the ACK path that results in a spurious timeout. For example, such sudden delay increases can often occur in wide-area wireless access networks due to handovers, resource preemption due to higher priority traffic (e.g., voice), or because the mobile transmitter traverses through a radio coverage hole (e.g., see [Gu01]). In such wireless networks, the often unnecessary go-back-N retransmits that typically occur after a spurious timeout create a serious problem. They decrease end-to-end throughput, are useless load upon the network, and waste transmission (battery) power. Note that across such networks the use of timestamps is recommended anyway [RFC3481].",
+      "zh-CHS": "在TCP的丢失恢复和拥塞控制算法经常被错误触发的环境中，TCP发送方的这一新增功能非常有用。这可能是由数据包重新排序、数据包重复或导致虚假超时的数据或ACK路径中的突然延迟增加引起的。例如，由于切换、由于更高优先级业务（例如，语音）的资源抢占，或者由于移动发射机穿过无线电覆盖孔（例如，参见[Gu01]），在广域无线接入网络中经常会发生这种突然的延迟增加。在这样的无线网络中，通常在虚假超时后发生的不必要的回退N重传会造成严重问题。它们会降低端到端吞吐量，对网络造成无用负载，并浪费传输（电池）功率。请注意，无论如何，建议在此类网络中使用时间戳[RFC3481]。"
+    },
+    {
+      "indent": 3,
+      "text": "Based on the Eifel detection algorithm, a TCP sender may then choose to implement dedicated response algorithms. One goal of such a response algorithm would be to alleviate the consequences of a falsely triggered loss recovery. This may include restoring the TCP sender's congestion control state, and avoiding the mentioned unnecessary go-back-N retransmits. Another goal would be to adapt protocol parameters such as the duplicate acknowledgement threshold [RFC2581], and the RTT estimators [RFC2988]. This is to reduce the risk of falsely triggering TCP's loss recovery again as the connection progresses. However, such response algorithms are outside",
+      "zh-CHS": "基于Eifel检测算法，TCP发送方可以选择实现专用的响应算法。这种响应算法的一个目标是减轻错误触发的损失恢复的后果。这可能包括恢复TCP发送方的拥塞控制状态，以及避免所提到的不必要的回退N重传。另一个目标是调整协议参数，如重复确认阈值[RFC2581]和RTT估计器[RFC2988]。这是为了降低连接过程中再次错误触发TCP丢失恢复的风险。然而，这种响应算法是外部的"
+    },
+    {
+      "indent": 3,
+      "text": "the scope of this document. Note: The original proposal, the \"Eifel algorithm\" [LK00], comprises both a detection and a response algorithm. This document only defines the detection part. The response part is defined in [LG03].",
+      "zh-CHS": "本文件的范围。注：原始方案“Eifel算法”[LK00]包括检测和响应算法。本文件仅定义了检测部分。响应部分在[LG03]中定义。"
+    },
+    {
+      "indent": 3,
+      "text": "A key feature of the Eifel detection algorithm is that it already detects, upon the first acceptable ACK that arrives during loss recovery, whether a fast retransmit or a timeout was spurious. This is crucial to be able to avoid the mentioned go-back-N retransmits. Another feature is that the Eifel detection algorithm is fairly robust against the loss of ACKs.",
+      "zh-CHS": "Eifel检测算法的一个关键特性是，它已经在丢失恢复期间到达的第一个可接受的ACK上检测快速重传或超时是否是虚假的。这对于避免上述回退N重传至关重要。另一个特点是Eifel检测算法对ACK丢失具有相当强的鲁棒性。"
+    },
+    {
+      "indent": 3,
+      "text": "Also the DSACK option [RFC2883] can be used to detect a posteriori whether a TCP sender has entered loss recovery unnecessarily [BA02]. However, the first ACK carrying a DSACK option usually arrives at a TCP sender only after loss recovery has already terminated. Thus, the DSACK option cannot be used to eliminate the retransmission ambiguity. Consequently, it cannot be used to avoid the mentioned unnecessary go-back-N retransmits. Moreover, a DSACK-based detection algorithm is less robust against ACK losses. A recent proposal based on neither the TCP timestamps nor the DSACK option does not have the limitation of DSACK-based schemes, but only addresses the case of spurious timeouts [SK03].",
+      "zh-CHS": "此外，DSACK选项[RFC2883]可用于检测后验TCP发送方是否已不必要地输入丢失恢复[BA02]。然而，带有DSACK选项的第一个ACK通常只有在丢失恢复已经终止之后才到达TCP发送方。因此，DSACK选项不能用于消除重传模糊性。因此，它不能用于避免上述不必要的回退N重传。此外，基于DSACK的检测算法对ACK丢失的鲁棒性较差。最近一项既不基于TCP时间戳也不基于DSACK选项的提案没有基于DSACK的方案的限制，只解决了虚假超时的情况[SK03]。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Events that Falsely Trigger TCP Loss Recovery",
+      "section_title": true,
+      "zh-CHS": "2. 错误触发TCP丢失恢复的事件"
+    },
+    {
+      "indent": 3,
+      "text": "The following events may falsely trigger a TCP sender's loss recovery and congestion control algorithms. This causes a so-called spurious retransmit, and an unnecessary reduction of the TCP sender's congestion window and slow start threshold [RFC2581].",
+      "zh-CHS": "以下事件可能会错误地触发TCP发送方的丢失恢复和拥塞控制算法。这会导致所谓的伪重传，并不必要地减少TCP发送方的拥塞窗口和慢启动阈值[RFC2581]。"
+    },
+    {
+      "indent": 6,
+      "text": "- Spurious timeout",
+      "zh-CHS": "- 假超时"
+    },
+    {
+      "indent": 6,
+      "text": "- Packet reordering",
+      "zh-CHS": "- 数据包重新排序"
+    },
+    {
+      "indent": 6,
+      "text": "- Packet duplication",
+      "zh-CHS": "- 数据包复制"
+    },
+    {
+      "indent": 3,
+      "text": "A spurious timeout is a timeout that would not have occurred had the sender \"waited longer\". This may be caused by increased delay that suddenly occurs in the data and/or the ACK path. That in turn might cause an acceptable ACK to arrive too late, i.e., only after a TCP sender's retransmission timer has expired. For the purpose of specifying the algorithm in Section 3, we define this case as SPUR_TO (equal 1).",
+      "zh-CHS": "虚假超时是如果发送方“等待更长时间”就不会发生的超时。这可能是由于数据和/或ACK路径中突然出现的延迟增加造成的。这反过来可能导致可接受的ACK到达得太晚，即，只有在TCP发送方的重传计时器过期之后。为了在第3节中指定算法，我们将这种情况定义为SPUR_TO（等于1）。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: There is another case where a timeout would not have occurred had the sender \"waited longer\": the retransmission timer expires, and afterwards the TCP sender receives the duplicate ACK",
+      "zh-CHS": "注意：还有一种情况，如果发送方“等待的时间更长”，则不会发生超时：重传计时器过期，然后TCP发送方收到重复的ACK"
+    },
+    {
+      "indent": 6,
+      "text": "that would have triggered a fast retransmit of the oldest outstanding segment. We call this a 'fast timeout', since in competition with the fast retransmit algorithm the timeout was faster. However, a fast timeout is not spurious since apparently a segment was in fact lost, i.e., loss recovery was initiated rightfully. In this document, we do not consider fast timeouts.",
+      "zh-CHS": "这将触发最古老的未完成片段的快速重新传输。我们称之为“快速超时”，因为与快速重传算法相比，超时更快。然而，快速超时不是虚假的，因为显然某个段实际上丢失了，即丢失恢复是正确启动的。在本文中，我们不考虑快速超时。"
+    },
+    {
+      "indent": 3,
+      "text": "Packet reordering in the network may occur because IP [RFC791] does not guarantee in-order delivery of packets. Additionally, a TCP receiver generates a duplicate ACK for each segment that arrives out-of-order. This results in a spurious fast retransmit if three or more data segments arrive out-of-order at a TCP receiver, and at least three of the resulting duplicate ACKs arrive at the TCP sender. This assumes that the duplicate acknowledgement threshold is set to three as defined in [RFC2581].",
+      "zh-CHS": "由于IP[RFC791]不能保证按顺序传送数据包，因此网络中可能会发生数据包重新排序。此外，TCP接收器会为每个无序到达的段生成一个重复的ACK。如果三个或更多数据段无序地到达TCP接收器，并且至少三个产生的重复ACK到达TCP发送方，则这将导致虚假的快速重传。这假设重复确认阈值设置为[RFC2581]中定义的三。"
+    },
+    {
+      "indent": 3,
+      "text": "Packet duplication may occur because a receiving IP does not (cannot) remove packets that have been duplicated in the network. A TCP receiver in turn also generates a duplicate ACK for each duplicate segment. As with packet reordering, this results in a spurious fast retransmit if duplication of data segments or ACKs results in three or more duplicate ACKs to arrive at a TCP sender. Again, this assumes that the duplicate acknowledgement threshold is set to three.",
+      "zh-CHS": "由于接收IP没有（无法）删除网络中已复制的数据包，因此可能会发生数据包复制。TCP接收器反过来也为每个重复段生成一个重复的ACK。与数据包重新排序一样，如果重复数据段或ACK导致三个或更多重复ACK到达TCP发送方，则会导致虚假的快速重新传输。同样，这假设重复确认阈值设置为3。"
+    },
+    {
+      "indent": 3,
+      "text": "The negative impact on TCP performance caused by packet reordering and packet duplication is commonly the same: a single spurious retransmit (the fast retransmit), and the unnecessary halving of a TCP sender's congestion window as a result of the subsequent fast recovery phase [RFC2581].",
+      "zh-CHS": "数据包重新排序和数据包复制对TCP性能造成的负面影响通常是相同的：一次虚假的重新传输（快速重新传输），以及随后的快速恢复阶段导致TCP发送方拥塞窗口不必要的减半[RFC2581]。"
+    },
+    {
+      "indent": 3,
+      "text": "The negative impact on TCP performance caused by a spurious timeout is more severe. First, the timeout event itself causes a single spurious retransmit, and unnecessarily forces a TCP sender into slow start [RFC2581]. Then, as the connection progresses, a chain reaction gets triggered that further decreases TCP's performance. Since the timeout was spurious, at least some ACKs for original transmits typically arrive at the TCP sender before the ACK for the retransmit arrives. (This is unless severe packet reordering coincided with the spurious timeout in such a way that the ACK for the retransmit is the first acceptable ACK to arrive at the TCP sender.) Those ACKs for original transmits then trigger an implicit go-back-N loss recovery at the TCP sender [LK00]. Assuming that none of the outstanding segments and none of the corresponding ACKs were lost, all outstanding segments get retransmitted unnecessarily. In fact, during this phase, a TCP sender violates the packet conservation principle [Jac88]. This is because the unnecessary go-back-N retransmits are sent during slow start. Thus, for each packet that leaves the network and that belongs to the first half of the",
+      "zh-CHS": "虚假超时对TCP性能造成的负面影响更为严重。首先，超时事件本身会导致一次虚假的重新传输，并不必要地强制TCP发送方缓慢启动[RFC2581]。然后，随着连接的进行，会触发连锁反应，进一步降低TCP的性能。由于超时是虚假的，至少一些原始传输的ACK通常在重新传输的ACK到达之前到达TCP发送方。（除非严重的数据包重新排序与伪超时同时发生，使得重传的ACK是到达TCP发送方的第一个可接受的ACK。）原始传输的这些ACK然后在TCP发送方触发隐式返回N丢失恢复[LK00]。假设没有任何未完成的段和相应的ack丢失，所有未完成的段都会被不必要地重新传输。事实上，在此阶段，TCP发送方违反了数据包保护原则[Jac88]。这是因为不必要的回退N重传是在慢启动期间发送的。因此，对于离开网络并且属于网络前半部分的每个分组"
+    },
+    {
+      "indent": 3,
+      "text": "original flight, two useless retransmits are sent into the network. In addition, some TCPs suffer from a spurious fast retransmit. This is because the unnecessary go-back-N retransmits arrive as duplicates at the TCP receiver, which in turn triggers a series of duplicate ACKs. Note that this last spurious fast retransmit could be avoided with the careful variant of 'bugfix' [RFC2582].",
+      "zh-CHS": "在最初的飞行中，两次无用的重传被发送到网络中。此外，一些TCP还遭受虚假的快速重传。这是因为不必要的回退N重传以重复的形式到达TCP接收器，从而触发一系列重复的ack。请注意，最后一次虚假的快速重传可以通过谨慎的“bugfix”变体[RFC2582]避免。"
+    },
+    {
+      "indent": 3,
+      "text": "More detailed explanations, including TCP trace plots that visualize the effects of spurious timeouts and packet reordering, can be found in the original proposal [LK00].",
+      "zh-CHS": "更详细的解释，包括显示虚假超时和数据包重新排序影响的TCP跟踪图，可以在原始提案[LK00]中找到。"
+    },
+    {
+      "indent": 0,
+      "text": "3. The Eifel Detection Algorithm",
+      "section_title": true,
+      "zh-CHS": "3. Eifel检测算法"
+    },
+    {
+      "indent": 0,
+      "text": "3.1 The Idea",
+      "section_title": true,
+      "zh-CHS": "3.1 想法"
+    },
+    {
+      "indent": 3,
+      "text": "The goal of the Eifel detection algorithm is to allow a TCP sender to detect a posteriori whether it has entered loss recovery unnecessarily. Furthermore, the TCP sender should be able to make this decision upon the first acceptable ACK that arrives after the timeout-based retransmit or the fast retransmit has been sent. This in turn requires extra information in ACKs by which the TCP sender can unambiguously distinguish whether that first acceptable ACK was sent in response to the original transmit or the retransmit. Such extra information is provided by the TCP Timestamps option [RFC1323]. Generally speaking, timestamps are monotonously increasing \"serial numbers\" added into every segment that are then echoed within the corresponding ACKs. This is exploited by the Eifel detection algorithm in the following way.",
+      "zh-CHS": "Eifel检测算法的目标是允许TCP发送方检测后验概率是否不必要地进入了丢失恢复。此外，TCP发送方应该能够在发送基于超时的重新传输或快速重新传输后到达的第一个可接受的ACK时做出此决定。这反过来又需要ACK中的额外信息，通过这些信息，TCP发送方可以明确区分第一个可接受的ACK是响应原始传输还是重传而发送的。此类额外信息由TCP时间戳选项[RFC1323]提供。一般来说，时间戳是单调递增的“序列号”，添加到每个段中，然后在相应的ack中回声。Eifel检测算法以以下方式利用了这一点。"
+    },
+    {
+      "indent": 3,
+      "text": "Given that timestamps are enabled for a connection, a TCP sender always stores the timestamp of the retransmit sent in the beginning of loss recovery, i.e., the timestamp of the timeout-based retransmit or the fast retransmit. If the timestamp of the first acceptable ACK, that arrives after the retransmit was sent, is smaller then the stored timestamp of that retransmit, then that ACK must have been sent in response to an original transmit. Hence, the TCP sender must have entered loss recovery unnecessarily.",
+      "zh-CHS": "如果为连接启用了时间戳，TCP发送方始终存储在丢失恢复开始时发送的重新传输的时间戳，即基于超时的重新传输或快速重新传输的时间戳。如果在发送重发后到达的第一个可接受ACK的时间戳小于存储的该重发的时间戳，则该ACK必须是响应于原始传输而发送的。因此，TCP发送方必须输入不必要的丢失恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "The fact that the Eifel detection algorithm decides upon the first acceptable ACK is crucial to allow future response algorithms to avoid the unnecessary go-back-N retransmits that typically occur after a spurious timeout. Also, if loss recovery was entered unnecessarily, a window worth of ACKs are outstanding that all carry a timestamp that is smaller than the stored timestamp of the retransmit. The arrival of any one of those ACKs is sufficient for the Eifel detection algorithm to work. Hence, the solution is fairly",
+      "zh-CHS": "Eifel检测算法决定第一个可接受的ACK这一事实对于允许未来的响应算法避免通常在虚假超时后发生的不必要的回退N重传至关重要。此外，如果不必要地输入了丢失恢复，那么一个窗口值的ack是未完成的，所有ack都带有一个小于存储的重传时间戳的时间戳。这些ack中的任何一个的到达足以使Eifel检测算法工作。因此，解决方案是公平的"
+    },
+    {
+      "indent": 3,
+      "text": "robust against ACK losses. Even the ACK sent in response to the retransmit, i.e., the one that carries the stored timestamp, may get lost without compromising the algorithm.",
+      "zh-CHS": "对ACK损失具有鲁棒性。即使响应于重传而发送的ACK，即携带存储的时间戳的ACK，也可能丢失，而不会影响算法。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2 The Algorithm",
+      "section_title": true,
+      "zh-CHS": "3.2 算法"
+    },
+    {
+      "indent": 3,
+      "text": "Given that the TCP Timestamps option [RFC1323] is enabled for a connection, a TCP sender MAY use the Eifel detection algorithm as defined in this subsection.",
+      "zh-CHS": "鉴于TCP时间戳选项[RFC1323]已为连接启用，TCP发送方可使用本小节中定义的Eifel检测算法。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Eifel detection algorithm is used, the following steps MUST be taken by a TCP sender, but only upon initiation of loss recovery, i.e., when either the timeout-based retransmit or the fast retransmit is sent. The Eifel detection algorithm MUST NOT be reinitiated after loss recovery has already started. In particular, it must not be reinitiated upon subsequent timeouts for the same segment, and not upon retransmitting segments other than the oldest outstanding segment, e.g., during selective loss recovery.",
+      "zh-CHS": "如果使用Eifel检测算法，TCP发送方必须采取以下步骤，但仅在启动丢失恢复时，即在发送基于超时的重传或快速重传时。丢失恢复已经开始后，不得重新初始化Eifel检测算法。特别是，不得在同一段的后续超时时重新初始化，也不得在重新传输除最早未完成段以外的段时重新初始化，例如，在选择性丢失恢复期间。"
+    },
+    {
+      "indent": 6,
+      "text": "(1) Set a \"SpuriousRecovery\" variable to FALSE (equal 0).",
+      "zh-CHS": "(1) 将“伪恢复”变量设置为FALSE（等于0）。"
+    },
+    {
+      "indent": 6,
+      "text": "(2) Set a \"RetransmitTS\" variable to the value of the Timestamp Value field of the Timestamps option included in the retransmit sent when loss recovery is initiated. A TCP sender must ensure that RetransmitTS does not get overwritten as loss recovery progresses, e.g., in case of a second timeout and subsequent second retransmit of the same octet.",
+      "zh-CHS": "(2) 将“Retransmits”变量设置为启动丢失恢复时发送的重新传输中包含的Timestamp选项的Timestamp value字段的值。TCP发送方必须确保重新传输不会随着丢失恢复的进行而被覆盖，例如，在第二次超时以及随后第二次重新传输相同的八位字节的情况下。"
+    },
+    {
+      "indent": 6,
+      "text": "(3) Wait for the arrival of an acceptable ACK. When an acceptable ACK has arrived, proceed to step (4).",
+      "zh-CHS": "(3) 等待可接受的ACK的到来。当可接受的ACK到达时，继续执行步骤（4）。"
+    },
+    {
+      "indent": 6,
+      "text": "(4) If the value of the Timestamp Echo Reply field of the acceptable ACK's Timestamps option is smaller than the value of RetransmitTS, then proceed to step (5),",
+      "zh-CHS": "(4) 如果可接受ACK的Timestamps选项的Timestamp Echo Reply字段的值小于重传的值，则转至步骤（5），"
+    },
+    {
+      "indent": 14,
+      "text": "else proceed to step (DONE).",
+      "zh-CHS": "否则继续执行步骤（完成）。"
+    },
+    {
+      "indent": 6,
+      "text": "(5) If the acceptable ACK carries a DSACK option [RFC2883], then proceed to step (DONE),",
+      "zh-CHS": "(5) 如果可接受的ACK带有DSACK选项[RFC2883]，则转至步骤（完成），"
+    },
+    {
+      "indent": 14,
+      "text": "else if during the lifetime of the TCP connection the TCP sender has previously received an ACK with a DSACK option, or the acceptable ACK does not acknowledge all outstanding data, then proceed to step (6),",
+      "zh-CHS": "否则，如果在TCP连接的生存期内，TCP发送方先前已收到带有DSACK选项的ACK，或者可接受的ACK未确认所有未完成的数据，则转至步骤（6），"
+    },
+    {
+      "indent": 14,
+      "text": "else proceed to step (DONE).",
+      "zh-CHS": "否则继续执行步骤（完成）。"
+    },
+    {
+      "indent": 6,
+      "text": "(6) If the loss recovery has been initiated with a timeout-based retransmit, then set SpuriousRecovery <- SPUR_TO (equal 1),",
+      "zh-CHS": "(6) 如果丢失恢复是通过基于超时的重新传输启动的，则将SpusiousRecovery<-SPUR_设置为（等于1），"
+    },
+    {
+      "indent": 14,
+      "text": "else set SpuriousRecovery <- dupacks+1",
+      "zh-CHS": "否则设置伪恢复<-dupacks+1"
+    },
+    {
+      "indent": 6,
+      "text": "(RESP) Do nothing (Placeholder for a response algorithm).",
+      "zh-CHS": "（RESP）不执行任何操作（响应算法的占位符）。"
+    },
+    {
+      "indent": 6,
+      "text": "(DONE) No further processing.",
+      "zh-CHS": "（完成）无需进一步处理。"
+    },
+    {
+      "indent": 3,
+      "text": "The comparison \"smaller than\" in step (4) is conservative. In theory, if the timestamp clock is slow or the network is fast, RetransmitTS could at most be equal to the timestamp echoed by an ACK sent in response to an original transmit. In that case, it is assumed that the loss recovery was not falsely triggered.",
+      "zh-CHS": "步骤（4）中的比较“小于”是保守的。理论上，如果时间戳时钟慢或网络快，则重传最多可以等于响应原始传输而发送的ACK所回显的时间戳。在这种情况下，假定损失恢复不是错误触发的。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the condition \"if during the lifetime of the TCP connection the TCP sender has previously received an ACK with a DSACK option\" in step (5) would be true in case the TCP receiver would signal in the SYN that it is DSACK-enabled. But unfortunately, this is not required by [RFC2883].",
+      "zh-CHS": "请注意，如果TCP接收器在SYN中发出信号表示其已启用DSACK，则步骤（5）中的条件“如果在TCP连接的生存期内，TCP发送方先前已收到带有DSACK选项的ACK”，则该条件为真。但不幸的是，[RFC2883]并不要求这样做。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3 A Corner Case: \"Timeout due to loss of all ACKs\" (step 5)",
+      "section_title": true,
+      "zh-CHS": "3.3 角落案例：“由于丢失所有ACK而超时”（步骤5）"
+    },
+    {
+      "indent": 3,
+      "text": "Even though the oldest outstanding segment arrived at a TCP receiver, the TCP sender is forced into a timeout if all ACKs are lost. Although the resulting retransmit is unnecessary, such a timeout is unavoidable. It should therefore not be considered spurious. Moreover, the subsequent reduction of the congestion window is an appropriate response to the potentially heavy congestion in the ACK path. The original proposal [LK00] does not handle this case well. It effectively disables this implicit form of congestion control for the ACK path, which otherwise does not exist in TCP. This problem is fixed by step (5) of the Eifel detection algorithm as explained in the remainder of this section.",
+      "zh-CHS": "即使最早的未完成段到达TCP接收方，如果所有ACK丢失，TCP发送方也会被迫超时。尽管由此产生的重新传输是不必要的，但这样的超时是不可避免的。因此，不应认为这是虚假的。此外，拥塞窗口的随后减小是对ACK路径中潜在的严重拥塞的适当响应。原来的提案[LK00]没有很好地处理这个问题。它有效地禁用了ACK路径的这种隐式拥塞控制形式，否则TCP中就不存在这种形式。如本节剩余部分所述，Eifel检测算法的步骤（5）解决了该问题。"
+    },
+    {
+      "indent": 3,
+      "text": "If all ACKs are lost while the oldest outstanding segment arrived at the TCP receiver, the retransmit arrives as a duplicate. In response to duplicates, RFC 1323 mandates that the timestamp of the last segment that arrived in-sequence should be echoed. That timestamp is carried by the first acceptable ACK that arrives at the TCP sender after loss recovery was entered, and is commonly smaller than the timestamp carried by the retransmit. Consequently, the Eifel detection algorithm misinterprets such a timeout as being spurious, unless the TCP receiver is DSACK-enabled [RFC2883]. In that case, the acceptable ACK carries a DSACK option, and the Eifel algorithm is terminated through the first part of step (5).",
+      "zh-CHS": "如果在最早的未完成段到达TCP接收器时，所有ACK都丢失，则重传将作为副本到达。作为对重复的响应，RFC 1323要求应回显按顺序到达的最后一段的时间戳。该时间戳由输入丢失恢复后到达TCP发送方的第一个可接受ACK携带，并且通常小于重传携带的时间戳。因此，Eifel检测算法将此类超时误认为是虚假的，除非TCP接收器启用了DSACK[RFC2883]。在这种情况下，可接受ACK携带DSACK选项，并且通过步骤（5）的第一部分终止Eifel算法。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: Not all TCP implementations strictly follow RFC 1323. In response to a duplicate data segment, some TCP receivers echo the timestamp of the duplicate. With such TCP receivers, the corner case discussed in this section does not apply. The timestamp carried by the retransmit would be echoed in the first acceptable ACK, and the Eifel detection algorithm would be terminated through step (4). Thus, even though all ACKs were lost and independent of whether the DSACK option was enabled for a connection, the Eifel detection algorithm would have no effect.",
+      "zh-CHS": "注意：并非所有TCP实现都严格遵循RFC 1323。作为对重复数据段的响应，一些TCP接收器回显重复数据段的时间戳。对于此类TCP接收器，本节讨论的拐角情况不适用。重发所携带的时间戳将在第一个可接受的ACK中回响，并且Eifel检测算法将通过步骤（4）终止。因此，即使所有ACK都丢失，并且与是否为连接启用了DSACK选项无关，Eifel检测算法也不会产生任何效果。"
+    },
+    {
+      "indent": 3,
+      "text": "With TCP receivers that are not DSACK-enabled, disabling the mentioned implicit congestion control for the ACK path is not a problem as long as data segments are lost, in addition to the entire flight of ACKs. The Eifel detection algorithm misinterprets such a timeout as being spurious, and the Eifel response algorithm would reverse the congestion control state. Still, the TCP sender would respond to congestion (in the data path) as soon as it finds out about the first loss in the outstanding flight. I.e., the TCP sender would still halve its congestion window for that flight of packets. If no data segment is lost while the entire flight of ACKs is lost, the first acceptable ACK that arrives at the TCP sender after loss recovery was entered acknowledges all outstanding data. In that case, the Eifel algorithm is terminated through the second part of step (5).",
+      "zh-CHS": "对于未启用DSACK的TCP接收器，只要数据段丢失，除了整个ACK飞行之外，禁用ACK路径的所述隐式拥塞控制就不是问题。Eifel检测算法将此类超时误认为是虚假的，Eifel响应算法将反转拥塞控制状态。不过，TCP发送方一旦发现未完成航班中的第一次丢失，就会立即响应拥塞（在数据路径中）。也就是说，TCP发送方仍然会将该数据包传输的拥塞窗口减半。如果在整个ACK航班丢失时没有数据段丢失，则在输入丢失恢复后到达TCP发送方的第一个可接受的ACK确认所有未完成的数据。在这种情况下，通过步骤（5）的第二部分终止Eifel算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that there is little concern about violating the packet conservation principle when entering slow start after an unavoidable timeout caused by the loss of an entire flight of ACKs, i.e., when the Eifel detection algorithm was terminated through step (5). This is because in that case, the acceptable ACK corresponds to the retransmit, which is a strong indication that the pipe has drained entirely, i.e., that no more original transmits are in the network. This is different with spurious timeouts as discussed in Section 2.",
+      "zh-CHS": "注意，在由于整个ack飞行的丢失而导致不可避免的超时之后，即当Eifel检测算法通过步骤（5）终止时，当进入慢启动时，几乎不担心违反分组保护原则。这是因为在这种情况下，可接受的ACK对应于重传，这是管道已完全排空的强烈指示，即网络中不再有原始传输。这与第2节中讨论的虚假超时不同。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4 Protecting Against Misbehaving TCP Receivers (the Safe Variant)",
+      "section_title": true,
+      "zh-CHS": "3.4 防止TCP接收器行为异常（安全变体）"
+    },
+    {
+      "indent": 3,
+      "text": "A TCP receiver can easily make a genuine retransmit appear to the TCP sender as a spurious retransmit by forging echoed timestamps. This may pose a security concern.",
+      "zh-CHS": "TCP接收方可以通过伪造回显时间戳，很容易使真正的重传在TCP发送方看来是虚假的重传。这可能会引起安全问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Fortunately, there is a way to modify the Eifel detection algorithm in a way that makes it robust against lying TCP receivers. The idea is to use timestamps as a segment's \"secret\" that a TCP receiver only gets to know if it receives the segment. Conversely, a TCP receiver will not know the timestamp of a segment that was lost. Hence, to \"prove\" that it received the original transmit of a segment that a TCP sender retransmitted, the TCP receiver would need to return the timestamp of that original transmit. The Eifel detection algorithm",
+      "zh-CHS": "幸运的是，有一种方法可以修改Eifel检测算法，使其对说谎的TCP接收器具有鲁棒性。其思想是使用时间戳作为段的“秘密”，TCP接收器只知道是否接收到段。相反，TCP接收器将不知道丢失的段的时间戳。因此，为了“证明”它收到了TCP发送方重新传输的段的原始传输，TCP接收方需要返回该原始传输的时间戳。Eifel检测算法"
+    },
+    {
+      "indent": 3,
+      "text": "could then be modified to only decide that loss recovery has been unnecessarily entered if the first acceptable ACK echoes the timestamp of the original transmit.",
+      "zh-CHS": "然后，如果第一个可接受的ACK回响原始传输的时间戳，则可以修改以仅确定不必要地输入了丢失恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "Hence, implementers may choose to implement the algorithm with the following modifications.",
+      "zh-CHS": "因此，实现者可以选择通过以下修改来实现算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Step (2) is replaced with step (2'):",
+      "zh-CHS": "将步骤（2）替换为步骤（2’）："
+    },
+    {
+      "indent": 6,
+      "text": "(2') Set a \"RetransmitTS\" variable to the value of the Timestamp Value field of the Timestamps option that was included in the original transmit corresponding to the retransmit. Note: This step requires that the TCP sender stores the timestamps of all outstanding original transmits.",
+      "zh-CHS": "（2'）将“Retransmits”变量设置为时间戳选项的时间戳值字段的值，该值包括在与重新传输相对应的原始传输中。注意：此步骤要求TCP发送方存储所有未完成原始传输的时间戳。"
+    },
+    {
+      "indent": 3,
+      "text": "Step (4) is replaced with step (4'):",
+      "zh-CHS": "将步骤（4）替换为步骤（4’）："
+    },
+    {
+      "indent": 6,
+      "text": "(4') If the value of the Timestamp Echo Reply field of the acceptable ACK's Timestamps option is equal to the value of the variable RetransmitTS, then proceed to step (5),",
+      "zh-CHS": "（4’）如果可接受ACK的Timestamp选项的Timestamp Echo Reply字段的值等于变量重传的值，则继续步骤（5），"
+    },
+    {
+      "indent": 14,
+      "text": "else proceed to step (DONE).",
+      "zh-CHS": "否则继续执行步骤（完成）。"
+    },
+    {
+      "indent": 3,
+      "text": "These modifications come at a cost: the modified algorithm is fairly sensitive against ACK losses since it relies on the arrival of the acceptable ACK that corresponds to the original transmit.",
+      "zh-CHS": "这些修改是有代价的：修改后的算法对ACK丢失相当敏感，因为它依赖于与原始传输相对应的可接受ACK的到达。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: The first acceptable ACK that arrives after loss recovery has been unnecessarily entered should echo the timestamp of the original transmit. This assumes that the ACK corresponding to the original transmit was not lost, that that ACK was not reordered in the network, and that the TCP receiver does not forge timestamps but complies with RFC 1323. In case of a spurious fast retransmit, this is implied by the rules for generating ACKs for data segments that fill in all or part of a gap in the sequence space (see section 4.2 of [RFC2581]) and by the rules for echoing timestamps in that case (see rule (C) in section 3.4 of [RFC1323]). In case of a spurious timeout, it is likely that the delay that has caused the spurious timeout has also caused the TCP receiver's delayed ACK timer [RFC1122] to expire before the original transmit arrives. Also, in this case the rules for generating ACKs and the rules for echoing timestamps (see rule (A) in section 3.4 of [RFC1323]) ensure that the original transmit's timestamp is echoed.",
+      "zh-CHS": "注意：在不必要地输入丢失恢复后到达的第一个可接受的ACK应回显原始传输的时间戳。这假设与原始传输相对应的ACK没有丢失，该ACK没有在网络中重新排序，并且TCP接收器没有伪造时间戳，而是符合RFC 1323。在伪快速重传的情况下，为填充序列空间中全部或部分间隙的数据段生成ACK的规则（参见[RFC2581]第4.2节）和在这种情况下回送时间戳的规则（参见[RFC1323]第3.4节的规则（C））暗示了这一点。在虚假超时的情况下，导致虚假超时的延迟也可能导致TCP接收器的延迟ACK计时器[RFC1122]在原始传输到达之前过期。此外，在这种情况下，生成ACK的规则和回显时间戳的规则（参见[RFC1323]第3.4节中的规则（A））确保回显原始传输的时间戳。"
+    },
+    {
+      "indent": 3,
+      "text": "A remaining problem is that a TCP receiver might guess a lost segment's timestamp from observing the timestamps of recently received segments. For example, if segment N was lost while segment N-1 and N+1 have arrived, a TCP receiver could guess the timestamp that lies in the middle of the timestamps of segments N-1 and N+1, and echo it in the ACK sent in response to the retransmit of segment N. Especially if the TCP sender implements timestamps with a coarse granularity, a misbehaving TCP receiver is likely to be successful with such an approach. In fact, with the 500 ms granularity suggested in [WS95], it even becomes quite likely that the timestamps of segments N-1, N, N+1 are identical.",
+      "zh-CHS": "另一个问题是，TCP接收器可能通过观察最近接收的段的时间戳来猜测丢失段的时间戳。例如，如果段N在段N-1和N+ 1已经到达时丢失，TCP接收机可以猜测位于段N-1和N+ 1的时间戳的中间的时间戳，并且响应于段N的重传而在ACK中进行响应，特别是如果TCP发送器以粗粒度实现时间戳，一个行为不正常的TCP接收器可能会成功地使用这种方法。事实上，在[WS95]中建议的500毫秒粒度下，甚至很有可能N-1、N、N+1段的时间戳是相同的。"
+    },
+    {
+      "indent": 3,
+      "text": "One way to reduce this risk is to implement fine grained timestamps. Note that the granularity of the timestamps is independent of the granularity of the retransmission timer. For example, some TCP implementations run a timestamp clock that ticks every millisecond. This should make it more difficult for a TCP receiver to guess the timestamp of a lost segment. Alternatively, it might be possible to combine the timestamps with a nonce, as is done for the Explicit Congestion Notification (ECN) [RFC3168]. One would need to take care, though, that the timestamps of consecutive segments remain monotonously increasing and do not interfere with the RTT timing defined in [RFC1323].",
+      "zh-CHS": "降低这种风险的一种方法是实现细粒度时间戳。注意，时间戳的粒度与重传计时器的粒度无关。例如，一些TCP实现会运行每毫秒一次的时间戳时钟。这将使TCP接收器更难猜测丢失段的时间戳。或者，也可以像显式拥塞通知（ECN）[RFC3168]那样，将时间戳与nonce组合起来。然而，需要注意的是，连续段的时间戳保持单调增加，并且不干扰[RFC1323]中定义的RTT定时。"
+    },
+    {
+      "indent": 0,
+      "text": "4. IPR Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 知识产权考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF has been notified of intellectual property rights claimed in regard to some or all of the specification contained in this document. For more information consult the online list of claimed rights at http://www.ietf.org/ipr.",
+      "zh-CHS": "IETF已收到关于本文件所含部分或全部规范的知识产权声明。有关更多信息，请访问以下网址查阅在线权利主张列表：http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any intellectual property or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; neither does it represent that it has made any effort to identify any such rights. Information on the IETF's procedures with respect to rights in standards-track and standards-related documentation can be found in BCP-11. Copies of claims of rights made available for publication and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementors or users of this specification can be obtained from the IETF Secretariat.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何努力来确定任何此类权利。有关IETF在标准跟踪和标准相关文件中权利的程序信息，请参见BCP-11。可从IETF秘书处获得可供发布的权利声明副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "There do not seem to be any security considerations associated with the Eifel detection algorithm. This is because the Eifel detection algorithm does not alter the existing protocol state at a TCP sender. Note that the Eifel detection algorithm only requires changes to the implementation of a TCP sender.",
+      "zh-CHS": "似乎没有任何与Eifel检测算法相关的安全考虑。这是因为Eifel检测算法不会改变TCP发送方的现有协议状态。请注意，Eifel检测算法只需要更改TCP发送方的实现。"
+    },
+    {
+      "indent": 3,
+      "text": "Moreover, a variant of the Eifel detection algorithm has been proposed in Section 3.4 that makes it robust against lying TCP receivers. This may become relevant when the Eifel detection algorithm is combined with a response algorithm such as the Eifel response algorithm [LG03].",
+      "zh-CHS": "此外，第3.4节中还提出了Eifel检测算法的一种变体，使其对TCP接收机具有鲁棒性。当Eifel检测算法与响应算法（如Eifel响应算法[LG03]）相结合时，这可能变得相关。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Many thanks to Keith Sklower, Randy Katz, Stephan Baucke, Sally Floyd, Vern Paxson, Mark Allman, Ethan Blanton, Andrei Gurtov, Pasi Sarolahti, and Alexey Kuznetsov for useful discussions that contributed to this work.",
+      "zh-CHS": "非常感谢Keith Sklower、Randy Katz、Stephan Baucke、Sally Floyd、Vern Paxson、Mark Allman、Ethan Blanton、Andrei Gurtov、Pasi Sarolahti和Alexey Kuznetsov为这项工作进行了有益的讨论。"
+    },
+    {
+      "indent": 0,
+      "text": "Normative References",
+      "zh-CHS": "规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2581] Allman, M., Paxson, V. and W. Stevens, \"TCP Congestion Control\", RFC 2581, April 1999.",
+      "zh-CHS": "[RFC2581]Allman，M.，Paxson，V.和W.Stevens，“TCP拥塞控制”，RFC 25811999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2883] Floyd, S., Mahdavi, J., Mathis, M., Podolsky, M. and A. Romanow, \"An Extension to the Selective Acknowledgement (SACK) Option for TCP\", RFC 2883, July 2000.",
+      "zh-CHS": "[RFC2883]Floyd，S.，Mahdavi，J.，Mathis，M.，Podolsky，M.和A.Romanow，“TCP选择性确认（SACK）选项的扩展”，RFC 28832000年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1323] Jacobson, V., Braden, R. and D. Borman, \"TCP Extensions for High Performance\", RFC 1323, May 1992.",
+      "zh-CHS": "[RFC1323]Jacobson，V.，Braden，R.和D.Borman，“高性能TCP扩展”，RFC 1323，1992年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2018] Mathis, M., Mahdavi, J., Floyd, S. and A. Romanow, \"TCP Selective Acknowledgement Options\", RFC 2018, October 1996.",
+      "zh-CHS": "[RFC2018]Mathis，M.，Mahdavi，J.，Floyd，S.和A.Romanow，“TCP选择性确认选项”，RFC 2018，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[RFC793]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Informative References",
+      "zh-CHS": "资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[BA02] Blanton, E. and M. Allman, \"Using TCP DSACKs and SCTP Duplicate TSNs to Detect Spurious Retransmissions\", Work in Progress.",
+      "zh-CHS": "[BA02]Blanton，E.和M.Allman，“使用TCP数据包和SCTP重复TSN检测虚假重传”，工作正在进行中。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1122] Braden, R., \"Requirements for Internet Hosts - Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[RFC1122]Braden，R.，“互联网主机的要求-通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2582] Floyd, S. and T. Henderson, \"The NewReno Modification to TCP's Fast Recovery Algorithm\", RFC 2582, April 1999.",
+      "zh-CHS": "[RFC2582]Floyd，S.和T.Henderson，“TCP快速恢复算法的NewReno修改”，RFC 25821999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Gu01] Gurtov, A., \"Effect of Delays on TCP Performance\", In Proceedings of IFIP Personal Wireless Communications, August 2001.",
+      "zh-CHS": "[Gu01]Gurtov，A.“延迟对TCP性能的影响”，《IFIP个人无线通信学报》，2001年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3481] Inamura, H., Montenegro, G., Ludwig, R., Gurtov, A. and F. Khafizov, \"TCP over Second (2.5G) and Third (3G) Generation Wireless Networks\", RFC 3481, February 2003.",
+      "zh-CHS": "[RFC3481]Inamura，H.，黑山，G.，路德维希，R.，Gurtov，A.和F.Khafizov，“第二代（2.5G）和第三代（3G）无线网络上的TCP”，RFC 3481，2003年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Jac88] Jacobson, V., \"Congestion Avoidance and Control\", In Proceedings of ACM SIGCOMM 88.",
+      "zh-CHS": "[Jac88]Jacobson，V.，“拥塞避免和控制”，载于ACM SIGCOMM 88会议录。"
+    },
+    {
+      "indent": 3,
+      "text": "[KP87] Karn, P. and C. Partridge, \"Improving Round-Trip Time Estimates in Reliable Transport Protocols\", In Proceedings of ACM SIGCOMM 87.",
+      "zh-CHS": "[KP87]Karn，P.和C.Partridge，“改进可靠传输协议中的往返时间估计”，摘自ACM SIGCOMM 87会议录。"
+    },
+    {
+      "indent": 3,
+      "text": "[LK00] Ludwig, R. and R. H. Katz, \"The Eifel Algorithm: Making TCP Robust Against Spurious Retransmissions\", ACM Computer Communication Review, Vol. 30, No. 1, January 2000.",
+      "zh-CHS": "[LK00]Ludwig，R.和R.H.Katz，“Eifel算法：使TCP对伪重传具有鲁棒性”，ACM计算机通信评论，第30卷，第1期，2000年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[LG03] Ludwig, R. and A. Gurtov, \"The Eifel Response Algorithm for TCP\", Work in Progress.",
+      "zh-CHS": "[LG03]Ludwig，R.和A.Gurtov，“TCP的Eifel响应算法”，正在进行中。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2988] Paxson, V. and M. Allman, \"Computing TCP's Retransmission Timer\", RFC 2988, November 2000.",
+      "zh-CHS": "[RFC2988]Paxson，V.和M.Allman，“计算TCP的重传计时器”，RFC 2988，2000年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC791] Postel, J., \"Internet Protocol\", STD 5, RFC 791, September 1981.",
+      "zh-CHS": "[RFC791]Postel，J.，“互联网协议”，标准5，RFC7911981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3168] Ramakrishnan, K., Floyd, S. and D. Black, \"The Addition of Explicit Congestion Notification (ECN) to IP\", RFC 3168, September 2001.",
+      "zh-CHS": "[RFC3168]Ramakrishnan，K.，Floyd，S.和D.Black，“向IP添加显式拥塞通知（ECN）”，RFC 3168，2001年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SK03] Sarolahti, P. and M. Kojo, \"F-RTO: A TCP RTO Recovery Algorithm for Avoiding Unnecessary Retransmissions\", Work in Progress.",
+      "zh-CHS": "[SK03]Sarolahti，P.和M.Kojo，“F-RTO：避免不必要重传的TCP RTO恢复算法”，正在进行中。"
+    },
+    {
+      "indent": 3,
+      "text": "[WS95] Wright, G. R. and W. R. Stevens, \"TCP/IP Illustrated, Volume 2 (The Implementation)\", Addison Wesley, January 1995.",
+      "zh-CHS": "[WS95]Wright，G.R.和W.R.Stevens，“TCP/IP图解，第2卷（实现）”，Addison-Wesley，1995年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Zh86] Zhang, L., \"Why TCP Timers Don't Work Well\", In Proceedings of ACM SIGCOMM 86.",
+      "zh-CHS": "[Zh86]Zhang，L.，“为什么TCP定时器不能很好地工作”，摘自ACM SIGCOM86会议录。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Reiner Ludwig Ericsson Research Ericsson Allee 1 52134 Herzogenrath, Germany",
+      "zh-CHS": "Reiner Ludwig Ericsson Research Ericsson Allee 1 52134 Herzogenrath，德国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Reiner.Ludwig@eed.ericsson.se",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Michael Meyer Ericsson Research Ericsson Allee 1 52134 Herzogenrath, Germany",
+      "zh-CHS": "Michael Meyer Ericsson Research爱立信Allee 1 52134 Herzogenrath，德国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Michael.Meyer@eed.ericsson.se",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2003). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2003年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

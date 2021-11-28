@@ -1,0 +1,775 @@
+{
+  "title": {
+    "text": "RFC 4725: ENUM Validation Architecture",
+    "zh-CHS": "RFC 4725"
+  },
+  "number": 4725,
+  "created_at": "2021-11-14 19:43:37.466168+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       A. Mayrhofer\nRequest for Comments: 4725                                       enum.at\nCategory: Informational                                     B. Hoeneisen\n                                                                  Switch\n                                                           November 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 22,
+      "text": "ENUM Validation Architecture",
+      "zh-CHS": "枚举验证体系结构"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "An ENUM domain name is tightly coupled with the underlying E.164 number. The process of verifying whether or not the Registrant of an ENUM domain name is identical to the Assignee of the corresponding E.164 number is commonly called \"validation\". This document describes validation requirements and a high-level architecture for an ENUM validation infrastructure.",
+      "zh-CHS": "ENUM域名与基础E.164号紧密耦合。验证ENUM域名的注册人是否与相应E.164号码的受让人相同的过程通常称为“验证”。本文档描述了ENUM验证基础架构的验证需求和高级体系结构。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Requirements ....................................................3\n3. ENUM Provisioning Model and Roles ...............................4\n   3.1. Number Assignment Entity (NAE) .............................5\n   3.2. Assignee ...................................................7\n   3.3. Registrant .................................................7\n   3.4. Validation Entity (VE) .....................................7\n   3.5. Registry ...................................................8\n   3.6. Registrar ..................................................8\n   3.7. Domain Name System Service Provider (DNS-SP) ...............8\n   3.8. Application Service Provider (ASP) .........................8\n4. Validation Process Assumptions ..................................9\n   4.1. Workflow ...................................................9\n   4.2. Trust Relations ...........................................10\n   4.3. Data Flow and Format ......................................11\n5. Example Scenarios ..............................................11\n   5.1. E.164 Number Assignment along with ENUM Registration ......11\n   5.2. Fully Disjoint Roles ......................................13\n6. Security Considerations ........................................14\n   6.1. Fraud Prevention ..........................................14\n   6.2. Assignee Data .............................................14\n7. Acknowledgements ...............................................15\n8. References .....................................................15\n   8.1. Normative References ......................................15\n   8.2. Informative References ....................................15",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "E.164 Number Mapping (ENUM) [1] uses the Domain Name System (DNS) [4] to refer from E.164 numbers [2] to Uniform Resource Identifiers (URIs) [3]. E.164 numbers are mapped to domain names through means described further in RFC 3761 [1].",
+      "zh-CHS": "E.164编号映射（ENUM）[1]使用域名系统（DNS）[4]将E.164编号[2]引用到统一资源标识符（URI）[3]。E.164数字通过RFC 3761[1]中进一步描述的方式映射到域名。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Ordinary\" domain names are usually allocated on a first-come-first-served basis, where the associated registration data is the complete source of ownership. However, ENUM domain names are linked to E.164 numbers, and thus intrinsically tied to the status and the \"Assignee\" (defined in Section 3.2) of the corresponding E.164 number.",
+      "zh-CHS": "“普通”域名通常以先到先得的方式分配，其中相关的注册数据是完整的所有权来源。然而，ENUM域名与E.164编号相关联，因此本质上与相应E.164编号的状态和“受让人”（定义见第3.2节）相关联。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements",
+      "section_title": true,
+      "zh-CHS": "2. 要求"
+    },
+    {
+      "indent": 3,
+      "text": "Preserving integrity between ENUM and E.164 is one of the main concerns in ENUM implementations, and often one of the reasons why \"trials\" precede commercial implementations.",
+      "zh-CHS": "保持ENUM和E.164之间的完整性是ENUM实现中的主要问题之一，也是为什么在商业实现之前进行“试验”的原因之一。"
+    },
+    {
+      "indent": 3,
+      "text": "To maintain this relationship between E.164 numbers and ENUM domain names, registration processes must ensure that the following requirements are fulfilled during the entire lifetime of an ENUM delegation:",
+      "zh-CHS": "为了保持E.164编号和ENUM域名之间的这种关系，注册过程必须确保在ENUM委派的整个生命周期内满足以下要求："
+    },
+    {
+      "indent": 3,
+      "text": "o The ENUM domain name corresponds either to an assigned E.164 number or to a respective E.164 number that is assigned during the registration process itself.",
+      "zh-CHS": "o ENUM域名对应于分配的E.164编号或注册过程中分配的相应E.164编号。"
+    },
+    {
+      "indent": 3,
+      "text": "o The corresponding E.164 number is within a number range approved to be used with ENUM.",
+      "zh-CHS": "o 相应的E.164编号在批准用于ENUM的编号范围内。"
+    },
+    {
+      "indent": 3,
+      "text": "o The registration of the ENUM domain name is authorized by the Assignee of the corresponding E.164 number; i.e., the entity requesting the registration of an ENUM domain name is either the Assignee of the corresponding E.164 number itself or an entity authorized to request registration on behalf of said Assignee.",
+      "zh-CHS": "o ENUM域名的注册由相应E.164号的受让人授权；i、 例如，请求注册ENUM域名的实体是相应e.164号的受让人或被授权代表所述受让人请求注册的实体。"
+    },
+    {
+      "indent": 3,
+      "text": "o The \"Registrant\" (see Section 3.3) of the ENUM domain is identical to the Assignee of the corresponding E.164 number.",
+      "zh-CHS": "o ENUM域的“注册人”（见第3.3节）与相应E.164编号的受让人相同。"
+    },
+    {
+      "indent": 3,
+      "text": "The process of verifying the above requirements during registration is commonly called \"initial validation\". In addition to this one-time validation process, provisions must be made that ENUM domain name delegations are revoked when the above requirements are no longer met. In other words, it must be ensured that the state of the ENUM domain name tracks any change in state and ownership of the",
+      "zh-CHS": "在注册期间验证上述要求的过程通常称为“初始验证”。除此一次性验证过程外，还必须作出规定，当上述要求不再满足时，ENUM域名授权将被撤销。换句话说，必须确保ENUM域名的状态跟踪该域名的状态和所有权的任何变化"
+    },
+    {
+      "indent": 3,
+      "text": "corresponding E.164 number. The regular process of checking that the above requirements are still satisfied is commonly called \"recurring validation\" or \"revalidation\".",
+      "zh-CHS": "相应的E.164编号。检查上述要求是否仍然得到满足的常规过程通常称为“重复验证”或“重新验证”。"
+    },
+    {
+      "indent": 3,
+      "text": "The above requirements are usually part of the local registration policy issued by the authorities in charge of ENUM administration.",
+      "zh-CHS": "上述要求通常是负责ENUM管理的当局发布的本地注册政策的一部分。"
+    },
+    {
+      "indent": 0,
+      "text": "3. ENUM Provisioning Model and Roles",
+      "section_title": true,
+      "zh-CHS": "3. 枚举资源调配模型和角色"
+    },
+    {
+      "indent": 3,
+      "text": "The above requirements lead to the introduction of a new role in the provisioning model, an entity performing validation related tasks: The Validation Entity (VE). A typical ENUM provisioning model, on which this document is based, is depicted in Figure 1:",
+      "zh-CHS": "上述要求导致在供应模型中引入了一个新角色，即执行验证相关任务的实体：验证实体（VE）。图1描述了本文档所基于的典型枚举资源调配模型："
+    },
+    {
+      "indent": 3,
+      "text": "                        +----------+\n                       .| Registry |- -- -- -- -- -- --\n                     .  +----------+                   |\n                   .          |\n                 .            |                        | Trust\n         DNS Delegation       |                          Relation\n             .                | Registration           |\n           .                  |\n         .                    |                        |\n+--------+              +-----------+                +----+\n| DNS-SP |-- -- -- -- --| Registrar |----------------| VE |\n+--------+ Nameservers  +-----------+   Validation   +----+\n    :                         |                     /  |\n    :                         |                  E.164 Number\n    :                         | ENUM             Assignment\n    : NAPTR                   | Management     _ Verification\n    :                         |             /          |\n    :                         |          _\n    :                         |      /                 |\n +-----+  ENUM enabled  +------------+ E.164 Number +-----+\n | ASP |- -- -- -- -- --| Assignee = |-- -- -- -- --| NAE |\n +-----+    Service     | Registrant |  Assignment  +-----+\n                        +------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "Legend:",
+      "zh-CHS": "图例："
+    },
+    {
+      "indent": 9,
+      "text": "ASP: Application Service Provider DNS-SP: Domain Name System Service Provider NAE: Number Assignment Entity VE: Validation Entity",
+      "zh-CHS": "ASP:应用程序服务提供商DNS-SP:域名系统服务提供商NAE:号码分配实体VE:验证实体"
+    },
+    {
+      "indent": 27,
+      "text": "Figure 1: ENUM Model",
+      "zh-CHS": "图1：枚举模型"
+    },
+    {
+      "indent": 3,
+      "text": "These different roles are described further below. Note that an entity can act in more than one of these roles simultaneously; for example, the Registrar, the DNS-SP, and the ASP roles could be performed by a single company.",
+      "zh-CHS": "下文将进一步描述这些不同的角色。请注意，一个实体可以同时扮演其中一个以上的角色；例如，注册商、DNS-SP和ASP角色可以由单个公司执行。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Number Assignment Entity (NAE)",
+      "section_title": true,
+      "zh-CHS": "3.1. 编号分配实体（NAE）"
+    },
+    {
+      "indent": 3,
+      "text": "A Number Assignment Entity (NAE) assigns E.164 numbers to end-users. Often, but not always, the Communication Service Provider (CSP) of the end-user (Assignee) acts as NAE. There are two main variants for E.164 number assignments:",
+      "zh-CHS": "编号分配实体（NAE）将E.164编号分配给最终用户。最终用户（受让人）的通信服务提供商（CSP）通常（但并非总是）充当NAE。E.164编号分配有两种主要变体："
+    },
+    {
+      "indent": 3,
+      "text": "1. Indirect assignment:",
+      "zh-CHS": "1. 间接转让："
+    },
+    {
+      "indent": 7,
+      "text": "The National Number Plan Administrator (NNPA) assigns ranges of E.164 numbers to CSPs. Out of these ranges, the CSPs assign numbers (or number blocks) to their customers (end-users, Assignees). In this variant, the CSPs perform the role of the NAE.",
+      "zh-CHS": "国家数字计划管理员（NNPA）将E.164数字的范围分配给CSP。在这些范围之外，顾客服务提供商将数字（或数字块）分配给其客户（最终用户、受让人）。在此变体中，CSP扮演NAE的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Direct assignment:",
+      "zh-CHS": "2. 直接转让："
+    },
+    {
+      "indent": 7,
+      "text": "In certain cases, an NNPA assigns E.164 numbers directly to Assignees (end-users), and therefore the NNPA acts as NAE in this variant. Typically, this concerns the assignment of special purpose numbers (e.g., premium rate).",
+      "zh-CHS": "在某些情况下，NNPA直接将E.164号码分配给受让人（最终用户），因此NNPA在本变体中充当NAE。通常，这涉及特殊用途编号的分配（例如，保险费率）。"
+    },
+    {
+      "indent": 3,
+      "text": "These two variants of E.164 number assignment are depicted in Figure 2:",
+      "zh-CHS": "图2描述了E.164编号分配的这两种变体："
+    },
+    {
+      "indent": 3,
+      "text": "+--------------------------------------------+\n| International Telecommunication Union (ITU)|\n+--------------------------------------------+\n                     |\n           Country codes (e.g., +44)\n                     |\n                     v\n +-------------------------------------------+\n | National Number Plan Administrator (NNPA) |------------+\n +-------------------------------------------+            |\n                     |                                    |\n               Number Ranges                              |\n         (e.g., +44 20 7946 xxxx)                         |\n                     |                                    |\n                     v                                    |\n   +--------------------------------------+               |\n   | Communication Service Provider (CSP) |               |\n   +--------------------------------------+               |\n                     |                                    |\n                     |                              Single Numbers\n           Either Single Numbers              (e.g., +44 909 8790879)\n              or Number Blocks                       (Variant 2)\n  (e.g., +44 20 7946 0999, +44 20 7946 07xx)              |\n                (Variant 1)                               |\n                     |                                    |\n                     v                                    |\n               +----------+                               |\n               | Assignee |<------------------------------+\n               +----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 21,
+      "text": "Figure 2: E.164 Number Assignment",
+      "zh-CHS": "图2:E.164编号分配"
+    },
+    {
+      "indent": 3,
+      "text": "(Note: Numbers above are \"drama\" numbers and are shown for illustrative purpose only. Assignment polices for similar \"real\" numbers in country code +44 may differ.)",
+      "zh-CHS": "（注：以上数字为“戏剧”数字，仅用于说明。国家代码+44中类似“真实”数字的分配策略可能有所不同。）"
+    },
+    {
+      "indent": 3,
+      "text": "As the Assignee (subscriber) data associated with an E.164 number is the primary source of number assignment information, the NAE usually holds the authoritative information required to confirm the assignment.",
+      "zh-CHS": "由于与E.164号码相关联的受让人（订户）数据是号码分配信息的主要来源，NAE通常持有确认分配所需的权威信息。"
+    },
+    {
+      "indent": 3,
+      "text": "A CSP that acts as NAE (indirect assignment) may therefore easily assert the E.164 number assignment for its subscribers. In some cases, such CSPs operate database(s) containing service information on their subscribers' numbers. Typically, authorized entities such",
+      "zh-CHS": "因此，充当NAE（间接分配）的CSP可以很容易地为其订户断言E.164号码分配。在某些情况下，此类CSP操作包含其订户号码的服务信息的数据库。通常，授权实体，如"
+    },
+    {
+      "indent": 3,
+      "text": "as other CSPs are allowed to access these databases, in real-time, under contract for the limited purposes of billing and validation (no marketing, data mining, or otherwise). These databases could be re-used for ENUM validation purposes.",
+      "zh-CHS": "由于其他客户服务提供商可以根据合同，出于计费和验证的有限目的（无营销、数据挖掘或其他目的），实时访问这些数据库。这些数据库可以重新用于枚举验证目的。"
+    },
+    {
+      "indent": 3,
+      "text": "Number portability transactions may lead to situations where the CSP that originally acted as NAE no longer has authoritative assignment information about ported numbers. Whether the old and/or the new CSP act(s) as NAE for ported numbers depends on local policy.",
+      "zh-CHS": "号码可移植性事务可能会导致最初充当NAE的CSP不再具有有关移植号码的权威分配信息的情况。是否将旧的和/或新的CSP法案作为移植号码的NAE取决于当地政策。"
+    },
+    {
+      "indent": 3,
+      "text": "However, it is unlikely that all CSPs acting as NAEs will participate in ENUM validation.",
+      "zh-CHS": "但是，作为NAE的所有CSP不太可能参与ENUM验证。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Assignee",
+      "section_title": true,
+      "zh-CHS": "3.2. 受让人"
+    },
+    {
+      "indent": 3,
+      "text": "The person or organization to whom a NAE assigns an E.164 number is called Assignee of this number. For the scope of this document, the terms Assignee, subscriber, and number-holder are used equivalently.",
+      "zh-CHS": "NAE向其分配E.164号码的个人或组织称为该号码的受让人。在本文件的范围内，受让人、认购人和号码持有人等术语被同等使用。"
+    },
+    {
+      "indent": 3,
+      "text": "The Assignee has the \"right to use\" on the assigned E.164 number.",
+      "zh-CHS": "受让人有权使用指定的E.164号码。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Registrant",
+      "section_title": true,
+      "zh-CHS": "3.3. 注册人"
+    },
+    {
+      "indent": 3,
+      "text": "The ENUM Registrant is the end-user, the person or organization who is the \"holder\" of the ENUM domain name.",
+      "zh-CHS": "ENUM注册人是最终用户，是ENUM域名的“持有人”的个人或组织。"
+    },
+    {
+      "indent": 3,
+      "text": "The Registrant usually has control over his ENUM domain name(s) and its DNS zone content.",
+      "zh-CHS": "注册人通常可以控制其ENUM域名及其DNS区域内容。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Validation Entity (VE)",
+      "section_title": true,
+      "zh-CHS": "3.4. 验证实体（VE）"
+    },
+    {
+      "indent": 3,
+      "text": "The Validation Entity (VE) verifies whether or not the Registrant of an ENUM domain name is identical to the Assignee of the corresponding E.164 number.",
+      "zh-CHS": "验证实体（VE）验证ENUM域名的注册人是否与相应E.164号码的受让人相同。"
+    },
+    {
+      "indent": 3,
+      "text": "Often it also verifies that the entity requesting the registration of an ENUM domain name is either the Assignee of the corresponding E.164 number itself or an entity authorized to request registration on behalf of said Assignee.",
+      "zh-CHS": "通常，它还验证请求注册ENUM域名的实体是否是相应E.164号本身的受让人，或者是被授权代表所述受让人请求注册的实体。"
+    },
+    {
+      "indent": 3,
+      "text": "This role may be performed by several parties and is not necessarily limited to a single entity.",
+      "zh-CHS": "该角色可由多个当事方执行，且不一定限于单个实体。"
+    },
+    {
+      "indent": 3,
+      "text": "The actual validation methods applied may vary depending on, e.g., the particular party, available data sources, Assignee's choice, and regulatory requirements. Validation methods are out of scope of this document.",
+      "zh-CHS": "所采用的实际验证方法可能因特定方、可用数据源、受让人的选择和监管要求而有所不同。验证方法超出了本文件的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Registry",
+      "section_title": true,
+      "zh-CHS": "3.5. 登记处"
+    },
+    {
+      "indent": 3,
+      "text": "The ENUM Registry operates the master database of ENUM domain delegations and runs the authoritative nameservers for the relevant zone under e164.arpa. There must always be a single authoritative ENUM Registry for a specific zone.",
+      "zh-CHS": "ENUM注册表操作ENUM域委派的主数据库，并运行e164.arpa下相关区域的权威名称服务器。对于特定区域，必须始终有一个权威的枚举注册表。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Registrar",
+      "section_title": true,
+      "zh-CHS": "3.6. 登记员"
+    },
+    {
+      "indent": 3,
+      "text": "An ENUM Registrar performs ENUM domain delegations on behalf of a Registrant by interacting with the Registry, typically through a protocol like Extensible Provisioning Protocol (EPP) [5]. This role is similar to the one that Registrars fulfill in the \"ordinary\" domain name registration world.",
+      "zh-CHS": "枚举注册器通过与注册器交互，代表注册者执行枚举域委托，通常通过类似于可扩展配置协议（EPP）的协议执行[5]。这个角色类似于注册商在“普通”域名注册世界中所扮演的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "The Registrar may well not be the same entity as the CSP of the Registrant. Therefore, a Registrar may lack authoritative number-assignment information. If the Registrar and the CSP are the same entity (or has a source of authoritative data), the Registrar could perform the role of the VE itself.",
+      "zh-CHS": "注册人很可能与注册人的CSP不是同一实体。因此，注册官可能缺乏权威的号码分配信息。如果注册官和顾客服务提供商是同一实体（或拥有权威数据来源），注册官可以自己扮演虚拟企业的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "In any case, a Registrar has to ensure a proper validation through a VE prior to the registration of an ENUM domain name.",
+      "zh-CHS": "在任何情况下，注册商必须确保在注册ENUM域名之前通过VE进行适当验证。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. Domain Name System Service Provider (DNS-SP)",
+      "section_title": true,
+      "zh-CHS": "3.7. 域名系统服务提供商（DNS-SP）"
+    },
+    {
+      "indent": 3,
+      "text": "The Domain Name System Service Provider (DNS-SP) operates the nameservers for the ENUM DNS zones, which contain the ENUM Naming Authority Pointer (NAPTR) Resource Record (RR) entries [1].",
+      "zh-CHS": "域名系统服务提供商（DNS-SP）操作枚举DNS区域的名称服务器，该区域包含枚举命名机构指针（NAPTR）资源记录（RR）条目[1]。"
+    },
+    {
+      "indent": 3,
+      "text": "In most cases, the Registry delegates the ENUM DNS zones to the nameservers at the DNS-SP.",
+      "zh-CHS": "在大多数情况下，注册表将枚举DNS区域委托给DNS-SP上的名称服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "The DNS-SP is usually not involved in the validation process.",
+      "zh-CHS": "DNS-SP通常不参与验证过程。"
+    },
+    {
+      "indent": 0,
+      "text": "3.8. Application Service Provider (ASP)",
+      "section_title": true,
+      "zh-CHS": "3.8. 应用程序服务提供商（ASP）"
+    },
+    {
+      "indent": 3,
+      "text": "The Application Service Provider (ASP) operates a service for the Registrant. This service could be an IP telephony service, whereby the service provider populates the ENUM zone for its customers so that others can discover that customer's URI.",
+      "zh-CHS": "应用程序服务提供商（ASP）为注册人提供服务。此服务可以是IP电话服务，服务提供商通过此服务为其客户填充枚举区域，以便其他人可以发现该客户的URI。"
+    },
+    {
+      "indent": 3,
+      "text": "Usually, the ASP is not involved in the validation process.",
+      "zh-CHS": "通常，ASP不参与验证过程。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Validation Process Assumptions",
+      "section_title": true,
+      "zh-CHS": "4. 验证过程假设"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Workflow",
+      "section_title": true,
+      "zh-CHS": "4.1. 工作流程"
+    },
+    {
+      "indent": 3,
+      "text": "The prototypical initial validation workflow using the above roles and definitions consists of the following steps:",
+      "zh-CHS": "使用上述角色和定义的原型初始验证工作流包括以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. A potential Registrant approaches a Registrar, and orders an ENUM domain name.",
+      "zh-CHS": "1. 潜在的注册者接近注册者，并订购ENUM域名。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The Registrar chooses a cooperating Validation Entity, and requests an initial validation for the ENUM domain name ordered.",
+      "zh-CHS": "2. 注册商选择一个合作验证实体，并请求对订购的ENUM域名进行初始验证。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The Validation Entity performs the actual validation, which could require interaction with the Assignee/Registrant.",
+      "zh-CHS": "3. 验证实体执行实际验证，这可能需要与受让人/注册人进行交互。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The Validation Entity indicates the result of the initial validation to the Registrar.",
+      "zh-CHS": "4. 验证实体向注册官表明初始验证的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "5. If the validation process was successful, the Registrar provisions the ENUM domain name with the Registry. Depending on the local Registry policy, validation-related information may be provided to the Registry along with this registration.",
+      "zh-CHS": "5. 如果验证过程成功，注册官将向注册中心提供ENUM域名。根据本地注册表策略，验证相关信息可能会随此注册一起提供给注册表。"
+    },
+    {
+      "indent": 3,
+      "text": "In most cases, local policy mandates expiration dates to be imposed on successful validations. If the ENUM delegation is to be kept beyond this expiration date, recurring validation has to be performed. A typical revalidation workflow involves the following steps:",
+      "zh-CHS": "在大多数情况下，本地策略要求对成功的验证施加到期日期。如果枚举委派要保持在此到期日期之后，则必须执行定期验证。典型的重新验证工作流包括以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. In good time before the current validation expires, the Registrar requests the Validation Entity to revalidate the domain name in question.",
+      "zh-CHS": "1. 在当前验证到期前的适当时间内，注册机构要求验证实体重新验证所涉及的域名。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The Validation Entity verifies if the delegation requirements are still met. It may use information acquired during the initial validation or associated to the registration data.",
+      "zh-CHS": "2. 验证实体验证是否仍然满足委托要求。它可以使用初始验证期间获取的信息或与注册数据相关的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The Validation Entity indicates the result of the recurring validation to the Registrar.",
+      "zh-CHS": "3. 验证实体向注册官指示周期性验证的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "4. In case the revalidation has been successful, the domain delegation may persist. Local Registry policy may require updating domain name registration data, especially in case the Registry keeps validation-related expiry information.",
+      "zh-CHS": "4. 如果重新验证成功，域委派可能会持续。本地注册表策略可能需要更新域名注册数据，尤其是在注册表保留与验证相关的到期信息的情况下。"
+    },
+    {
+      "indent": 3,
+      "text": "5. In case the revalidation has failed, the ENUM domain delegation must be suspended, either by explicit interaction with the Registry or -- if the Registry keeps validation-related information -- automatically when the current validation expires. Local policy may grant a grace period on the expiration date.",
+      "zh-CHS": "5. 如果重新验证失败，则必须通过与注册表的显式交互挂起枚举域委派，或者在当前验证过期时自动挂起（如果注册表保留验证相关信息）。当地政策可在到期日给予宽限期。"
+    },
+    {
+      "indent": 3,
+      "text": "This workflow ensures the integrity between the E.164 and ENUM namespaces. ENUM domain delegations that fail to meet the validation requirements are suspended from the DNS.",
+      "zh-CHS": "此工作流确保E.164和枚举命名空间之间的完整性。无法满足验证要求的枚举域委派将从DNS挂起。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Trust Relations",
+      "section_title": true,
+      "zh-CHS": "4.2. 信任关系"
+    },
+    {
+      "indent": 3,
+      "text": "The above validation workflow implies the following trust relations:",
+      "zh-CHS": "上述验证工作流包含以下信任关系："
+    },
+    {
+      "indent": 3,
+      "text": "o The Registry trusts the Validation Entities to enforce the local validation policy.",
+      "zh-CHS": "o 注册表信任验证实体来实施本地验证策略。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Registrars trust the Validation Entities to properly perform validation based on the Registrar's request.",
+      "zh-CHS": "o 注册人信任验证实体根据注册人的请求正确执行验证。"
+    },
+    {
+      "indent": 3,
+      "text": "o Depending on the amount of validation data provided to the Registry additional trust relations may be necessary. Three cases can be differentiated:",
+      "zh-CHS": "o 根据向注册表提供的验证数据量，可能需要额外的信任关系。可以区分三种情况："
+    },
+    {
+      "indent": 6,
+      "text": "* The Registry receives no validation-related data: The Registry needs to trust the Registrar that validation has been performed, and the result was positive. In addition, the Registry needs to trust the Registrar that it will properly remove delegations for which revalidation fails.",
+      "zh-CHS": "* 注册中心没有收到与验证相关的数据：注册中心需要相信注册中心验证已经执行，并且结果是肯定的。此外，书记官处需要相信书记官长，它将适当删除重新验证失败的授权。"
+    },
+    {
+      "indent": 6,
+      "text": "* The Registry receives validation-related data including expiry date, but there are no means of checking its authenticity: The Registry needs to trust the Registrar that the validation data provided is authentic.",
+      "zh-CHS": "* 注册处收到与验证有关的数据，包括有效期，但没有办法检查其真实性：注册处需要相信注册处提供的验证数据是真实的。"
+    },
+    {
+      "indent": 6,
+      "text": "* The Registry receives validation-related data including expiry date and means to verify its authenticity (e.g., a cryptographic signature issued by the VE): No additional trust relations are necessary.",
+      "zh-CHS": "* 注册中心接收与验证相关的数据，包括到期日期和验证其真实性的方法（例如，VE发布的加密签名）：不需要额外的信任关系。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Data Flow and Format",
+      "section_title": true,
+      "zh-CHS": "4.3. 数据流和格式"
+    },
+    {
+      "indent": 3,
+      "text": "The validation process requires the following regular data flows (Note: data flows not directly related to validation are out of scope of this document):",
+      "zh-CHS": "验证过程需要以下常规数据流（注：与验证无直接关系的数据流不在本文件范围内）："
+    },
+    {
+      "indent": 3,
+      "text": "o Registrars communicate with Validation Entities to initiate, modify, or cancel validation requests. Validation Entities act upon validation requests and provide validation results to Registrars. Since Registrars could potentially communicate with several Validation Entities, and Validation Entities could provide services to several Registrars (worst case: full mesh), a standardized protocol and data format should be used in this data flow.",
+      "zh-CHS": "o 注册人与验证实体进行通信，以发起、修改或取消验证请求。验证实体根据验证请求采取行动，并向注册人提供验证结果。由于登记员可能与多个验证实体进行通信，且验证实体可能向多个登记员提供服务（最坏情况：全网格），因此应在该数据流中使用标准化协议和数据格式。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the local Registry policy mandates that validation-related information is to be stored along with delegation records, a validation-related data flow between Registry and Registrar is required. Since the registration itself already requires communication between those entities, validation-related information in a standardized data format should be embedded into the existing Registry-Registrar protocol data flow.",
+      "zh-CHS": "o 如果本地注册表策略要求与验证相关的信息与委托记录一起存储，则需要注册表和注册器之间与验证相关的数据流。由于登记本身已经需要这些实体之间的通信，因此应将标准化数据格式的验证相关信息嵌入现有登记处登记员协议数据流中。"
+    },
+    {
+      "indent": 3,
+      "text": "o Validation Entities may need to communicate with Assignees to perform validation. A Validation Entity may choose to perform all communication with the Assignee via the requesting Registrar rather than contacting the Assignee by itself. Since the actual communication form and process are expected to greatly vary, it does not make sense to specify any data formats or processes for this purpose.",
+      "zh-CHS": "o 验证实体可能需要与受让人沟通以执行验证。验证实体可选择通过请求登记员与受让人进行所有通信，而不是自行联系受让人。由于实际的通信形式和过程预计会有很大的不同，因此为此目的指定任何数据格式或过程是没有意义的。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Example Scenarios",
+      "section_title": true,
+      "zh-CHS": "5. 示例场景"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. E.164 Number Assignment along with ENUM Registration",
+      "section_title": true,
+      "zh-CHS": "5.1. E.164编号分配和枚举注册"
+    },
+    {
+      "indent": 3,
+      "text": "In this simple scenario, we assume that the roles of the Registrar, the VE, and the NAE are performed by the same entity, e.g., an Internet Telephony Service Provider (ITSP). This ITSP is a CSP that was assigned number ranges by the NNPA. Out of these ranges he assigns numbers to his customers (Assignees) to provide those with communication services. The ITSP chooses to assign an E.164 number together with the corresponding ENUM domain name. Therefore, it can perform the validation simply by reference to its subscriber database.",
+      "zh-CHS": "在这个简单的场景中，我们假设注册器、VE和NAE的角色由同一实体执行，例如，互联网电话服务提供商（ITSP）。本ITSP是由NNPA分配编号范围的CSP。在这些范围之外，他将号码分配给他的客户（受让人），为他们提供通信服务。ITSP选择分配一个E.164编号和相应的ENUM域名。因此，它可以通过引用订户数据库来执行验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 3 shows the external interactions needed for the ENUM domain name provisioning process:",
+      "zh-CHS": "图3显示了ENUM域名供应过程所需的外部交互："
+    },
+    {
+      "indent": 16,
+      "text": "   +----------+\n   | Registry |\n   +----------+\n        ^\n        |\n        |(3)\n        |\n+--------------------------------------+\n|                                      |\n|                    ITSP              |\n|  +-----------+              +----+   |\n|  | Registrar |              | VE |   |\n|  +-----------+      (2)     +----+   |\n|                                      |\n+--------------------------+           |\n        ^                  |           |\n        |                  |           |\n        |(1)               |           |\n        |                  |           |\n        |                  |           |\n  +------------+   (4)     |  +-----+  |\n  | Assignee = |<----------|  | NAE |  |\n  | Registrant |           |  +-----+  |\n  -------------            |           |\n                           +-----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 21,
+      "text": "Legend:",
+      "zh-CHS": "图例："
+    },
+    {
+      "indent": 21,
+      "text": "ITSP: Internet Telephony Service Provider NAE: Number Assignment Entity VE: Validation Entity",
+      "zh-CHS": "ITSP:互联网电话服务提供商NAE:号码分配实体VE:验证实体"
+    },
+    {
+      "indent": 6,
+      "text": "Figure 3: E.164 Number Assignment along with ENUM Registration",
+      "zh-CHS": "图3:E.164编号分配和枚举注册"
+    },
+    {
+      "indent": 3,
+      "text": "(1) The ITSP receives an order for ENUM services. (2) The ITSP assigns a free E.164 number and performs the validation at the same time. (3) The ITSP sends an ENUM registration request to the Registry, which might contain additional information about the validation applied. (4) The ITSP sends a confirmation about the E.164 number assignment and the ENUM registration to its customer, who is now Assignee and Registrant.",
+      "zh-CHS": "(1) ITSP接收ENUM服务订单。（2） ITSP分配一个免费的E.164编号，同时执行验证。（3） ITSP向注册表发送枚举注册请求，该请求可能包含有关所应用验证的附加信息。（4） ITSP向其客户发送关于E.164号码分配和ENUM注册的确认，该客户现在是受让人和注册人。"
+    },
+    {
+      "indent": 3,
+      "text": "This scenario is quite close to \"ordinary\" domain name registrations.",
+      "zh-CHS": "这种情况非常接近于“普通”域名注册。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Fully Disjoint Roles",
+      "section_title": true,
+      "zh-CHS": "5.2. 完全不相交的角色"
+    },
+    {
+      "indent": 3,
+      "text": "In this more complex scenario, we assume that all roles of the ENUM provisioning model are performed by different entities. In contrast with the previous example (in Section 5.1), we assume that the ENUM domain name to be registered is based on an already assigned E.164 number and the NAE in question provides the VE with access to the subscriber database. We further assume that there is a requirement for the VE to verify the intention of the Assignee. The validation process therefore involves also contacting the Assignee.",
+      "zh-CHS": "在这个更复杂的场景中，我们假设枚举供应模型的所有角色都由不同的实体执行。与前面的示例（第5.1节）相反，我们假设要注册的ENUM域名基于已分配的E.164号，并且所述NAE向VE提供对订户数据库的访问。我们进一步假设VE需要核实受让人的意图。因此，验证过程还涉及联系受让人。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 4 shows the interactions needed for the ENUM domain name provisioning process:",
+      "zh-CHS": "图4显示了ENUM域名供应过程所需的交互："
+    },
+    {
+      "indent": 19,
+      "text": " +----------+\n | Registry |\n +----------+\n      ^\n      |\n      |(9)\n      |\n      |\n      |             (3)\n +-----------+ ---------->+----+\n | Registrar |<---------- | VE |\n +-----------+   (8)    > +----+\n      ^                / /  ^  |\n      |               / /   |  |\n      |           (7)/ /    |  |\n      |(2)          / /     |  |\n      |            / /   (5)|  |\n      |           / /       |  |\n      |          / /        |  |\n      |         / /(6)      |  |\n      |        / /          |  |(4)\n      |       / /           |  |\n      |      / /            |  |\n+------------+<             |  v\n| Assignee = |            +-----+\n| Registrant |<---------- | NAE |\n+------------+    (1)     +-----+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 21,
+      "text": "Legend:",
+      "zh-CHS": "图例："
+    },
+    {
+      "indent": 21,
+      "text": "NAE: Number Assignment Entity VE: Validation Entity",
+      "zh-CHS": "NAE:编号分配实体VE:验证实体"
+    },
+    {
+      "indent": 22,
+      "text": "Figure 4: Fully Disjoint Roles",
+      "zh-CHS": "图4：完全不相交的角色"
+    },
+    {
+      "indent": 3,
+      "text": "(1) The NAE assigns an E.164 number. This assignment could have been done long before the ENUM domain name registration, e.g., at the time when the Assignee subscribed to a common telephony service. (2) The Assignee orders the corresponding ENUM domain name at a Registrar of his choice. (3) The Registrar requests validation at an independent VE. (4) The VE contacts the subscriber database of the NAE, to verify that the Assignee of the E.164 number corresponds to the Registrant of the ENUM domain name. (5) The result of the NAE subscriber database is positive. (6) The VE performs a call-back to the E.164 number to be registered as ENUM domain name, makes provisions for authentication, and asks the Assignee to confirm his intention. (7) The Assignee confirms and the VE documents this confirmation. (8) The VE returns a positive answer to the Registrar. The answer might contain some additional information about the validation process, such as expiration date, validation method applied, and so on. (9) Finally, the Registrar sends an ENUM registration request to the Registry. Additional information about the validation process might be sent along with the registration request.",
+      "zh-CHS": "(1) NAE分配了一个E.164编号。此分配可能早在ENUM域名注册之前就完成了，例如，在受让人订阅公共电话服务时。（2） 受让人向其选择的注册机构订购相应的ENUM域名。（3） 注册官要求在独立的VE处进行验证。（4） VE联系NAE的订户数据库，以验证E.164号码的受让人是否对应于ENUM域名的注册人。（5） NAE订户数据库的结果是肯定的。（6） VE对注册为ENUM域名的E.164号码进行回拨，制定认证规定，并要求受让人确认其意图。（7） 受让人确认，VE记录此确认。（8） VE向注册官返回肯定回答。答案可能包含有关验证过程的一些附加信息，例如过期日期、应用的验证方法等。（9） 最后，注册器向注册中心发送一个ENUM注册请求。有关验证过程的其他信息可能会随注册请求一起发送。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Fraud Prevention",
+      "section_title": true,
+      "zh-CHS": "6.1. 防止欺诈"
+    },
+    {
+      "indent": 3,
+      "text": "Situations where an entity has control over the ENUM domain of a third party's E.164 number impose high fraud potential. Unauthorized control over an ENUM domain of a bank could, for example, be used for \"man in the middle\" attacks on telephone banking applications. Cases of such attacks could discredit ENUM as a whole.",
+      "zh-CHS": "实体控制第三方E.164号码的ENUM域的情况下，欺诈的可能性很高。例如，对银行ENUM域的未经授权控制可用于对电话银行应用程序的“中间人”攻击。此类攻击的案例可能会使整个ENUM名誉扫地。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementing high-quality validation processes is therefore crucial to any ENUM deployment and should receive high attention.",
+      "zh-CHS": "因此，实施高质量的验证过程对于任何ENUM部署都至关重要，应该受到高度重视。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Assignee Data",
+      "section_title": true,
+      "zh-CHS": "6.2. 受让人数据"
+    },
+    {
+      "indent": 3,
+      "text": "When handling Assignee data, privacy and discretion issues must be considered. Implementations transporting assignee data over the Internet must use authenticated and encrypted transport protocols. Local registration/validation policy and agreements should clearly limit usage of Assignee data.",
+      "zh-CHS": "处理受让人数据时，必须考虑隐私和自由裁量权问题。通过Internet传输受让人数据的实现必须使用经过身份验证和加密的传输协议。本地注册/验证政策和协议应明确限制受让人数据的使用。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank the following persons for their valuable suggestions and contributions: Lawrence Conroy, Michael Haberler, Ted Hardie, Otmar Lendl, Hala Mowafy, Marcel Parodi, Jon Peterson, Penn Pfautz, Patrik Schaefer, and Richard Stastny.",
+      "zh-CHS": "作者要感谢以下人士的宝贵建议和贡献：劳伦斯·康罗伊、迈克尔·哈伯勒、特德·哈代、奥特玛·伦德尔、哈拉·莫瓦菲、马塞尔·帕罗迪、乔恩·彼得森、佩恩·普法茨、帕特里克·谢弗和理查德·斯塔斯尼。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Faltstrom, P. and M. Mealling, \"The E.164 to Uniform Resource Identifiers (URI) Dynamic Delegation Discovery System (DDDS) Application (ENUM)\", RFC 3761, April 2004.",
+      "zh-CHS": "[1] Faltstrom，P.和M.Mealling，“E.164到统一资源标识符（URI）动态委托发现系统（DDDS）应用程序（ENUM）”，RFC 3761，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] ITU-T, \"The international public telecommunication numbering plan\", Recommendation E.164 (02/05), Feb 2005.",
+      "zh-CHS": "[2] ITU-T，“国际公共电信编号计划”，建议E.164（02/05），2005年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Berners-Lee, T., Fielding, R., and L. Masinter, \"Uniform Resource Identifier (URI): Generic Syntax\", STD 66, RFC 3986, January 2005.",
+      "zh-CHS": "[3] Berners Lee，T.，Fielding，R.，和L.Masinter，“统一资源标识符（URI）：通用语法”，STD 66，RFC 3986，2005年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[4] Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 10351987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Hollenbeck, S., \"Extensible Provisioning Protocol (EPP)\", RFC 3730, March 2004.",
+      "zh-CHS": "[5] Hollenbeck，S.，“可扩展资源调配协议（EPP）”，RFC3730，2004年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Alexander Mayrhofer enum.at GmbH Karlsplatz 1/9 Wien A-1010 Austria",
+      "zh-CHS": "Alexander Mayrhofer enum.at GmbH卡尔斯普拉茨1/9维也纳A-1010奥地利"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +43 1 5056416 34\nEMail: alexander.mayrhofer@enum.at\nURI:   http://www.enum.at/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Bernie Hoeneisen Switch Neumuehlequai 6 CH-8001 Zuerich Switzerland",
+      "zh-CHS": "伯尼·霍内森开关Neumuehlequai 6 CH-8001瑞士祖里希"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +41 44 268 1515\nEMail: hoeneisen@switch.ch, b.hoeneisen@ieee.org\nURI:   http://www.switch.ch/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST, AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

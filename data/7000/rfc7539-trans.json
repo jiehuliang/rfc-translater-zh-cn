@@ -1,0 +1,2316 @@
+{
+  "title": {
+    "text": "RFC 7539: ChaCha20 and Poly1305 for IETF Protocols",
+    "zh-CHS": "RFC 7539"
+  },
+  "number": 7539,
+  "created_at": "2021-10-31 01:35:28.053952+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Research Task Force (IRTF)                               Y. Nir\nRequest for Comments: 7539                                   Check Point\nCategory: Informational                                       A. Langley\nISSN: 2070-1721                                             Google, Inc.\n                                                                May 2015",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 16,
+      "text": "ChaCha20 and Poly1305 for IETF Protocols",
+      "zh-CHS": "用于IETF协议的ChaCha20和Poly1305"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the ChaCha20 stream cipher as well as the use of the Poly1305 authenticator, both as stand-alone algorithms and as a \"combined mode\", or Authenticated Encryption with Associated Data (AEAD) algorithm.",
+      "zh-CHS": "本文件定义了ChaCha20流密码以及Poly1305认证器的使用，既作为独立算法，也作为“组合模式”，或使用关联数据的认证加密（AEAD）算法。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not introduce any new crypto, but is meant to serve as a stable reference and an implementation guide. It is a product of the Crypto Forum Research Group (CFRG).",
+      "zh-CHS": "本文档不介绍任何新的加密，但旨在作为稳定的参考和实施指南。它是加密论坛研究小组（CFRG）的产品。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Research Task Force (IRTF). The IRTF publishes the results of Internet-related research and development activities. These results might not be suitable for deployment. This RFC represents the consensus of the Crypto Forum Research Group of the Internet Research Task Force (IRTF). Documents approved for publication by the IRSG are not a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网研究工作组（IRTF）的产品。IRTF发布互联网相关研究和开发活动的结果。这些结果可能不适合部署。本RFC代表了互联网研究工作组（IRTF）加密论坛研究小组的共识。IRSG批准发布的文件不适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7539.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7539."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2015 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2015 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Conventions Used in This Document ..........................4\n2. The Algorithms ..................................................4\n   2.1. The ChaCha Quarter Round ...................................4\n        2.1.1. Test Vector for the ChaCha Quarter Round ............5\n   2.2. A Quarter Round on the ChaCha State ........................5\n        2.2.1. Test Vector for the Quarter Round on the\n               ChaCha State ........................................6\n   2.3. The ChaCha20 Block Function ................................6\n        2.3.1. The ChaCha20 Block Function in Pseudocode ...........8\n        2.3.2. Test Vector for the ChaCha20 Block Function .........9\n   2.4. The ChaCha20 Encryption Algorithm .........................10\n        2.4.1. The ChaCha20 Encryption Algorithm in Pseudocode ....11\n        2.4.2. Example and Test Vector for the ChaCha20 Cipher ....11\n   2.5. The Poly1305 Algorithm ....................................13\n        2.5.1. The Poly1305 Algorithms in Pseudocode ..............15\n        2.5.2. Poly1305 Example and Test Vector ...................15\n   2.6. Generating the Poly1305 Key Using ChaCha20 ................17\n        2.6.1. Poly1305 Key Generation in Pseudocode ..............18\n        2.6.2. Poly1305 Key Generation Test Vector ................18\n   2.7. A Pseudorandom Function for Crypto Suites based on\n        ChaCha/Poly1305 ...........................................18\n   2.8. AEAD Construction .........................................19\n        2.8.1. Pseudocode for the AEAD Construction ...............21\n        2.8.2. Example and Test Vector for\n               AEAD_CHACHA20_POLY1305 .............................22\n3. Implementation Advice ..........................................24\n4. Security Considerations ........................................24\n5. IANA Considerations ............................................26\n6. References .....................................................26\n   6.1. Normative References ......................................26\n   6.2. Informative References ....................................26\nAppendix A. Additional Test Vectors ...............................29\n  A.1. The ChaCha20 Block Functions ...............................29\n  A.2. ChaCha20 Encryption ........................................32\n  A.3. Poly1305 Message Authentication Code .......................34\n  A.4. Poly1305 Key Generation Using ChaCha20 .....................40\n  A.5. ChaCha20-Poly1305 AEAD Decryption ..........................41\nAppendix B. Performance Measurements of ChaCha20 ..................44\nAcknowledgements ..................................................45\nAuthors' Addresses ................................................45",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Advanced Encryption Standard (AES -- [FIPS-197]) has become the gold standard in encryption. Its efficient design, widespread implementation, and hardware support allow for high performance in many areas. On most modern platforms, AES is anywhere from four to ten times as fast as the previous most-used cipher, Triple Data Encryption Standard (3DES -- [SP800-67]), which makes it not only the best choice, but the only practical choice.",
+      "zh-CHS": "高级加密标准（AES--[FIPS-197]）已成为加密领域的黄金标准。其高效的设计、广泛的实施和硬件支持使其在许多领域都具有高性能。在大多数现代平台上，AES的速度是以前最常用的密码三重数据加密标准（3DES--[SP800-67]）的四到十倍，这使得它不仅是最佳选择，也是唯一实用的选择。"
+    },
+    {
+      "indent": 3,
+      "text": "There are several problems with this. If future advances in cryptanalysis reveal a weakness in AES, users will be in an unenviable position. With the only other widely supported cipher being the much slower 3DES, it is not feasible to reconfigure deployments to use 3DES. [Standby-Cipher] describes this issue and the need for a standby cipher in greater detail. Another problem is that while AES is very fast on dedicated hardware, its performance on platforms that lack such hardware is considerably lower. Yet another problem is that many AES implementations are vulnerable to cache-collision timing attacks ([Cache-Collisions]).",
+      "zh-CHS": "这有几个问题。如果密码分析的未来发展揭示了AES的弱点，用户将处于一个不可接受的境地。由于唯一其他广泛支持的密码是速度慢得多的3DES，因此重新配置部署以使用3DES是不可行的。[备用密码]更详细地描述了此问题以及备用密码的需要。另一个问题是，虽然AES在专用硬件上的速度非常快，但在缺乏此类硬件的平台上，其性能要低得多。还有一个问题是，许多AES实现容易受到缓存冲突定时攻击（[缓存冲突]）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document provides a definition and implementation guide for three algorithms:",
+      "zh-CHS": "本文件提供了三种算法的定义和实施指南："
+    },
+    {
+      "indent": 3,
+      "text": "1. The ChaCha20 cipher. This is a high-speed cipher first described in [ChaCha]. It is considerably faster than AES in software-only implementations, making it around three times as fast on platforms that lack specialized AES hardware. See Appendix B for some hard numbers. ChaCha20 is also not sensitive to timing attacks (see the security considerations in Section 4). This algorithm is described in Section 2.4",
+      "zh-CHS": "1. 查查密码。这是一种在[ChaCha]中首次描述的高速密码。在纯软件实现中，它比AES快得多，在缺乏专用AES硬件的平台上，速度大约是AES的三倍。有关一些硬数字，请参见附录B。ChaCha20对定时攻击也不敏感（参见第4节中的安全注意事项）。第2.4节描述了该算法"
+    },
+    {
+      "indent": 3,
+      "text": "2. The Poly1305 authenticator. This is a high-speed message authentication code. Implementation is also straightforward and easy to get right. The algorithm is described in Section 2.5.",
+      "zh-CHS": "2. Poly1305验证器。这是一个高速消息身份验证代码。实现也很简单，很容易正确。第2.5节描述了该算法。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The CHACHA20-POLY1305 Authenticated Encryption with Associated Data (AEAD) construction, described in Section 2.8.",
+      "zh-CHS": "3. CHACHA20-POLY1305认证加密与相关数据（AEAD）构造，如第2.8节所述。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not introduce these new algorithms for the first time. They have been defined in scientific papers by D. J. Bernstein, which are referenced by this document. The purpose of this document is to serve as a stable reference for IETF documents making use of these algorithms.",
+      "zh-CHS": "本文并不是第一次介绍这些新算法。D.J.Bernstein在科学论文中对其进行了定义，本文件引用了这些科学论文。本文件的目的是作为使用这些算法的IETF文件的稳定参考。"
+    },
+    {
+      "indent": 3,
+      "text": "These algorithms have undergone rigorous analysis. Several papers discuss the security of Salsa and ChaCha ([LatinDances], [LatinDances2], [Zhenqing2012]).",
+      "zh-CHS": "这些算法都经过了严格的分析。几篇论文讨论了萨尔萨舞和茶茶的安全性（[拉丁舞]，[拉丁舞2]，[真情2012]）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document represents the consensus of the Crypto Forum Research Group (CFRG).",
+      "zh-CHS": "本文件代表加密论坛研究小组（CFRG）的共识。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "1.1. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "The description of the ChaCha algorithm will at various time refer to the ChaCha state as a \"vector\" or as a \"matrix\". This follows the use of these terms in Professor Bernstein's paper. The matrix notation is more visually convenient and gives a better notion as to why some rounds are called \"column rounds\" while others are called \"diagonal rounds\". Here's a diagram of how the matrices relate to vectors (using the C language convention of zero being the index origin).",
+      "zh-CHS": "ChaCha算法的描述将在不同时间将ChaCha状态称为“向量”或“矩阵”。这是在伯恩斯坦教授的论文中使用这些术语之后。矩阵表示法在视觉上更方便，并且给出了一个更好的概念，即为什么一些圆称为“列圆”，而另一些圆称为“对角圆”。下面是一张矩阵与向量的关系图（使用C语言约定的零作为索引原点）。"
+    },
+    {
+      "indent": 5,
+      "text": " 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15",
+      "zh-CHS": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"
+    },
+    {
+      "indent": 3,
+      "text": "The elements in this vector or matrix are 32-bit unsigned integers.",
+      "zh-CHS": "此向量或矩阵中的元素是32位无符号整数。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm name is \"ChaCha\". \"ChaCha20\" is a specific instance where 20 \"rounds\" (or 80 quarter rounds -- see Section 2.1) are used. Other variations are defined, with 8 or 12 rounds, but in this document we only describe the 20-round ChaCha, so the names \"ChaCha\" and \"ChaCha20\" will be used interchangeably.",
+      "zh-CHS": "算法名为“ChaCha”。“ChaCha20”是一个使用20个“轮”（或80个四分之一轮——见第2.1节）的特定实例。其他变体的定义为8轮或12轮，但在本文档中，我们仅描述20轮ChaCha，因此名称“ChaCha”和“ChaCha20”将互换使用。"
+    },
+    {
+      "indent": 0,
+      "text": "2. The Algorithms",
+      "section_title": true,
+      "zh-CHS": "2. 算法"
+    },
+    {
+      "indent": 3,
+      "text": "The subsections below describe the algorithms used and the AEAD construction.",
+      "zh-CHS": "下面的小节描述了使用的算法和AEAD构造。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. The ChaCha Quarter Round",
+      "section_title": true,
+      "zh-CHS": "2.1. 查查四分之一回合"
+    },
+    {
+      "indent": 3,
+      "text": "The basic operation of the ChaCha algorithm is the quarter round. It operates on four 32-bit unsigned integers, denoted a, b, c, and d. The operation is as follows (in C-like notation):",
+      "zh-CHS": "ChaCha算法的基本操作是四分之一轮。它对四个32位无符号整数进行运算，表示为a、b、c和d。操作如下（用类似C的表示法）："
+    },
+    {
+      "indent": 3,
+      "text": "1. a += b; d ^= a; d <<<= 16; 2. c += d; b ^= c; b <<<= 12; 3. a += b; d ^= a; d <<<= 8; 4. c += d; b ^= c; b <<<= 7;",
+      "zh-CHS": "1. a+=b；d^=a；d<<=16；2.c+=d；b^=c；b<<=12；3.a+=b；d^=a；d<<=8；4.c+=d；b^=c；b<<=7；"
+    },
+    {
+      "indent": 3,
+      "text": "Where \"+\" denotes integer addition modulo 2^32, \"^\" denotes a bitwise Exclusive OR (XOR), and \"<<< n\" denotes an n-bit left rotation (towards the high bits).",
+      "zh-CHS": "其中“+”表示模2^32的整数加法，“^”表示按位异或（XOR），“<<<n”表示n位左旋转（朝向高位）。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, let's see the add, XOR, and roll operations from the fourth line with sample numbers:",
+      "zh-CHS": "例如，让我们看一下第四行中的add、XOR和roll操作以及示例编号："
+    },
+    {
+      "indent": 3,
+      "text": "o a = 0x11111111 o b = 0x01020304 o c = 0x77777777 o d = 0x01234567 o c = c + d = 0x77777777 + 0x01234567 = 0x789abcde o b = b ^ c = 0x01020304 ^ 0x789abcde = 0x7998bfda o b = b <<< 7 = 0x7998bfda <<< 7 = 0xcc5fed3c",
+      "zh-CHS": "o a=0x11111111 o b=0x01020304 o c=0x77777777 o d=0x01234567 o c=c+d=0x77777777+0x01234567=0x789ABDE o b=b^c=0x01020304^0x789ABDE=0x7998bfda o b=b<<7=0x7998bfda<<7=0xcc5fed3c"
+    },
+    {
+      "indent": 0,
+      "text": "2.1.1. Test Vector for the ChaCha Quarter Round",
+      "section_title": true,
+      "zh-CHS": "2.1.1. 查查四分之一轮的测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For a test vector, we will use the same numbers as in the example, adding something random for c.",
+      "zh-CHS": "对于测试向量，我们将使用与示例中相同的数字，为c添加随机数。"
+    },
+    {
+      "indent": 3,
+      "text": "o a = 0x11111111 o b = 0x01020304 o c = 0x9b8d6f43 o d = 0x01234567",
+      "zh-CHS": "o a=0x11111111 o b=0x01020304 o c=0x9b8d6f43 o d=0x01234567"
+    },
+    {
+      "indent": 3,
+      "text": "After running a Quarter Round on these four numbers, we get these:",
+      "zh-CHS": "在对这四个数字运行四分之一轮后，我们得到以下结果："
+    },
+    {
+      "indent": 3,
+      "text": "o a = 0xea2a92f4 o b = 0xcb1cf8ce o c = 0x4581472e o d = 0x5881c4bb",
+      "zh-CHS": "o a=0xea2a92f4 o b=0xcb1cf8ce o c=0x4581472e o d=0x5881c4bb"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. A Quarter Round on the ChaCha State",
+      "section_title": true,
+      "zh-CHS": "2.2. 查查州的四分之一回合"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha state does not have four integer numbers: it has 16. So the quarter-round operation works on only four of them -- hence the name. Each quarter round operates on four predetermined numbers in the ChaCha state. We will denote by QUARTERROUND(x,y,z,w) a quarter-round operation on the numbers at indices x, y, z, and w of the ChaCha state when viewed as a vector. For example, if we apply QUARTERROUND(1,5,9,13) to a state, this means running the quarter-round operation on the elements marked with an asterisk, while leaving the others alone:",
+      "zh-CHS": "查查州没有四个整数：它有16个。因此，四分之一轮操作只对其中四个有效——因此得名。在查查州，每四分之一轮按四个预先确定的数字运行。我们将用四分之一轮（x，y，z，w）表示一个四分之一轮操作，当被视为一个向量时，该操作在ChaCha状态的指数x，y，z和w处进行。例如，如果我们对一个状态应用四分之一轮（1,5,9,13），这意味着在标记有星号的元素上运行四分之一轮操作，而不处理其他元素："
+    },
+    {
+      "indent": 5,
+      "text": " 0 *a 2 3 4 *b 6 7 8 *c 10 11 12 *d 14 15",
+      "zh-CHS": "0*a 2 3 4*b 6 7 8*c 10 11 12*d 14 15"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this run of quarter round is part of what is called a \"column round\".",
+      "zh-CHS": "请注意，这轮四分之一轮是所谓的“列轮”的一部分。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.1. Test Vector for the Quarter Round on the ChaCha State",
+      "section_title": true,
+      "zh-CHS": "2.2.1. 查查州四分之一轮的测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For a test vector, we will use a ChaCha state that was generated randomly:",
+      "zh-CHS": "对于测试向量，我们将使用随机生成的ChaCha状态："
+    },
+    {
+      "indent": 3,
+      "text": "Sample ChaCha State",
+      "zh-CHS": "查查州样本"
+    },
+    {
+      "indent": 7,
+      "text": "879531e0 c5ecf37d 516461b1 c9a62f8a 44c20ef3 3390af7f d9fc690b 2a5f714c 53372767 b00a5631 974c541a 359e9963 5c971061 3d631689 2098d9d6 91dbd320",
+      "zh-CHS": "879531e0 c5ecf37d 516461b1 c9a62f8a 44c20ef3 3390af7f d9fc690b 2a5f714c 53372767 b00a5631 974c541a 359e9963 5c971061 3d631689 2098d9d6 91dbd320"
+    },
+    {
+      "indent": 3,
+      "text": "We will apply the QUARTERROUND(2,7,8,13) operation to this state. For obvious reasons, this one is part of what is called a \"diagonal round\":",
+      "zh-CHS": "我们将对该状态应用四分之一轮（2,7,8,13）操作。出于显而易见的原因，这是所谓“对角圆”的一部分："
+    },
+    {
+      "indent": 3,
+      "text": "After applying QUARTERROUND(2,7,8,13)",
+      "zh-CHS": "申请四分之一轮后（2,7,8,13）"
+    },
+    {
+      "indent": 6,
+      "text": " 879531e0 c5ecf37d *bdb886dc c9a62f8a 44c20ef3 3390af7f d9fc690b *cfacafd2 *e46bea80 b00a5631 974c541a 359e9963 5c971061 *ccc07c79 2098d9d6 91dbd320",
+      "zh-CHS": "879531e0 c5ecf37d*bdb886dc c9a62f8a 44c20ef3 3390af7f d9fc690b*cfacafd2*e46bea80 b00a5631 974c541a 359e9963 5c971061*ccc07c79 2098d9d6 91dbd320"
+    },
+    {
+      "indent": 3,
+      "text": "Note that only the numbers in positions 2, 7, 8, and 13 changed.",
+      "zh-CHS": "请注意，只有位置2、7、8和13中的数字发生了更改。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. The ChaCha20 Block Function",
+      "section_title": true,
+      "zh-CHS": "2.3. cha20块函数"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha block function transforms a ChaCha state by running multiple quarter rounds.",
+      "zh-CHS": "ChaCha block函数通过运行多个四分之一轮来转换ChaCha状态。"
+    },
+    {
+      "indent": 3,
+      "text": "The inputs to ChaCha20 are:",
+      "zh-CHS": "ChaCha20的输入为："
+    },
+    {
+      "indent": 3,
+      "text": "o A 256-bit key, treated as a concatenation of eight 32-bit little-endian integers.",
+      "zh-CHS": "o 一种256位密钥，被视为8个32位小端整数的串联。"
+    },
+    {
+      "indent": 3,
+      "text": "o A 96-bit nonce, treated as a concatenation of three 32-bit little-endian integers.",
+      "zh-CHS": "o 一种96位nonce，被视为三个32位小端整数的串联。"
+    },
+    {
+      "indent": 3,
+      "text": "o A 32-bit block count parameter, treated as a 32-bit little-endian integer.",
+      "zh-CHS": "o 一个32位块计数参数，被视为32位小端整数。"
+    },
+    {
+      "indent": 3,
+      "text": "The output is 64 random-looking bytes.",
+      "zh-CHS": "输出为64个随机字节。"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha algorithm described here uses a 256-bit key. The original algorithm also specified 128-bit keys and 8- and 12-round variants, but these are out of scope for this document. In this section, we describe the ChaCha block function.",
+      "zh-CHS": "这里描述的ChaCha算法使用256位密钥。原始算法还指定了128位密钥以及8轮和12轮变体，但这些都超出了本文档的范围。在本节中，我们将介绍ChaCha块函数。"
+    },
+    {
+      "indent": 3,
+      "text": "Note also that the original ChaCha had a 64-bit nonce and 64-bit block count. We have modified this here to be more consistent with recommendations in Section 3.2 of [RFC5116]. This limits the use of a single (key,nonce) combination to 2^32 blocks, or 256 GB, but that is enough for most uses. In cases where a single key is used by multiple senders, it is important to make sure that they don't use the same nonces. This can be assured by partitioning the nonce space so that the first 32 bits are unique per sender, while the other 64 bits come from a counter.",
+      "zh-CHS": "还请注意，原始ChaCha具有64位nonce和64位块计数。我们在此处对其进行了修改，以便与[RFC5116]第3.2节中的建议更加一致。这将单个（键、nonce）组合的使用限制为2^32个块或256 GB，但这对于大多数使用来说已经足够了。在多个发件人使用单个密钥的情况下，确保他们不使用相同的nonce非常重要。这可以通过对nonce空间进行分区来保证，以便每个发送方的前32位是唯一的，而其他64位来自计数器。"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha20 state is initialized as follows:",
+      "zh-CHS": "ChaCha20状态初始化如下："
+    },
+    {
+      "indent": 3,
+      "text": "o The first four words (0-3) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.",
+      "zh-CHS": "o 前四个字（0-3）是常量：0x61707865、0x3320646e、0x79622d32、0x6b206574。"
+    },
+    {
+      "indent": 3,
+      "text": "o The next eight words (4-11) are taken from the 256-bit key by reading the bytes in little-endian order, in 4-byte chunks.",
+      "zh-CHS": "o 接下来的八个字（4-11）是从256位键中提取出来的，它是以4字节块的小尾端顺序读取字节的。"
+    },
+    {
+      "indent": 3,
+      "text": "o Word 12 is a block counter. Since each block is 64-byte, a 32-bit word is enough for 256 gigabytes of data.",
+      "zh-CHS": "o 字12是块计数器。由于每个块都是64字节，因此一个32位字足以容纳256GB的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "o Words 13-15 are a nonce, which should not be repeated for the same key. The 13th word is the first 32 bits of the input nonce taken as a little-endian integer, while the 15th word is the last 32 bits.",
+      "zh-CHS": "o 单词13-15是一个nonce，不应该为同一个键重复。第13个字是输入nonce的前32位，作为小端整数，而第15个字是最后32位。"
+    },
+    {
+      "indent": 7,
+      "text": "cccccccc cccccccc cccccccc cccccccc kkkkkkkk kkkkkkkk kkkkkkkk kkkkkkkk kkkkkkkk kkkkkkkk kkkkkkkk kkkkkkkk bbbbbbbb nnnnnnnn nnnnnnnn nnnnnnnn",
+      "zh-CHS": "中交中交中交中交中交KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+    },
+    {
+      "indent": 3,
+      "text": "c=constant k=key b=blockcount n=nonce",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha20 runs 20 rounds, alternating between \"column rounds\" and \"diagonal rounds\". Each round consists of four quarter-rounds, and they are run as follows. Quarter rounds 1-4 are part of a \"column\" round, while 5-8 are part of a \"diagonal\" round:",
+      "zh-CHS": "ChaCha20跑20圈，在“圆柱圈”和“对角线圈”之间交替。每轮由四个四分之一轮组成，其运行方式如下。四分之一轮1-4是“圆柱”轮的一部分，而5-8是“对角线”轮的一部分："
+    },
+    {
+      "indent": 3,
+      "text": "1. QUARTERROUND ( 0, 4, 8,12) 2. QUARTERROUND ( 1, 5, 9,13) 3. QUARTERROUND ( 2, 6,10,14) 4. QUARTERROUND ( 3, 7,11,15) 5. QUARTERROUND ( 0, 5,10,15)",
+      "zh-CHS": "1. 四分之一轮（0,4,8,12）2。四分之一（1,5,9,13）3。四分之一（2,6,10,14）4。四分之一（3,7,11,15）5。四分之一轮（0,5,10,15）"
+    },
+    {
+      "indent": 3,
+      "text": "6. QUARTERROUND ( 1, 6,11,12) 7. QUARTERROUND ( 2, 7, 8,13) 8. QUARTERROUND ( 3, 4, 9,14)",
+      "zh-CHS": "6. 四分之一轮（1,6,11,12）7。四分之一（2,7,8,13）8。四分之一轮（3,4,9,14）"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of 20 rounds (or 10 iterations of the above list), we add the original input words to the output words, and serialize the result by sequencing the words one-by-one in little-endian order.",
+      "zh-CHS": "在20轮（或上述列表的10次迭代）结束时，我们将原始输入字添加到输出字，并通过按小端点顺序逐个排序字来序列化结果。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: \"addition\" in the above paragraph is done modulo 2^32. In some machine languages, this is called carryless addition on a 32-bit word.",
+      "zh-CHS": "注：上述段落中的“加法”是以模2^32进行的。在某些机器语言中，这称为32位字上的无角加法。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.1. The ChaCha20 Block Function in Pseudocode",
+      "section_title": true,
+      "zh-CHS": "2.3.1. 伪码中的cha20块函数"
+    },
+    {
+      "indent": 3,
+      "text": "Note: This section and a few others contain pseudocode for the algorithm explained in a previous section. Every effort was made for the pseudocode to accurately reflect the algorithm as described in the preceding section. If a conflict is still present, the textual explanation and the test vectors are normative.",
+      "zh-CHS": "注意：本节和其他一些部分包含前一节中解释的算法的伪代码。为了使伪代码能够准确地反映上一节中描述的算法，我们尽了一切努力。如果冲突仍然存在，则文本解释和测试向量是规范性的。"
+    },
+    {
+      "indent": 6,
+      "text": "inner_block (state): Qround(state, 0, 4, 8,12) Qround(state, 1, 5, 9,13) Qround(state, 2, 6,10,14) Qround(state, 3, 7,11,15) Qround(state, 0, 5,10,15) Qround(state, 1, 6,11,12) Qround(state, 2, 7, 8,13) Qround(state, 3, 4, 9,14) end",
+      "zh-CHS": "内阻滞（状态）：Qround（状态，0,4,8,12）Qround（状态，1,5,9,13）Qround（状态，2,6,10,14）Qround（状态，3,7,11,15）Qround（状态，0,5,10,15）Qround（状态，1,6,11,12）Qround（状态，2,7,8,13）Qround（状态，3,4,9,14）结束"
+    },
+    {
+      "indent": 6,
+      "text": "chacha20_block(key, counter, nonce): state = constants | key | counter | nonce working_state = state for i=1 upto 10 inner_block(working_state) end state += working_state return serialize(state) end",
+      "zh-CHS": "chacha20_块（键、计数器、nonce）：状态=常数|键|计数器| nonce工作状态=i=1到10的状态内部_块（工作状态）结束状态+=工作状态返回序列化（状态）结束"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.2. Test Vector for the ChaCha20 Block Function",
+      "section_title": true,
+      "zh-CHS": "2.3.2. ChaCha20块函数的测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For a test vector, we will use the following inputs to the ChaCha20 block function:",
+      "zh-CHS": "对于测试向量，我们将使用以下输入到ChaCha20块函数："
+    },
+    {
+      "indent": 3,
+      "text": "o Key = 00:01:02:03:04:05:06:07:08:09:0a:0b:0c:0d:0e:0f:10:11:12:13: 14:15:16:17:18:19:1a:1b:1c:1d:1e:1f. The key is a sequence of octets with no particular structure before we copy it into the ChaCha state.",
+      "zh-CHS": "o Key=00:01:02:03:04:05:06:07:08:09:0a:0b:0c:0d:0e:0f:10:11:12:13:14:15:16:17:18:19:1a:1b:1c:1d:1e:1f。关键是在复制到ChaCha状态之前，没有特定结构的八位元序列。"
+    },
+    {
+      "indent": 3,
+      "text": "o Nonce = (00:00:00:09:00:00:00:4a:00:00:00:00)",
+      "zh-CHS": "o Nonce=（00:00:00:09:00:00:00:4a:00:00:00:00:00）"
+    },
+    {
+      "indent": 3,
+      "text": "o Block Count = 1.",
+      "zh-CHS": "o 块计数=1。"
+    },
+    {
+      "indent": 3,
+      "text": "After setting up the ChaCha state, it looks like this:",
+      "zh-CHS": "设置ChaCha状态后，看起来如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha state with the key setup.",
+      "zh-CHS": "用键设置ChaCha状态。"
+    },
+    {
+      "indent": 7,
+      "text": "61707865 3320646e 79622d32 6b206574 03020100 07060504 0b0a0908 0f0e0d0c 13121110 17161514 1b1a1918 1f1e1d1c 00000001 09000000 4a000000 00000000",
+      "zh-CHS": "61707865 3320646e 79622d32 6b206574 03020100 07060504 0b0a0908 0f0e0d0c 13121110 17161514 1B11918 1F11D1C 0000000 109000000 4A00000000000000"
+    },
+    {
+      "indent": 3,
+      "text": "After running 20 rounds (10 column rounds interleaved with 10 \"diagonal rounds\"), the ChaCha state looks like this:",
+      "zh-CHS": "运行20轮（10列轮与10个“对角轮”交错）后，ChaCha状态如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha state after 20 rounds",
+      "zh-CHS": "20轮后的查查州"
+    },
+    {
+      "indent": 7,
+      "text": "837778ab e238d763 a67ae21e 5950bb2f c4f2d0c7 fc62bb2f 8fa018fc 3f5ec7b7 335271c2 f29489f3 eabda8fc 82e46ebd d19c12b4 b04e16de 9e83d0cb 4e3c50a2",
+      "zh-CHS": "837778ab e238d763 a67ae21e 5950bb2f c4f2d0c7 fc62bb2f 8fa018fc 3f5ec7b7 335271c2 f29489f3 eabda8fc 82e46ebd d19c12b4 b04e16de 9e83d0cb 4e3c50a2"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, we add the original state to the result (simple vector or matrix addition), giving this:",
+      "zh-CHS": "最后，我们将原始状态添加到结果中（简单向量或矩阵加法），如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha state at the end of the ChaCha20 operation",
+      "zh-CHS": "ChaCha20操作结束时的ChaCha状态"
+    },
+    {
+      "indent": 7,
+      "text": "e4e7f110 15593bd1 1fdd0f50 c47120a3 c7f4d1c7 0368c033 9aaa2204 4e6cd4c3 466482d2 09aa9f07 05d7c214 a2028bd9 d19c12b5 b94e16de e883d0cb 4e3c50a2",
+      "zh-CHS": "e4e7f110 15593bd1 1DD0F50 c47120a3 c7f4d1c7 0368c033 9AA2204 4e6cd4c3 466482d2 09aa9f07 05d7c214 a2028bd9 D19C12B94E16DE e883d0cb 4e3c50a2"
+    },
+    {
+      "indent": 3,
+      "text": "After we serialize the state, we get this:",
+      "zh-CHS": "序列化状态后，我们得到以下结果："
+    },
+    {
+      "indent": 2,
+      "text": "Serialized Block:\n000  10 f1 e7 e4 d1 3b 59 15 50 0f dd 1f a3 20 71 c4  .....;Y.P.... q.\n016  c7 d1 f4 c7 33 c0 68 03 04 22 aa 9a c3 d4 6c 4e  ....3.h..\"....lN\n032  d2 82 64 46 07 9f aa 09 14 c2 d7 05 d9 8b 02 a2  ..dF............\n048  b5 12 9c d1 de 16 4e b9 cb d0 83 e8 a2 50 3c 4e  ......N......P<N",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.4. The ChaCha20 Encryption Algorithm",
+      "section_title": true,
+      "zh-CHS": "2.4. ChaCha20加密算法"
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha20 is a stream cipher designed by D. J. Bernstein. It is a refinement of the Salsa20 algorithm, and it uses a 256-bit key.",
+      "zh-CHS": "ChaCha20是由D.J.Bernstein设计的流密码。它是Salsa20算法的改进，使用256位密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha20 successively calls the ChaCha20 block function, with the same key and nonce, and with successively increasing block counter parameters. ChaCha20 then serializes the resulting state by writing the numbers in little-endian order, creating a keystream block.",
+      "zh-CHS": "ChaCha20连续调用ChaCha20块函数，使用相同的键和nonce，并连续增加块计数器参数。然后，ChaCha20通过以小尾端顺序写入数字来序列化结果状态，从而创建一个密钥流块。"
+    },
+    {
+      "indent": 3,
+      "text": "Concatenating the keystream blocks from the successive blocks forms a keystream. The ChaCha20 function then performs an XOR of this keystream with the plaintext. Alternatively, each keystream block can be XORed with a plaintext block before proceeding to create the next block, saving some memory. There is no requirement for the plaintext to be an integral multiple of 512 bits. If there is extra keystream from the last block, it is discarded. Specific protocols MAY require that the plaintext and ciphertext have certain length. Such protocols need to specify how the plaintext is padded and how much padding it receives.",
+      "zh-CHS": "将键流块与连续块连接起来形成键流。然后，cha20函数使用纯文本对该密钥流执行异或。或者，在继续创建下一个块之前，每个键流块可以与一个纯文本块异或，从而节省一些内存。明文不要求是512位的整数倍。如果最后一个块中有额外的密钥流，它将被丢弃。特定协议可能要求明文和密文具有一定的长度。这样的协议需要指定明文的填充方式以及接收到的填充量。"
+    },
+    {
+      "indent": 3,
+      "text": "The inputs to ChaCha20 are:",
+      "zh-CHS": "ChaCha20的输入为："
+    },
+    {
+      "indent": 3,
+      "text": "o A 256-bit key",
+      "zh-CHS": "o 256位密钥"
+    },
+    {
+      "indent": 3,
+      "text": "o A 32-bit initial counter. This can be set to any number, but will usually be zero or one. It makes sense to use one if we use the zero block for something else, such as generating a one-time authenticator key as part of an AEAD algorithm.",
+      "zh-CHS": "o 32位初始计数器。这可以设置为任何数字，但通常为零或一。如果我们将零块用于其他用途，例如作为AEAD算法的一部分生成一次性验证器密钥，则使用零块是有意义的。"
+    },
+    {
+      "indent": 3,
+      "text": "o A 96-bit nonce. In some protocols, this is known as the Initialization Vector.",
+      "zh-CHS": "o 一个96位的nonce。在某些协议中，这称为初始化向量。"
+    },
+    {
+      "indent": 3,
+      "text": "o An arbitrary-length plaintext",
+      "zh-CHS": "o 任意长度的明文"
+    },
+    {
+      "indent": 3,
+      "text": "The output is an encrypted message, or \"ciphertext\", of the same length.",
+      "zh-CHS": "输出是长度相同的加密消息或“密文”。"
+    },
+    {
+      "indent": 3,
+      "text": "Decryption is done in the same way. The ChaCha20 block function is used to expand the key into a keystream, which is XORed with the ciphertext giving back the plaintext.",
+      "zh-CHS": "解密是以同样的方式进行的。ChaCha20 block函数用于将密钥扩展为密钥流，该密钥流与返回明文的密文进行异或运算。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4.1. The ChaCha20 Encryption Algorithm in Pseudocode",
+      "section_title": true,
+      "zh-CHS": "2.4.1. 伪码中的ChaCha20加密算法"
+    },
+    {
+      "indent": 5,
+      "text": "chacha20_encrypt(key, counter, nonce, plaintext):\n   for j = 0 upto floor(len(plaintext)/64)-1\n      key_stream = chacha20_block(key, counter+j, nonce)\n      block = plaintext[(j*64)..(j*64+63)]\n      encrypted_message +=  block ^ key_stream\n      end\n   if ((len(plaintext) % 64) != 0)\n      j = floor(len(plaintext)/64)\n      key_stream = chacha20_block(key, counter+j, nonce)\n      block = plaintext[(j*64)..len(plaintext)-1]\n      encrypted_message += (block^key_stream)[0..len(plaintext)%64]\n      end\n   return encrypted_message\n   end",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.4.2. Example and Test Vector for the ChaCha20 Cipher",
+      "section_title": true,
+      "zh-CHS": "2.4.2. ChaCha20密码的示例和测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For a test vector, we will use the following inputs to the ChaCha20 block function:",
+      "zh-CHS": "对于测试向量，我们将使用以下输入到ChaCha20块函数："
+    },
+    {
+      "indent": 3,
+      "text": "o Key = 00:01:02:03:04:05:06:07:08:09:0a:0b:0c:0d:0e:0f:10:11:12:13: 14:15:16:17:18:19:1a:1b:1c:1d:1e:1f.",
+      "zh-CHS": "o Key=00:01:02:03:04:05:06:07:08:09:0a:0b:0c:0d:0e:0f:10:11:12:13:14:15:16:17:18:19:1a:1b:1c:1d:1e:1f。"
+    },
+    {
+      "indent": 3,
+      "text": "o Nonce = (00:00:00:00:00:00:00:4a:00:00:00:00).",
+      "zh-CHS": "o Nonce=（00:00:00:00:00:00:4a:00:00:00:00:00）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Initial Counter = 1.",
+      "zh-CHS": "o 初始计数器=1。"
+    },
+    {
+      "indent": 3,
+      "text": "We use the following for the plaintext. It was chosen to be long enough to require more than one block, but not so long that it would make this example cumbersome (so, less than 3 blocks):",
+      "zh-CHS": "我们将以下内容用于纯文本。它被选择为足够长，需要一个以上的块，但不会太长，使本例变得繁琐（因此，少于3个块）："
+    },
+    {
+      "indent": 2,
+      "text": "Plaintext Sunscreen:\n000  4c 61 64 69 65 73 20 61 6e 64 20 47 65 6e 74 6c  Ladies and Gentl\n016  65 6d 65 6e 20 6f 66 20 74 68 65 20 63 6c 61 73  emen of the clas\n032  73 20 6f 66 20 27 39 39 3a 20 49 66 20 49 20 63  s of '99: If I c\n048  6f 75 6c 64 20 6f 66 66 65 72 20 79 6f 75 20 6f  ould offer you o\n064  6e 6c 79 20 6f 6e 65 20 74 69 70 20 66 6f 72 20  nly one tip for\n080  74 68 65 20 66 75 74 75 72 65 2c 20 73 75 6e 73  the future, suns\n096  63 72 65 65 6e 20 77 6f 75 6c 64 20 62 65 20 69  creen would be i\n112  74 2e                                            t.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The following figure shows four ChaCha state matrices:",
+      "zh-CHS": "下图显示了四个ChaCha状态矩阵："
+    },
+    {
+      "indent": 3,
+      "text": "1. First block as it is set up.",
+      "zh-CHS": "1. 设置时的第一个块。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Second block as it is set up. Note that these blocks are only two bits apart -- only the counter in position 12 is different.",
+      "zh-CHS": "2. 设置的第二个块。请注意，这些块仅相隔两位——只有位置12的计数器不同。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Third block is the first block after the ChaCha20 block operation.",
+      "zh-CHS": "3. 第三个块是ChaCha20块操作后的第一个块。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Final block is the second block after the ChaCha20 block operation was applied.",
+      "zh-CHS": "4. 最后一个块是应用ChaCha20块操作后的第二个块。"
+    },
+    {
+      "indent": 3,
+      "text": "After that, we show the keystream.",
+      "zh-CHS": "然后，我们显示密钥流。"
+    },
+    {
+      "indent": 3,
+      "text": "First block setup: 61707865 3320646e 79622d32 6b206574 03020100 07060504 0b0a0908 0f0e0d0c 13121110 17161514 1b1a1918 1f1e1d1c 00000001 00000000 4a000000 00000000",
+      "zh-CHS": "第一个区块设置：61707865 3320646e 79622d32 6b206574 03020100 07060504 0b0a0908 0f0e0d0c 13121110 17161514 1B11918 1F11D1C 00000001 00000000 4A00000000000000"
+    },
+    {
+      "indent": 3,
+      "text": "Second block setup: 61707865 3320646e 79622d32 6b206574 03020100 07060504 0b0a0908 0f0e0d0c 13121110 17161514 1b1a1918 1f1e1d1c 00000002 00000000 4a000000 00000000",
+      "zh-CHS": "第二个区块设置：61707865 3320646e 79622d32 6b206574 03020100 07060504 0b0a0908 0f0e0d0c 13121110 17161514 1B11918 1f1e1d1c 0000000 2 00000000 4A00000000000000"
+    },
+    {
+      "indent": 3,
+      "text": "First block after block operation: f3514f22 e1d91b40 6f27de2f ed1d63b8 821f138c e2062c3d ecca4f7e 78cff39e a30a3b8a 920a6072 cd7479b5 34932bed 40ba4c79 cd343ec6 4c2c21ea b7417df0",
+      "zh-CHS": "阻塞操作后的第一个阻塞：f3514f22 e1d91b40 6f27de2f ed1d63b8 821F13C e2062c3d ecca4f7e 78cff39e a30a3b8a 920a6072 cd7479b5 34932bed 40ba4c79 cd343ec6 4c2c21ea b7417df0"
+    },
+    {
+      "indent": 3,
+      "text": "Second block after block operation: 9f74a669 410f633f 28feca22 7ec44dec 6d34d426 738cb970 3ac5e9f3 45590cc4 da6e8b39 892c831a cdea67c1 2b7e1d90 037463f3 a11a2073 e8bcfb88 edc49139",
+      "zh-CHS": "阻塞操作后的第二个阻塞：9f74a669 410f633f 28feca22 7ec44dec 6d34d426 738cb970 3ac5e9f3 45590cc4 da6e8b39 892c831a cdea67c1 2b7e1d90 037463f3 a11a2073 E8BCB88 edc49139"
+    },
+    {
+      "indent": 3,
+      "text": "Keystream:\n22:4f:51:f3:40:1b:d9:e1:2f:de:27:6f:b8:63:1d:ed:8c:13:1f:82:3d:2c:06\ne2:7e:4f:ca:ec:9e:f3:cf:78:8a:3b:0a:a3:72:60:0a:92:b5:79:74:cd:ed:2b\n93:34:79:4c:ba:40:c6:3e:34:cd:ea:21:2c:4c:f0:7d:41:b7:69:a6:74:9f:3f\n63:0f:41:22:ca:fe:28:ec:4d:c4:7e:26:d4:34:6d:70:b9:8c:73:f3:e9:c5:3a\nc4:0c:59:45:39:8b:6e:da:1a:83:2c:89:c1:67:ea:cd:90:1d:7e:2b:f3:63",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Finally, we XOR the keystream with the plaintext, yielding the ciphertext:",
+      "zh-CHS": "最后，我们将密钥流与明文进行异或运算，生成密文："
+    },
+    {
+      "indent": 2,
+      "text": "Ciphertext Sunscreen:\n000  6e 2e 35 9a 25 68 f9 80 41 ba 07 28 dd 0d 69 81  n.5.%h..A..(..i.\n016  e9 7e 7a ec 1d 43 60 c2 0a 27 af cc fd 9f ae 0b  .~z..C`..'......\n032  f9 1b 65 c5 52 47 33 ab 8f 59 3d ab cd 62 b3 57  ..e.RG3..Y=..b.W\n048  16 39 d6 24 e6 51 52 ab 8f 53 0c 35 9f 08 61 d8  .9.$.QR..S.5..a.\n064  07 ca 0d bf 50 0d 6a 61 56 a3 8e 08 8a 22 b6 5e  ....P.jaV....\".^\n080  52 bc 51 4d 16 cc f8 06 81 8c e9 1a b7 79 37 36  R.QM.........y76\n096  5a f9 0b bf 74 a3 5b e6 b4 0b 8e ed f2 78 5e 42  Z...t.[......x^B\n112  87 4d                                            .M",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.5. The Poly1305 Algorithm",
+      "section_title": true,
+      "zh-CHS": "2.5. Poly1305算法"
+    },
+    {
+      "indent": 3,
+      "text": "Poly1305 is a one-time authenticator designed by D. J. Bernstein. Poly1305 takes a 32-byte one-time key and a message and produces a 16-byte tag. This tag is used to authenticate the message.",
+      "zh-CHS": "Poly1305是由D.J.Bernstein设计的一次性验证器。Poly1305接受一个32字节的一次性密钥和一条消息，并生成一个16字节的标记。此标记用于验证消息。"
+    },
+    {
+      "indent": 3,
+      "text": "The original article ([Poly1305]) is titled \"The Poly1305-AES message-authentication code\", and the MAC function there requires a 128-bit AES key, a 128-bit \"additional key\", and a 128-bit (non-secret) nonce. AES is used there for encrypting the nonce, so as to get a unique (and secret) 128-bit string, but as the paper states, \"There is nothing special about AES here. One can replace AES with an arbitrary keyed function from an arbitrary set of nonces to 16-byte strings.\"",
+      "zh-CHS": "原始文章（[Poly1305]）的标题为“Poly1305 AES消息认证码”，其中的MAC功能需要128位AES密钥、128位“附加密钥”和128位（非机密）nonce。AES用于加密nonce，以获得唯一（且机密）128位字符串，但正如论文所述，“AES在这里没有什么特殊之处。可以用任意键控函数（从任意一组nonce到16字节字符串）替换AES。”"
+    },
+    {
+      "indent": 3,
+      "text": "Regardless of how the key is generated, the key is partitioned into two parts, called \"r\" and \"s\". The pair (r,s) should be unique, and MUST be unpredictable for each invocation (that is why it was originally obtained by encrypting a nonce), while \"r\" MAY be constant, but needs to be modified as follows before being used: (\"r\" is treated as a 16-octet little-endian number):",
+      "zh-CHS": "不管密钥是如何生成的，密钥都被分为两部分，称为“r”和“s”。该对（r，s）应该是唯一的，并且对于每次调用都必须是不可预测的（这就是为什么它最初是通过加密nonce获得的），而“r”可能是常量，但在使用之前需要进行如下修改：（“r”被视为16个八位组的小端数字）："
+    },
+    {
+      "indent": 3,
+      "text": "o r[3], r[7], r[11], and r[15] are required to have their top four bits clear (be smaller than 16)",
+      "zh-CHS": "o 要求r[3]、r[7]、r[11]和r[15]清除其前四位（小于16）"
+    },
+    {
+      "indent": 3,
+      "text": "o r[4], r[8], and r[12] are required to have their bottom two bits clear (be divisible by 4)",
+      "zh-CHS": "o r[4]、r[8]和r[12]需要清除其底部的两位（可被4整除）"
+    },
+    {
+      "indent": 3,
+      "text": "The following sample code clamps \"r\" to be appropriate:",
+      "zh-CHS": "以下示例代码“r”应适用："
+    },
+    {
+      "indent": 3,
+      "text": "/*\nAdapted from poly1305aes_test_clamp.c version 20050207\nD. J. Bernstein\nPublic domain.\n*/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "#include \"poly1305aes_test.h\"",
+      "zh-CHS": "#包括“poly1305aes_test.h”"
+    },
+    {
+      "indent": 3,
+      "text": "void poly1305aes_test_clamp(unsigned char r[16])\n{\n  r[3] &= 15;\n  r[7] &= 15;\n  r[11] &= 15;\n  r[15] &= 15;\n  r[4] &= 252;\n  r[8] &= 252;\n  r[12] &= 252;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The \"s\" should be unpredictable, but it is perfectly acceptable to generate both \"r\" and \"s\" uniquely each time. Because each of them is 128 bits, pseudorandomly generating them (see Section 2.6) is also acceptable.",
+      "zh-CHS": "“s”应该是不可预测的，但是每次都唯一地生成“r”和“s”是完全可以接受的。因为它们每个都是128位，所以伪随机生成它们（参见第2.6节）也是可以接受的。"
+    },
+    {
+      "indent": 3,
+      "text": "The inputs to Poly1305 are:",
+      "zh-CHS": "Poly1305的输入为："
+    },
+    {
+      "indent": 3,
+      "text": "o A 256-bit one-time key",
+      "zh-CHS": "o 256位一次性密钥"
+    },
+    {
+      "indent": 3,
+      "text": "o An arbitrary length message",
+      "zh-CHS": "o 任意长度的消息"
+    },
+    {
+      "indent": 3,
+      "text": "The output is a 128-bit tag.",
+      "zh-CHS": "输出是一个128位的标签。"
+    },
+    {
+      "indent": 3,
+      "text": "First, the \"r\" value should be clamped.",
+      "zh-CHS": "首先，应钳制“r”值。"
+    },
+    {
+      "indent": 3,
+      "text": "Next, set the constant prime \"P\" be 2^130-5: 3fffffffffffffffffffffffffffffffb. Also set a variable \"accumulator\" to zero.",
+      "zh-CHS": "接下来，将常量素数“P”设置为2^130-5:3ffffffffffffffffffffffffb。同时将变量“累加器”设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "Next, divide the message into 16-byte blocks. The last one might be shorter:",
+      "zh-CHS": "接下来，将消息划分为16字节块。最后一个可能较短："
+    },
+    {
+      "indent": 3,
+      "text": "o Read the block as a little-endian number.",
+      "zh-CHS": "o 将块读作一个小的endian数。"
+    },
+    {
+      "indent": 3,
+      "text": "o Add one bit beyond the number of octets. For a 16-byte block, this is equivalent to adding 2^128 to the number. For the shorter block, it can be 2^120, 2^112, or any power of two that is evenly divisible by 8, all the way down to 2^8.",
+      "zh-CHS": "o 在八位字节数的基础上再加一位。对于一个16字节的块，这相当于在数字上加上2^128。对于较短的块，它可以是2^120、2^112或2的任意幂，可以被8整除，一直到2^8。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the block is not 17 bytes long (the last block), pad it with zeros. This is meaningless if you are treating the blocks as numbers.",
+      "zh-CHS": "o 如果该块不是17字节长（最后一个块），请将其填充为零。如果将块视为数字，则这是没有意义的。"
+    },
+    {
+      "indent": 3,
+      "text": "o Add this number to the accumulator.",
+      "zh-CHS": "o 将此数字添加到累加器中。"
+    },
+    {
+      "indent": 3,
+      "text": "o Multiply by \"r\".",
+      "zh-CHS": "o 乘以“r”。"
+    },
+    {
+      "indent": 3,
+      "text": "o Set the accumulator to the result modulo p. To summarize: Acc = ((Acc+block)*r) % p.",
+      "zh-CHS": "o 将累加器设置为结果模p。总结：Acc=（（Acc+块）*r）%p。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the value of the secret key \"s\" is added to the accumulator, and the 128 least significant bits are serialized in little-endian order to form the tag.",
+      "zh-CHS": "最后，密钥“s”的值被添加到累加器中，128个最低有效位以小尾端顺序序列化以形成标记。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5.1. The Poly1305 Algorithms in Pseudocode",
+      "section_title": true,
+      "zh-CHS": "2.5.1. 伪码中的Poly1305算法"
+    },
+    {
+      "indent": 6,
+      "text": "clamp(r): r &= 0x0ffffffc0ffffffc0ffffffc0fffffff\npoly1305_mac(msg, key):\n   r = (le_bytes_to_num(key[0..15])\n   clamp(r)\n   s = le_num(key[16..31])\n   accumulator = 0\n   p = (1<<130)-5\n   for i=1 upto ceil(msg length in bytes / 16)\n      n = le_bytes_to_num(msg[((i-1)*16)..(i*16)] | [0x01])\n      a += n\n      a = (r * a) % p\n      end\n   a += s\n   return num_to_16_le_bytes(a)\n   end",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.5.2. Poly1305 Example and Test Vector",
+      "section_title": true,
+      "zh-CHS": "2.5.2. Poly1305示例和测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For our example, we will dispense with generating the one-time key using AES, and assume that we got the following keying material:",
+      "zh-CHS": "对于我们的示例，我们将不使用AES生成一次性密钥，并假设我们获得了以下密钥材料："
+    },
+    {
+      "indent": 3,
+      "text": "o Key Material: 85:d6:be:78:57:55:6d:33:7f:44:52:fe:42:d5:06:a8:01:0 3:80:8a:fb:0d:b2:fd:4a:bf:f6:af:41:49:f5:1b",
+      "zh-CHS": "o 关键材料：85:d6:be:78:57:55:6d:33:7f:44:52:fe:42:d5:06:a8:01:0 3:80:8a:fb:0d:b2:fd:4a:bf:f6:af:41:49:f5:1b"
+    },
+    {
+      "indent": 3,
+      "text": "o s as an octet string: 01:03:80:8a:fb:0d:b2:fd:4a:bf:f6:af:41:49:f5:1b",
+      "zh-CHS": "o s作为八位字节字符串：01:03:80:8a:fb:0d:b2:fd:4a:bf:f6:af:41:49:f5:1b"
+    },
+    {
+      "indent": 3,
+      "text": "o s as a 128-bit number: 1bf54941aff6bf4afdb20dfb8a800301",
+      "zh-CHS": "o s作为128位数字：1BF54941AFF4AFDB20DFB8A800301"
+    },
+    {
+      "indent": 3,
+      "text": "o r before clamping: 85:d6:be:78:57:55:6d:33:7f:44:52:fe:42:d5:06:a8",
+      "zh-CHS": "o 夹紧前的r:85:d6:be:78:57:55:6d:33:7f:44:52:fe:42:d5:06:a8"
+    },
+    {
+      "indent": 3,
+      "text": "o Clamped r as a number: 806d5400e52447c036d555408bed685",
+      "zh-CHS": "o 编号为：806d5400e52447c036d555408bed685"
+    },
+    {
+      "indent": 3,
+      "text": "For our message, we'll use a short text:",
+      "zh-CHS": "对于我们的信息，我们将使用短文本："
+    },
+    {
+      "indent": 2,
+      "text": "Message to be Authenticated:\n000  43 72 79 70 74 6f 67 72 61 70 68 69 63 20 46 6f  Cryptographic Fo\n016  72 75 6d 20 52 65 73 65 61 72 63 68 20 47 72 6f  rum Research Gro\n032  75 70                                            up",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Since Poly1305 works in 16-byte chunks, the 34-byte message divides into three blocks. In the following calculation, \"Acc\" denotes the accumulator and \"Block\" the current block:",
+      "zh-CHS": "由于Poly1305在16字节块中工作，因此34字节的消息分为三个块。在以下计算中，“Acc”表示累加器，“Block”表示当前块："
+    },
+    {
+      "indent": 3,
+      "text": "Block #1",
+      "zh-CHS": "第1区"
+    },
+    {
+      "indent": 3,
+      "text": "Acc = 00\nBlock = 6f4620636968706172676f7470797243\nBlock with 0x01 byte = 016f4620636968706172676f7470797243\nAcc + block = 016f4620636968706172676f7470797243\n(Acc+Block) * r =\n     b83fe991ca66800489155dcd69e8426ba2779453994ac90ed284034da565ecf\nAcc = ((Acc+Block)*r) % P = 2c88c77849d64ae9147ddeb88e69c83fc",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Block #2",
+      "zh-CHS": "第2区"
+    },
+    {
+      "indent": 3,
+      "text": "Acc = 2c88c77849d64ae9147ddeb88e69c83fc\nBlock = 6f7247206863726165736552206d7572\nBlock with 0x01 byte = 016f7247206863726165736552206d7572\nAcc + block = 437febea505c820f2ad5150db0709f96e\n(Acc+Block) * r =\n     21dcc992d0c659ba4036f65bb7f88562ae59b32c2b3b8f7efc8b00f78e548a26\nAcc = ((Acc+Block)*r) % P = 2d8adaf23b0337fa7cccfb4ea344b30de",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Last Block",
+      "zh-CHS": "最后一个街区"
+    },
+    {
+      "indent": 3,
+      "text": "Acc = 2d8adaf23b0337fa7cccfb4ea344b30de\nBlock = 7075\nBlock with 0x01 byte = 017075\nAcc + block = 2d8adaf23b0337fa7cccfb4ea344ca153\n(Acc + Block) * r =\n     16d8e08a0f3fe1de4fe4a15486aca7a270a29f1e6c849221e4a6798b8e45321f\n((Acc + Block) * r) % P = 28d31b7caff946c77c8844335369d03a7",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Adding s, we get this number, and serialize if to get the tag:",
+      "zh-CHS": "添加s，我们将获得此编号，并序列化是否要获得标记："
+    },
+    {
+      "indent": 3,
+      "text": "Acc + s = 2a927010caf8b2bc2c6365130c11d06a8",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Tag: a8:06:1d:c1:30:51:36:c6:c2:2b:8b:af:0c:01:27:a9",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Generating the Poly1305 Key Using ChaCha20",
+      "section_title": true,
+      "zh-CHS": "2.6. 使用ChaCha20生成Poly1305密钥"
+    },
+    {
+      "indent": 3,
+      "text": "As said in Section 2.5, it is acceptable to generate the one-time Poly1305 pseudorandomly. This section defines such a method.",
+      "zh-CHS": "如第2.5节所述，可接受伪随机生成一次性Poly1305。本节定义了这种方法。"
+    },
+    {
+      "indent": 3,
+      "text": "To generate such a key pair (r,s), we will use the ChaCha20 block function described in Section 2.3. This assumes that we have a 256-bit session key for the Message Authentication Code (MAC) function, such as SK_ai and SK_ar in Internet Key Exchange Protocol version 2 (IKEv2) ([RFC7296]), the integrity key in the Encapsulating Security Payload (ESP) and Authentication Header (AH), or the client_write_MAC_key and server_write_MAC_key in TLS. Any document that specifies the use of Poly1305 as a MAC algorithm for some protocol must specify that 256 bits are allocated for the integrity key. Note that in the AEAD construction defined in Section 2.8, the same key is used for encryption and key generation, so the use of SK_a* or *_write_MAC_key is only for stand-alone Poly1305.",
+      "zh-CHS": "为了生成这样一个密钥对（r，s），我们将使用第2.3节中描述的ChaCha20块函数。这假设我们有一个用于消息身份验证码（MAC）功能的256位会话密钥，例如Internet密钥交换协议版本2（IKEv2）（[RFC7296]）中的SK_ai和SK_ar，封装安全负载（ESP）和身份验证头（AH）中的完整性密钥，或者TLS中的客户端写入MAC_密钥和服务器写入MAC_密钥。指定使用Poly1305作为某些协议的MAC算法的任何文档必须指定为完整性密钥分配256位。请注意，在第2.8节中定义的AEAD构造中，相同的密钥用于加密和密钥生成，因此SK_a*或*_write_MAC_密钥仅用于单机Poly1305。"
+    },
+    {
+      "indent": 3,
+      "text": "The method is to call the block function with the following parameters:",
+      "zh-CHS": "方法是使用以下参数调用块函数："
+    },
+    {
+      "indent": 3,
+      "text": "o The 256-bit session integrity key is used as the ChaCha20 key.",
+      "zh-CHS": "o 256位会话完整性密钥用作ChaCha20密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o The block counter is set to zero.",
+      "zh-CHS": "o 块计数器设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "o The protocol will specify a 96-bit or 64-bit nonce. This MUST be unique per invocation with the same key, so it MUST NOT be randomly generated. A counter is a good way to implement this, but other methods, such as a Linear Feedback Shift Register (LFSR) are also acceptable. ChaCha20 as specified here requires a 96-bit nonce. So if the provided nonce is only 64-bit, then the first 32 bits of the nonce will be set to a constant number. This will usually be zero, but for protocols with multiple senders it may be different for each sender, but should be the same for all invocations of the function with the same key by a particular sender.",
+      "zh-CHS": "o 该协议将指定96位或64位nonce。这在每次使用相同密钥的调用中必须是唯一的，因此不能随机生成。计数器是实现这一点的好方法，但也可以使用其他方法，如线性反馈移位寄存器（LFSR）。此处指定的ChaCha20需要96位nonce。因此，如果提供的nonce仅为64位，则nonce的前32位将设置为常量。该值通常为零，但对于具有多个发送方的协议，每个发送方的值可能不同，但对于特定发送方使用相同密钥调用函数的所有值应该相同。"
+    },
+    {
+      "indent": 3,
+      "text": "After running the block function, we have a 512-bit state. We take the first 256 bits or the serialized state, and use those as the one-time Poly1305 key: the first 128 bits are clamped and form \"r\", while the next 128 bits become \"s\". The other 256 bits are discarded.",
+      "zh-CHS": "在运行block函数之后，我们有一个512位的状态。我们采用前256位或序列化状态，并将其用作一次性Poly1305密钥：前128位被钳制并形成“r”，而下128位变为“s”。其他256位被丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that while many protocols have provisions for a nonce for encryption algorithms (often called Initialization Vectors, or IVs), they usually don't have such a provision for the MAC function. In that case, the per-invocation nonce will have to come from somewhere else, such as a message counter.",
+      "zh-CHS": "请注意，尽管许多协议为加密算法（通常称为初始化向量，或IVs）提供了一个nonce，但它们通常没有为MAC功能提供这样的规定。在这种情况下，每次调用的nonce必须来自其他地方，例如消息计数器。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.1. Poly1305 Key Generation in Pseudocode",
+      "section_title": true,
+      "zh-CHS": "2.6.1. 伪码中的Poly1305密钥生成"
+    },
+    {
+      "indent": 6,
+      "text": "poly1305_key_gen(key,nonce): counter = 0 block = chacha20_block(key,counter,nonce) return block[0..31] end",
+      "zh-CHS": "poly1305_-key_-gen（key，nonce）：计数器=0块=chacha20_块（key，counter，nonce）返回块[0..31]结束"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.2. Poly1305 Key Generation Test Vector",
+      "section_title": true,
+      "zh-CHS": "2.6.2. Poly1305密钥生成测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For this example, we'll set:",
+      "zh-CHS": "对于本例，我们将设置："
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f  ................\n016  90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Nonce:\n000  00 00 00 00 00 01 02 03 04 05 06 07              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha state setup with key, nonce, and block counter zero: 61707865 3320646e 79622d32 6b206574 83828180 87868584 8b8a8988 8f8e8d8c 93929190 97969594 9b9a9998 9f9e9d9c 00000000 00000000 03020100 07060504",
+      "zh-CHS": "带有键、nonce和块计数器零的ChaCha状态设置：61707865 3320646e 79622d32 6b206574 83828180 87868584 8b8a8988 8f8e8d8c 93929190 97969594 9b9a9998 9f9e9d9c 00000000 00000000 03020100 07060504"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha state after 20 rounds: 8ba0d58a cc815f90 27405081 7194b24a 37b633a8 a50dfde3 e2b8db08 46a6d1fd 7da03782 9183a233 148ad271 b46773d1 3cc1875a 8607def1 ca5c3086 7085eb87",
+      "zh-CHS": "20轮后的查查状态：8ba0d58a cc815f90 27405081 7194b24a 37b633a8 a50dfde3 e2b8db08 46a6d1fd 7da03782 9183a233 148ad271 b46773d1 3cc1875a 8607def1 ca5c3086 7085eb87"
+    },
+    {
+      "indent": 2,
+      "text": "Output bytes:\n000  8a d5 a0 8b 90 5f 81 cc 81 50 40 27 4a b2 94 71  ....._...P@'J..q\n016  a8 33 b6 37 e3 fd 0d a5 08 db b8 e2 fd d1 a6 46  .3.7...........F",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "And that output is also the 32-byte one-time key used for Poly1305.",
+      "zh-CHS": "该输出也是用于Poly1305的32字节一次性密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7. A Pseudorandom Function for Crypto Suites based on ChaCha/Poly1305",
+      "section_title": true,
+      "zh-CHS": "2.7. 基于ChaCha/Poly1305的密码套件伪随机函数"
+    },
+    {
+      "indent": 3,
+      "text": "Some protocols, such as IKEv2 ([RFC7296]), require a Pseudorandom Function (PRF), mostly for key derivation. In the IKEv2 definition, a PRF is a function that accepts a variable-length key and a",
+      "zh-CHS": "一些协议，如IKEv2（[RFC7296]），需要伪随机函数（PRF），主要用于密钥推导。在IKEv2定义中，PRF是一个接受可变长度键和"
+    },
+    {
+      "indent": 3,
+      "text": "variable-length input, and returns a fixed-length output. Most commonly, Hashed MAC (HMAC) constructions are used for this purpose, and often the same function is used for both message authentication and PRF.",
+      "zh-CHS": "可变长度输入，并返回固定长度的输出。最常见的是，哈希MAC（HMAC）结构用于此目的，并且通常相同的函数用于消息身份验证和PRF。"
+    },
+    {
+      "indent": 3,
+      "text": "Poly1305 is not a suitable choice for a PRF. Poly1305 prohibits using the same key twice, whereas the PRF in IKEv2 is used multiple times with the same key. Additionally, unlike HMAC, Poly1305 is biased, so using it for key derivation would reduce the security of the symmetric encryption.",
+      "zh-CHS": "Poly1305不是PRF的合适选择。Poly1305禁止使用同一密钥两次，而IKEv2中的PRF使用同一密钥多次。此外，与HMAC不同，Poly1305是有偏差的，因此使用它进行密钥派生将降低对称加密的安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "Chacha20 could be used as a key-derivation function, by generating an arbitrarily long keystream. However, that is not what protocols such as IKEv2 require.",
+      "zh-CHS": "通过生成任意长的密钥流，Chacha20可以用作密钥派生函数。然而，这并不是像IKEv2这样的协议所需要的。"
+    },
+    {
+      "indent": 3,
+      "text": "For this reason, this document does not specify a PRF and recommends that crypto suites use some other PRF such as PRF_HMAC_SHA2_256 (see Section 2.1.2 of [RFC4868]).",
+      "zh-CHS": "因此，本文件未规定PRF，建议加密套件使用其他PRF，如PRF_HMAC_SHA2_256（见[RFC4868]第2.1.2节）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.8. AEAD Construction",
+      "section_title": true,
+      "zh-CHS": "2.8. AEAD施工"
+    },
+    {
+      "indent": 3,
+      "text": "AEAD_CHACHA20_POLY1305 is an authenticated encryption with additional data algorithm. The inputs to AEAD_CHACHA20_POLY1305 are:",
+      "zh-CHS": "AEAD_CHACHA20_POLY1305是一种带有附加数据算法的认证加密。AEAD_CHACHA20_POLY1305的输入为："
+    },
+    {
+      "indent": 3,
+      "text": "o A 256-bit key",
+      "zh-CHS": "o 256位密钥"
+    },
+    {
+      "indent": 3,
+      "text": "o A 96-bit nonce -- different for each invocation with the same key",
+      "zh-CHS": "o 96位nonce——对于使用相同密钥的每次调用都不同"
+    },
+    {
+      "indent": 3,
+      "text": "o An arbitrary length plaintext",
+      "zh-CHS": "o 任意长度的明文"
+    },
+    {
+      "indent": 3,
+      "text": "o Arbitrary length additional authenticated data (AAD)",
+      "zh-CHS": "o 任意长度附加认证数据（AAD）"
+    },
+    {
+      "indent": 3,
+      "text": "Some protocols may have unique per-invocation inputs that are not 96 bits in length. For example, IPsec may specify a 64-bit nonce. In such a case, it is up to the protocol document to define how to transform the protocol nonce into a 96-bit nonce, for example, by concatenating a constant value.",
+      "zh-CHS": "某些协议可能具有唯一的每次调用输入，其长度不是96位。例如，IPsec可以指定64位nonce。在这种情况下，由协议文档定义如何将协议nonce转换为96位nonce，例如，通过连接常量值。"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha20 and Poly1305 primitives are combined into an AEAD that takes a 256-bit key and 96-bit nonce as follows:",
+      "zh-CHS": "ChaCha20和Poly1305原语组合成一个AEAD，采用256位密钥和96位nonce，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "o First, a Poly1305 one-time key is generated from the 256-bit key and nonce using the procedure described in Section 2.6.",
+      "zh-CHS": "o 首先，使用第2.6节中描述的程序，从256位密钥和nonce生成Poly1305一次性密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o Next, the ChaCha20 encryption function is called to encrypt the plaintext, using the same key and nonce, and with the initial counter set to 1.",
+      "zh-CHS": "o 接下来，调用ChaCha20加密函数来加密明文，使用相同的密钥和nonce，初始计数器设置为1。"
+    },
+    {
+      "indent": 3,
+      "text": "o Finally, the Poly1305 function is called with the Poly1305 key calculated above, and a message constructed as a concatenation of the following:",
+      "zh-CHS": "o 最后，使用上面计算的Poly1305键调用Poly1305函数，并将消息构造为以下内容的串联："
+    },
+    {
+      "indent": 6,
+      "text": "* The AAD",
+      "zh-CHS": "* AAD"
+    },
+    {
+      "indent": 6,
+      "text": "* padding1 -- the padding is up to 15 zero bytes, and it brings the total length so far to an integral multiple of 16. If the length of the AAD was already an integral multiple of 16 bytes, this field is zero-length.",
+      "zh-CHS": "* padding1——padding最多为15个零字节，它使到目前为止的总长度达到16的整数倍。如果AAD的长度已经是16字节的整数倍，则此字段的长度为零。"
+    },
+    {
+      "indent": 6,
+      "text": "* The ciphertext",
+      "zh-CHS": "* 密文"
+    },
+    {
+      "indent": 6,
+      "text": "* padding2 -- the padding is up to 15 zero bytes, and it brings the total length so far to an integral multiple of 16. If the length of the ciphertext was already an integral multiple of 16 bytes, this field is zero-length.",
+      "zh-CHS": "* padding2——padding最多为15个零字节，它使到目前为止的总长度达到16的整数倍。如果密文的长度已经是16字节的整数倍，则此字段的长度为零。"
+    },
+    {
+      "indent": 6,
+      "text": "* The length of the additional data in octets (as a 64-bit little-endian integer).",
+      "zh-CHS": "* 以八位字节为单位的附加数据的长度（作为64位小端整数）。"
+    },
+    {
+      "indent": 6,
+      "text": "* The length of the ciphertext in octets (as a 64-bit little-endian integer).",
+      "zh-CHS": "* 以八位字节为单位的密文长度（作为64位小整数）。"
+    },
+    {
+      "indent": 3,
+      "text": "The output from the AEAD is twofold:",
+      "zh-CHS": "AEAD的输出有两个方面："
+    },
+    {
+      "indent": 3,
+      "text": "o A ciphertext of the same length as the plaintext.",
+      "zh-CHS": "o 与明文长度相同的密文。"
+    },
+    {
+      "indent": 3,
+      "text": "o A 128-bit tag, which is the output of the Poly1305 function.",
+      "zh-CHS": "o 128位标签，是Poly1305函数的输出。"
+    },
+    {
+      "indent": 3,
+      "text": "Decryption is similar with the following differences:",
+      "zh-CHS": "解密与此类似，但有以下区别："
+    },
+    {
+      "indent": 3,
+      "text": "o The roles of ciphertext and plaintext are reversed, so the ChaCha20 encryption function is applied to the ciphertext, producing the plaintext.",
+      "zh-CHS": "o 密文和明文的作用是相反的，因此对密文应用ChaCha20加密函数，生成明文。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Poly1305 function is still run on the AAD and the ciphertext, not the plaintext.",
+      "zh-CHS": "o Poly1305函数仍然在AAD和密文上运行，而不是在明文上运行。"
+    },
+    {
+      "indent": 3,
+      "text": "o The calculated tag is bitwise compared to the received tag. The message is authenticated if and only if the tags match.",
+      "zh-CHS": "o 计算出的标签与接收到的标签按位进行比较。当且仅当标记匹配时，才对消息进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "A few notes about this design:",
+      "zh-CHS": "关于此设计的一些注意事项："
+    },
+    {
+      "indent": 3,
+      "text": "1. The amount of encrypted data possible in a single invocation is 2^32-1 blocks of 64 bytes each, because of the size of the block counter field in the ChaCha20 block function. This gives a total of 247,877,906,880 bytes, or nearly 256 GB. This should be",
+      "zh-CHS": "1. 由于ChaCha20 block函数中块计数器字段的大小，单个调用中可能的加密数据量为2^32-1块，每个块64字节。这将提供总计247877906880字节，即近256 GB。这应该是"
+    },
+    {
+      "indent": 7,
+      "text": "enough for traffic protocols such as IPsec and TLS, but may be too small for file and/or disk encryption. For such uses, we can return to the original design, reduce the nonce to 64 bits, and use the integer at position 13 as the top 32 bits of a 64-bit block counter, increasing the total message size to over a million petabytes (1,180,591,620,717,411,303,360 bytes to be exact).",
+      "zh-CHS": "对于IPsec和TLS等流量协议来说足够了，但对于文件和/或磁盘加密来说可能太小了。对于这些用途，我们可以返回到原始设计，将nonce减少到64位，并使用位置13处的整数作为64位块计数器的前32位，将消息总大小增加到100多万PB（确切地说是11805916207717411303360字节）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Despite the previous item, the ciphertext length field in the construction of the buffer on which Poly1305 runs limits the ciphertext (and hence, the plaintext) size to 2^64 bytes, or sixteen thousand petabytes (18,446,744,073,709,551,616 bytes to be exact).",
+      "zh-CHS": "2. 尽管有上一项，Poly1305运行的缓冲区构造中的密文长度字段将密文（因此，明文）大小限制为2^64字节，或16000 PB（确切地说是18446744073709551616字节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The AEAD construction in this section is a novel composition of ChaCha20 and Poly1305. A security analysis of this composition is given in [Procter].",
+      "zh-CHS": "本节中的AEAD结构是ChaCha20和Poly1305的新组合。[Procter]中给出了该组合的安全性分析。"
+    },
+    {
+      "indent": 3,
+      "text": "Here is a list of the parameters for this construction as defined in Section 4 of RFC 5116:",
+      "zh-CHS": "以下是RFC 5116第4节中定义的该结构的参数列表："
+    },
+    {
+      "indent": 3,
+      "text": "o K_LEN (key length) is 32 octets.",
+      "zh-CHS": "o K_LEN（密钥长度）是32个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "o P_MAX (maximum size of the plaintext) is 247,877,906,880 bytes, or nearly 256 GB.",
+      "zh-CHS": "o P_MAX（纯文本的最大大小）是247877906880字节，或接近256GB。"
+    },
+    {
+      "indent": 3,
+      "text": "o A_MAX (maximum size of the associated data) is set to 2^64-1 octets by the length field for associated data.",
+      "zh-CHS": "o _MAX（关联数据的最大大小）由关联数据的长度字段设置为2^64-1个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "o N_MIN = N_MAX = 12 octets.",
+      "zh-CHS": "o N_最小=N_最大=12个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "o C_MAX = P_MAX + tag length = 247,877,906,896 octets.",
+      "zh-CHS": "o C_MAX=P_MAX+标记长度=247877906896个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "Distinct AAD inputs (as described in Section 3.3 of RFC 5116) shall be concatenated into a single input to AEAD_CHACHA20_POLY1305. It is up to the application to create a structure in the AAD input if it is needed.",
+      "zh-CHS": "不同的AAD输入（如RFC 5116第3.3节所述）应连接成AEAD_CHACHA20_POLY1305的单个输入。如果需要，由应用程序在AAD输入中创建结构。"
+    },
+    {
+      "indent": 0,
+      "text": "2.8.1. Pseudocode for the AEAD Construction",
+      "section_title": true,
+      "zh-CHS": "2.8.1. AEAD构造的伪代码"
+    },
+    {
+      "indent": 6,
+      "text": "pad16(x):\n   if (len(x) % 16)==0\n      then return NULL\n      else return copies(0, 16-(len(x)%16))\n   end",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "chacha20_aead_encrypt(aad, key, iv, constant, plaintext):\n   nonce = constant | iv\n   otk = poly1305_key_gen(key, nonce)\n   ciphertext = chacha20_encrypt(key, 1, nonce, plaintext)\n   mac_data = aad | pad16(aad)\n   mac_data |= ciphertext | pad16(ciphertext)\n   mac_data |= num_to_4_le_bytes(aad.length)\n   mac_data |= num_to_4_le_bytes(ciphertext.length)\n   tag = poly1305_mac(mac_data, otk)\n   return (ciphertext, tag)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.8.2. Example and Test Vector for AEAD_CHACHA20_POLY1305",
+      "section_title": true,
+      "zh-CHS": "2.8.2. AEAD_CHACHA20_POLY1305的示例和测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "For a test vector, we will use the following inputs to the AEAD_CHACHA20_POLY1305 function:",
+      "zh-CHS": "对于测试向量，我们将使用AEAD_CHACHA20_POLY1305函数的以下输入："
+    },
+    {
+      "indent": 2,
+      "text": "Plaintext:\n000  4c 61 64 69 65 73 20 61 6e 64 20 47 65 6e 74 6c  Ladies and Gentl\n016  65 6d 65 6e 20 6f 66 20 74 68 65 20 63 6c 61 73  emen of the clas\n032  73 20 6f 66 20 27 39 39 3a 20 49 66 20 49 20 63  s of '99: If I c\n048  6f 75 6c 64 20 6f 66 66 65 72 20 79 6f 75 20 6f  ould offer you o\n064  6e 6c 79 20 6f 6e 65 20 74 69 70 20 66 6f 72 20  nly one tip for\n080  74 68 65 20 66 75 74 75 72 65 2c 20 73 75 6e 73  the future, suns\n096  63 72 65 65 6e 20 77 6f 75 6c 64 20 62 65 20 69  creen would be i\n112  74 2e                                            t.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "AAD:\n000  50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7              PQRS........",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f  ................\n016  90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "IV: 000 40 41 42 43 44 45 46 47 @ABCDEFG",
+      "zh-CHS": "IV:000 40 41 42 43 44 46 47@ABCDEFG"
+    },
+    {
+      "indent": 3,
+      "text": "32-bit fixed-common part:\n000  07 00 00 00                                      ....",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Setup for generating Poly1305 one-time key (sender id=7): 61707865 3320646e 79622d32 6b206574 83828180 87868584 8b8a8988 8f8e8d8c 93929190 97969594 9b9a9998 9f9e9d9c 00000000 00000007 43424140 47464544",
+      "zh-CHS": "生成Poly1305一次性密钥（发送方id=7）的设置：61707865 3320646e 79622d32 6b206574 83828180 87868584 8b8a8988 8f8e8d8c 93929190 97969594 9b9a9998 9f9e9d9c 00000000 0000000 7 43424140 47464544"
+    },
+    {
+      "indent": 3,
+      "text": "After generating Poly1305 one-time key: 252bac7b af47b42d 557ab609 8455e9a4 73d6e10a ebd97510 7875932a ff53d53e decc7ea2 b44ddbad e49c17d1 d8430bc9 8c94b7bc 8b7d4b4b 3927f67d 1669a432",
+      "zh-CHS": "生成Poly1305一次性密钥后：252bac7b af47b42d 557ab609 8455e9a4 73d6e10a ebd97510 7875932a ff53d53e decc7ea2 B44DBAD e49c17d1 d8430bc9 8c94b7bc 8b7d4b4b 3927f67d 1669a432"
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 Key:\n000  7b ac 2b 25 2d b4 47 af 09 b6 7a 55 a4 e9 55 84  {.+%-.G...zU..U.\n016  0a e1 d6 73 10 75 d9 eb 2a 93 75 78 3e d5 53 ff  ...s.u..*.ux>.S.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 r =  455e9a4057ab6080f47b42c052bac7b\nPoly1305 s = ff53d53e7875932aebd9751073d6e10a",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "keystream bytes:\n9f:7b:e9:5d:01:fd:40:ba:15:e2:8f:fb:36:81:0a:ae:\nc1:c0:88:3f:09:01:6e:de:dd:8a:d0:87:55:82:03:a5:\n4e:9e:cb:38:ac:8e:5e:2b:b8:da:b2:0f:fa:db:52:e8:\n75:04:b2:6e:be:69:6d:4f:60:a4:85:cf:11:b8:1b:59:\nfc:b1:c4:5f:42:19:ee:ac:ec:6a:de:c3:4e:66:69:78:\n8e:db:41:c4:9c:a3:01:e1:27:e0:ac:ab:3b:44:b9:cf:\n5c:86:bb:95:e0:6b:0d:f2:90:1a:b6:45:e4:ab:e6:22:\n15:38",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Ciphertext:\n000  d3 1a 8d 34 64 8e 60 db 7b 86 af bc 53 ef 7e c2  ...4d.`.{...S.~.\n016  a4 ad ed 51 29 6e 08 fe a9 e2 b5 a7 36 ee 62 d6  ...Q)n......6.b.\n032  3d be a4 5e 8c a9 67 12 82 fa fb 69 da 92 72 8b  =..^..g....i..r.\n048  1a 71 de 0a 9e 06 0b 29 05 d6 a5 b6 7e cd 3b 36  .q.....)....~.;6\n064  92 dd bd 7f 2d 77 8b 8c 98 03 ae e3 28 09 1b 58  ....-w......(..X\n080  fa b3 24 e4 fa d6 75 94 55 85 80 8b 48 31 d7 bc  ..$...u.U...H1..\n096  3f f4 de f0 8e 4b 7a 9d e5 76 d2 65 86 ce c6 4b  ?....Kz..v.e...K\n112  61 16                                            a.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "AEAD Construction for Poly1305:\n000  50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7 00 00 00 00  PQRS............\n016  d3 1a 8d 34 64 8e 60 db 7b 86 af bc 53 ef 7e c2  ...4d.`.{...S.~.\n032  a4 ad ed 51 29 6e 08 fe a9 e2 b5 a7 36 ee 62 d6  ...Q)n......6.b.\n048  3d be a4 5e 8c a9 67 12 82 fa fb 69 da 92 72 8b  =..^..g....i..r.\n064  1a 71 de 0a 9e 06 0b 29 05 d6 a5 b6 7e cd 3b 36  .q.....)....~.;6\n080  92 dd bd 7f 2d 77 8b 8c 98 03 ae e3 28 09 1b 58  ....-w......(..X\n096  fa b3 24 e4 fa d6 75 94 55 85 80 8b 48 31 d7 bc  ..$...u.U...H1..\n112  3f f4 de f0 8e 4b 7a 9d e5 76 d2 65 86 ce c6 4b  ?....Kz..v.e...K\n128  61 16 00 00 00 00 00 00 00 00 00 00 00 00 00 00  a...............\n144  0c 00 00 00 00 00 00 00 72 00 00 00 00 00 00 00  ........r.......",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note the four zero bytes in line 000 and the 14 zero bytes in line 128",
+      "zh-CHS": "注意第000行中的四个零字节和第128行中的14个零字节"
+    },
+    {
+      "indent": 3,
+      "text": "Tag:\n1a:e1:0b:59:4f:09:e2:6a:7e:90:2e:cb:d0:60:06:91",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3. Implementation Advice",
+      "section_title": true,
+      "zh-CHS": "3. 实施建议"
+    },
+    {
+      "indent": 3,
+      "text": "Each block of ChaCha20 involves 16 move operations and one increment operation for loading the state, 80 each of XOR, addition and Roll operations for the rounds, 16 more add operations and 16 XOR operations for protecting the plaintext. Section 2.3 describes the ChaCha block function as \"adding the original input words\". This implies that before starting the rounds on the ChaCha state, we copy it aside, only to add it in later. This is correct, but we can save a few operations if we instead copy the state and do the work on the copy. This way, for the next block you don't need to recreate the state, but only to increment the block counter. This saves approximately 5.5% of the cycles.",
+      "zh-CHS": "ChaCha20的每个块涉及16个移动操作和一个用于加载状态的增量操作，80个用于循环的异或、加法和滚动操作，16个额外的加法操作和16个用于保护明文的异或操作。第2.3节将ChaCha块功能描述为“添加原始输入字”。这意味着在查查州开始轮次之前，我们将其复制到一边，然后再添加进去。这是正确的，但是如果我们改为复制状态并对副本执行操作，则可以节省一些操作。这样，对于下一个块，您不需要重新创建状态，只需增加块计数器。这将节省大约5.5%的循环。"
+    },
+    {
+      "indent": 3,
+      "text": "It is not recommended to use a generic big number library such as the one in OpenSSL for the arithmetic operations in Poly1305. Such libraries use dynamic allocation to be able to handle an integer of any size, but that flexibility comes at the expense of performance as well as side-channel security. More efficient implementations that run in constant time are available, one of them in D. J. Bernstein's own library, NaCl ([NaCl]). A constant-time but not optimal approach would be to naively implement the arithmetic operations for 288-bit integers, because even a naive implementation will not exceed 2^288 in the multiplication of (acc+block) and r. An efficient constant-time implementation can be found in the public domain library poly1305-donna ([Poly1305_Donna]).",
+      "zh-CHS": "对于Poly1305中的算术运算，不建议使用OpenSSL中的通用大数库。这样的库使用动态分配来处理任意大小的整数，但这种灵活性是以牺牲性能和侧通道安全性为代价的。在恒定时间内运行的更高效的实现是可用的，其中一个在D.J.Bernstein自己的库NaCl（[NaCl]）中。恒定时间但不是最佳的方法是对288位整数进行简单的算术运算，因为即使是简单的实现，在（acc+块）和r的乘法中也不会超过2^288。可在公共域库poly1305 donna（[poly1305_donna]）中找到有效的恒定时间实现。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The ChaCha20 cipher is designed to provide 256-bit security.",
+      "zh-CHS": "ChaCha20密码设计用于提供256位安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "The Poly1305 authenticator is designed to ensure that forged messages are rejected with a probability of 1-(n/(2^102)) for a 16n-byte message, even after sending 2^64 legitimate messages, so it is SUF-CMA (strong unforgeability against chosen-message attacks) in the terminology of [AE].",
+      "zh-CHS": "Poly1305认证器设计用于确保即使在发送了2^64条合法消息之后，16n字节消息的伪造消息也会以1-（n/（2^102））的概率被拒绝，因此它是[AE]术语中的SUF-CMA（针对选定消息攻击的强不可伪造性）。"
+    },
+    {
+      "indent": 3,
+      "text": "Proving the security of either of these is beyond the scope of this document. Such proofs are available in the referenced academic papers ([ChaCha], [Poly1305], [LatinDances], [LatinDances2], and [Zhenqing2012]).",
+      "zh-CHS": "证明其中任何一项的安全性超出了本文件的范围。这些证据可在参考学术论文（[ChaCha]、[Poly1305]、[LatinDances]、[LatinDances2]和[Zhenqing2012]）中找到。"
+    },
+    {
+      "indent": 3,
+      "text": "The most important security consideration in implementing this document is the uniqueness of the nonce used in ChaCha20. Counters and LFSRs are both acceptable ways of generating unique nonces, as is",
+      "zh-CHS": "在执行本文档时，最重要的安全考虑是CHA20中使用的nonce的唯一性。计数器和LFSR都是可以接受的生成唯一nonce的方法"
+    },
+    {
+      "indent": 3,
+      "text": "encrypting a counter using a 64-bit cipher such as DES. Note that it is not acceptable to use a truncation of a counter encrypted with a 128-bit or 256-bit cipher, because such a truncation may repeat after a short time.",
+      "zh-CHS": "使用64位密码（如DES）加密计数器。请注意，使用128位或256位密码加密的计数器的截断是不可接受的，因为这种截断可能在短时间后重复。"
+    },
+    {
+      "indent": 3,
+      "text": "Consequences of repeating a nonce: If a nonce is repeated, then both the one-time Poly1305 key and the keystream are identical between the messages. This reveals the XOR of the plaintexts, because the XOR of the plaintexts is equal to the XOR of the ciphertexts.",
+      "zh-CHS": "重复一个nonce的后果：如果一个nonce被重复，那么消息之间的一次性Poly1305密钥和密钥流都是相同的。这揭示了明文的XOR，因为明文的XOR等于密文的XOR。"
+    },
+    {
+      "indent": 3,
+      "text": "The Poly1305 key MUST be unpredictable to an attacker. Randomly generating the key would fulfill this requirement, except that Poly1305 is often used in communications protocols, so the receiver should know the key. Pseudorandom number generation such as by encrypting a counter is acceptable. Using ChaCha with a secret key and a nonce is also acceptable.",
+      "zh-CHS": "Poly1305密钥对攻击者来说必须是不可预测的。随机生成密钥将满足这一要求，但Poly1305通常用于通信协议中，因此接收器应该知道密钥。可以通过加密计数器等方式生成伪随机数。使用带有密钥和nonce的ChaCha也是可以接受的。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithms presented here were designed to be easy to implement in constant time to avoid side-channel vulnerabilities. The operations used in ChaCha20 are all additions, XORs, and fixed rotations. All of these can and should be implemented in constant time. Access to offsets into the ChaCha state and the number of operations do not depend on any property of the key, eliminating the chance of information about the key leaking through the timing of cache misses.",
+      "zh-CHS": "本文介绍的算法设计为易于在恒定时间内实现，以避免侧通道漏洞。ChaCha20中使用的操作都是加法、异或和固定旋转。所有这些都可以而且应该在固定时间内实现。对进入ChaCha状态的偏移量的访问和操作的数量不依赖于密钥的任何属性，从而消除了有关密钥的信息通过缓存未命中定时泄漏的机会。"
+    },
+    {
+      "indent": 3,
+      "text": "For Poly1305, the operations are addition, multiplication. and modulus, all on numbers with greater than 128 bits. This can be done in constant time, but a naive implementation (such as using some generic big number library) will not be constant time. For example, if the multiplication is performed as a separate operation from the modulus, the result will sometimes be under 2^256 and sometimes be above 2^256. Implementers should be careful about timing side-channels for Poly1305 by using the appropriate implementation of these operations.",
+      "zh-CHS": "对于Poly1305，运算是加法、乘法。和模数，都是大于128位的数字。这可以在固定时间内完成，但是一个简单的实现（比如使用一些通用的大数字库）不会是固定时间。例如，如果乘法作为与模分开的运算执行，则结果有时低于2^256，有时高于2^256。实施者应通过使用这些操作的适当实施来小心Poly1305的定时侧通道。"
+    },
+    {
+      "indent": 3,
+      "text": "Validating the authenticity of a message involves a bitwise comparison of the calculated tag with the received tag. In most use cases, nonces and AAD contents are not \"used up\" until a valid message is received. This allows an attacker to send multiple identical messages with different tags until one passes the tag comparison. This is hard if the attacker has to try all 2^128 possible tags one by one. However, if the timing of the tag comparison operation reveals how long a prefix of the calculated and received tags is identical, the number of messages can be reduced significantly. For this reason, with online protocols,",
+      "zh-CHS": "验证消息的真实性涉及将计算出的标记与接收到的标记进行逐位比较。在大多数用例中，在收到有效消息之前，nonce和AAD内容不会“用完”。这使得攻击者能够发送多条带有不同标记的相同消息，直到其中一条通过标记比较。如果攻击者必须逐个尝试所有2^128个可能的标记，这将很困难。然而，如果标签比较操作的定时揭示了计算出的标签和接收到的标签的前缀相同的长度，则消息的数量可以显著减少。因此，使用在线协议，"
+    },
+    {
+      "indent": 3,
+      "text": "implementation MUST use a constant-time comparison function rather than relying on optimized but insecure library functions such as the C language's memcmp().",
+      "zh-CHS": "实现必须使用常量时间比较函数，而不是依赖于优化但不安全的库函数，如C语言的memcmp（）。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has assigned an entry in the \"Authenticated Encryption with Associated Data (AEAD) Parameters\" registry with 29 as the Numeric ID, \"AEAD_CHACHA20_POLY1305\" as the name, and this document as reference.",
+      "zh-CHS": "IANA已在“带相关数据的认证加密（AEAD）参数”注册表中分配了一个条目，其中29为数字ID，“AEAD_CHACHA20_POLY1305”为名称，本文档为参考。"
+    },
+    {
+      "indent": 0,
+      "text": "6. References",
+      "section_title": true,
+      "zh-CHS": "6. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "6.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[ChaCha] Bernstein, D., \"ChaCha, a variant of Salsa20\", January 2008, <http://cr.yp.to/chacha/chacha-20080128.pdf>.",
+      "zh-CHS": "[ChaCha]Bernstein，D.，“ChaCha，Salsa20的变体”，2008年1月<http://cr.yp.to/chacha/chacha-20080128.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[Poly1305] Bernstein, D., \"The Poly1305-AES message-authentication code\", March 2005, <http://cr.yp.to/mac/poly1305-20050329.pdf>.",
+      "zh-CHS": "[Poly1305]Bernstein，D.，“Poly1305 AES报文认证码”，2005年3月<http://cr.yp.to/mac/poly1305-20050329.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "6.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[AE] Bellare, M. and C. Namprempre, \"Authenticated Encryption: Relations among notions and analysis of the generic composition paradigm\", September 2008, <http://dl.acm.org/citation.cfm?id=1410269>.",
+      "zh-CHS": "[AE]Bellare，M.和C.Namprempre，“认证加密：概念之间的关系和通用组合范式的分析”，2008年9月<http://dl.acm.org/citation.cfm?id=1410269>."
+    },
+    {
+      "indent": 3,
+      "text": "[Cache-Collisions] Bonneau, J. and I. Mironov, \"Cache-Collision Timing Attacks Against AES\", 2006, <http://research.microsoft.com/pubs/64024/aes-timing.pdf>.",
+      "zh-CHS": "[缓存碰撞]Bonneau，J.和I.Mironov，“针对AES的缓存碰撞定时攻击”，2006年<http://research.microsoft.com/pubs/64024/aes-timing.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[FIPS-197] National Institute of Standards and Technology, \"Advanced Encryption Standard (AES)\", FIPS PUB 197, November 2001, <http://csrc.nist.gov/publications/fips/fips197/ fips-197.pdf>.",
+      "zh-CHS": "[FIPS-197]国家标准与技术研究所，“高级加密标准（AES）”，FIPS PUB 197，2001年11月<http://csrc.nist.gov/publications/fips/fips197/ fips-197.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[LatinDances] Aumasson, J., Fischer, S., Khazaei, S., Meier, W., and C. Rechberger, \"New Features of Latin Dances: Analysis of Salsa, ChaCha, and Rumba\", December 2007, <http://cr.yp.to/rumba20/newfeatures-20071218.pdf>.",
+      "zh-CHS": "[拉丁舞]Aumasson，J.，Fischer，S.，Khazaei，S.，Meier，W.，和C.Rechberger，“拉丁舞的新特征：萨尔萨舞，查查舞和伦巴舞的分析”，2007年12月<http://cr.yp.to/rumba20/newfeatures-20071218.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[LatinDances2] Ishiguro, T., Kiyomoto, S., and Y. Miyake, \"Modified version of 'Latin Dances Revisited: New Analytic Results of Salsa20 and ChaCha'\", February 2012, <https://eprint.iacr.org/2012/065.pdf>.",
+      "zh-CHS": "[拉丁舞2]石黑郎，T.，清本，S.，和Y.三宅一生，“重新审视拉丁舞：Salsa20和ChaCha的新分析结果”的修改版本，2012年2月<https://eprint.iacr.org/2012/065.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[NaCl] Bernstein, D., Lange, T., and P. Schwabe, \"NaCl: Networking and Cryptography library\", July 2012, <http://nacl.cr.yp.to>.",
+      "zh-CHS": "[NaCl]Bernstein，D.，Lange，T.，和P.Schwabe，“NaCl:网络和加密图书馆”，2012年7月<http://nacl.cr.yp.to>."
+    },
+    {
+      "indent": 3,
+      "text": "[Poly1305_Donna] Floodyberry, A., \"poly1305-donna\", February 2014, <https://github.com/floodyberry/poly1305-donna>.",
+      "zh-CHS": "[Poly1305_Donna]Floodyberry，A.，“Poly1305 Donna”，2014年2月<https://github.com/floodyberry/poly1305-donna>."
+    },
+    {
+      "indent": 3,
+      "text": "[Procter] Procter, G., \"A Security Analysis of the Composition of ChaCha20 and Poly1305\", August 2014, <http://eprint.iacr.org/2014/613.pdf>.",
+      "zh-CHS": "[Procter]Procter，G.“ChaCha20和Poly1305组成的安全分析”，2014年8月<http://eprint.iacr.org/2014/613.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4868] Kelly, S. and S. Frankel, \"Using HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512 with IPsec\", RFC 4868, DOI 10.17487/RFC4868, May 2007, <http://www.rfc-editor.org/info/rfc4868>.",
+      "zh-CHS": "[RFC4868]Kelly，S.和S.Frankel，“在IPsec中使用HMAC-SHA-256、HMAC-SHA-384和HMAC-SHA-512”，RFC 4868，DOI 10.17487/RFC4868，2007年5月<http://www.rfc-editor.org/info/rfc4868>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5116] McGrew, D., \"An Interface and Algorithms for Authenticated Encryption\", RFC 5116, DOI 10.17487/RFC5116, January 2008, <http://www.rfc-editor.org/info/rfc5116>.",
+      "zh-CHS": "[RFC5116]McGrew，D.“认证加密的接口和算法”，RFC 5116，DOI 10.17487/RFC5116，2008年1月<http://www.rfc-editor.org/info/rfc5116>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7296] Kaufman, C., Hoffman, P., Nir, Y., Eronen, P., and T. Kivinen, \"Internet Key Exchange Protocol Version 2 (IKEv2)\", STD 79, RFC 7296, DOI 10.17487/RFC7296, October 2014, <http://www.rfc-editor.org/info/rfc7296>.",
+      "zh-CHS": "[RFC7296]Kaufman，C.，Hoffman，P.，Nir，Y.，Eronen，P.，和T.Kivinen，“互联网密钥交换协议版本2（IKEv2）”，STD 79，RFC 7296，DOI 10.17487/RFC72962014年10月<http://www.rfc-editor.org/info/rfc7296>."
+    },
+    {
+      "indent": 3,
+      "text": "[SP800-67] National Institute of Standards and Technology, \"Recommendation for the Triple Data Encryption Algorithm (TDEA) Block Cipher\", NIST 800-67, January 2012, <http://csrc.nist.gov/publications/nistpubs/800-67-Rev1/ SP-800-67-Rev1.pdf>.",
+      "zh-CHS": "[SP800-67]国家标准与技术研究所，“三重数据加密算法（TDEA）分组密码建议”，NIST 800-67，2012年1月<http://csrc.nist.gov/publications/nistpubs/800-67-Rev1/ SP-800-67-Rev1.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[Standby-Cipher] McGrew, D., Grieco, A., and Y. Sheffer, \"Selection of Future Cryptographic Standards\", Work in Progress, draft-mcgrew-standby-cipher-00, January 2013.",
+      "zh-CHS": "[备用密码]McGrew，D.，Grieco，A.，和Y.Sheffer，“未来密码标准的选择”，正在进行的工作，draft-McGrew-Standby-Cipher-00，2013年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Zhenqing2012] Zhenqing, S., Bin, Z., Dengguo, F., and W. Wenling, \"Improved Key Recovery Attacks on Reduced-Round Salsa20 and ChaCha*\", 2012.",
+      "zh-CHS": "[Zhenqing 2012]Zhenqing，S.，Bin，Z.，Dengguo，F.，和W.Wenling，“改进对减少回合Salsa20和ChaCha*的关键恢复攻击”，2012年。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Additional Test Vectors",
+      "section_title": true,
+      "zh-CHS": "附录A.附加测试向量"
+    },
+    {
+      "indent": 3,
+      "text": "The subsections of this appendix contain more test vectors for the algorithms in the sub-sections of Section 2.",
+      "zh-CHS": "本附录各小节包含第2节各小节中算法的更多测试向量。"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. The ChaCha20 Block Functions",
+      "section_title": true,
+      "zh-CHS": "A.1. cha20块函数"
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #1:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 00              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Block Counter = 0",
+      "zh-CHS": "块计数器=0"
+    },
+    {
+      "indent": 4,
+      "text": "ChaCha state at the end ade0b876 903df1a0 e56a5d40 28bd8653 b819d2bd 1aed8da0 ccef36a8 c70d778b 7c5941da 8d485751 3fe02477 374ad8b8 f4b8436a 1ca11815 69b687c3 8665eeb2",
+      "zh-CHS": "ade0b876 903df1a0 e56a5d40 28bd8653 b819d2bd 1aed8da0 ccef36a8 c70d778b 7c5941da 8d485751 3 FE02477 374ad8b8 f4b8436a 1ca11815 69b687c3 8665eeb2末端的查查州"
+    },
+    {
+      "indent": 2,
+      "text": "Keystream:\n000  76 b8 e0 ad a0 f1 3d 90 40 5d 6a e5 53 86 bd 28  v.....=.@]j.S..(\n016  bd d2 19 b8 a0 8d ed 1a a8 36 ef cc 8b 77 0d c7  .........6...w..\n032  da 41 59 7c 51 57 48 8d 77 24 e0 3f b8 d8 4a 37  .AY|QWH.w$.?..J7\n048  6a 43 b8 f4 15 18 a1 1c c3 87 b6 69 b2 ee 65 86  jC.........i..e.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #2:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 00              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Block Counter = 1",
+      "zh-CHS": "块计数器=1"
+    },
+    {
+      "indent": 4,
+      "text": "ChaCha state at the end bee7079f 7a385155 7c97ba98 0d082d73 a0290fcb 6965e348 3e53c612 ed7aee32 7621b729 434ee69c b03371d5 d539d874 281fed31 45fb0a51 1f0ae1ac 6f4d794b",
+      "zh-CHS": "最后的查查州为7079F 7a385155 7c97ba98 0d082d73 a0290fcb 6965e348 3e53c612 ed7aee32 7621b729 434ee69c b03371d5 d539d874 281 ED31 45fb0a51 1AE1AC 6f4d794b"
+    },
+    {
+      "indent": 2,
+      "text": "Keystream:\n000  9f 07 e7 be 55 51 38 7a 98 ba 97 7c 73 2d 08 0d  ....UQ8z...|s-..\n016  cb 0f 29 a0 48 e3 65 69 12 c6 53 3e 32 ee 7a ed  ..).H.ei..S>2.z.\n032  29 b7 21 76 9c e6 4e 43 d5 71 33 b0 74 d8 39 d5  ).!v..NC.q3.t.9.\n048  31 ed 1f 28 51 0a fb 45 ac e1 0a 1f 4b 79 4d 6f  1..(Q..E....KyMo",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #3:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 00              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Block Counter = 1",
+      "zh-CHS": "块计数器=1"
+    },
+    {
+      "indent": 4,
+      "text": "ChaCha state at the end 2452eb3a 9249f8ec 8d829d9b ddd4ceb1 e8252083 60818b01 f38422b8 5aaa49c9 bb00ca8e da3ba7b4 c4b592d1 fdf2732f 4436274e 2561b3c8 ebdd4aa6 a0136c00",
+      "zh-CHS": "2452eb3a 9249f8ec 8d829d9b ddd4ceb1 e8252083 60818b01 f38422b8 5aaa49c9 bb00ca8e da3ba7b4 c4b592d1 fdf2732f 4436274e 2561b3c8 ebdd4aa6 a0136c00末端的查查州"
+    },
+    {
+      "indent": 2,
+      "text": "Keystream:\n000  3a eb 52 24 ec f8 49 92 9b 9d 82 8d b1 ce d4 dd  :.R$..I.........\n016  83 20 25 e8 01 8b 81 60 b8 22 84 f3 c9 49 aa 5a  . %....`.\"...I.Z\n032  8e ca 00 bb b4 a7 3b da d1 92 b5 c4 2f 73 f2 fd  ......;...../s..\n048  4e 27 36 44 c8 b3 61 25 a6 4a dd eb 00 6c 13 a0  N'6D..a%.J...l..",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #4:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 00              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Block Counter = 2",
+      "zh-CHS": "块计数器=2"
+    },
+    {
+      "indent": 4,
+      "text": "ChaCha state at the end fb4dd572 4bc42ef1 df922636 327f1394 a78dea8f 5e269039 a1bebbc1 caf09aae a25ab213 48a6b46c 1b9d9bcb 092c5be6 546ca624 1bec45d5 87f47473 96f0992e",
+      "zh-CHS": "fb4dd572 4bc42ef1 df922636 327f1394 a78dea8f 5e269039 a1bebbc1 caf09aae a25ab213 48a6b46c 1b9d9bcb 092c5be6 546ca624 1bec45d5 87f47473 96f0992e端的查查状态"
+    },
+    {
+      "indent": 2,
+      "text": "Keystream:\n000  72 d5 4d fb f1 2e c4 4b 36 26 92 df 94 13 7f 32  r.M....K6&.....2\n016  8f ea 8d a7 39 90 26 5e c1 bb be a1 ae 9a f0 ca  ....9.&^........\n032  13 b2 5a a2 6c b4 a6 48 cb 9b 9d 1b e6 5b 2c 09  ..Z.l..H.....[,.\n048  24 a6 6c 54 d5 45 ec 1b 73 74 f4 87 2e 99 f0 96  $.lT.E..st......",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #5:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 02              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Block Counter = 0",
+      "zh-CHS": "块计数器=0"
+    },
+    {
+      "indent": 4,
+      "text": "ChaCha state at the end 374dc6c2 3736d58c b904e24a cd3f93ef 88228b1a 96a4dfb3 5b76ab72 c727ee54 0e0e978a f3145c95 1b748ea8 f786c297 99c28f5f 628314e8 398a19fa 6ded1b53",
+      "zh-CHS": "查查州374dc6c2 3736d58c b904e24a cd3f93ef 88228b1a 96a4dfb3 5b76ab72 c727ee54 0e0e978a f3145c95 1b748ea8 f786c297 99c28f5f 628314e8 398a19fa 6ded1b53"
+    },
+    {
+      "indent": 2,
+      "text": "Keystream:\n000  c2 c6 4d 37 8c d5 36 37 4a e2 04 b9 ef 93 3f cd  ..M7..67J.....?.\n016  1a 8b 22 88 b3 df a4 96 72 ab 76 5b 54 ee 27 c7  ..\".....r.v[T.'.\n032  8a 97 0e 0e 95 5c 14 f3 a8 8e 74 1b 97 c2 86 f7  .....\\....t.....\n048  5f 8f c2 99 e8 14 83 62 fa 19 8a 39 53 1b ed 6d  _......b...9S..m",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "A.2. ChaCha20 Encryption",
+      "section_title": true,
+      "zh-CHS": "A.2. ChaCha20加密"
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #1:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 00              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Initial Block Counter = 0",
+      "zh-CHS": "初始块计数器=0"
+    },
+    {
+      "indent": 2,
+      "text": "Plaintext:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n032  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n048  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Ciphertext:\n000  76 b8 e0 ad a0 f1 3d 90 40 5d 6a e5 53 86 bd 28  v.....=.@]j.S..(\n016  bd d2 19 b8 a0 8d ed 1a a8 36 ef cc 8b 77 0d c7  .........6...w..\n032  da 41 59 7c 51 57 48 8d 77 24 e0 3f b8 d8 4a 37  .AY|QWH.w$.?..J7\n048  6a 43 b8 f4 15 18 a1 1c c3 87 b6 69 b2 ee 65 86  jC.........i..e.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #2:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 02              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Initial Block Counter = 1",
+      "zh-CHS": "初始块计数器=1"
+    },
+    {
+      "indent": 2,
+      "text": "Plaintext:\n000  41 6e 79 20 73 75 62 6d 69 73 73 69 6f 6e 20 74  Any submission t\n016  6f 20 74 68 65 20 49 45 54 46 20 69 6e 74 65 6e  o the IETF inten\n032  64 65 64 20 62 79 20 74 68 65 20 43 6f 6e 74 72  ded by the Contr\n048  69 62 75 74 6f 72 20 66 6f 72 20 70 75 62 6c 69  ibutor for publi\n064  63 61 74 69 6f 6e 20 61 73 20 61 6c 6c 20 6f 72  cation as all or\n080  20 70 61 72 74 20 6f 66 20 61 6e 20 49 45 54 46   part of an IETF\n096  20 49 6e 74 65 72 6e 65 74 2d 44 72 61 66 74 20   Internet-Draft\n112  6f 72 20 52 46 43 20 61 6e 64 20 61 6e 79 20 73  or RFC and any s\n128  74 61 74 65 6d 65 6e 74 20 6d 61 64 65 20 77 69  tatement made wi",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "144 74 68 69 6e 20 74 68 65 20 63 6f 6e 74 65 78 74 thin the context 160 20 6f 66 20 61 6e 20 49 45 54 46 20 61 63 74 69 of an IETF acti 176 76 69 74 79 20 69 73 20 63 6f 6e 73 69 64 65 72 vity is consider 192 65 64 20 61 6e 20 22 49 45 54 46 20 43 6f 6e 74 ed an \"IETF Cont 208 72 69 62 75 74 69 6f 6e 22 2e 20 53 75 63 68 20 ribution\". Such 224 73 74 61 74 65 6d 65 6e 74 73 20 69 6e 63 6c 75 statements inclu 240 64 65 20 6f 72 61 6c 20 73 74 61 74 65 6d 65 6e de oral statemen 256 74 73 20 69 6e 20 49 45 54 46 20 73 65 73 73 69 ts in IETF sessi 272 6f 6e 73 2c 20 61 73 20 77 65 6c 6c 20 61 73 20 ons, as well as 288 77 72 69 74 74 65 6e 20 61 6e 64 20 65 6c 65 63 written and elec 304 74 72 6f 6e 69 63 20 63 6f 6d 6d 75 6e 69 63 61 tronic communica 320 74 69 6f 6e 73 20 6d 61 64 65 20 61 74 20 61 6e tions made at an 336 79 20 74 69 6d 65 20 6f 72 20 70 6c 61 63 65 2c y time or place, 352 20 77 68 69 63 68 20 61 72 65 20 61 64 64 72 65 which are addre 368 73 73 65 64 20 74 6f ssed to",
+      "zh-CHS": "144、74、68、69、6e、20、74、68、65、20、63、6f、6e、74、65、65、μ，IETF活动的上下文α6Fα、α6A、α6、α6、α6、α6、α6、α6、α6、α6、α6、α6、α6、α6、α6、α6。此类224 73 74 61 74 65 6d 65 6e 74 73 20 69 6e 63 6c 75声明包括240 64 65 20 6f 72 61 6c 20 73 74 61 65 6d 65 6e口头声明256 74 73 20 69 6e 20 49 45 54 46 20 73 65 73 69 ts在IETF第272 6f 6 6e 73 2c 20 61 70 77 65 6c 20 61 73 20 73 20 73 20中，以及288 77 72 69 74 74 65 6e 20 61 6e 64 20 65 6c 65 63书面和elec 304 74 72 6f 6e 69 63 20 63 6f 6d 6d 75 6e 69 61电子通信320 74 69 6f 6e 73 20 6d 61 64 65 20 61 74 20 61 60 6 6 6在336 79 20 74 69 6 D 65 20 6f 72 20 70 6c 61 63 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 2 y时间或地点进行的电子通信，352 20 77 68 69 63 68 20 61 72 65 20 61 64 72 65，地址为368 73 73 65 64 20 74 6f"
+    },
+    {
+      "indent": 2,
+      "text": "Ciphertext:\n000  a3 fb f0 7d f3 fa 2f de 4f 37 6c a2 3e 82 73 70  ...}../.O7l.>.sp\n016  41 60 5d 9f 4f 4f 57 bd 8c ff 2c 1d 4b 79 55 ec  A`].OOW...,.KyU.\n032  2a 97 94 8b d3 72 29 15 c8 f3 d3 37 f7 d3 70 05  *....r)....7..p.\n048  0e 9e 96 d6 47 b7 c3 9f 56 e0 31 ca 5e b6 25 0d  ....G...V.1.^.%.\n064  40 42 e0 27 85 ec ec fa 4b 4b b5 e8 ea d0 44 0e  @B.'....KK....D.\n080  20 b6 e8 db 09 d8 81 a7 c6 13 2f 42 0e 52 79 50   ........./B.RyP\n096  42 bd fa 77 73 d8 a9 05 14 47 b3 29 1c e1 41 1c  B..ws....G.)..A.\n112  68 04 65 55 2a a6 c4 05 b7 76 4d 5e 87 be a8 5a  h.eU*....vM^...Z\n128  d0 0f 84 49 ed 8f 72 d0 d6 62 ab 05 26 91 ca 66  ...I..r..b..&..f\n144  42 4b c8 6d 2d f8 0e a4 1f 43 ab f9 37 d3 25 9d  BK.m-....C..7.%.\n160  c4 b2 d0 df b4 8a 6c 91 39 dd d7 f7 69 66 e9 28  ......l.9...if.(\n176  e6 35 55 3b a7 6c 5c 87 9d 7b 35 d4 9e b2 e6 2b  .5U;.l\\..{5....+\n192  08 71 cd ac 63 89 39 e2 5e 8a 1e 0e f9 d5 28 0f  .q..c.9.^.....(.\n208  a8 ca 32 8b 35 1c 3c 76 59 89 cb cf 3d aa 8b 6c  ..2.5.<vY...=..l\n224  cc 3a af 9f 39 79 c9 2b 37 20 fc 88 dc 95 ed 84  .:..9y.+7 ......\n240  a1 be 05 9c 64 99 b9 fd a2 36 e7 e8 18 b0 4b 0b  ....d....6....K.\n256  c3 9c 1e 87 6b 19 3b fe 55 69 75 3f 88 12 8c c0  ....k.;.Uiu?....\n272  8a aa 9b 63 d1 a1 6f 80 ef 25 54 d7 18 9c 41 1f  ...c..o..%T...A.\n288  58 69 ca 52 c5 b8 3f a3 6f f2 16 b9 c1 d3 00 62  Xi.R..?.o......b\n304  be bc fd 2d c5 bc e0 91 19 34 fd a7 9a 86 f6 e6  ...-.....4......\n320  98 ce d7 59 c3 ff 9b 64 77 33 8f 3d a4 f9 cd 85  ...Y...dw3.=....\n336  14 ea 99 82 cc af b3 41 b2 38 4d d9 02 f3 d1 ab  .......A.8M.....\n352  7a c6 1d d2 9c 6f 21 ba 5b 86 2f 37 30 e3 7c fd  z....o!.[./70.|.\n368  c4 fd 80 6c 22 f2 21                             ...l\".!",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #3:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Key:\n000  1c 92 40 a5 eb 55 d3 8a f3 33 88 86 04 f6 b5 f0  ..@..U...3......\n016  47 39 17 c1 40 2b 80 09 9d ca 5c bc 20 70 75 c0  G9..@+....\\. pu.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 02              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Initial Block Counter = 42",
+      "zh-CHS": "初始块计数器=42"
+    },
+    {
+      "indent": 2,
+      "text": "Plaintext:\n000  27 54 77 61 73 20 62 72 69 6c 6c 69 67 2c 20 61  'Twas brillig, a\n016  6e 64 20 74 68 65 20 73 6c 69 74 68 79 20 74 6f  nd the slithy to\n032  76 65 73 0a 44 69 64 20 67 79 72 65 20 61 6e 64  ves.Did gyre and\n048  20 67 69 6d 62 6c 65 20 69 6e 20 74 68 65 20 77   gimble in the w\n064  61 62 65 3a 0a 41 6c 6c 20 6d 69 6d 73 79 20 77  abe:.All mimsy w\n080  65 72 65 20 74 68 65 20 62 6f 72 6f 67 6f 76 65  ere the borogove\n096  73 2c 0a 41 6e 64 20 74 68 65 20 6d 6f 6d 65 20  s,.And the mome\n112  72 61 74 68 73 20 6f 75 74 67 72 61 62 65 2e     raths outgrabe.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Ciphertext:\n000  62 e6 34 7f 95 ed 87 a4 5f fa e7 42 6f 27 a1 df  b.4....._..Bo'..\n016  5f b6 91 10 04 4c 0d 73 11 8e ff a9 5b 01 e5 cf  _....L.s....[...\n032  16 6d 3d f2 d7 21 ca f9 b2 1e 5f b1 4c 61 68 71  .m=..!...._.Lahq\n048  fd 84 c5 4f 9d 65 b2 83 19 6c 7f e4 f6 05 53 eb  ...O.e...l....S.\n064  f3 9c 64 02 c4 22 34 e3 2a 35 6b 3e 76 43 12 a6  ..d..\"4.*5k>vC..\n080  1a 55 32 05 57 16 ea d6 96 25 68 f8 7d 3f 3f 77  .U2.W....%h.}??w\n096  04 c6 a8 d1 bc d1 bf 4d 50 d6 15 4b 6d a7 31 b1  .......MP..Km.1.\n112  87 b5 8d fd 72 8a fa 36 75 7a 79 7a c1 88 d1     ....r..6uzyz...",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "A.3. Poly1305 Message Authentication Code",
+      "section_title": true,
+      "zh-CHS": "A.3. Poly1305消息认证码"
+    },
+    {
+      "indent": 3,
+      "text": "Notice how, in test vector #2, r is equal to zero. The part of the Poly1305 algorithm where the accumulator is multiplied by r means that with r equal zero, the tag will be equal to s regardless of the content of the text. Fortunately, all the proposed methods of generating r are such that getting this particular weak key is very unlikely.",
+      "zh-CHS": "注意，在测试向量#2中，r是如何等于零的。Poly1305算法中累加器乘以r的部分意味着r等于零时，无论文本内容如何，标签都将等于s。幸运的是，所有提出的生成r的方法都是这样的，因此不太可能得到这个特定的弱密钥。"
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #1:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "One-time Poly1305 Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Text to MAC:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n032  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n048  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Tag:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #2:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "One-time Poly1305 Key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  36 e5 f6 b5 c5 e0 60 70 f0 ef ca 96 22 7a 86 3e  6.....`p....\"z.>",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Text to MAC:\n000  41 6e 79 20 73 75 62 6d 69 73 73 69 6f 6e 20 74  Any submission t\n016  6f 20 74 68 65 20 49 45 54 46 20 69 6e 74 65 6e  o the IETF inten\n032  64 65 64 20 62 79 20 74 68 65 20 43 6f 6e 74 72  ded by the Contr\n048  69 62 75 74 6f 72 20 66 6f 72 20 70 75 62 6c 69  ibutor for publi\n064  63 61 74 69 6f 6e 20 61 73 20 61 6c 6c 20 6f 72  cation as all or\n080  20 70 61 72 74 20 6f 66 20 61 6e 20 49 45 54 46   part of an IETF\n096  20 49 6e 74 65 72 6e 65 74 2d 44 72 61 66 74 20   Internet-Draft\n112  6f 72 20 52 46 43 20 61 6e 64 20 61 6e 79 20 73  or RFC and any s\n128  74 61 74 65 6d 65 6e 74 20 6d 61 64 65 20 77 69  tatement made wi\n144  74 68 69 6e 20 74 68 65 20 63 6f 6e 74 65 78 74  thin the context\n160  20 6f 66 20 61 6e 20 49 45 54 46 20 61 63 74 69   of an IETF acti\n176  76 69 74 79 20 69 73 20 63 6f 6e 73 69 64 65 72  vity is consider\n192  65 64 20 61 6e 20 22 49 45 54 46 20 43 6f 6e 74  ed an \"IETF Cont\n208  72 69 62 75 74 69 6f 6e 22 2e 20 53 75 63 68 20  ribution\". Such\n224  73 74 61 74 65 6d 65 6e 74 73 20 69 6e 63 6c 75  statements inclu\n240  64 65 20 6f 72 61 6c 20 73 74 61 74 65 6d 65 6e  de oral statemen\n256  74 73 20 69 6e 20 49 45 54 46 20 73 65 73 73 69  ts in IETF sessi\n272  6f 6e 73 2c 20 61 73 20 77 65 6c 6c 20 61 73 20  ons, as well as\n288  77 72 69 74 74 65 6e 20 61 6e 64 20 65 6c 65 63  written and elec\n304  74 72 6f 6e 69 63 20 63 6f 6d 6d 75 6e 69 63 61  tronic communica\n320  74 69 6f 6e 73 20 6d 61 64 65 20 61 74 20 61 6e  tions made at an\n336  79 20 74 69 6d 65 20 6f 72 20 70 6c 61 63 65 2c  y time or place,\n352  20 77 68 69 63 68 20 61 72 65 20 61 64 64 72 65   which are addre\n368  73 73 65 64 20 74 6f                             ssed to",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Tag:\n000  36 e5 f6 b5 c5 e0 60 70 f0 ef ca 96 22 7a 86 3e  6.....`p....\"z.>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #3:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "One-time Poly1305 Key:\n000  36 e5 f6 b5 c5 e0 60 70 f0 ef ca 96 22 7a 86 3e  6.....`p....\"z.>\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Text to MAC:\n000  41 6e 79 20 73 75 62 6d 69 73 73 69 6f 6e 20 74  Any submission t\n016  6f 20 74 68 65 20 49 45 54 46 20 69 6e 74 65 6e  o the IETF inten\n032  64 65 64 20 62 79 20 74 68 65 20 43 6f 6e 74 72  ded by the Contr\n048  69 62 75 74 6f 72 20 66 6f 72 20 70 75 62 6c 69  ibutor for publi\n064  63 61 74 69 6f 6e 20 61 73 20 61 6c 6c 20 6f 72  cation as all or\n080  20 70 61 72 74 20 6f 66 20 61 6e 20 49 45 54 46   part of an IETF\n096  20 49 6e 74 65 72 6e 65 74 2d 44 72 61 66 74 20   Internet-Draft\n112  6f 72 20 52 46 43 20 61 6e 64 20 61 6e 79 20 73  or RFC and any s\n128  74 61 74 65 6d 65 6e 74 20 6d 61 64 65 20 77 69  tatement made wi\n144  74 68 69 6e 20 74 68 65 20 63 6f 6e 74 65 78 74  thin the context\n160  20 6f 66 20 61 6e 20 49 45 54 46 20 61 63 74 69   of an IETF acti\n176  76 69 74 79 20 69 73 20 63 6f 6e 73 69 64 65 72  vity is consider\n192  65 64 20 61 6e 20 22 49 45 54 46 20 43 6f 6e 74  ed an \"IETF Cont\n208  72 69 62 75 74 69 6f 6e 22 2e 20 53 75 63 68 20  ribution\". Such\n224  73 74 61 74 65 6d 65 6e 74 73 20 69 6e 63 6c 75  statements inclu\n240  64 65 20 6f 72 61 6c 20 73 74 61 74 65 6d 65 6e  de oral statemen\n256  74 73 20 69 6e 20 49 45 54 46 20 73 65 73 73 69  ts in IETF sessi\n272  6f 6e 73 2c 20 61 73 20 77 65 6c 6c 20 61 73 20  ons, as well as\n288  77 72 69 74 74 65 6e 20 61 6e 64 20 65 6c 65 63  written and elec\n304  74 72 6f 6e 69 63 20 63 6f 6d 6d 75 6e 69 63 61  tronic communica\n320  74 69 6f 6e 73 20 6d 61 64 65 20 61 74 20 61 6e  tions made at an\n336  79 20 74 69 6d 65 20 6f 72 20 70 6c 61 63 65 2c  y time or place,\n352  20 77 68 69 63 68 20 61 72 65 20 61 64 64 72 65   which are addre\n368  73 73 65 64 20 74 6f                             ssed to",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Tag:\n000  f3 47 7e 7c d9 54 17 af 89 a6 b8 79 4c 31 0c f0  .G~|.T.....yL1..",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #4:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "One-time Poly1305 Key:\n000  1c 92 40 a5 eb 55 d3 8a f3 33 88 86 04 f6 b5 f0  ..@..U...3......\n016  47 39 17 c1 40 2b 80 09 9d ca 5c bc 20 70 75 c0  G9..@+....\\. pu.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Text to MAC:\n000  27 54 77 61 73 20 62 72 69 6c 6c 69 67 2c 20 61  'Twas brillig, a\n016  6e 64 20 74 68 65 20 73 6c 69 74 68 79 20 74 6f  nd the slithy to\n032  76 65 73 0a 44 69 64 20 67 79 72 65 20 61 6e 64  ves.Did gyre and\n048  20 67 69 6d 62 6c 65 20 69 6e 20 74 68 65 20 77   gimble in the w\n064  61 62 65 3a 0a 41 6c 6c 20 6d 69 6d 73 79 20 77  abe:.All mimsy w\n080  65 72 65 20 74 68 65 20 62 6f 72 6f 67 6f 76 65  ere the borogove\n096  73 2c 0a 41 6e 64 20 74 68 65 20 6d 6f 6d 65 20  s,.And the mome\n112  72 61 74 68 73 20 6f 75 74 67 72 61 62 65 2e     raths outgrabe.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Tag:\n000  45 41 66 9a 7e aa ee 61 e7 08 dc 7c bc c5 eb 62  EAf.~..a...|...b",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #5: If one uses 130-bit partial reduction, does the code handle the case where partially reduced final result is not fully reduced?",
+      "zh-CHS": "测试向量#5：如果使用130位部分缩减，代码是否处理部分缩减的最终结果未完全缩减的情况？"
+    },
+    {
+      "indent": 3,
+      "text": "R: 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 S: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 data: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF tag: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "zh-CHS": "R:02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #6: What happens if addition of s overflows modulo 2^128?",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "R: 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 S: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF data: 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 tag: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "zh-CHS": "R:02 00 00 00 00 00 00 00 00 00 S:FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF"
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #7: What happens if data limb is all ones and there is carry from lower limb?",
+      "zh-CHS": "测试向量#7：如果数据肢体都是1，并且有来自下肢的携带，会发生什么？"
+    },
+    {
+      "indent": 3,
+      "text": "R: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 S: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 data: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF F0 FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 tag: 05 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "zh-CHS": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #8: What happens if final result from polynomial part is exactly 2^130-5?",
+      "zh-CHS": "测试向量#8：如果多项式部分的最终结果正好是2^130-5，会发生什么？"
+    },
+    {
+      "indent": 3,
+      "text": "R: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 S: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 data: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FB FE FE FE FE FE FE FE FE FE FE FE FE FE FE FE 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 tag: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "zh-CHS": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #9: What happens if final result from polynomial part is exactly 2^130-6?",
+      "zh-CHS": "测试向量#9：如果多项式部分的最终结果正好是2^130-6，会发生什么？"
+    },
+    {
+      "indent": 3,
+      "text": "R: 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 S: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 data: FD FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF tag: FA FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF",
+      "zh-CHS": "R:02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #10: What happens if 5*H+L-type reduction produces\n131-bit intermediate result?",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "R: 01 00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 S: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 data: E3 35 94 D7 50 5E 43 B9 00 00 00 00 00 00 00 00 33 94 D7 50 5E 43 79 CD 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 tag: 14 00 00 00 00 00 00 00 55 00 00 00 00 00 00 00",
+      "zh-CHS": "R:01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0000"
+    },
+    {
+      "indent": 3,
+      "text": "Test Vector #11: What happens if 5*H+L-type reduction produces\n131-bit final result?",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "R: 01 00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 S: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 data: E3 35 94 D7 50 5E 43 B9 00 00 00 00 00 00 00 00 33 94 D7 50 5E 43 79 CD 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 tag: 13 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "zh-CHS": "R:01 00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+    },
+    {
+      "indent": 0,
+      "text": "A.4. Poly1305 Key Generation Using ChaCha20",
+      "section_title": true,
+      "zh-CHS": "A.4. 使用ChaCha20生成Poly1305密钥"
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #1:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 00              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 one-time key:\n000  76 b8 e0 ad a0 f1 3d 90 40 5d 6a e5 53 86 bd 28  v.....=.@]j.S..(\n016  bd d2 19 b8 a0 8d ed 1a a8 36 ef cc 8b 77 0d c7  .........6...w..",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #2:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The key:\n000  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................\n016  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 02              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 one-time key:\n000  ec fa 25 4f 84 5f 64 74 73 d3 cb 14 0d a9 e8 76  ..%O._dts......v\n016  06 cb 33 06 6c 44 7b 87 bc 26 66 dd e3 fb b7 39  ..3.lD{..&f....9",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Test Vector #3:\n==============",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The key:\n000  1c 92 40 a5 eb 55 d3 8a f3 33 88 86 04 f6 b5 f0  ..@..U...3......\n016  47 39 17 c1 40 2b 80 09 9d ca 5c bc 20 70 75 c0  G9..@+....\\. pu.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The nonce:\n000  00 00 00 00 00 00 00 00 00 00 00 02              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 one-time key:\n000  96 5e 3b c6 f9 ec 7e d9 56 08 08 f4 d2 29 f9 4b  .^;...~.V....).K\n016  13 7f f2 75 ca 9b 3f cb dd 59 de aa d2 33 10 ae  ...u..?..Y...3..",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "A.5. ChaCha20-Poly1305 AEAD Decryption",
+      "section_title": true,
+      "zh-CHS": "A.5. ChaCha20-Poly1305 AEAD解密"
+    },
+    {
+      "indent": 3,
+      "text": "Below we see decrypting a message. We receive a ciphertext, a nonce, and a tag. We know the key. We will check the tag and then (assuming that it validates) decrypt the ciphertext. In this particular protocol, we'll assume that there is no padding of the plaintext.",
+      "zh-CHS": "下面我们将看到解密消息。我们收到一个密文、一个临时数字和一个标签。我们知道钥匙。我们将检查标记，然后（假设它验证）解密密文。在这个特定的协议中，我们将假设没有明文填充。"
+    },
+    {
+      "indent": 2,
+      "text": "The key:\n000  1c 92 40 a5 eb 55 d3 8a f3 33 88 86 04 f6 b5 f0  ..@..U...3......\n016  47 39 17 c1 40 2b 80 09 9d ca 5c bc 20 70 75 c0  G9..@+....\\. pu.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Ciphertext:\n000  64 a0 86 15 75 86 1a f4 60 f0 62 c7 9b e6 43 bd  d...u...`.b...C.\n016  5e 80 5c fd 34 5c f3 89 f1 08 67 0a c7 6c 8c b2  ^.\\.4\\....g..l..\n032  4c 6c fc 18 75 5d 43 ee a0 9e e9 4e 38 2d 26 b0  Ll..u]C....N8-&.\n048  bd b7 b7 3c 32 1b 01 00 d4 f0 3b 7f 35 58 94 cf  ...<2.....;.5X..\n064  33 2f 83 0e 71 0b 97 ce 98 c8 a8 4a bd 0b 94 81  3/..q......J....\n080  14 ad 17 6e 00 8d 33 bd 60 f9 82 b1 ff 37 c8 55  ...n..3.`....7.U\n096  97 97 a0 6e f4 f0 ef 61 c1 86 32 4e 2b 35 06 38  ...n...a..2N+5.8\n112  36 06 90 7b 6a 7c 02 b0 f9 f6 15 7b 53 c8 67 e4  6..{j|.....{S.g.\n128  b9 16 6c 76 7b 80 4d 46 a5 9b 52 16 cd e7 a4 e9  ..lv{.MF..R.....\n144  90 40 c5 a4 04 33 22 5e e2 82 a1 b0 a0 6c 52 3e  .@...3\"^.....lR>\n160  af 45 34 d7 f8 3f a1 15 5b 00 47 71 8c bc 54 6a  .E4..?..[.Gq..Tj\n176  0d 07 2b 04 b3 56 4e ea 1b 42 22 73 f5 48 27 1a  ..+..VN..B\"s.H'.\n192  0b b2 31 60 53 fa 76 99 19 55 eb d6 31 59 43 4e  ..1`S.v..U..1YCN\n208  ce bb 4e 46 6d ae 5a 10 73 a6 72 76 27 09 7a 10  ..NFm.Z.s.rv'.z.\n224  49 e6 17 d9 1d 36 10 94 fa 68 f0 ff 77 98 71 30  I....6...h..w.q0\n240  30 5b ea ba 2e da 04 df 99 7b 71 4d 6c 6f 2c 29  0[.......{qMlo,)\n256  a6 ad 5c b4 02 2b 02 70 9b                       ..\\..+.p.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The nonce:\n000  00 00 00 00 01 02 03 04 05 06 07 08              ............",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "The AAD:\n000  f3 33 88 86 00 00 00 00 00 00 4e 91              .3........N.",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Received Tag:\n000  ee ad 9d 67 89 0c bb 22 39 23 36 fe a1 85 1f 38  ...g...\"9#6....8",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "First, we calculate the one-time Poly1305 key",
+      "zh-CHS": "首先，我们计算一次性Poly1305密钥"
+    },
+    {
+      "indent": 2,
+      "text": "@@@ ChaCha state with key setup 61707865 3320646e 79622d32 6b206574 a540921c 8ad355eb 868833f3 f0b5f604 c1173947 09802b40 bc5cca9d c0757020 00000000 00000000 04030201 08070605",
+      "zh-CHS": "@@@ChaCha状态，带钥匙设置61707865 3320646e 79622d32 6b206574 a540921c 8ad355eb 868833f3 f0b5f604 c1173947 09802b40 bc5cca9d c0757020 00000000 00000000 0403001 08070605"
+    },
+    {
+      "indent": 2,
+      "text": "@@@ ChaCha state after 20 rounds a94af0bd 89dee45c b64bb195 afec8fa1 508f4726 63f554c0 1ea2c0db aa721526 11b1e514 a0bacc0f 828a6015 d7825481 e8a4a850 d9dcbbd6 4c2de33a f8ccd912",
+      "zh-CHS": "@@@20轮后查查状态a94af0bd 89dee45c b64bb195 afec8fa1 508f4726 63f554c0 1ea2c0db aa721526 11b1e514 a0bacc0f 828a6015 d7825481 e8a4a850 d9dcbbd6 4c2de33a f8ccd912"
+    },
+    {
+      "indent": 2,
+      "text": "@@@ out bytes:\nbd:f0:4a:a9:5c:e4:de:89:95:b1:4b:b6:a1:8f:ec:af:\n26:47:8f:50:c0:54:f5:63:db:c0:a2:1e:26:15:72:aa",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 one-time key:\n000  bd f0 4a a9 5c e4 de 89 95 b1 4b b6 a1 8f ec af  ..J.\\.....K.....\n016  26 47 8f 50 c0 54 f5 63 db c0 a2 1e 26 15 72 aa  &G.P.T.c....&.r.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Next, we construct the AEAD buffer",
+      "zh-CHS": "接下来，我们构造AEAD缓冲区"
+    },
+    {
+      "indent": 2,
+      "text": "Poly1305 Input:\n000  f3 33 88 86 00 00 00 00 00 00 4e 91 00 00 00 00  .3........N.....\n016  64 a0 86 15 75 86 1a f4 60 f0 62 c7 9b e6 43 bd  d...u...`.b...C.\n032  5e 80 5c fd 34 5c f3 89 f1 08 67 0a c7 6c 8c b2  ^.\\.4\\....g..l..\n048  4c 6c fc 18 75 5d 43 ee a0 9e e9 4e 38 2d 26 b0  Ll..u]C....N8-&.\n064  bd b7 b7 3c 32 1b 01 00 d4 f0 3b 7f 35 58 94 cf  ...<2.....;.5X..\n080  33 2f 83 0e 71 0b 97 ce 98 c8 a8 4a bd 0b 94 81  3/..q......J....\n096  14 ad 17 6e 00 8d 33 bd 60 f9 82 b1 ff 37 c8 55  ...n..3.`....7.U\n112  97 97 a0 6e f4 f0 ef 61 c1 86 32 4e 2b 35 06 38  ...n...a..2N+5.8\n128  36 06 90 7b 6a 7c 02 b0 f9 f6 15 7b 53 c8 67 e4  6..{j|.....{S.g.\n144  b9 16 6c 76 7b 80 4d 46 a5 9b 52 16 cd e7 a4 e9  ..lv{.MF..R.....\n160  90 40 c5 a4 04 33 22 5e e2 82 a1 b0 a0 6c 52 3e  .@...3\"^.....lR>\n176  af 45 34 d7 f8 3f a1 15 5b 00 47 71 8c bc 54 6a  .E4..?..[.Gq..Tj\n192  0d 07 2b 04 b3 56 4e ea 1b 42 22 73 f5 48 27 1a  ..+..VN..B\"s.H'.\n208  0b b2 31 60 53 fa 76 99 19 55 eb d6 31 59 43 4e  ..1`S.v..U..1YCN\n224  ce bb 4e 46 6d ae 5a 10 73 a6 72 76 27 09 7a 10  ..NFm.Z.s.rv'.z.\n240  49 e6 17 d9 1d 36 10 94 fa 68 f0 ff 77 98 71 30  I....6...h..w.q0\n256  30 5b ea ba 2e da 04 df 99 7b 71 4d 6c 6f 2c 29  0[.......{qMlo,)\n272  a6 ad 5c b4 02 2b 02 70 9b 00 00 00 00 00 00 00  ..\\..+.p........\n288  0c 00 00 00 00 00 00 00 09 01 00 00 00 00 00 00  ................",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "We calculate the Poly1305 tag and find that it matches",
+      "zh-CHS": "我们计算Poly1305标签，发现它匹配"
+    },
+    {
+      "indent": 2,
+      "text": "Calculated Tag:\n000  ee ad 9d 67 89 0c bb 22 39 23 36 fe a1 85 1f 38  ...g...\"9#6....8",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Finally, we decrypt the ciphertext",
+      "zh-CHS": "最后，我们解密密文"
+    },
+    {
+      "indent": 2,
+      "text": "Plaintext::\n000  49 6e 74 65 72 6e 65 74 2d 44 72 61 66 74 73 20  Internet-Drafts\n016  61 72 65 20 64 72 61 66 74 20 64 6f 63 75 6d 65  are draft docume\n032  6e 74 73 20 76 61 6c 69 64 20 66 6f 72 20 61 20  nts valid for a\n048  6d 61 78 69 6d 75 6d 20 6f 66 20 73 69 78 20 6d  maximum of six m\n064  6f 6e 74 68 73 20 61 6e 64 20 6d 61 79 20 62 65  onths and may be\n080  20 75 70 64 61 74 65 64 2c 20 72 65 70 6c 61 63   updated, replac\n096  65 64 2c 20 6f 72 20 6f 62 73 6f 6c 65 74 65 64  ed, or obsoleted\n112  20 62 79 20 6f 74 68 65 72 20 64 6f 63 75 6d 65   by other docume\n128  6e 74 73 20 61 74 20 61 6e 79 20 74 69 6d 65 2e  nts at any time.\n144  20 49 74 20 69 73 20 69 6e 61 70 70 72 6f 70 72   It is inappropr\n160  69 61 74 65 20 74 6f 20 75 73 65 20 49 6e 74 65  iate to use Inte\n176  72 6e 65 74 2d 44 72 61 66 74 73 20 61 73 20 72  rnet-Drafts as r\n192  65 66 65 72 65 6e 63 65 20 6d 61 74 65 72 69 61  eference materia\n208  6c 20 6f 72 20 74 6f 20 63 69 74 65 20 74 68 65  l or to cite the\n224  6d 20 6f 74 68 65 72 20 74 68 61 6e 20 61 73 20  m other than as\n240  2f e2 80 9c 77 6f 72 6b 20 69 6e 20 70 72 6f 67  /...work in prog\n256  72 65 73 73 2e 2f e2 80 9d                       ress./...",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Performance Measurements of ChaCha20",
+      "section_title": true,
+      "zh-CHS": "附录B.ChaCha20的性能测量"
+    },
+    {
+      "indent": 3,
+      "text": "The following measurements were made by Adam Langley for a blog post published on February 27th, 2014. The original blog post was available at the time of this writing at <https://www.imperialviolet.org/2014/02/27/tlssymmetriccrypto.html>.",
+      "zh-CHS": "亚当·兰利（Adam Langley）在2014年2月27日发表的一篇博客文章中进行了以下测量。在撰写本文时，可以在<https://www.imperialviolet.org/2014/02/27/tlssymmetriccrypto.html>."
+    },
+    {
+      "indent": 5,
+      "text": "+----------------------------+-------------+-------------------+\n| Chip                       | AES-128-GCM | ChaCha20-Poly1305 |\n+----------------------------+-------------+-------------------+\n| OMAP 4460                  |  24.1 MB/s  |     75.3 MB/s     |\n| Snapdragon S4 Pro          |  41.5 MB/s  |     130.9 MB/s    |\n| Sandy Bridge Xeon (AES-NI) |   900 MB/s  |      500 MB/s     |\n+----------------------------+-------------+-------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 25,
+      "text": "Table 1: Speed Comparison",
+      "zh-CHS": "表1：速度比较"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "ChaCha20 and Poly1305 were invented by Daniel J. Bernstein. The AEAD construction and the method of creating the one-time Poly1305 key were invented by Adam Langley.",
+      "zh-CHS": "ChaCha20和Poly1305由Daniel J.Bernstein发明。AEAD结构和一次性Poly1305钥匙的制作方法由Adam Langley发明。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Robert Ransom, Watson Ladd, Stefan Buhler, Dan Harkins, and Kenny Paterson for their helpful comments and explanations. Thanks to Niels Moller for suggesting the more efficient AEAD construction in this document. Special thanks to Ilari Liusvaara for providing extra test vectors, helpful comments, and for being the first to attempt an implementation from this document. Thanks to Sean Parkinson for suggesting improvements to the examples and the pseudocode. Thanks to David Ireland for pointing out a bug in the pseudocode, and to Stephen Farrell and Alyssa Rowan for pointing out missing advise in the security considerations.",
+      "zh-CHS": "感谢Robert Ransom、Watson Ladd、Stefan Buhler、Dan Harkins和Kenny Paterson的有益评论和解释。感谢Niels Moller在本文中提出了更有效的AEAD构造。特别感谢Ilari Liusvaara提供了额外的测试向量、有用的注释，并且是第一个尝试实现本文档的人。感谢Sean Parkinson对示例和伪代码提出的改进建议。感谢David Ireland指出伪代码中的错误，感谢Stephen Farrell和Alyssa Rowan指出安全考虑中缺少的建议。"
+    },
+    {
+      "indent": 3,
+      "text": "Special thanks goes to Gordon Procter for performing a security analysis of the composition and publishing [Procter].",
+      "zh-CHS": "特别感谢Gordon Procter对合成和发布[Procter]进行安全性分析。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Yoav Nir Check Point Software Technologies, Ltd. 5 Hasolelim St. Tel Aviv 6789735 Israel",
+      "zh-CHS": "以色列特拉维夫Hasolelim街5号Yoav Nir Check Point软件技术有限公司6789735"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: ynir.ietf@gmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Adam Langley Google, Inc.",
+      "zh-CHS": "亚当·兰利谷歌公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: agl@google.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

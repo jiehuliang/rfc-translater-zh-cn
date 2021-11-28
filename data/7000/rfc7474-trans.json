@@ -1,0 +1,665 @@
+{
+  "title": {
+    "text": "RFC 7474: Security Extension for OSPFv2 When Using Manual Key Management",
+    "zh-CHS": "RFC 7474"
+  },
+  "number": 7474,
+  "created_at": "2021-11-03 02:55:37.443853+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                         M. Bhatia\nRequest for Comments: 7474                                Ionos Networks\nUpdates: 2328, 5709                                           S. Hartman\nCategory: Standards Track                              Painless Security\nISSN: 2070-1721                                                 D. Zhang\n                                           Huawei Technologies Co., Ltd.\n                                                          A. Lindem, Ed.\n                                                                   Cisco\n                                                              April 2015",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Security Extension for OSPFv2 When Using Manual Key Management",
+      "zh-CHS": "使用手动密钥管理时OSPFv2的安全扩展"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The current OSPFv2 cryptographic authentication mechanism as defined in RFCs 2328 and 5709 is vulnerable to both inter-session and intra-session replay attacks when using manual keying. Additionally, the existing cryptographic authentication mechanism does not cover the IP header. This omission can be exploited to carry out various types of attacks.",
+      "zh-CHS": "RFCs 2328和5709中定义的当前OSPFv2加密身份验证机制在使用手动密钥时容易受到会话间和会话内重放攻击。此外，现有的加密身份验证机制不包括IP头。这一遗漏可被用来实施各种类型的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines changes to the authentication sequence number mechanism that will protect OSPFv2 from both inter-session and intra-session replay attacks when using manual keys for securing OSPFv2 protocol packets. Additionally, we also describe some changes in the cryptographic hash computation that will eliminate attacks resulting from OSPFv2 not protecting the IP header.",
+      "zh-CHS": "本文档定义了对身份验证序列号机制的更改，该机制将在使用手动密钥保护OSPFv2协议数据包时保护OSPFv2免受会话间和会话内重播攻击。此外，我们还描述了加密哈希计算中的一些更改，这些更改将消除因OSPFv2不保护IP报头而导致的攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7474.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7474."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2015 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2015 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3\n  1.1.  Requirements Language . . . . . . . . . . . . . . . . . .   4\n2.  Replay Protection Using Extended Sequence Numbers . . . . . .   4\n3.  OSPF Packet Extensions  . . . . . . . . . . . . . . . . . . .   5\n4.  OSPF Packet Key Selection . . . . . . . . . . . . . . . . . .   6\n  4.1.  Key Selection for Unicast OSPF Packet Transmission  . . .   7\n  4.2.  Key Selection for Multicast OSPF Packet Transmission  . .   8\n  4.3.  Key Selection for OSPF Packet Reception . . . . . . . . .   8\n5.  Securing the IP Header  . . . . . . . . . . . . . . . . . . .   9\n6.  Mitigating Cross-Protocol Attacks . . . . . . . . . . . . . .  10\n7.  Backward Compatibility  . . . . . . . . . . . . . . . . . . .  11\n8.  Security Considerations . . . . . . . . . . . . . . . . . . .  11\n9.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  12\n10. References  . . . . . . . . . . . . . . . . . . . . . . . . .  12\n  10.1.  Normative References . . . . . . . . . . . . . . . . . .  12\n  10.2.  Informative References . . . . . . . . . . . . . . . . .  12\nAcknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .  14\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  14",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The OSPFv2 cryptographic authentication mechanism as described in [RFC2328] uses per-packet sequence numbers to provide protection against replay attacks. The sequence numbers increase monotonically so that attempts to replay stale packets can be thwarted. The sequence number values are maintained as a part of neighbor adjacency state. Therefore, if an adjacency is taken down, the associated sequence numbers get reinitialized and neighbor adjacency formation starts over again. Additionally, the cryptographic authentication mechanism does not specify how to deal with the rollover of a sequence number when its value wraps. These omissions can be exploited by attackers to implement various replay attacks ([RFC6039]). In order to address these issues, we define extensions to the authentication sequence number mechanism.",
+      "zh-CHS": "[RFC2328]中描述的OSPFv2加密身份验证机制使用每个数据包的序列号来提供防止重播攻击的保护。序列号单调增加，因此可以阻止重放过时数据包的尝试。序列号值作为相邻邻接状态的一部分进行维护。因此，如果一个邻接被删除，相关的序列号将被重新初始化，相邻邻接的形成将重新开始。此外，加密身份验证机制没有指定在序列号的值换行时如何处理序列号的滚动。攻击者可以利用这些漏洞实施各种重播攻击（[RFC6039]）。为了解决这些问题，我们定义了对身份验证序列号机制的扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "The cryptographic authentication as described in [RFC2328] and later updated in [RFC5709] does not include the IP header. This omission can be exploited to launch several attacks as the source address in the IP header is not protected. The OSPF specification, for broadcast and NBMA (Non-Broadcast Multi-Access) networks, requires implementations to use the source address in the IP header to determine the neighbor from which the packet was received. Changing the IP source address of a packet to a conflicting IP address can be exploited to produce a number of denial-of-service attacks [RFC6039]. If the packet is interpreted as coming from a different neighbor, the received sequence number state for that neighbor may be incorrectly updated. This attack may disrupt communication with a legitimate neighbor. Hello packets may be reflected to cause a neighbor to appear to have one-way communication. Additionally, Database Description packets may be reflected in cases where the per-packet sequence numbers are sufficiently divergent in order to disrupt an adjacency [RFC6863]. This is the IP-layer issue described in point 18 in Section 4 of [RFC6862].",
+      "zh-CHS": "[RFC2328]中描述的加密身份验证以及后来在[RFC5709]中更新的加密身份验证不包括IP头。由于IP报头中的源地址不受保护，可以利用此漏洞发起多个攻击。针对广播和NBMA（非广播多址）网络的OSPF规范要求实现使用IP报头中的源地址来确定从中接收数据包的邻居。可以利用将数据包的IP源地址更改为冲突的IP地址来产生大量拒绝服务攻击[RFC6039]。如果分组被解释为来自不同的邻居，则该邻居的接收序列号状态可能被错误地更新。此攻击可能会中断与合法邻居的通信。Hello数据包可能会被反射，使邻居看起来具有单向通信。此外，数据库描述分组可以反映在每个分组序列号足够分散以中断邻接的情况下[RFC6863]。这是[RFC6862]第4节第18点中描述的IP层问题。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2328] states that implementations MUST offer keyed MD5 authentication. It is likely that this will be deprecated in favor of the stronger algorithms described in [RFC5709] and required in [RFC6094].",
+      "zh-CHS": "[RFC2328]声明实现必须提供密钥MD5身份验证。这很可能会被弃用，取而代之的是[RFC5709]中描述的以及[RFC6094]中要求的更强大的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a few simple changes to the cryptographic authentication mechanism, as currently described in [RFC5709], to prevent such IP-layer attacks.",
+      "zh-CHS": "本文档定义了对加密身份验证机制的一些简单更改，如[RFC5709]中当前所述，以防止此类IP层攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Requirements Language",
+      "section_title": true,
+      "zh-CHS": "1.1. 需求语言"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "When used in lowercase, these words convey their typical use in common language, and are not to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "当以小写形式使用时，这些词以通用语言表达其典型用法，且不应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Replay Protection Using Extended Sequence Numbers",
+      "section_title": true,
+      "zh-CHS": "2. 使用扩展序列号的重放保护"
+    },
+    {
+      "indent": 3,
+      "text": "In order to provide replay protection against both inter-session and intra-session replay attacks, the OSPFv2 sequence number is expanded to 64 bits with the least significant 32-bit value containing a strictly increasing sequence number and the most significant 32-bit value containing the boot count. OSPFv2 implementations are required to retain the boot count in non-volatile storage for the deployment life of the OSPF router. The requirement to preserve the boot count is also placed on SNMP agents by the SNMPv3 security architecture (refer to snmpEngineBoots in Section 2.2 of [RFC3414]).",
+      "zh-CHS": "为了提供针对会话间和会话内重播攻击的重播保护，OSPFv2序列号扩展为64位，最低有效32位值包含严格递增的序列号，最高有效32位值包含引导计数。OSPFv2实现需要在OSPF路由器的部署生命周期内将引导计数保留在非易失性存储器中。SNMPv3安全体系结构（请参阅[RFC3414]第2.2节中的snmpEngineBoots）也对SNMP代理提出了保留启动计数的要求。"
+    },
+    {
+      "indent": 3,
+      "text": "Since there is no room in the OSPFv2 packet for a 64-bit sequence number, it will occupy the 8 octets following the OSPFv2 packet and MUST be included when calculating the OSPFv2 packet digest. These additional 8 octets are not included in the OSPFv2 packet header length but are included in the OSPFv2 header Authentication Data length and the IPv4 packet header length.",
+      "zh-CHS": "由于OSPFv2数据包中没有空间容纳64位序列号，因此它将占用OSPFv2数据包后面的8个八位字节，并且在计算OSPFv2数据包摘要时必须包括在内。这些额外的8个八位字节不包括在OSPFv2数据包头长度中，但包括在OSPFv2数据包头验证数据长度和IPv4数据包头长度中。"
+    },
+    {
+      "indent": 3,
+      "text": "The lower-order 32-bit sequence number MUST be incremented for every OSPF packet sent by the OSPF router. Upon reception, the sequence number MUST be greater than the sequence number in the last OSPF packet of that type accepted from the sending OSPF neighbor. Otherwise, the OSPF packet is considered a replayed packet and dropped. OSPF packets of different types may arrive out of order if they are prioritized as recommended in [RFC4222].",
+      "zh-CHS": "对于OSPF路由器发送的每个OSPF数据包，必须增加低阶32位序列号。接收时，序列号必须大于从发送OSPF邻居接收的该类型的最后一个OSPF数据包中的序列号。否则，OSPF分组被认为是重播分组并被丢弃。如果按照[RFC4222]中的建议对不同类型的OSPF数据包进行优先级排序，则它们可能会无序到达。"
+    },
+    {
+      "indent": 3,
+      "text": "OSPF routers implementing this specification MUST use available mechanisms to preserve the sequence number's strictly increasing property for the deployed life of the OSPFv2 router (including cold restarts). This is achieved by maintaining a boot count in non-volatile storage and incrementing it each time the OSPF router loses its prior sequence number state. The SNMPv3 snmpEngineBoots variable [RFC3414] MAY be used for this purpose. However, maintaining a separate boot count solely for OSPF sequence numbers has the advantage of decoupling SNMP reinitialization and OSPF reinitialization. Also, in the rare event that the lower-order",
+      "zh-CHS": "实现本规范的OSPF路由器必须使用可用机制，在OSPFv2路由器的部署生命周期内（包括冷重启），保持序列号严格递增的特性。这是通过在非易失性存储器中保持引导计数并在每次OSPF路由器丢失其先前的序列号状态时增加它来实现的。SNMPv3 SNMPingineBoots变量[RFC3414]可用于此目的。但是，仅为OSPF序列号维护单独的引导计数具有解耦SNMP重新初始化和OSPF重新初始化的优点。此外，在罕见的情况下，较低的顺序"
+    },
+    {
+      "indent": 3,
+      "text": "32-bit sequence number wraps, the boot count can be incremented to preserve the strictly increasing property of the aggregate sequence number. Hence, a separate OSPF boot count is RECOMMENDED.",
+      "zh-CHS": "32位序列号换行，引导计数可以增加，以保留聚合序列号严格递增的属性。因此，建议使用单独的OSPF引导计数。"
+    },
+    {
+      "indent": 0,
+      "text": "3. OSPF Packet Extensions",
+      "section_title": true,
+      "zh-CHS": "3. OSPF包扩展"
+    },
+    {
+      "indent": 3,
+      "text": "The OSPF packet header includes an authentication type field, and 64 bits of data for use by the appropriate authentication scheme (determined by the type field). Authentication types 0, 1, and 2 are defined [RFC2328]. This section defines Authentication type 3.",
+      "zh-CHS": "OSPF分组报头包括认证类型字段和64位数据，供适当的认证方案使用（由类型字段确定）。定义了身份验证类型0、1和2[RFC2328]。本节定义了身份验证类型3。"
+    },
+    {
+      "indent": 3,
+      "text": "When using this authentication scheme, the 64-bit Authentication field (as defined in Appendix D.3 of [RFC2328]) in the OSPF packet header (as defined in Appendix A.3.1 of [RFC2328] and [RFC6549]) is changed as shown in Figure 1. The sequence number is removed and the Key ID is extended to 32 bits and moved to the former position of the sequence number.",
+      "zh-CHS": "使用此身份验证方案时，OSPF数据包头（如[RFC2328]和[RFC6549]的附录A.3.1中所定义）中的64位身份验证字段（如[RFC2328]的附录D.3中所定义）会发生更改，如图1所示。序列号被删除，密钥ID扩展到32位，并移动到序列号的前一个位置。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, the 64-bit sequence number is moved to the first 64 bits following the OSPFv2 packet and is protected by the authentication digest. These additional 64 bits or 8 octets are included in the IP header length but not the OSPF header packet length.",
+      "zh-CHS": "此外，64位序列号被移动到OSPFv2数据包之后的前64位，并受到身份验证摘要的保护。这些额外的64位或8个八位字节包括在IP报头长度中，但不包括在OSPF报头数据包长度中。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the 0 field at the start of the OSPFv2 header authentication is extended from 16 bits to 24 bits.",
+      "zh-CHS": "最后，OSPFv2头身份验证开始处的0字段从16位扩展到24位。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Version #  |     Type        |       Packet length           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                          Router ID                            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                           Area ID                             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           Checksum            | Instance ID   |  AuType       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                               0               | Auth Data Len |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         Key ID                                |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|                   OSPF Protocol Packet                        |\n~                                                               ~\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Sequence Number (Boot Count)                              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Sequence Number (Strictly Increasing Packet Counter)      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n~                Authentication Data                            ~\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "Figure 1: Extended Sequence Number Packet Extensions",
+      "zh-CHS": "图1：扩展序列号数据包扩展"
+    },
+    {
+      "indent": 0,
+      "text": "4. OSPF Packet Key Selection",
+      "section_title": true,
+      "zh-CHS": "4. 包密钥选择"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes how this security solution selects long-lived keys from key tables. [RFC7210]. In this context, we are selecting the key and corresponding Security Association (SA) as defined in Section 3.2 of [RFC5709]. Generally, a key used for OSPFv2 packet authentication should satisfy the following requirements:",
+      "zh-CHS": "本节介绍此安全解决方案如何从密钥表中选择长寿命密钥。[RFC7210]。在这种情况下，我们选择[RFC5709]第3.2节中定义的密钥和相应的安全关联（SA）。通常，用于OSPFv2数据包身份验证的密钥应满足以下要求："
+    },
+    {
+      "indent": 3,
+      "text": "o For packet transmission, the key validity interval as defined by SendLifetimeStart and SendLifetimeEnd must include the current time.",
+      "zh-CHS": "o 对于数据包传输，SendLifetimeStart和SendLifetimeEnd定义的密钥有效期间隔必须包括当前时间。"
+    },
+    {
+      "indent": 3,
+      "text": "o For packet reception, the key validity interval as defined by AcceptLifetimeStart and AcceptLifetimeEnd must include the current time.",
+      "zh-CHS": "o 对于数据包接收，AcceptLifetimeStart和AcceptLifetimeEnd定义的密钥有效期间隔必须包括当前时间。"
+    },
+    {
+      "indent": 3,
+      "text": "o The key must be valid for the desired security algorithm.",
+      "zh-CHS": "o 密钥必须对所需的安全算法有效。"
+    },
+    {
+      "indent": 3,
+      "text": "In the remainder of this section, additional requirements for keys are enumerated for different scenarios.",
+      "zh-CHS": "在本节的其余部分中，针对不同的场景列举了密钥的其他要求。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Key Selection for Unicast OSPF Packet Transmission",
+      "section_title": true,
+      "zh-CHS": "4.1. 单播OSPF分组传输的密钥选择"
+    },
+    {
+      "indent": 3,
+      "text": "Assume that a router R1 tries to send a unicast OSPF packet from its interface I1 to the interface I2 of a remote router R2 using security protocol P via interface I at time T. First, consider the circumstances where R1 and R2 are not connected with a virtual link. R1 then needs to select a long-lived symmetric key from its key table. Because the key should be shared by both R1 and R2 to protect the communication between I1 and I2, the key should satisfy the following requirements:",
+      "zh-CHS": "假设路由器R1试图在时间T上通过接口I将一个单播OSPF分组从其接口I1发送到远程路由器R2的接口I2，通过接口I。首先，考虑R1和R2不与虚拟链路连接的情况。R1然后需要从其密钥表中选择一个长寿命的对称密钥。由于该密钥应由R1和R2共享，以保护I1和I2之间的通信，因此该密钥应满足以下要求："
+    },
+    {
+      "indent": 3,
+      "text": "o The Peers field contains the area ID or, if no key containing the area ID is present, the string \"all\".",
+      "zh-CHS": "o Peers字段包含区域ID，如果不存在包含区域ID的键，则包含字符串“all”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Direction field is either \"out\" or \"both\".",
+      "zh-CHS": "o 方向字段为“out”或“both”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Interfaces field matches I1 or \"all\".",
+      "zh-CHS": "o Interfaces字段与I1或“all”匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o If multiple keys match the Interface field, keys that explicitly match I1 should be preferred over keys matching \"all\". If there are still multiple keys that match, the key with the most recent SendLifetimeStart will be selected. This will facilitate graceful key rollover.",
+      "zh-CHS": "o 如果多个键与接口字段匹配，则显式匹配I1的键应优先于匹配“all”的键。如果仍有多个键匹配，则将选择具有最新SendLifetimeStart的键。这将有助于优雅的关键点翻转。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Key ID field in the OSPFv2 header (refer to Figure 1) will be set to the selected key's LocalKeyName.",
+      "zh-CHS": "o OSPFv2头中的密钥ID字段（参见图1）将设置为所选密钥的LocalKeyName。"
+    },
+    {
+      "indent": 3,
+      "text": "When R1 and R2 are connected to a virtual link, the Peers field must identify the virtual endpoint rather than the virtual link. Since there may be virtual links to the same router, the transit area ID must be part of the identifier. Hence, the key should satisfy the following requirements:",
+      "zh-CHS": "当R1和R2连接到虚拟链路时，对等方字段必须标识虚拟端点，而不是虚拟链路。由于可能存在到同一路由器的虚拟链路，因此传输区ID必须是标识符的一部分。因此，钥匙应满足以下要求："
+    },
+    {
+      "indent": 3,
+      "text": "o The Peers field includes both the virtual endpoint's OSPF router ID and the transit area ID for the virtual link in the form of the transit area ID, followed by a colon, followed by the router ID. If no such key exists, then a key with the Peers field set to the transit area ID is used, followed by a key with the Peers field set to \"all\".",
+      "zh-CHS": "o Peers字段包括虚拟端点的OSPF路由器ID和虚拟链路的传输区ID，其形式为传输区ID，后跟冒号，后跟路由器ID。如果不存在此类密钥，则使用Peers字段设置为传输区ID的密钥，后跟Peers字段设置为“all”的密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Interfaces field is not used for key selection on virtual links.",
+      "zh-CHS": "o Interfaces字段不用于虚拟链接上的键选择。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Direction field is either \"out\" or \"both\".",
+      "zh-CHS": "o 方向字段为“out”或“both”。"
+    },
+    {
+      "indent": 3,
+      "text": "o If multiple keys match the Peers field, keys that explicitly match the router ID should be preferred, followed by keys with a transit area specified, followed by keys with the Peers field set to \"all\". If there are still multiple keys that match, the key with the most recent SendLifetimeStart will be selected. This will facilitate graceful key rollover.",
+      "zh-CHS": "o 如果多个密钥与“对等方”字段匹配，则应首选与路由器ID明确匹配的密钥，然后是指定传输区域的密钥，然后是将“对等方”字段设置为“全部”的密钥。如果仍有多个键匹配，则将选择具有最新SendLifetimeStart的键。这将有助于优雅的关键点翻转。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Key ID field in the OSPFv2 header (refer to Figure 1) will be set to the selected key's LocalKeyName.",
+      "zh-CHS": "o OSPFv2头中的密钥ID字段（参见图1）将设置为所选密钥的LocalKeyName。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Key Selection for Multicast OSPF Packet Transmission",
+      "section_title": true,
+      "zh-CHS": "4.2. 多播OSPF分组传输的密钥选择"
+    },
+    {
+      "indent": 3,
+      "text": "If a router R1 sends an OSPF packet from its interface I1 to a multicast address (i.e., AllSPFRouters or AllDRouters), it needs to select a key according to the following requirements:",
+      "zh-CHS": "如果路由器R1将OSPF数据包从其接口I1发送到多播地址（即AllSPFRouters或AllDrooter），则需要根据以下要求选择密钥："
+    },
+    {
+      "indent": 3,
+      "text": "o First, try a key with the Peers field containing the area ID to which the interface belongs. If no key exists, try a key with the Peers field \"all\".",
+      "zh-CHS": "o 首先，使用包含接口所属区域ID的Peers字段尝试一个键。如果不存在密钥，请尝试对等字段为“all”的密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Interfaces field matches the interface over which the packet is sent or \"all\".",
+      "zh-CHS": "o Interfaces字段与发送数据包的接口或“all”匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Direction field is either \"out\" or \"both\".",
+      "zh-CHS": "o 方向字段为“out”或“both”。"
+    },
+    {
+      "indent": 3,
+      "text": "o If multiple keys match the Interface field, keys that explicitly match I1 should be preferred over keys matching \"all\". If there are still multiple keys that match, the key with the most resent SendLifetimeStart will be selected. This will facilitate graceful key rollover.",
+      "zh-CHS": "o 如果多个键与接口字段匹配，则显式匹配I1的键应优先于匹配“all”的键。如果仍有多个键匹配，则将选择具有最新SendLifetimeStart的键。这将有助于优雅的关键点翻转。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Key ID field in the OSPFv2 header (refer to Figure 1) will be set to the selected key's LocalKeyName.",
+      "zh-CHS": "o OSPFv2头中的密钥ID字段（参见图1）将设置为所选密钥的LocalKeyName。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Key Selection for OSPF Packet Reception",
+      "section_title": true,
+      "zh-CHS": "4.3. OSPF分组接收的密钥选择"
+    },
+    {
+      "indent": 3,
+      "text": "When cryptographic authentication is used, the ID of the authentication key is included in the authentication field of the OSPF packet header. Using this Key ID, it is straight forward for a receiver to locate the corresponding key. The simple requirements are:",
+      "zh-CHS": "当使用密码认证时，认证密钥的ID包括在OSPF分组报头的认证字段中。使用此密钥ID，接收者可以直接找到相应的密钥。简单的要求是："
+    },
+    {
+      "indent": 3,
+      "text": "o The interface on which the key was received is associated with the key's interface.",
+      "zh-CHS": "o 接收密钥的接口与密钥的接口相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Key ID obtained from the OSPFv2 packet header corresponds to the neighbor's PeerKeyName. Since OSPFv2 keys are symmetric, the LocalKeyName and PeerKeyName for OSPFv2 keys will be identical. Hence, the Key ID will be used to select the correct local key.",
+      "zh-CHS": "o 从OSPFv2包头获得的密钥ID对应于邻居的PeerKeyName。由于OSPFv2密钥是对称的，因此OSPFv2密钥的LocalKeyName和PeerKeyName将是相同的。因此，密钥ID将用于选择正确的本地密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Direction field is either \"in\" or \"both\".",
+      "zh-CHS": "o 方向字段为“in”或“both”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Peers field matches as described in Sections Section 4.1 and Section 4.2.",
+      "zh-CHS": "o 对等字段匹配如第4.1节和第4.2节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Securing the IP Header",
+      "section_title": true,
+      "zh-CHS": "5. 保护IP报头"
+    },
+    {
+      "indent": 3,
+      "text": "This document updates the definition of the Apad constant, as it is defined in [RFC5709], to include the IP source address from the IP header of the OSPFv2 protocol packet. The overall cryptographic authentication process defined in [RFC5709] remains unchanged. To reduce the potential for confusion, this section minimizes the repetition of text from RFC 5709 [RFC5709]. The changes are:",
+      "zh-CHS": "本文档更新了[RFC5709]中定义的Apad常量的定义，以包括OSPFv2协议数据包IP报头中的IP源地址。[RFC5709]中定义的整个加密身份验证过程保持不变。为了减少混淆的可能性，本节将RFC 5709[RFC5709]中文本的重复降至最低。这些变化是："
+    },
+    {
+      "indent": 3,
+      "text": "RFC 5709, Section 3.3 describes how the cryptographic authentication must be computed. In RFC 5709, the First-Hash includes the OSPF packet and Authentication Trailer. With this specification, the 64-bit sequence number will be included in the First-Hash along with the Authentication Trailer and OSPF packet.",
+      "zh-CHS": "RFC 5709第3.3节描述了必须如何计算加密身份验证。在RFC 5709中，第一散列包括OSPF分组和认证尾部。根据该规范，64位序列号将与认证尾部和OSPF数据包一起包含在第一个散列中。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 5709, Section 3.3 also requires the OSPFv2 packet's Authentication Trailer (which is the appendage described in RFC 2328, Appendix D.4.3, page 233, items (6)(a) and (6)(d)) to be filled with the value Apad. Apad is a hexadecimal constant with the value 0x878FE1F3 repeated (L/4) times, where L is the length of the hash being used and is measured in octets rather than bits.",
+      "zh-CHS": "RFC 5709第3.3节还要求OSPFv2数据包的认证尾部（即RFC 2328附录D.4.3第233页第（6）（a）项和第（6）（D）项中所述的附件）填写Apad值。Apad是一个十六进制常量，其值0x878FE1F3重复（L/4）次，其中L是所使用哈希的长度，以八位字节而不是位来度量。"
+    },
+    {
+      "indent": 3,
+      "text": "OSPF routers sending OSPF packets must initialize the first 4 octets of Apad to the value of the IP source address that would be used when sending the OSPFv2 packet. The remainder of Apad will contain the value 0x878FE1F3 repeated (L - 4)/4 times, where L is the length of the hash, measured in octets. The basic idea is to incorporate the IP source address from the IP header in the cryptographic authentication computation so that any change of IP source address in a replayed packet can be detected.",
+      "zh-CHS": "发送OSPF数据包的OSPF路由器必须将Apad的前4个八位字节初始化为发送OSPFv2数据包时使用的IP源地址的值。Apad的其余部分将包含重复（L-4）/4次的值0x878FE1F3，其中L是哈希的长度，以八位字节为单位。其基本思想是将来自IP报头的IP源地址合并到加密身份验证计算中，以便能够检测到重播数据包中IP源地址的任何变化。"
+    },
+    {
+      "indent": 3,
+      "text": "When an OSPF packet is received, implementations MUST initialize the first 4 octets of Apad to the IP source address from the IP header of the incoming OSPFv2 packet. The remainder of Apad will contain the value 0x878FE1F3 repeated (L - 4)/4 times, where L is the length of the hash, measured in octets. Besides changing the value of Apad, this document does not introduce any other changes to the authentication mechanism described in [RFC5709]. This would prevent",
+      "zh-CHS": "当接收到OSPF数据包时，实现必须从传入OSPFv2数据包的IP报头将Apad的前4个八位字节初始化为IP源地址。Apad的其余部分将包含重复（L-4）/4次的值0x878FE1F3，其中L是哈希的长度，以八位字节为单位。除了更改Apad的值外，本文档没有对[RFC5709]中描述的身份验证机制进行任何其他更改。这将防止"
+    },
+    {
+      "indent": 3,
+      "text": "all attacks where a rogue OSPF router changes the IP source address of an OSPFv2 packet and replays it on the same multi-access interface or another interface since the IP source address is now included in the cryptographic hash computation and modification would result in the OSPFv2 packet being dropped due to an authentication failure.",
+      "zh-CHS": "当恶意OSPF路由器更改OSPFv2数据包的IP源地址并在同一多址接口或另一个接口上重播该数据包时，所有攻击都会导致OSPFv2数据包由于身份验证失败而被丢弃，因为IP源地址现在已包含在加密散列计算和修改中。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Mitigating Cross-Protocol Attacks",
+      "section_title": true,
+      "zh-CHS": "6. 减轻跨协议攻击"
+    },
+    {
+      "indent": 3,
+      "text": "In order to prevent cross-protocol replay attacks for protocols sharing common keys, the two-octet OSPFv2 Cryptographic Protocol ID is appended to the authentication key prior to use. Refer to the IANA Considerations (Section 9).",
+      "zh-CHS": "为了防止对共享公共密钥的协议的跨协议重放攻击，在使用前将两个八位组OSPFv2加密协议ID附加到身份验证密钥。请参阅IANA注意事项（第9节）。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5709], Section 3.3 describes the mechanism to prepare the key used in the hash computation. This document updates the text under \"(1) PREPARATION OF KEY\" as follows:",
+      "zh-CHS": "[RFC5709]，第3.3节描述了准备散列计算中使用的密钥的机制。本文件更新了“（1）密钥准备”下的文本，如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "The OSPFv2 Cryptographic Protocol ID is appended to the Authentication Key (K) yielding a Protocol-Specific Authentication Key (Ks). In this application, Ko is always L octets long. While [RFC2104] supports a key that is up to B octets long, this application uses L as the Ks length consistent with [RFC4822], [RFC5310], and [RFC5709]. According to [FIPS-198], Section 3, keys greater than L octets do not significantly increase the function strength. Ks is computed as follows:",
+      "zh-CHS": "OSPFv2加密协议ID附加到认证密钥（K）上，产生协议特定的认证密钥（Ks）。在此应用程序中，Ko的长度始终为L个八位字节。虽然[RFC2104]支持长度不超过B个八位字节的密钥，但此应用程序使用L作为与[RFC4822]、[RFC5310]和[RFC5709]一致的Ks长度。根据[FIPS-198]第3节，大于L个八位组的键不会显著增加功能强度。Ks的计算如下："
+    },
+    {
+      "indent": 6,
+      "text": "If the Protocol-Specific Authentication Key (Ks) is L octets long, then Ko is equal to Ks. If the Protocol-Specific Authentication Key (Ks) is more than L octets long, then Ko is set to H(Ks). If the Protocol-Specific Authentication Key (Ks) is less than L octets long, then Ko is set to the Protocol-Specific Authentication Key (Ks) with zeros appended to the end of the Protocol-Specific Authentication Key (Ks) such that Ko is L octets long.",
+      "zh-CHS": "如果协议特定身份验证密钥（Ks）的长度为L个八位字节，则Ko等于Ks。如果协议特定身份验证密钥（Ks）的长度超过L个八位字节，则Ko设置为H（Ks）。如果协议特定身份验证密钥（Ks）的长度小于L个八位字节，则将Ko设置为协议特定身份验证密钥（Ks），并在协议特定身份验证密钥（Ks）的末尾附加零，从而使Ko的长度为L个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the cryptographic key (Ko) used with the hash algorithm is derived, the rest of the authentication mechanism described in [RFC5709] remains unchanged other than one detail that was unspecified. When XORing Ko and Ipad of Opad, Ko MUST be padded with zeros to the length of Ipad or Opad. It is expected that implementations of [RFC5709] perform this padding implicitly.",
+      "zh-CHS": "一旦派生出与哈希算法一起使用的加密密钥（Ko），则[RFC5709]中描述的认证机制的其余部分保持不变，只有一个细节未指定。当XORing Ko和Opad的Ipad时，Ko必须用零填充到Ipad或Opad的长度。预期[RFC5709]的实现会隐式执行此填充。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Backward Compatibility",
+      "section_title": true,
+      "zh-CHS": "7. 向后兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "This security extension uses a new authentication type, AuType in the OSPFv2 header (refer to Figure 1). When an OSPFv2 packet is received and the AuType doesn't match the configured authentication type for the interface, the OSPFv2 packet will be dropped as specified in RFC 2328 [RFC2328]. This guarantees backward-compatible behavior consistent with any other authentication type mismatch.",
+      "zh-CHS": "此安全扩展在OSPFv2头中使用了一种新的身份验证类型AuType（请参阅图1）。当接收到OSPFv2数据包且AuType与为接口配置的身份验证类型不匹配时，将按照RFC 2328[RFC2328]中的规定丢弃OSPFv2数据包。这保证了向后兼容行为与任何其他身份验证类型不匹配一致。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document rectifies the manual key management procedure that currently exists within OSPFv2, as part of Phase 1 of the KARP Working Group. Therefore, only the OSPFv2 manual key management mechanism is considered. Any solution that takes advantage of the automatic key management mechanism is beyond the scope of this document.",
+      "zh-CHS": "作为KARP工作组第1阶段的一部分，本文件修正了OSPFv2中目前存在的手动钥匙管理程序。因此，仅考虑OSPFv2手动密钥管理机制。任何利用自动密钥管理机制的解决方案都超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "The described sequence number extension offers most of the benefits of more complicated mechanisms without their attendant challenges. There are, however, a couple drawbacks to this approach. First, it requires the OSPF implementation to be able to save its boot count in non-volatile storage. If the non-volatile storage is ever repaired or upgraded such that the contents are lost or the OSPFv2 router is replaced, the authentication keys MUST be changed to prevent replay attacks.",
+      "zh-CHS": "所描述的序列号扩展提供了更复杂机制的大部分好处，而不会带来相应的挑战。然而，这种方法有几个缺点。首先，它要求OSPF实现能够将其引导计数保存在非易失性存储器中。如果对非易失性存储进行了修复或升级，导致内容丢失或更换了OSPFv2路由器，则必须更改身份验证密钥以防止重播攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Second, if a router is taken out of service completely (either intentionally or due to a persistent failure), the potential exists for reestablishment of an OSPFv2 adjacency by replaying the entire OSPFv2 session establishment. However, this scenario is extremely unlikely, since it would imply an identical OSPFv2 adjacency formation packet exchange. Without adjacency formation, the replay of OSPFv2 hello packets alone for an OSPFv2 router that has been taken out of service should not result in any serious attack, as the only consequence is superfluous processing. Of course, this attack could also be thwarted by changing the relevant manual keys.",
+      "zh-CHS": "其次，如果路由器完全停止服务（无论是有意还是由于持续故障），则存在通过重放整个OSPFv2会话建立来重新建立OSPFv2邻接的可能性。然而，这种情况极不可能发生，因为它将意味着相同的OSPFv2邻接形成数据包交换。在没有邻接形成的情况下，对于已停止服务的OSPFv2路由器，单独重放OSPFv2 hello数据包不应导致任何严重的攻击，因为唯一的后果是多余的处理。当然，也可以通过更改相关的手动键来阻止此攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also provides a solution to prevent certain denial-of-service attacks that can be launched by changing the source address in the IP header of an OSPFv2 protocol packet.",
+      "zh-CHS": "本文档还提供了一种解决方案，可通过更改OSPFv2协议数据包的IP报头中的源地址来防止可能发起的某些拒绝服务攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Using a single crypto sequence number can leave the router vulnerable to a replay attack where it uses the same source IP address on two different point-to-point unnumbered links. In such environments where an attacker can actively tap the point-to-point links, it's recommended that the user employ different keys on each of those unnumbered IP interfaces.",
+      "zh-CHS": "使用单个加密序列号会使路由器容易受到重播攻击，在两个不同的点对点未编号链路上使用相同的源IP地址。在攻击者可以主动点击点到点链接的环境中，建议用户在每个未编号的IP接口上使用不同的密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a new code point from the \"OSPF Shortest Path First (OSPF) Authentication Codes\" registry:",
+      "zh-CHS": "本文档从“OSPF最短路径优先（OSPF）认证代码”注册表中注册一个新代码点："
+    },
+    {
+      "indent": 3,
+      "text": "o 3 - Cryptographic Authentication with Extended Sequence Numbers.",
+      "zh-CHS": "o 3-具有扩展序列号的加密身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also registers a new code point from the \"Authentication Cryptographic Protocol ID\" registry defined under \"Keying and Authentication for Routing Protocols (KARP) Parameters\":",
+      "zh-CHS": "本文档还从“路由协议（KARP）参数的键控和认证”下定义的“认证加密协议ID”注册表中注册了一个新的代码点："
+    },
+    {
+      "indent": 3,
+      "text": "o 3 - OSPFv2.",
+      "zh-CHS": "o 3-OSPFv2。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2328] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998, <http://www.rfc-editor.org/info/rfc2328>.",
+      "zh-CHS": "[RFC2328]Moy，J.，“OSPF版本2”，STD 54，RFC 23281998年4月<http://www.rfc-editor.org/info/rfc2328>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5709] Bhatia, M., Manral, V., Fanto, M., White, R., Barnes, M., Li, T., and R. Atkinson, \"OSPFv2 HMAC-SHA Cryptographic Authentication\", RFC 5709, October 2009, <http://www.rfc-editor.org/info/rfc5709>.",
+      "zh-CHS": "[RFC5709]Bhatia，M.，Manral，V.，Fanto，M.，White，R.，Barnes，M.，Li，T.，和R.Atkinson，“OSPFv2 HMAC-SHA加密认证”，RFC 57092009年10月<http://www.rfc-editor.org/info/rfc5709>."
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[FIPS-198] US National Institute of Standards and Technology, \"The Keyed-Hash Message Authentication Code (HMAC)\", FIPS PUB 198-1, July 2008.",
+      "zh-CHS": "[FIPS-198]美国国家标准与技术研究所，“密钥散列消息认证码（HMAC）”，FIPS PUB 198-12008年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2104] Krawczyk, H., Bellare, M., and R. Canetti, \"HMAC: Keyed-Hashing for Message Authentication\", RFC 2104, February 1997, <http://www.rfc-editor.org/info/rfc2104>.",
+      "zh-CHS": "[RFC2104]Krawczyk，H.，Bellare，M.，和R.Canetti，“HMAC：用于消息认证的键控哈希”，RFC 2104，1997年2月<http://www.rfc-editor.org/info/rfc2104>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3414] Blumenthal, U. and B. Wijnen, \"User-based Security Model (USM) for version 3 of the Simple Network Management Protocol (SNMPv3)\", STD 62, RFC 3414, December 2002, <http://www.rfc-editor.org/info/rfc3414>.",
+      "zh-CHS": "[RFC3414]Blumenthal，U.和B.Wijnen，“简单网络管理协议（SNMPv3）第3版基于用户的安全模型（USM）”，STD 62，RFC 3414，2002年12月<http://www.rfc-editor.org/info/rfc3414>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4222] Choudhury, G., Ed., \"Prioritized Treatment of Specific OSPF Version 2 Packets and Congestion Avoidance\", BCP 112, RFC 4222, October 2005, <http://www.rfc-editor.org/info/rfc4222>.",
+      "zh-CHS": "[RFC4222]Choudhury，G.，Ed.“特定OSPF版本2数据包的优先处理和拥塞避免”，BCP 112，RFC 4222，2005年10月<http://www.rfc-editor.org/info/rfc4222>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4822] Atkinson, R. and M. Fanto, \"RIPv2 Cryptographic Authentication\", RFC 4822, February 2007, <http://www.rfc-editor.org/info/rfc4822>.",
+      "zh-CHS": "[RFC4822]Atkinson，R.和M.Fanto，“RIPv2加密认证”，RFC 4822，2007年2月<http://www.rfc-editor.org/info/rfc4822>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5310] Bhatia, M., Manral, V., Li, T., Atkinson, R., White, R., and M. Fanto, \"IS-IS Generic Cryptographic Authentication\", RFC 5310, February 2009, <http://www.rfc-editor.org/info/rfc5310>.",
+      "zh-CHS": "[RFC5310]Bhatia，M.，Manral，V.，Li，T.，Atkinson，R.，White，R.，和M.Fanto，“IS-IS通用密码认证”，RFC 53102009年2月<http://www.rfc-editor.org/info/rfc5310>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6039] Manral, V., Bhatia, M., Jaeggli, J., and R. White, \"Issues with Existing Cryptographic Protection Methods for Routing Protocols\", RFC 6039, October 2010, <http://www.rfc-editor.org/info/rfc6039>.",
+      "zh-CHS": "[RFC6039]Manral，V.，Bhatia，M.，Jaeggli，J.，和R.White，“路由协议现有加密保护方法的问题”，RFC 6039，2010年10月<http://www.rfc-editor.org/info/rfc6039>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6094] Bhatia, M. and V. Manral, \"Summary of Cryptographic Authentication Algorithm Implementation Requirements for Routing Protocols\", RFC 6094, February 2011, <http://www.rfc-editor.org/info/rfc6094>.",
+      "zh-CHS": "[RFC6094]Bhatia，M.和V.Manral，“路由协议的密码认证算法实现要求摘要”，RFC 60942011年2月<http://www.rfc-editor.org/info/rfc6094>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6549] Lindem, A., Roy, A., and S. Mirtorabi, \"OSPFv2 Multi-Instance Extensions\", RFC 6549, March 2012, <http://www.rfc-editor.org/info/rfc6549>.",
+      "zh-CHS": "[RFC6549]Lindem，A.，Roy，A.，和S.Mirtorabi，“OSPFv2多实例扩展”，RFC 6549，2012年3月<http://www.rfc-editor.org/info/rfc6549>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6862] Lebovitz, G., Bhatia, M., and B. Weis, \"Keying and Authentication for Routing Protocols (KARP) Overview, Threats, and Requirements\", RFC 6862, March 2013, <http://www.rfc-editor.org/info/rfc6862>.",
+      "zh-CHS": "[RFC6862]Lebovitz，G.，Bhatia，M.和B.Weis，“路由协议的密钥和认证（KARP）概述，威胁和要求”，RFC 68622013年3月<http://www.rfc-editor.org/info/rfc6862>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6863] Hartman, S. and D. Zhang, \"Analysis of OSPF Security According to the Keying and Authentication for Routing Protocols (KARP) Design Guide\", RFC 6863, March 2013, <http://www.rfc-editor.org/info/rfc6863>.",
+      "zh-CHS": "[RFC6863]Hartman，S.和D.Zhang，“根据路由协议键控和认证（KARP）设计指南分析OSPF安全性”，RFC 6863，2013年3月<http://www.rfc-editor.org/info/rfc6863>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7210] Housley, R., Polk, T., Hartman, S., and D. Zhang, \"Database of Long-Lived Symmetric Cryptographic Keys\", RFC 7210, April 2014, <http://www.rfc-editor.org/info/rfc7210>.",
+      "zh-CHS": "[RFC7210]Housley，R.，Polk，T.，Hartman，S.，和D.Zhang，“长寿命对称加密密钥数据库”，RFC 72102014年4月<http://www.rfc-editor.org/info/rfc7210>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Ran Atkinson for help in the analysis of errata for RFC 6506, which led to clarifications in this document.",
+      "zh-CHS": "感谢Ran Atkinson在RFC 6506勘误表分析中提供的帮助，这导致了本文档中的澄清。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Gabi Nakibly for pointing out a possible attack on P2P links.",
+      "zh-CHS": "感谢Gabi Nakbly指出了P2P链接可能受到的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Suresh Krishnan for comments made during the Gen-Art review. In particular, thanks for pointing out an ambiguity in the initialization of Apad.",
+      "zh-CHS": "感谢Suresh Krishnan在Gen Art review期间发表的评论。特别感谢您指出Apad初始化过程中的一个模糊之处。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Shaun Cooley for the security directorate review.",
+      "zh-CHS": "感谢肖恩·库利对安全理事会的审查。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Adrian Farrel for comments during the IESG last call.",
+      "zh-CHS": "感谢Adrian Farrel在IESG最后一次通话中的评论。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Manav Bhatia Ionos Networks Bangalore India",
+      "zh-CHS": "印度班加罗尔Manav Bhatia Ionios网络"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: manav@ionosnetworks.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sam Hartman Painless Security",
+      "zh-CHS": "山姆·哈特曼无痛安全"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: hartmans-ietf@mit.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Dacheng Zhang Huawei Technologies Co., Ltd. Beijing China",
+      "zh-CHS": "中国北京大成张华为技术有限公司"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: dacheng.zhang@gmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Acee Lindem (editor) Cisco United States",
+      "zh-CHS": "Acee Lindem（编辑）思科美国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: acee@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

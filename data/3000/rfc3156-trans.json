@@ -1,0 +1,903 @@
+{
+  "title": {
+    "text": "RFC 3156:  MIME Security with OpenPGP ",
+    "zh-CHS": "RFC 3156"
+  },
+  "number": 3156,
+  "created_at": "2021-10-26 03:23:24.085998+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          M. Elkins\nRequest for Comments: 3156                      Network Associates, Inc.\nUpdates: 2015                                               D. Del Torto\nCategory: Standards Track                        CryptoRights Foundation\n                                                               R. Levien\n                                    University of California at Berkeley\n                                                             T. Roessler\n                                                             August 2001",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "MIME Security with OpenPGP",
+      "zh-CHS": "使用OpenPGP的MIME安全性"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2001). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2001年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes how the OpenPGP Message Format can be used to provide privacy and authentication using the Multipurpose Internet Mail Extensions (MIME) security content types described in RFC 1847.",
+      "zh-CHS": "本文档描述了如何使用OpenPGP消息格式，使用RFC 1847中描述的多用途Internet邮件扩展（MIME）安全内容类型提供隐私和身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Work on integrating PGP (Pretty Good Privacy) with MIME [3] (including the since withdrawn \"application/pgp\" content type) prior to RFC 2015 suffered from a number of problems, the most significant of which is the inability to recover signed message bodies without parsing data structures specific to PGP. RFC 2015 makes use of the elegant solution proposed in RFC 1847, which defines security multipart formats for MIME. The security multiparts clearly separate the signed message body from the signature, and have a number of other desirable properties. This document revises RFC 2015 to adopt the integration of PGP and MIME to the needs which emerged during the work on the OpenPGP specification.",
+      "zh-CHS": "在RFC 2015之前，将PGP（相当好的隐私）与MIME[3]（包括自撤销以来的“应用程序/PGP”内容类型）集成的工作遇到了许多问题，其中最重要的问题是在不解析PGP特定的数据结构的情况下无法恢复签名的消息体。RFC 2015利用了RFC 1847中提出的优雅解决方案，该解决方案定义了MIME的安全多部分格式。安全多部分将签名的消息体与签名明确分开，并具有许多其他需要的属性。本文件对RFC 2015进行了修订，以采用PGP和MIME的集成，以满足OpenPGP规范工作期间出现的需求。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines three content types for implementing security and privacy with OpenPGP: \"application/pgp-encrypted\", \"application/pgp-signature\" and \"application/pgp-keys\".",
+      "zh-CHS": "本文档定义了使用OpenPGP实现安全和隐私的三种内容类型：“应用程序/pgp加密”、“应用程序/pgp签名”和“应用程序/pgp密钥”。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不得”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119中的说明进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. OpenPGP data formats",
+      "section_title": true,
+      "zh-CHS": "2. OpenPGP数据格式"
+    },
+    {
+      "indent": 3,
+      "text": "OpenPGP implementations can generate either ASCII armor (described in [1]) or 8-bit binary output when encrypting data, generating a digital signature, or extracting public key data. The ASCII armor output is the REQUIRED method for data transfer. This allows those users who do not have the means to interpret the formats described in this document to be able to extract and use the OpenPGP information in the message.",
+      "zh-CHS": "在加密数据、生成数字签名或提取公钥数据时，OpenPGP实现可以生成ASCII铠装（如[1]所述）或8位二进制输出。ASCII装甲输出是数据传输所需的方法。这允许那些没有办法解释本文档中描述的格式的用户能够提取和使用消息中的OpenPGP信息。"
+    },
+    {
+      "indent": 3,
+      "text": "When the amount of data to be transmitted requires that it be sent in many parts, the MIME message/partial mechanism SHOULD be used rather than the multi-part ASCII armor OpenPGP format.",
+      "zh-CHS": "当要传输的数据量需要分多个部分发送时，应使用MIME消息/部分机制，而不是多部分ASCII格式。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Content-Transfer-Encoding restrictions",
+      "section_title": true,
+      "zh-CHS": "3. 内容传输编码限制"
+    },
+    {
+      "indent": 3,
+      "text": "Multipart/signed and multipart/encrypted are to be treated by agents as opaque, meaning that the data is not to be altered in any way [2], [7]. However, many existing mail gateways will detect if the next hop does not support MIME or 8-bit data and perform conversion to either Quoted-Printable or Base64. This presents serious problems for multipart/signed, in particular, where the signature is invalidated when such an operation occurs. For this reason all data signed according to this protocol MUST be constrained to 7 bits (8- bit data MUST be encoded using either Quoted-Printable or Base64). Note that this also includes the case where a signed object is also encrypted (see section 6). This restriction will increase the likelihood that the signature will be valid upon receipt.",
+      "zh-CHS": "代理将多部分/签名和多部分/加密视为不透明，这意味着数据不得以任何方式更改[2]，[7]。但是，许多现有邮件网关将检测下一个跃点是否不支持MIME或8位数据，并执行到带引号的可打印或Base64的转换。这给多部分/签名带来了严重的问题，特别是在发生此类操作时签名无效的情况下。因此，根据该协议签名的所有数据必须限制为7位（8位数据必须使用带引号的Printable或Base64进行编码）。注意，这也包括签名对象也被加密的情况（参见第6节）。这一限制将增加签名在收到后生效的可能性。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, implementations MUST make sure that no trailing whitespace is present after the MIME encoding has been applied.",
+      "zh-CHS": "此外，实现必须确保在应用MIME编码后不存在尾随空格。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: In most cases, trailing whitespace can either be removed, or protected by applying an appropriate content-transfer-encoding. However, special care must be taken when any header lines - either in MIME entity headers, or in embedded RFC 822 headers - are present which only consist of whitespace: Such lines must be removed entirely, since replacing them by empty lines would turn them into header delimiters, and change the semantics of the message. The restrictions on whitespace are necessary in order to make the hash calculated invariant under the text and binary mode signature mechanisms provided by OpenPGP [1]. Also, they help to avoid compatibility problems with PGP implementations which predate the OpenPGP specification.",
+      "zh-CHS": "注意：在大多数情况下，可以删除尾随空格，也可以通过应用适当的内容传输编码来保护尾随空格。但是，当MIME实体头或嵌入的RFC 822头中存在只包含空格的头行时，必须特别小心：必须完全删除这些行，因为用空行替换它们会将它们变成头分隔符，并更改消息的语义。在OpenPGP[1]提供的文本和二进制模式签名机制下，为了使计算的哈希保持不变，必须对空格进行限制。此外，它们有助于避免与早于OpenPGP规范的PGP实现的兼容性问题。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: If any line begins with the string \"From \", it is strongly suggested that either the Quoted-Printable or Base64 MIME encoding be applied. If Quoted-Printable is used, at least one of the characters in the string should be encoded using the hexadecimal coding rule. This is because many mail transfer and delivery agents treat \"From \" (the word \"from\" followed immediately by a space character) as the start of a new message and thus insert a right angle-bracket (>) in front of any line beginning with \"From \" to distinguish this case, invalidating the signature.",
+      "zh-CHS": "注意：如果任何一行以字符串“From”开头，强烈建议应用引用的Printable或Base64 MIME编码。如果使用Quoted Printable，则字符串中至少有一个字符应使用十六进制编码规则进行编码。这是因为许多邮件传输和传递代理将“From”（单词“From”后跟空格字符）视为新邮件的开头，因此在以“From”开头的任何行前面插入一个直角括号（>），以区分这种情况，从而使签名无效。"
+    },
+    {
+      "indent": 3,
+      "text": "Data that is ONLY to be encrypted is allowed to contain 8-bit characters and trailing whitespace and therefore need not undergo the conversion to a 7bit format, and the stripping of whitespace.",
+      "zh-CHS": "只需加密的数据允许包含8位字符和尾随空格，因此无需转换为7位格式，也无需去除空格。"
+    },
+    {
+      "indent": 6,
+      "text": "Implementor's note: It cannot be stressed enough that applications using this standard follow MIME's suggestion that you \"be conservative in what you generate, and liberal in what you accept.\" In this particular case it means it would be wise for an implementation to accept messages with any content-transfer-encoding, but restrict generation to the 7-bit format required by this memo. This will allow future compatibility in the event the Internet SMTP framework becomes 8-bit friendly.",
+      "zh-CHS": "实施者注意：使用此标准的应用程序遵循MIME的建议，即“生成内容要保守，接受内容要自由”。在这种情况下，这意味着实施接受任何内容传输编码的消息是明智的，但将生成限制为本备忘录要求的7位格式。这将允许将来在Internet SMTP框架变得8位友好时实现兼容性。"
+    },
+    {
+      "indent": 0,
+      "text": "4. OpenPGP encrypted data",
+      "section_title": true,
+      "zh-CHS": "4. OpenPGP加密数据"
+    },
+    {
+      "indent": 3,
+      "text": "Before OpenPGP encryption, the data is written in MIME canonical format (body and headers).",
+      "zh-CHS": "在OpenPGP加密之前，数据以MIME规范格式（正文和标题）写入。"
+    },
+    {
+      "indent": 3,
+      "text": "OpenPGP encrypted data is denoted by the \"multipart/encrypted\" content type, described in [2], and MUST have a \"protocol\" parameter value of \"application/pgp-encrypted\". Note that the value of the parameter MUST be enclosed in quotes.",
+      "zh-CHS": "OpenPGP加密数据由[2]中描述的“多部分/加密”内容类型表示，并且必须具有“协议”参数值“应用程序/pgp加密”。请注意，参数的值必须用引号括起来。"
+    },
+    {
+      "indent": 3,
+      "text": "The multipart/encrypted MIME body MUST consist of exactly two body parts, the first with content type \"application/pgp-encrypted\". This body contains the control information. A message complying with this standard MUST contain a \"Version: 1\" field in this body. Since the OpenPGP packet format contains all other information necessary for decrypting, no other information is required here.",
+      "zh-CHS": "多部分/加密MIME正文必须由两部分组成，第一部分的内容类型为“application/pgp encrypted”。此正文包含控件信息。符合本标准的邮件必须在此正文中包含“版本：1”字段。由于OpenPGP数据包格式包含解密所需的所有其他信息，因此此处不需要其他信息。"
+    },
+    {
+      "indent": 3,
+      "text": "The second MIME body part MUST contain the actual encrypted data. It MUST be labeled with a content type of \"application/octet-stream\".",
+      "zh-CHS": "第二个MIME正文部分必须包含实际加密的数据。它必须标有“应用程序/八位字节流”的内容类型。"
+    },
+    {
+      "indent": 3,
+      "text": "Example message:",
+      "zh-CHS": "示例消息："
+    },
+    {
+      "indent": 6,
+      "text": "From: Michael Elkins <elkins@aero.org>\nTo: Michael Elkins <elkins@aero.org>\nMime-Version: 1.0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Content-Type: multipart/encrypted; boundary=foo;\n   protocol=\"application/pgp-encrypted\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "--foo Content-Type: application/pgp-encrypted",
+      "zh-CHS": "--foo内容类型：应用程序/pgp加密"
+    },
+    {
+      "indent": 6,
+      "text": "Version: 1",
+      "zh-CHS": "版本:1"
+    },
+    {
+      "indent": 6,
+      "text": "--foo Content-Type: application/octet-stream",
+      "zh-CHS": "--foo内容类型：应用程序/八位字节流"
+    },
+    {
+      "indent": 6,
+      "text": "-----BEGIN PGP MESSAGE-----\nVersion: 2.6.2",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "hIwDY32hYGCE8MkBA/wOu7d45aUxF4Q0RKJprD3v5Z9K1YcRJ2fve87lMlDlx4Oj\neW4GDdBfLbJE7VUpp13N19GL8e/AqbyyjHH4aS0YoTk10QQ9nnRvjY8nZL3MPXSZ\ng9VGQxFeGqzykzmykU6A26MSMexR4ApeeON6xzZWfo+0yOqAq6lb46wsvldZ96YA\nAABH78hyX7YX4uT1tNCWEIIBoqqvCeIMpp7UQ2IzBrXg6GtukS8NxbukLeamqVW3\n1yt21DYOjuLzcMNe/JNsD9vDVCvOOG3OCi8=\n=zzaA\n-----END PGP MESSAGE-----",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "--foo--",
+      "zh-CHS": "--福--"
+    },
+    {
+      "indent": 0,
+      "text": "5. OpenPGP signed data",
+      "section_title": true,
+      "zh-CHS": "5. OpenPGP签名数据"
+    },
+    {
+      "indent": 3,
+      "text": "OpenPGP signed messages are denoted by the \"multipart/signed\" content type, described in [2], with a \"protocol\" parameter which MUST have a value of \"application/pgp-signature\" (MUST be quoted).",
+      "zh-CHS": "OpenPGP签名消息由[2]中描述的“多部分/签名”内容类型表示，带有“协议”参数，该参数的值必须为“应用程序/pgp签名”（必须引用）。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"micalg\" parameter for the \"application/pgp-signature\" protocol MUST contain exactly one hash-symbol of the format \"pgp-<hash-identifier>\", where <hash-identifier> identifies the Message Integrity Check (MIC) algorithm used to generate the signature. Hash-symbols are constructed from the text names registered in [1] or according to the mechanism defined in that document by converting the text name to lower case and prefixing it with the four characters \"pgp-\".",
+      "zh-CHS": "“应用程序/pgp签名”协议的“micalg”参数必须恰好包含一个格式为“pgp-<hash identifier>”的哈希符号，其中<hash identifier>标识用于生成签名的消息完整性检查（MIC）算法。哈希符号由[1]中注册的文本名称构成，或根据该文档中定义的机制，通过将文本名称转换为小写并在其前面加上四个字符“pgp-”来构造。"
+    },
+    {
+      "indent": 3,
+      "text": "Currently defined values are \"pgp-md5\", \"pgp-sha1\", \"pgp-ripemd160\", \"pgp-md2\", \"pgp-tiger192\", and \"pgp-haval-5-160\".",
+      "zh-CHS": "目前定义的值为“pgp-md5”、“pgp-sha1”、“pgp-ripemd160”、“pgp-md2”、“pgp-tiger192”和“pgp-haval-5-160”。"
+    },
+    {
+      "indent": 3,
+      "text": "The multipart/signed body MUST consist of exactly two parts. The first part contains the signed data in MIME canonical format, including a set of appropriate content headers describing the data.",
+      "zh-CHS": "多部分/签名正文必须正好由两部分组成。第一部分包含MIME规范格式的签名数据，包括一组描述数据的适当内容头。"
+    },
+    {
+      "indent": 3,
+      "text": "The second body MUST contain the OpenPGP digital signature. It MUST be labeled with a content type of \"application/pgp-signature\".",
+      "zh-CHS": "第二个正文必须包含OpenPGP数字签名。它必须标有“应用程序/pgp签名”的内容类型。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: Implementations can either generate \"signatures of a canonical text document\" or \"signatures of a binary document\", as defined in [1]. The restrictions on the signed material put forth in section 3 and in this section will make sure that the various MIC algorithm variants specified in [1] and [5] will all produce the same result.",
+      "zh-CHS": "注意：实现可以生成“规范文本文档的签名”或“二进制文档的签名”，如[1]中所定义。第3节和本节中对签名材料的限制将确保[1]和[5]中规定的各种MIC算法变体将产生相同的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "When the OpenPGP digital signature is generated:",
+      "zh-CHS": "生成OpenPGP数字签名时："
+    },
+    {
+      "indent": 3,
+      "text": "(1) The data to be signed MUST first be converted to its content-type specific canonical form. For text/plain, this means conversion to an appropriate character set and conversion of line endings to the canonical <CR><LF> sequence.",
+      "zh-CHS": "(1) 必须首先将要签名的数据转换为其特定于内容类型的规范格式。对于text/plain，这意味着转换为适当的字符集，并将行尾转换为规范的<CR><LF>序列。"
+    },
+    {
+      "indent": 3,
+      "text": "(2) An appropriate Content-Transfer-Encoding is then applied; see section 3. In particular, line endings in the encoded data MUST use the canonical <CR><LF> sequence where appropriate (note that the canonical line ending may or may not be present on the last line of encoded data and MUST NOT be included in the signature if absent).",
+      "zh-CHS": "(2) 然后应用适当的内容传输编码；见第3节。特别是，编码数据中的行尾必须在适当的情况下使用规范的<CR><LF>序列（注意，规范的行尾可能出现在编码数据的最后一行上，也可能不出现在编码数据的最后一行上，如果没有，则不得包含在签名中）。"
+    },
+    {
+      "indent": 3,
+      "text": "(3) MIME content headers are then added to the body, each ending with the canonical <CR><LF> sequence.",
+      "zh-CHS": "(3) 然后将MIME内容头添加到正文中，每个头都以规范的<CR><LF>序列结尾。"
+    },
+    {
+      "indent": 3,
+      "text": "(4) As described in section 3 of this document, any trailing whitespace MUST then be removed from the signed material.",
+      "zh-CHS": "(4) 如本文件第3节所述，必须从签名材料中删除任何尾随空格。"
+    },
+    {
+      "indent": 3,
+      "text": "(5) As described in [2], the digital signature MUST be calculated over both the data to be signed and its set of content headers.",
+      "zh-CHS": "(5) 如[2]所述，数字签名必须在待签名的数据及其内容头集上计算。"
+    },
+    {
+      "indent": 3,
+      "text": "(6) The signature MUST be generated detached from the signed data so that the process does not alter the signed data in any way.",
+      "zh-CHS": "(6) 签名的生成必须与签名数据分离，以便该过程不会以任何方式更改签名数据。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: The accepted OpenPGP convention is for signed data to end with a <CR><LF> sequence. Note that the <CR><LF> sequence immediately preceding a MIME boundary delimiter line is considered to be part of the delimiter in [3], 5.1. Thus, it is not part of the signed data preceding the delimiter line. An implementation which elects to adhere to the OpenPGP convention has to make sure it inserts a <CR><LF> pair on the last line of the data to be signed and transmitted (signed message and transmitted message MUST be identical).",
+      "zh-CHS": "注意：公认的OpenPGP约定用于签名数据以<CR><LF>序列结尾。请注意，MIME边界分隔符行前面的<CR><LF>序列被认为是[3]，5.1中分隔符的一部分。因此，它不是分隔符行之前的签名数据的一部分。选择遵守OpenPGP约定的实现必须确保在要签名和传输的数据的最后一行插入一对（签名消息和传输消息必须相同）。"
+    },
+    {
+      "indent": 3,
+      "text": "Example message:",
+      "zh-CHS": "示例消息："
+    },
+    {
+      "indent": 9,
+      "text": "From: Michael Elkins <elkins@aero.org>\nTo: Michael Elkins <elkins@aero.org>\nMime-Version: 1.0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "Content-Type: multipart/signed; boundary=bar; micalg=pgp-md5;\n  protocol=\"application/pgp-signature\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": " --bar & Content-Type: text/plain; charset=iso-8859-1 & Content-Transfer-Encoding: quoted-printable & & =A1Hola! & & Did you know that talking to yourself is a sign of senility? & & It's generally a good idea to encode lines that begin with & From=20because some mail transport agents will insert a greater-& than (>) sign, thus invalidating the signature. & & Also, in some cases it might be desirable to encode any =20 & trailing whitespace that occurs on lines in order to ensure =20 & that the message signature is not invalidated when passing =20 & a gateway that modifies such whitespace (like BITNET). =20 & & me",
+      "zh-CHS": "--条形图和内容类型：文本/普通；charset=iso-8859-1&内容传输编码：引用可打印&&=A1Hola！&&你知道自言自语是衰老的标志吗通常最好对以&From=20开头的行进行编码，因为某些邮件传输代理会插入大于（>）符号，从而使签名无效此外，在某些情况下，可能需要对行中出现的任何=20&尾随空格进行编码，以确保=20&消息签名在传递=20&修改此类空格的网关（如BITNET）时不会失效=20和我"
+    },
+    {
+      "indent": 6,
+      "text": "--bar",
+      "zh-CHS": "--酒吧"
+    },
+    {
+      "indent": 6,
+      "text": "Content-Type: application/pgp-signature",
+      "zh-CHS": "内容类型：应用程序/pgp签名"
+    },
+    {
+      "indent": 6,
+      "text": "-----BEGIN PGP MESSAGE-----\nVersion: 2.6.2",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "iQCVAwUBMJrRF2N9oWBghPDJAQE9UQQAtl7LuRVndBjrk4EqYBIb3h5QXIX/LC//\njJV5bNvkZIGPIcEmI5iFd9boEgvpirHtIREEqLQRkYNoBActFBZmh9GC3C041WGq\nuMbrbxc+nIs1TIKlA08rVi9ig/2Yh7LFrK5Ein57U/W72vgSxLhe/zhdfolT9Brn\nHOxEa44b+EI=\n=ndaj\n-----END PGP MESSAGE-----",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "--bar--",
+      "zh-CHS": "--酒吧--"
+    },
+    {
+      "indent": 3,
+      "text": "The \"&\"s in the previous example indicate the portion of the data over which the signature was calculated.",
+      "zh-CHS": "上例中的“&”表示计算签名的数据部分。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receipt of a signed message, an application MUST:",
+      "zh-CHS": "收到签名邮件后，应用程序必须："
+    },
+    {
+      "indent": 3,
+      "text": "(1) Convert line endings to the canonical <CR><LF> sequence before the signature can be verified. This is necessary since the local MTA may have converted to a local end of line convention.",
+      "zh-CHS": "(1) 在验证签名之前，将行尾转换为规范的<CR><LF>序列。这是必要的，因为本地MTA可能已转换为本地线端约定。"
+    },
+    {
+      "indent": 3,
+      "text": "(2) Pass both the signed data and its associated content headers along with the OpenPGP signature to the signature verification service.",
+      "zh-CHS": "(2) 将签名数据及其关联的内容头与OpenPGP签名一起传递给签名验证服务。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Encrypted and Signed Data",
+      "section_title": true,
+      "zh-CHS": "6. 加密和签名数据"
+    },
+    {
+      "indent": 3,
+      "text": "Sometimes it is desirable to both digitally sign and then encrypt a message to be sent. This protocol allows for two methods of accomplishing this task.",
+      "zh-CHS": "有时需要对要发送的消息进行数字签名和加密。此协议允许两种方法来完成此任务。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. RFC 1847 Encapsulation",
+      "section_title": true,
+      "zh-CHS": "6.1. RFC1847封装"
+    },
+    {
+      "indent": 3,
+      "text": "In [2], it is stated that the data is first signed as a multipart/signature body, and then encrypted to form the final multipart/encrypted body. This is most useful for standard MIME-compliant message forwarding.",
+      "zh-CHS": "[2]中指出，首先将数据作为多部分/签名体进行签名，然后对其进行加密以形成最终的多部分/加密体。这对于标准MIME兼容的消息转发非常有用。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:",
+      "zh-CHS": "例子："
+    },
+    {
+      "indent": 9,
+      "text": "Content-Type: multipart/encrypted;\n   protocol=\"application/pgp-encrypted\"; boundary=foo",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "--foo Content-Type: application/pgp-encrypted",
+      "zh-CHS": "--foo内容类型：应用程序/pgp加密"
+    },
+    {
+      "indent": 9,
+      "text": "Version: 1",
+      "zh-CHS": "版本:1"
+    },
+    {
+      "indent": 9,
+      "text": "--foo Content-Type: application/octet-stream",
+      "zh-CHS": "--foo内容类型：应用程序/八位字节流"
+    },
+    {
+      "indent": 6,
+      "text": "   -----BEGIN PGP MESSAGE-----\n& Content-Type: multipart/signed; micalg=pgp-md5\n&     protocol=\"application/pgp-signature\"; boundary=bar\n&\n& --bar\n& Content-Type: text/plain; charset=us-ascii\n&\n& This message was first signed, and then encrypted.\n&\n& --bar\n& Content-Type: application/pgp-signature\n&\n& -----BEGIN PGP MESSAGE-----\n& Version: 2.6.2\n&\n& iQCVAwUBMJrRF2N9oWBghPDJAQE9UQQAtl7LuRVndBjrk4EqYBIb3h5QXIX/LC//\n& jJV5bNvkZIGPIcEmI5iFd9boEgvpirHtIREEqLQRkYNoBActFBZmh9GC3C041WGq\n& uMbrbxc+nIs1TIKlA08rVi9ig/2Yh7LFrK5Ein57U/W72vgSxLhe/zhdfolT9Brn",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "& HOxEa44b+EI=\n& =ndaj\n& -----END PGP MESSAGE-----\n&\n& --bar--\n  -----END PGP MESSAGE-----",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "--foo--",
+      "zh-CHS": "--福--"
+    },
+    {
+      "indent": 3,
+      "text": "(The text preceded by '&' indicates that it is really encrypted, but presented as text for clarity.)",
+      "zh-CHS": "（前面加“&”的文本表示它确实是加密的，但为了清晰起见以文本形式显示。）"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Combined method",
+      "section_title": true,
+      "zh-CHS": "6.2. 组合法"
+    },
+    {
+      "indent": 3,
+      "text": "The OpenPGP packet format [1] describes a method for signing and encrypting data in a single OpenPGP message. This method is allowed in order to reduce processing overhead and increase compatibility with non-MIME implementations of OpenPGP. The resulting data is formatted as a \"multipart/encrypted\" object as described in Section 4.",
+      "zh-CHS": "OpenPGP数据包格式[1]描述了对单个OpenPGP消息中的数据进行签名和加密的方法。允许使用此方法是为了减少处理开销并增加与OpenPGP的非MIME实现的兼容性。如第4节所述，结果数据被格式化为“多部分/加密”对象。"
+    },
+    {
+      "indent": 3,
+      "text": "Messages which are encrypted and signed in this combined fashion are REQUIRED to follow the same canonicalization rules as multipart/signed objects.",
+      "zh-CHS": "以这种组合方式加密和签名的消息需要遵循与多部分/签名对象相同的规范化规则。"
+    },
+    {
+      "indent": 3,
+      "text": "It is explicitly allowed for an agent to decrypt a combined message and rewrite it as a multipart/signed object using the signature data embedded in the encrypted version.",
+      "zh-CHS": "明确允许代理解密组合消息，并使用加密版本中嵌入的签名数据将其重写为多部分/签名对象。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Distribution of OpenPGP public keys",
+      "section_title": true,
+      "zh-CHS": "7. OpenPGP公钥的分发"
+    },
+    {
+      "indent": 3,
+      "text": "Content-Type: application/pgp-keys Required parameters: none Optional parameters: none",
+      "zh-CHS": "内容类型：应用程序/pgp密钥必需参数：无可选参数：无"
+    },
+    {
+      "indent": 3,
+      "text": "A MIME body part of the content type \"application/pgp-keys\" contains ASCII-armored transferable Public Key Packets as defined in [1], section 10.1.",
+      "zh-CHS": "内容类型“应用程序/pgp密钥”的MIME主体部分包含[1]第10.1节中定义的ASCII可转移公钥数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Signatures of a canonical text document as defined in [1] ignore trailing white space in signed material. Implementations which choose to use signatures of canonical text documents will not be able to detect the addition of whitespace in transit.",
+      "zh-CHS": "[1]中定义的规范文本文档的签名忽略签名材料中的尾随空白。选择使用规范文本文档签名的实现将无法检测传输过程中添加的空白。"
+    },
+    {
+      "indent": 3,
+      "text": "See [3], [4] for more information on the security considerations concerning the underlying protocols.",
+      "zh-CHS": "有关底层协议的安全注意事项的更多信息，请参见[3]、[4]。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines three media types: \"application/pgp-encrypted\", \"application/pgp-signature\" and \"application/pgp-keys\". The following sections specify the IANA registrations for these types.",
+      "zh-CHS": "本文档定义了三种媒体类型：“应用程序/pgp加密”、“应用程序/pgp签名”和“应用程序/pgp密钥”。以下部分指定了这些类型的IANA注册。"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Registration of the application/pgp-encrypted media type",
+      "section_title": true,
+      "zh-CHS": "9.1. 注册应用程序/pgp加密媒体类型"
+    },
+    {
+      "indent": 3,
+      "text": "MIME media type name: application MIME subtype name: pgp-encrypted Required parameters: none Optional parameters: none",
+      "zh-CHS": "MIME媒体类型名称：应用程序MIME子类型名称：pgp加密必需参数：无可选参数：无"
+    },
+    {
+      "indent": 3,
+      "text": "Encoding considerations:",
+      "zh-CHS": "编码注意事项："
+    },
+    {
+      "indent": 6,
+      "text": "Currently this media type always consists of a single 7bit text string.",
+      "zh-CHS": "当前，此媒体类型始终由单个7位文本字符串组成。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations:",
+      "zh-CHS": "安全考虑："
+    },
+    {
+      "indent": 6,
+      "text": "See Section 8 and RFC 2440 Section 13.",
+      "zh-CHS": "参见第8节和RFC 2440第13节。"
+    },
+    {
+      "indent": 3,
+      "text": "Interoperability considerations: none",
+      "zh-CHS": "互操作性注意事项：无"
+    },
+    {
+      "indent": 3,
+      "text": "Published specification:",
+      "zh-CHS": "已发布的规范："
+    },
+    {
+      "indent": 6,
+      "text": "This document.",
+      "zh-CHS": "这份文件。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional information:",
+      "zh-CHS": "其他信息："
+    },
+    {
+      "indent": 6,
+      "text": "Magic number(s): none\nFile extension(s): none\nMacintosh File Type Code(s): none",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Person & email address to contact for further information:",
+      "zh-CHS": "联系人和电子邮件地址，以获取更多信息："
+    },
+    {
+      "indent": 6,
+      "text": "Michael Elkins Email: me@cs.hmc.edu",
+      "zh-CHS": "Michael Elkins电子邮件：me@cs.hmc.edu"
+    },
+    {
+      "indent": 3,
+      "text": "Intended usage: common",
+      "zh-CHS": "预期用途：普通"
+    },
+    {
+      "indent": 3,
+      "text": "Author/Change controller:",
+      "zh-CHS": "作者/变更控制员："
+    },
+    {
+      "indent": 6,
+      "text": "Michael Elkins Email: me@cs.hmc.edu",
+      "zh-CHS": "Michael Elkins电子邮件：me@cs.hmc.edu"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Registration of the application/pgp-signature media type",
+      "section_title": true,
+      "zh-CHS": "9.2. 注册应用程序/pgp签名媒体类型"
+    },
+    {
+      "indent": 3,
+      "text": "MIME media type name: application MIME subtype name: pgp-signature Required parameters: none Optional parameters: none",
+      "zh-CHS": "MIME媒体类型名称：应用程序MIME子类型名称：pgp签名必需参数：无可选参数：无"
+    },
+    {
+      "indent": 3,
+      "text": "Encoding considerations:",
+      "zh-CHS": "编码注意事项："
+    },
+    {
+      "indent": 6,
+      "text": "The content of this media type always consists of 7bit text.",
+      "zh-CHS": "此媒体类型的内容始终由7位文本组成。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations:",
+      "zh-CHS": "安全考虑："
+    },
+    {
+      "indent": 6,
+      "text": "See Section 8 and RFC 2440 Section 13.",
+      "zh-CHS": "参见第8节和RFC 2440第13节。"
+    },
+    {
+      "indent": 3,
+      "text": "Interoperability considerations: none",
+      "zh-CHS": "互操作性注意事项：无"
+    },
+    {
+      "indent": 3,
+      "text": "Published specification:",
+      "zh-CHS": "已发布的规范："
+    },
+    {
+      "indent": 6,
+      "text": "RFC 2440 and this document.",
+      "zh-CHS": "RFC 2440和本文件。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional information:",
+      "zh-CHS": "其他信息："
+    },
+    {
+      "indent": 6,
+      "text": "Magic number(s): none\nFile extension(s): asc, sig\nMacintosh File Type Code(s): pgDS",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Person & email address to contact for further information:",
+      "zh-CHS": "联系人和电子邮件地址，以获取更多信息："
+    },
+    {
+      "indent": 6,
+      "text": "Michael Elkins Email: me@cs.hmc.edu",
+      "zh-CHS": "Michael Elkins电子邮件：me@cs.hmc.edu"
+    },
+    {
+      "indent": 3,
+      "text": "Intended usage: common",
+      "zh-CHS": "预期用途：普通"
+    },
+    {
+      "indent": 3,
+      "text": "Author/Change controller:",
+      "zh-CHS": "作者/变更控制员："
+    },
+    {
+      "indent": 6,
+      "text": "Michael Elkins Email: me@cs.hmc.edu",
+      "zh-CHS": "Michael Elkins电子邮件：me@cs.hmc.edu"
+    },
+    {
+      "indent": 0,
+      "text": "9.3. Registration of the application/pgp-keys media type",
+      "section_title": true,
+      "zh-CHS": "9.3. 注册应用程序/pgp密钥媒体类型"
+    },
+    {
+      "indent": 3,
+      "text": "MIME media type name: application MIME subtype name: pgp-keys Required parameters: none Optional parameters: none",
+      "zh-CHS": "MIME媒体类型名称：应用程序MIME子类型名称：pgp密钥必需参数：无可选参数：无"
+    },
+    {
+      "indent": 3,
+      "text": "Encoding considerations:",
+      "zh-CHS": "编码注意事项："
+    },
+    {
+      "indent": 6,
+      "text": "The content of this media type always consists of 7bit text.",
+      "zh-CHS": "此媒体类型的内容始终由7位文本组成。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations:",
+      "zh-CHS": "安全考虑："
+    },
+    {
+      "indent": 6,
+      "text": "See Section 8 and RFC 2440 Section 13.",
+      "zh-CHS": "参见第8节和RFC 2440第13节。"
+    },
+    {
+      "indent": 3,
+      "text": "Interoperability considerations: none",
+      "zh-CHS": "互操作性注意事项：无"
+    },
+    {
+      "indent": 3,
+      "text": "Published specification:",
+      "zh-CHS": "已发布的规范："
+    },
+    {
+      "indent": 6,
+      "text": "RFC 2440 and this document.",
+      "zh-CHS": "RFC 2440和本文件。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional information:",
+      "zh-CHS": "其他信息："
+    },
+    {
+      "indent": 6,
+      "text": "Magic number(s): none\nFile extension(s): asc\nMacintosh File Type Code(s): none",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Person & email address to contact for further information:",
+      "zh-CHS": "联系人和电子邮件地址，以获取更多信息："
+    },
+    {
+      "indent": 6,
+      "text": "Michael Elkins Email: me@cs.hmc.edu",
+      "zh-CHS": "Michael Elkins电子邮件：me@cs.hmc.edu"
+    },
+    {
+      "indent": 3,
+      "text": "Intended usage: common",
+      "zh-CHS": "预期用途：普通"
+    },
+    {
+      "indent": 3,
+      "text": "Author/Change controller:",
+      "zh-CHS": "作者/变更控制员："
+    },
+    {
+      "indent": 6,
+      "text": "Michael Elkins Email: me@cs.hmc.edu",
+      "zh-CHS": "Michael Elkins电子邮件：me@cs.hmc.edu"
+    },
+    {
+      "indent": 0,
+      "text": "10. Notes",
+      "section_title": true,
+      "zh-CHS": "10. 笔记"
+    },
+    {
+      "indent": 3,
+      "text": "\"PGP\" and \"Pretty Good Privacy\" are registered trademarks of Network Associates, Inc.",
+      "zh-CHS": "“PGP”和“相当好的隐私”是Network Associates，Inc.的注册商标。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "11. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This document relies on the work of the IETF's OpenPGP Working Group's definitions of the OpenPGP Message Format. The OpenPGP message format is currently described in RFC 2440 [1].",
+      "zh-CHS": "本文件依赖于IETF的OpenPGP工作组对OpenPGP消息格式的定义。目前，RFC 2440[1]中描述了OpenPGP消息格式。"
+    },
+    {
+      "indent": 3,
+      "text": "Special thanks are due: to Philip Zimmermann for his original and ongoing work on PGP; to Charles Breed, Jon Callas and Dave Del Torto for originally proposing the formation of the OpenPGP Working Group; and to Steve Schoenfeld for helpful feedback during the draft process. The authors would also like to thank the engineers at Pretty Good Privacy, Inc (now Network Associates, Inc), including Colin Plumb, Hal Finney, Jon Callas, Mark Elrod, Mark Weaver and Lloyd Chambers, for their technical commentary.",
+      "zh-CHS": "特别感谢：感谢Philip Zimmermann对PGP的原创和持续工作；感谢Charles Breed、Jon Callas和Dave Del Torto最初提议成立OpenPGP工作组；并向Steve Schoenfeld征求起草过程中的有用反馈意见。作者还要感谢Pretty Good Privacy，Inc（现为Network Associates，Inc.）的工程师，包括科林·普拉姆、哈尔·芬尼、乔恩·卡拉斯、马克·埃尔罗德、马克·韦弗和劳埃德·钱伯斯，感谢他们的技术评论。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional thanks are due to Jeff Schiller and Derek Atkins for their continuing support of strong cryptography and PGP freeware at MIT; to Rodney Thayer of Sable Technology; to John Noerenberg, Steve Dorner and Laurence Lundblade of the Eudora team at QUALCOMM, Inc; to Bodo Moeller for proposing the approach followed with respect to trailing whitespace; to John Gilmore, Hugh Daniel and Fred Ringel (at Rivertown) and Ian Bell (at Turnpike) for their timely critical commentary; and to the international members of the IETF's OpenPGP mailing list, including William Geiger, Lutz Donnerhacke and Kazu Yamamoto. The idea to use multipart/mixed with multipart/signed has been attributed to James Galvin. Finally, our gratitude is due to the many members of the \"Cypherpunks,\" \"Coderpunks\" and \"pgp-users\" <http://cryptorights.org/pgp-users> mailing lists and the many users of PGP worldwide for helping keep the path to privacy open.",
+      "zh-CHS": "还要感谢Jeff Schiller和Derek Atkins继续支持麻省理工学院的强加密和PGP免费软件；致赛博科技公司的罗德尼·塞耶；致高通公司Eudora团队的John Noerenberg、Steve Dorner和Laurence Lundblade；感谢Bodo Moeller提出关于尾随空格的方法；感谢约翰·吉尔摩、休·丹尼尔、弗雷德·林格尔（在里弗敦）和伊恩·贝尔（在收费公路）及时发表评论；以及IETF OpenPGP邮件列表的国际成员，包括William Geiger、Lutz Donnerhacke和Kazu Yamamoto。使用multipart/mixed with multipart/signed的想法归功于James Galvin。最后，我们要感谢“密码朋克”、“密码朋克”和“pgp用户”的众多成员<http://cryptorights.org/pgp-users>邮件列表和全球PGP的众多用户帮助保持隐私通道的开放。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Addresses of the Authors and OpenPGP Working Group Chair",
+      "section_title": true,
+      "zh-CHS": "12. 作者和OpenPGP工作组主席的讲话"
+    },
+    {
+      "indent": 3,
+      "text": "The OpenPGP working group can be contacted via the current chair:",
+      "zh-CHS": "可通过现任主席联系OpenPGP工作组："
+    },
+    {
+      "indent": 3,
+      "text": "John W. Noerenberg II Qualcomm, Inc. 5775 Morehouse Dr. San Diego, CA 92121 USA",
+      "zh-CHS": "John W.Noerenberg II高通公司5775 Morehouse Dr.San Diego，CA 92121美国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 619 658 3510\nEMail: jwn2@qualcomm.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The principal authors of this document are:",
+      "zh-CHS": "本文件的主要作者是："
+    },
+    {
+      "indent": 3,
+      "text": "Dave Del Torto CryptoRights Foundation 80 Alviso Street, Mailstop: CRF San Francisco, CA 94127 USA",
+      "zh-CHS": "戴夫德尔托托密码基金会80阿尔维索街，邮递：CRF旧金山，CA 94127美国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1.415.334.5533, vm: #2\nEMail: ddt@cryptorights.org, ddt@openpgp.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Michael Elkins Network Associates, Inc. 3415 S. Sepulveda Blvd Suite 700 Los Angeles, CA 90034 USA",
+      "zh-CHS": "Michael Elkins Network Associates，Inc.美国加利福尼亚州洛杉矶Sepulveda大道南3415号700室90034"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1.310.737.1663\nFax:   +1.310.737.1755\nEmail: me@cs.hmc.edu, Michael_Elkins@NAI.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Raph Levien University of California at Berkeley 579 Soda Hall Berkeley, CA 94720 USA",
+      "zh-CHS": "拉斐莱文加州大学伯克利分校579苏打厅伯克利，CA 94720美国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1.510.642.6509\nEMail: raph@acm.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Thomas Roessler Nordstrasse 99 D-53111 Bonn, Germany",
+      "zh-CHS": "托马斯·罗斯勒·诺德斯特劳斯99 D-53111德国波恩"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +49-228-638007\nEMail: roessler@does-not-exist.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "References",
+      "zh-CHS": "工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Callas, J., Donnerhacke, L., Finney, H. and R. Thayer, \"OpenPGP Message Format\", RFC 2440, November 1998.",
+      "zh-CHS": "[1] Callas，J.，Donnerhacke，L.，Finney，H.和R.Thayer，“OpenPGP消息格式”，RFC2440，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Galvin, J., Murphy, G., Crocker, S. and N. Freed, \"Security Multiparts for MIME: Multipart/Signed and Multipart/Encrypted\", RFC 1847, October 1995.",
+      "zh-CHS": "[2] Galvin，J.，Murphy，G.，Crocker，S.和N.Freed，“MIME的安全多部分：多部分/签名和多部分/加密”，RFC 1847，1995年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Freed, N. and N. Borenstein, \"Multipurpose Internet Mail Extensions (MIME) Part Two: Media Types\", RFC 2046, November 1996.",
+      "zh-CHS": "[3] Freed，N.和N.Borenstein，“多用途互联网邮件扩展（MIME）第二部分：媒体类型”，RFC 20461996年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Galvin, J., Murphy, G., Crocker, S. and N. Freed, \"MIME Object Security Services\", RFC 1848, October 1995.",
+      "zh-CHS": "[4] Galvin，J.，Murphy，G.，Crocker，S.和N.Freed，“MIME对象安全服务”，RFC 18481995年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Atkins, D., Stallings, W. and P. Zimmermann, \"PGP Message Exchange Formats\", RFC 1991, August 1996.",
+      "zh-CHS": "[5] Atkins，D.，Stallings，W.和P.Zimmermann，“PGP消息交换格式”，RFC 1991，1996年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Elkins, M., \"MIME Security with Pretty Good Privacy (PGP)\", RFC 2015, October 1996.",
+      "zh-CHS": "[6] Elkins，M.，“具有良好隐私的MIME安全性（PGP）”，RFC 2015，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Freed, N., \"Gateways and MIME Security Multiparts\", RFC 2480, January 1999.",
+      "zh-CHS": "[7] 弗里德，N.，“网关和MIME安全多部分”，RFC2480，1999年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2001). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2001年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

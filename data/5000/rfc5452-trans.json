@@ -1,0 +1,1108 @@
+{
+  "title": {
+    "text": "RFC 5452: Measures for Making DNS More Resilient against Forged Answers",
+    "zh-CHS": "RFC 5452"
+  },
+  "number": 5452,
+  "created_at": "2021-11-11 20:04:34.069208+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          A. Hubert\nRequest for Comments: 5452            Netherlabs Computer Consulting BV.\nUpdates: 2181                                                R. van Mook\nCategory: Standards Track                                        Equinix\n                                                            January 2009",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Measures for Making DNS More Resilient against Forged Answers",
+      "zh-CHS": "使DNS对伪造答案更具弹性的措施"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2009 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2009 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/ license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/ 许可证信息）在本文件发布之日生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The current Internet climate poses serious threats to the Domain Name System. In the interim period before the DNS protocol can be secured more fully, measures can already be taken to harden the DNS to make 'spoofing' a recursing nameserver many orders of magnitude harder.",
+      "zh-CHS": "当前的互联网环境对域名系统构成了严重威胁。在DNS协议能够得到更充分的安全保护之前的过渡期内，已经可以采取措施加强DNS，使“欺骗”递归名称服务器的难度增加许多数量级。"
+    },
+    {
+      "indent": 3,
+      "text": "Even a cryptographically secured DNS benefits from having the ability to discard bogus responses quickly, as this potentially saves large amounts of computation.",
+      "zh-CHS": "即使是加密安全的DNS也能从快速丢弃虚假响应的能力中获益，因为这可能会节省大量计算。"
+    },
+    {
+      "indent": 3,
+      "text": "By describing certain behavior that has previously not been standardized, this document sets out how to make the DNS more resilient against accepting incorrect responses. This document updates RFC 2181.",
+      "zh-CHS": "通过描述以前未标准化的某些行为，本文档阐述了如何使DNS在接受错误响应时更具弹性。本文件更新了RFC 2181。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3\n2.  Requirements and Definitions . . . . . . . . . . . . . . . . .  4\n  2.1.  Definitions  . . . . . . . . . . . . . . . . . . . . . . .  4\n  2.2.  Key Words  . . . . . . . . . . . . . . . . . . . . . . . .  5\n3.  Description of DNS Spoofing  . . . . . . . . . . . . . . . . .  5\n4.  Detailed Description of Spoofing Scenarios . . . . . . . . . .  6\n  4.1.  Forcing a Query  . . . . . . . . . . . . . . . . . . . . .  6\n  4.2.  Matching the Question Section  . . . . . . . . . . . . . .  7\n  4.3.  Matching the ID Field  . . . . . . . . . . . . . . . . . .  7\n  4.4.  Matching the Source Address of the Authentic Response  . .  7\n  4.5.  Matching the Destination Address and Port of the\n        Authentic Response . . . . . . . . . . . . . . . . . . . .  8\n  4.6.  Have the Response Arrive before the Authentic Response . .  8\n5.  Birthday Attacks . . . . . . . . . . . . . . . . . . . . . . .  9\n6.  Accepting Only In-Domain Records . . . . . . . . . . . . . . .  9\n7.  Combined Difficulty  . . . . . . . . . . . . . . . . . . . . . 10\n  7.1.  Symbols Used in Calculation  . . . . . . . . . . . . . . . 10\n  7.2.  Calculation  . . . . . . . . . . . . . . . . . . . . . . . 11\n8.  Discussion . . . . . . . . . . . . . . . . . . . . . . . . . . 12\n  8.1.  Repetitive Spoofing Attempts for a Single Domain Name  . . 13\n9.  Forgery Countermeasures  . . . . . . . . . . . . . . . . . . . 13\n  9.1.  Query Matching Rules . . . . . . . . . . . . . . . . . . . 13\n  9.2.  Extending the Q-ID Space by Using Ports and Addresses  . . 14\n    9.2.1.  Justification and Discussion . . . . . . . . . . . . . 14\n  9.3.  Spoof Detection and Countermeasure . . . . . . . . . . . . 15\n10. Security Considerations  . . . . . . . . . . . . . . . . . . . 15\n11. Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 16\n12. References . . . . . . . . . . . . . . . . . . . . . . . . . . 16\n  12.1. Normative References . . . . . . . . . . . . . . . . . . . 16\n  12.2. Informative References . . . . . . . . . . . . . . . . . . 17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes several common problems in DNS implementations, which, although previously recognized, remain largely unsolved. Besides briefly recapping these problems, this document contains rules that, if implemented, make complying resolvers vastly more resistant to the attacks described. The goal is to make the existing DNS as secure as possible within the current protocol boundaries.",
+      "zh-CHS": "本文档描述了DNS实现中的几个常见问题，这些问题虽然以前已被认识，但在很大程度上仍未解决。除了简要回顾这些问题外，本文档还包含一些规则，这些规则如果实现，将使符合要求的解析器对所描述的攻击具有更大的抵抗力。目标是使现有DNS在当前协议边界内尽可能安全。"
+    },
+    {
+      "indent": 3,
+      "text": "The words below are aimed at authors of resolvers: it is up to operators to decide which nameserver implementation to use, or which options to enable. Operational constraints may override the security concerns described below. However, implementations are expected to allow an operator to enable functionality described in this document.",
+      "zh-CHS": "下面的话是针对解析器的作者的：由操作员决定使用哪个名称服务器实现，或者启用哪个选项。操作限制可能会覆盖下面描述的安全问题。但是，预期实现将允许操作员启用本文档中描述的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "Almost every transaction on the Internet involves the Domain Name System, which is described in [RFC1034], [RFC1035], and beyond.",
+      "zh-CHS": "几乎互联网上的每一笔交易都涉及域名系统，[RFC1034]、[RFC1035]及更高版本中对该系统进行了描述。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, it has recently become possible to acquire Secure Socket Layer/Transport Layer Security (SSL/TLS) certificates with no other confirmation of identity than the ability to respond to a verification email sent via SMTP ([RFC5321]) -- which generally uses DNS for its routing.",
+      "zh-CHS": "此外，最近有可能获得安全套接字层/传输层安全（SSL/TLS）证书，而无需其他身份确认，只需能够响应通过SMTP（[RFC5321]）发送的验证电子邮件，SMTP通常使用DNS进行路由。"
+    },
+    {
+      "indent": 3,
+      "text": "In other words, any party that (temporarily) controls the Domain Name System is in a position to reroute most kinds of Internet transactions, including the verification steps in acquiring an SSL/ TLS certificate for a domain. This in turn means that even transactions protected by SSL/TLS could be diverted.",
+      "zh-CHS": "换句话说，（暂时）控制域名系统的任何一方都可以重新路由大多数类型的互联网交易，包括获取域SSL/TLS证书的验证步骤。这反过来意味着，即使是受SSL/TLS保护的事务也可能被转移。"
+    },
+    {
+      "indent": 3,
+      "text": "It is entirely conceivable that such rerouted traffic could be used to the disadvantage of Internet users.",
+      "zh-CHS": "完全可以想象，这种重新路由的流量可能会对互联网用户不利。"
+    },
+    {
+      "indent": 3,
+      "text": "These and other developments have made the security and trustworthiness of DNS of renewed importance. Although the DNS community is working hard on finalizing and implementing a cryptographically enhanced DNS protocol, steps should be taken to make sure that the existing use of DNS is as secure as possible within the bounds of the relevant standards.",
+      "zh-CHS": "这些以及其他的发展使得DNS的安全性和可靠性重新变得重要。尽管DNS社区正在努力完成并实施加密增强型DNS协议，但应采取措施确保DNS的现有使用在相关标准的范围内尽可能安全。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that the most commonly used resolvers currently do not perform as well as possible in this respect, making this document of urgent importance.",
+      "zh-CHS": "应该注意的是，目前最常用的解析器在这方面的性能没有尽可能好，这使得本文档具有紧迫的重要性。"
+    },
+    {
+      "indent": 3,
+      "text": "A thorough analysis of risks facing DNS can be found in [RFC3833].",
+      "zh-CHS": "DNS面临的风险的全面分析可在[RFC3833]中找到。"
+    },
+    {
+      "indent": 3,
+      "text": "This document expands on some of the risks mentioned in RFC 3833, especially those outlined in the sections on \"ID Guessing and Query Prediction\" and \"Name Chaining\". Furthermore, it emphasizes a number of existing rules and guidelines embodied in the relevant DNS protocol specifications. The following also specifies new requirements to make sure the Domain Name System can be relied upon until a more secure protocol has been standardized and deployed.",
+      "zh-CHS": "本文档详细介绍了RFC 3833中提到的一些风险，特别是“ID猜测和查询预测”和“名称链接”部分中概述的风险。此外，它强调了相关DNS协议规范中包含的一些现有规则和指南。以下还规定了新的要求，以确保在标准化和部署更安全的协议之前，可以依赖域名系统。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that even when all measures suggested below are implemented, protocol users are not protected against third parties with the ability to observe, modify, or inject packets in the traffic of a resolver.",
+      "zh-CHS": "应该注意的是，即使实施了下面建议的所有措施，协议用户也不会受到第三方的保护，第三方能够观察、修改或在解析器的通信量中注入数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "For protocol extensions that offer protection against these scenarios, see [RFC4033] and beyond.",
+      "zh-CHS": "有关针对这些场景提供保护的协议扩展，请参阅[RFC4033]及更高版本。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements and Definitions",
+      "section_title": true,
+      "zh-CHS": "2. 要求和定义"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Definitions",
+      "section_title": true,
+      "zh-CHS": "2.1. 定义"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the following definitions:",
+      "zh-CHS": "本文件使用以下定义："
+    },
+    {
+      "indent": 6,
+      "text": "Client: typically a 'stub-resolver' on an end-user's computer.",
+      "zh-CHS": "客户端：通常是终端用户计算机上的“存根解析器”。"
+    },
+    {
+      "indent": 6,
+      "text": "Resolver: a nameserver performing recursive service for clients, also known as a caching server, or a full service resolver ([RFC1123], Section 6.1.3.1).",
+      "zh-CHS": "解析程序：为客户端执行递归服务的名称服务器，也称为缓存服务器，或全服务解析程序（[RFC1123]，第6.1.3.1节）。"
+    },
+    {
+      "indent": 6,
+      "text": "Stub resolver: a very limited resolver on a client computer, that leaves the recursing work to a full resolver.",
+      "zh-CHS": "存根解析器：客户端计算机上非常有限的解析器，将递归工作留给完整的解析器。"
+    },
+    {
+      "indent": 6,
+      "text": "Query: a question sent out by a resolver, typically in a UDP packet",
+      "zh-CHS": "查询：由解析器发出的问题，通常在UDP数据包中"
+    },
+    {
+      "indent": 6,
+      "text": "Response: the answer sent back by an authoritative nameserver, typically in a UDP packet.",
+      "zh-CHS": "响应：由权威名称服务器发回的应答，通常在UDP数据包中。"
+    },
+    {
+      "indent": 6,
+      "text": "Third party: any entity other than the resolver or the intended recipient of a question. The third party may have access to an arbitrary authoritative nameserver, but has no access to packets transmitted by the resolver or authoritative server.",
+      "zh-CHS": "第三方：问题的解决者或预期接收者以外的任何实体。第三方可以访问任意权威名称服务器，但不能访问由解析程序或权威服务器传输的数据包。"
+    },
+    {
+      "indent": 6,
+      "text": "Attacker: malicious third party.",
+      "zh-CHS": "攻击者：恶意的第三方。"
+    },
+    {
+      "indent": 6,
+      "text": "Spoof: the activity of attempting to subvert the DNS process by getting a chosen answer accepted.",
+      "zh-CHS": "欺骗：试图通过接受选定答案来颠覆DNS进程的活动。"
+    },
+    {
+      "indent": 6,
+      "text": "Authentic response: the correct answer that comes from the right authoritative server.",
+      "zh-CHS": "真实响应：来自正确权威服务器的正确答案。"
+    },
+    {
+      "indent": 6,
+      "text": "Target domain name: domain for which the attacker wishes to spoof in an answer",
+      "zh-CHS": "目标域名：攻击者希望在应答中欺骗的域"
+    },
+    {
+      "indent": 6,
+      "text": "Fake data: response chosen by the attacker.",
+      "zh-CHS": "假数据：攻击者选择的响应。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Key Words",
+      "section_title": true,
+      "zh-CHS": "2.2. 关键词"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Description of DNS Spoofing",
+      "section_title": true,
+      "zh-CHS": "3. DNS欺骗的描述"
+    },
+    {
+      "indent": 3,
+      "text": "When certain steps are taken, it is feasible to \"spoof\" the current deployed majority of resolvers with carefully crafted and timed DNS packets. Once spoofed, a caching server will repeat the data it wrongfully accepted, and make its clients contact the wrong, and possibly malicious, servers.",
+      "zh-CHS": "当采取某些步骤时，可以使用精心编制和定时的DNS数据包“欺骗”当前部署的大多数解析器。一旦被欺骗，缓存服务器将重复其错误接受的数据，并使其客户端与错误的（可能是恶意的）服务器联系。"
+    },
+    {
+      "indent": 3,
+      "text": "To understand how this process works it is important to know what makes a resolver accept a response.",
+      "zh-CHS": "要了解这个过程是如何工作的，重要的是要知道是什么使解析器接受响应。"
+    },
+    {
+      "indent": 3,
+      "text": "The following sentence in Section 5.3.3 of [RFC1034] presaged the present problem:",
+      "zh-CHS": "[RFC1034]第5.3.3节中的以下句子预示了当前的问题："
+    },
+    {
+      "indent": 5,
+      "text": "The resolver should be highly paranoid in its parsing of responses. It should also check that the response matches the query it sent using the ID field in the response.",
+      "zh-CHS": "解析程序在解析响应时应该高度偏执。它还应该检查响应是否与它使用响应中的ID字段发送的查询匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "DNS data is to be accepted by a resolver if and only if:",
+      "zh-CHS": "只有在以下情况下，解析程序才会接受DNS数据："
+    },
+    {
+      "indent": 3,
+      "text": "1. The question section of the reply packet is equivalent to that of a question packet currently waiting for a response.",
+      "zh-CHS": "1. 回复包的问题部分等同于当前等待响应的问题包的问题部分。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The ID field of the reply packet matches that of the question packet.",
+      "zh-CHS": "2. 回复数据包的ID字段与问题数据包的ID字段匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The response comes from the same network address to which the question was sent.",
+      "zh-CHS": "3. 响应来自问题发送到的同一网络地址。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The response comes in on the same network address, including port number, from which the question was sent.",
+      "zh-CHS": "4. 响应来自同一个网络地址，包括发送问题的端口号。"
+    },
+    {
+      "indent": 3,
+      "text": "In general, the first response matching these four conditions is accepted.",
+      "zh-CHS": "通常，符合这四个条件的第一个响应是可接受的。"
+    },
+    {
+      "indent": 3,
+      "text": "If a third party succeeds in meeting the four conditions before the response from the authentic nameserver does so, it is in a position to feed a resolver fabricated data. When it does so, we dub it an \"attacker\", attempting to spoof in fake data.",
+      "zh-CHS": "如果第三方在来自真实名称服务器的响应满足这四个条件之前成功地满足了这四个条件，那么它就可以向解析器提供伪造的数据。当它这样做时，我们称它为“攻击者”，试图欺骗假数据。"
+    },
+    {
+      "indent": 3,
+      "text": "All conditions mentioned above can theoretically be met by a third party, with the difficulty being a function of the resolver implementation and zone configuration.",
+      "zh-CHS": "理论上，第三方可以满足上述所有条件，困难在于解析器实现和区域配置的功能。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Detailed Description of Spoofing Scenarios",
+      "section_title": true,
+      "zh-CHS": "4. 欺骗场景的详细描述"
+    },
+    {
+      "indent": 3,
+      "text": "The previous paragraph discussed a number of requirements an attacker must match in order to spoof in manipulated (or fake) data. This section discusses the relative difficulties and how implementation-defined choices impact the amount of work an attacker has to perform to meet said difficulties.",
+      "zh-CHS": "上一段讨论了攻击者必须满足的一些要求，以便欺骗被操纵（或伪造）的数据。本节讨论了相对困难，以及实现定义的选择如何影响攻击者为解决上述困难而必须执行的工作量。"
+    },
+    {
+      "indent": 3,
+      "text": "Some more details can be found in Section 2.2 of [RFC3833].",
+      "zh-CHS": "更多详情见[RFC3833]第2.2节。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Forcing a Query",
+      "section_title": true,
+      "zh-CHS": "4.1. 强制查询"
+    },
+    {
+      "indent": 3,
+      "text": "Formally, there is no need for a nameserver to perform service except for its operator, its customers, or more generally its users. Recently, open recursing nameservers have been used to amplify denial-of-service attacks.",
+      "zh-CHS": "从形式上讲，名称服务器不需要执行服务，除了它的运营商、客户或更一般的用户之外。最近，开放递归名称服务器被用来放大拒绝服务攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Providing full service enables the third party to send the target resolver a query for the domain name it intends to spoof. On receiving this query, and not finding the answer in its cache, the resolver will transmit queries to relevant authoritative nameservers. This opens up a window of opportunity for getting fake answer data accepted.",
+      "zh-CHS": "提供完整服务使第三方能够向目标解析程序发送一个查询，以查询其打算欺骗的域名。在接收到该查询并且在其缓存中找不到答案时，解析程序将向相关权威名称服务器发送查询。这为接受假答案数据打开了机会之窗。"
+    },
+    {
+      "indent": 3,
+      "text": "Queries may however be forced indirectly, for example, by inducing a mail server to perform DNS lookups.",
+      "zh-CHS": "然而，可以间接地强制查询，例如，通过诱导邮件服务器执行DNS查找。"
+    },
+    {
+      "indent": 3,
+      "text": "Some operators restrict access by not recursing for unauthorized IP addresses, but only respond with data from the cache. This makes spoofing harder for a third party as it cannot then force the exact moment a question will be asked. It is still possible however to determine a time range when this will happen, because nameservers helpfully publish the decreasing time to live (TTL) of entries in the cache, which indicate from which absolute time onwards a new query could be sent to refresh the expired entry.",
+      "zh-CHS": "一些运营商通过不递归未经授权的IP地址来限制访问，而只使用缓存中的数据进行响应。这使得欺骗对第三方来说更加困难，因为它不能强迫第三方说出问题的确切时间。但是，仍然可以确定发生这种情况的时间范围，因为名称服务器可以帮助发布缓存中条目的递减生存时间（TTL），这表示从哪个绝对时间开始可以发送新查询以刷新过期条目。"
+    },
+    {
+      "indent": 3,
+      "text": "The time to live of the target domain name's RRSets determines how often a window of opportunity is available, which implies that a short TTL makes spoofing far more viable.",
+      "zh-CHS": "目标域名的RRSET的生存时间决定了机会窗口的可用频率，这意味着短TTL使欺骗更加可行。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the attacker might very well have authorized access to the target resolver by virtue of being a customer or employee of its operator. In addition, access may be enabled through the use of reflectors as outlined in [RFC5358].",
+      "zh-CHS": "请注意，由于攻击者是其操作员的客户或雇员，因此攻击者很可能有权访问目标解析程序。此外，可通过使用[RFC5358]中概述的反射器启用访问。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Matching the Question Section",
+      "section_title": true,
+      "zh-CHS": "4.2. 匹配问题部分"
+    },
+    {
+      "indent": 3,
+      "text": "DNS packets, both queries and responses, contain a question section. Incoming responses should be verified to have a question section that is equivalent to that of the outgoing query.",
+      "zh-CHS": "查询和响应的DNS数据包都包含一个问题部分。应验证传入响应是否具有与传出查询相同的问题部分。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Matching the ID Field",
+      "section_title": true,
+      "zh-CHS": "4.3. 匹配ID字段"
+    },
+    {
+      "indent": 3,
+      "text": "The DNS ID field is 16 bits wide, meaning that if full use is made of all these bits, and if their contents are truly random, it will require on average 32768 attempts to guess. Anecdotal evidence suggests there are implementations utilizing only 14 bits, meaning on average 8192 attempts will suffice.",
+      "zh-CHS": "DNS ID字段宽16位，这意味着如果充分利用所有这些位，并且如果它们的内容是真正随机的，则平均需要32768次猜测。传闻证据表明，有些实现仅使用14位，这意味着平均8192次尝试就足够了。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, if the target nameserver can be forced into having multiple identical queries outstanding, the \"Birthday Attack\" phenomenon means that any fake data sent by the attacker is matched against multiple outstanding queries, significantly raising the chance of success. Further details in Section 5.",
+      "zh-CHS": "此外，如果可以强制目标名称服务器执行多个相同的未完成查询，“生日攻击”现象意味着攻击者发送的任何虚假数据都与多个未完成查询相匹配，从而大大提高了成功的机会。更多详情见第5节。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Matching the Source Address of the Authentic Response",
+      "section_title": true,
+      "zh-CHS": "4.4. 匹配真实响应的源地址"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that meeting this condition entails being able to transmit packets on behalf of the address of the authoritative nameserver. While two Best Current Practice documents ([RFC2827] and [RFC3013] specifically) direct Internet access providers to prevent their customers from assuming IP addresses that are not assigned to them, these recommendations are not universally (nor even widely) implemented.",
+      "zh-CHS": "应该注意，满足此条件需要能够代表权威名称服务器的地址传输数据包。虽然有两份最新最佳实践文件（[RFC2827]和[RFC3013]明确指示互联网接入提供商防止其客户使用未分配给他们的IP地址，但这些建议并未得到普遍（甚至广泛）实施。"
+    },
+    {
+      "indent": 3,
+      "text": "Many zones have two or three authoritative nameservers, which make matching the source address of the authentic response very likely with even a naive choice having a double digit success rate.",
+      "zh-CHS": "许多区域有两个或三个权威名称服务器，这使得匹配真实响应的源地址非常可能，即使是一个简单的选择，也有两位数的成功率。"
+    },
+    {
+      "indent": 3,
+      "text": "Most recursing nameservers store relative performance indications of authoritative nameservers, which may make it easier to predict which nameserver would originally be queried -- the one most likely to respond the quickest.",
+      "zh-CHS": "大多数递归名称服务器存储权威名称服务器的相对性能指示，这可以更容易地预测最初查询哪个名称服务器——最有可能响应最快的名称服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Generally, this condition requires at most two or three attempts before it is matched.",
+      "zh-CHS": "通常情况下，这种情况在匹配之前最多需要两到三次尝试。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Matching the Destination Address and Port of the Authentic Response",
+      "zh-CHS": "4.5. 匹配真实响应的目标地址和端口"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the destination address of the authentic response is the source address of the original query.",
+      "zh-CHS": "请注意，真实响应的目标地址是原始查询的源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The actual address of a recursing nameserver is generally known; the port used for asking questions is harder to determine. Most current resolvers pick an arbitrary port at startup (possibly at random) and use this for all outgoing queries. In quite a number of cases, the source port of outgoing questions is fixed at the traditional DNS assigned server port number of 53.",
+      "zh-CHS": "递归名称服务器的实际地址通常是已知的；用于提问的端口更难确定。大多数当前的解析器在启动时选择任意端口（可能是随机的），并将其用于所有传出查询。在相当多的情况下，传出问题的源端口固定在传统DNS分配的服务器端口号53。"
+    },
+    {
+      "indent": 3,
+      "text": "If the source port of the original query is random, but static, any authoritative nameserver under observation by the attacker can be used to determine this port. This means that matching this conditions often requires no guess work.",
+      "zh-CHS": "如果原始查询的源端口是随机的，但是静态的，则攻击者可以使用观察到的任何权威名称服务器来确定此端口。这意味着匹配此条件通常不需要猜测工作。"
+    },
+    {
+      "indent": 3,
+      "text": "If multiple ports are used for sending queries, this enlarges the effective ID space by a factor equal to the number of ports used.",
+      "zh-CHS": "如果使用多个端口发送查询，这会将有效ID空间扩大一个等于所用端口数的系数。"
+    },
+    {
+      "indent": 3,
+      "text": "Less common resolving servers choose a random port per outgoing query. If this strategy is followed, this port number can be regarded as an additional ID field, again containing up to 16 bits.",
+      "zh-CHS": "不太常见的解析服务器为每个传出查询选择一个随机端口。如果遵循此策略，此端口号可被视为附加ID字段，同样包含多达16位。"
+    },
+    {
+      "indent": 3,
+      "text": "If the maximum ports range is utilized, on average, around 32256 source ports would have to be tried before matching the source port of the original query, as ports below 1024 may be unavailable for use, leaving 64512 options.",
+      "zh-CHS": "如果使用最大端口范围，平均而言，在匹配原始查询的源端口之前，必须尝试大约32256个源端口，因为低于1024的端口可能无法使用，留下64512个选项。"
+    },
+    {
+      "indent": 3,
+      "text": "It is in general safe for DNS to use ports in the range 1024-49152 even though some of these ports are allocated to other protocols. DNS resolvers will not be able to use any ports that are already in use. If a DNS resolver uses a port, it will release that port after a short time and migrate to a different port. Only in the case of a high-volume resolver is it possible that an application wanting a particular UDP port suffers a long term block-out.",
+      "zh-CHS": "DNS使用1024-49152范围内的端口通常是安全的，即使其中一些端口分配给其他协议。DNS解析程序将无法使用任何已在使用的端口。如果DNS解析程序使用某个端口，它将在短时间后释放该端口并迁移到其他端口。只有在大容量解析器的情况下，需要特定UDP端口的应用程序才可能遭受长期阻塞。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that a firewall will not prevent the matching of this address, as it will accept answers that (appear to) come from the correct address, offering no additional security.",
+      "zh-CHS": "需要注意的是，防火墙不会阻止此地址的匹配，因为它会接受（似乎）来自正确地址的答案，不会提供额外的安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6. Have the Response Arrive before the Authentic Response",
+      "section_title": true,
+      "zh-CHS": "4.6. 让回复在真实回复之前到达"
+    },
+    {
+      "indent": 3,
+      "text": "Once any packet has matched the previous four conditions (plus possible additional conditions), no further responses are generally accepted.",
+      "zh-CHS": "一旦任何数据包匹配了前面的四个条件（加上可能的附加条件），一般不接受进一步的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "This means that the third party has a limited time in which to inject its spoofed response. For calculations, we will assume a window in order of at most 100 ms (depending on the network distance to the authentic authoritative nameserver).",
+      "zh-CHS": "这意味着第三方有有限的时间来注入其欺骗响应。对于计算，我们将假设一个窗口最多为100 ms（取决于到可信权威名称服务器的网络距离）。"
+    },
+    {
+      "indent": 3,
+      "text": "This time period can be far longer if the authentic authoritative nameservers are (briefly) overloaded by queries, perhaps by the attacker.",
+      "zh-CHS": "如果可信的权威名称服务器（短暂地）被查询（可能是被攻击者）过载，则此时间段可能会更长。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Birthday Attacks",
+      "section_title": true,
+      "zh-CHS": "5. 生日袭击"
+    },
+    {
+      "indent": 3,
+      "text": "The so-called \"birthday paradox\" implies that a group of 23 people suffices to have a more than even chance of having two or more members of the group share a birthday.",
+      "zh-CHS": "所谓的“生日悖论”意味着一个由23人组成的团体有足够的机会让两个或两个以上的团体成员共享一个生日。"
+    },
+    {
+      "indent": 3,
+      "text": "An attacker can benefit from this exact phenomenon if it can force the target resolver to have multiple equivalent (identical QNAME, QTYPE, and QCLASS) outstanding queries at any one time to the same authoritative server.",
+      "zh-CHS": "如果攻击者可以强制目标解析程序在任何时候对同一权威服务器执行多个等效（相同的QNAME、QTYPE和QCLASS）未完成的查询，则攻击者可以从这种现象中获益。"
+    },
+    {
+      "indent": 3,
+      "text": "Any packet the attacker sends then has a much higher chance of being accepted because it only has to match any of the outstanding queries for that single domain. Compared to the birthday analogy above, of the group composed of queries and responses, the chance of having any of these share an ID rises quickly.",
+      "zh-CHS": "攻击者发送的任何数据包都有更高的被接受的可能性，因为它只需匹配该单个域的任何未完成查询。与上面的生日类比相比，在由查询和响应组成的组中，任何一个共享ID的机会都会迅速增加。"
+    },
+    {
+      "indent": 3,
+      "text": "As long as small numbers of queries are sent out, the chance of successfully spoofing a response rises linearly with the number of outstanding queries for the exact domain and nameserver.",
+      "zh-CHS": "只要发送少量查询，成功欺骗响应的几率就会随着特定域和名称服务器的未完成查询数线性增加。"
+    },
+    {
+      "indent": 3,
+      "text": "For larger numbers, this effect is less pronounced.",
+      "zh-CHS": "对于较大的数字，这种影响不太明显。"
+    },
+    {
+      "indent": 3,
+      "text": "More details are available in US-CERT [vu-457875].",
+      "zh-CHS": "有关更多详细信息，请访问US-CERT[vu-457875]。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Accepting Only In-Domain Records",
+      "section_title": true,
+      "zh-CHS": "6. 仅接受域内记录"
+    },
+    {
+      "indent": 3,
+      "text": "Responses from authoritative nameservers often contain information that is not part of the zone for which we deem it authoritative. As an example, a query for the MX record of a domain might get as its responses a mail exchanger in another domain, and additionally the IP address of this mail exchanger.",
+      "zh-CHS": "来自权威名称服务器的响应通常包含不属于我们认为具有权威的区域的信息。例如，对一个域的MX记录的查询可能会得到另一个域中的邮件交换器的响应，另外还有这个邮件交换器的IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "If accepted uncritically, the resolver stands the chance of accepting data from an untrusted source. Care must be taken to only accept data if it is known that the originator is authoritative for the QNAME or a parent of the QNAME.",
+      "zh-CHS": "如果不加批判地接受，解析程序就有可能接受来自不受信任源的数据。必须注意，只有在已知发起者对QNAME或QNAME的父项具有权威性时，才接受数据。"
+    },
+    {
+      "indent": 3,
+      "text": "One very simple way to achieve this is to only accept data if it is part of the domain for which the query was intended.",
+      "zh-CHS": "实现这一点的一个非常简单的方法是，仅当数据是要进行查询的域的一部分时才接受数据。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Combined Difficulty",
+      "section_title": true,
+      "zh-CHS": "7. 组合难度"
+    },
+    {
+      "indent": 3,
+      "text": "Given a known or static destination port, matching ID field, the source and destination address requires on average in the order of 2 * 2^15 = 65000 packets, assuming a zone has 2 authoritative nameservers.",
+      "zh-CHS": "给定已知或静态目标端口，匹配ID字段，源和目标地址平均需要2*2^15=65000个数据包，假设一个区域有2个权威名称服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "If the window of opportunity available is around 100 ms, as assumed above, an attacker would need to be able to briefly transmit 650000 packets/s to have a 50% chance to get spoofed data accepted on the first attempt.",
+      "zh-CHS": "如果可用的机会窗口约为100毫秒（如上所述），则攻击者需要能够以650000个数据包/秒的速度短暂传输数据，以便有50%的机会在第一次尝试时接受伪造数据。"
+    },
+    {
+      "indent": 3,
+      "text": "A realistic minimal DNS response consists of around 80 bytes, including IP headers, making the packet rate above correspond to a respectable burst of 416 Mbit/s.",
+      "zh-CHS": "一个实际的最小DNS响应由大约80个字节组成，包括IP头，使得上面的包速率对应于416Mbit/s的可观突发。"
+    },
+    {
+      "indent": 3,
+      "text": "As of mid-2006, this kind of bandwidth was not common but not scarce either, especially among those in a position to control many servers.",
+      "zh-CHS": "截至2006年年中，这种带宽并不普遍，但也并不稀缺，尤其是在那些能够控制许多服务器的公司中。"
+    },
+    {
+      "indent": 3,
+      "text": "These numbers change when a window of a full second is assumed, possibly because the arrival of the authentic response can be prevented by overloading the bona fide authoritative hosts with decoy queries. This reduces the needed bandwidth to 42 Mbit/s.",
+      "zh-CHS": "当假定一整秒钟的时间窗口时，这些数字会发生变化，这可能是因为可以通过使用诱饵查询重载真正的权威主机来防止真实响应的到来。这将所需带宽降低到42 Mbit/s。"
+    },
+    {
+      "indent": 3,
+      "text": "If, in addition, the attacker is granted more than a single chance and allowed up to 60 minutes of work on a domain with a time to live of 300 seconds, a meager 4 Mbit/s suffices for a 50% chance at getting fake data accepted. Once equipped with a longer time, matching condition 1 mentioned above is straightforward -- any popular domain will have been queried a number of times within this hour, and given the short TTL, this would lead to queries to authoritative nameservers, opening windows of opportunity.",
+      "zh-CHS": "此外，如果攻击者获得了不止一次的机会，并且允许攻击者在一个域上工作60分钟，生存时间为300秒，那么仅4 Mbit/s就足以使伪造数据被接受的几率达到50%。一旦配备了更长的时间，上面提到的匹配条件1就很简单了——任何流行的域都会在这一小时内被查询多次，并且由于TTL较短，这将导致对权威名称服务器的查询，从而打开机会之窗。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Symbols Used in Calculation",
+      "section_title": true,
+      "zh-CHS": "7.1. 计算中使用的符号"
+    },
+    {
+      "indent": 3,
+      "text": "Assume the following symbols are used:",
+      "zh-CHS": "假设使用了以下符号："
+    },
+    {
+      "indent": 3,
+      "text": "I: Number distinct IDs available (maximum 65536)",
+      "zh-CHS": "I：可用的不同ID数（最多65536个）"
+    },
+    {
+      "indent": 3,
+      "text": "P: Number of ports used (maximum around 64000 as ports under 1024 are not always available, but often 1)",
+      "zh-CHS": "P：使用的端口数（最大约64000个，因为1024以下的端口并不总是可用，但通常为1个）"
+    },
+    {
+      "indent": 3,
+      "text": "N: Number of authoritative nameservers for a domain (averages around 2.5)",
+      "zh-CHS": "N：域的权威名称服务器数（平均约2.5）"
+    },
+    {
+      "indent": 3,
+      "text": "F: Number of \"fake\" packets sent by the attacker",
+      "zh-CHS": "F：攻击者发送的“假”数据包数"
+    },
+    {
+      "indent": 3,
+      "text": "R: Number of packets sent per second by the attacker",
+      "zh-CHS": "R：攻击者每秒发送的数据包数"
+    },
+    {
+      "indent": 3,
+      "text": "W: Window of opportunity, in seconds. Bounded by the response time of the authoritative servers (often 0.1s)",
+      "zh-CHS": "W：机会之窗，以秒为单位。受权威服务器的响应时间限制（通常为0.1s）"
+    },
+    {
+      "indent": 3,
+      "text": "D: Average number of identical outstanding queries of a resolver (typically 1, see Section 5)",
+      "zh-CHS": "D：解析程序的相同未完成查询的平均数量（通常为1，请参见第5节）"
+    },
+    {
+      "indent": 3,
+      "text": "A: Number of attempts, one for each window of opportunity",
+      "zh-CHS": "答：尝试次数，每个机会窗口一次"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Calculation",
+      "section_title": true,
+      "zh-CHS": "7.2. 计算"
+    },
+    {
+      "indent": 3,
+      "text": "The probability of spoofing a resolver is equal to the amount of fake packets that arrive within the window of opportunity, divided by the size of the problem space.",
+      "zh-CHS": "欺骗解析器的概率等于在机会窗口内到达的假数据包数量除以问题空间的大小。"
+    },
+    {
+      "indent": 3,
+      "text": "When the resolver has 'D' multiple identical outstanding queries, each fake packet has a proportionally higher chance of matching any of these queries. This assumption only holds for small values of 'D'.",
+      "zh-CHS": "当解析器有“D”多个相同的未完成查询时，每个伪数据包匹配这些查询的概率都会相应地增加。此假设仅适用于较小的“D”值。"
+    },
+    {
+      "indent": 3,
+      "text": "In symbols, if the probability of being spoofed is denoted as P_s:",
+      "zh-CHS": "在符号中，如果被欺骗的概率表示为P_s："
+    },
+    {
+      "indent": 3,
+      "text": "           D * F\nP_s =    ---------\n         N * P * I",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "It is more useful to reason not in terms of aggregate packets but to convert to packet rate, which can easily be converted to bandwidth if needed.",
+      "zh-CHS": "更有用的方法不是根据聚合数据包进行推理，而是将其转换为数据包速率，如果需要，数据包速率可以很容易地转换为带宽。"
+    },
+    {
+      "indent": 3,
+      "text": "If the window of opportunity length is 'W' and the attacker can send 'R' packets per second, the number of fake packets 'F' that are candidates to be accepted is:",
+      "zh-CHS": "如果机会长度窗口为“W”，并且攻击者每秒可以发送“R”个数据包，则作为候选被接受的假数据包“F”的数量为："
+    },
+    {
+      "indent": 3,
+      "text": "                       D * R * W\nF = R * W  ->   P_s  = ---------\n                       N * P * I",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Finally, to calculate the combined chance 'P_cs' of spoofing over a chosen time period 'T', it should be realized that the attacker has a new window of opportunity each time the TTL 'TTL' of the target domain expires. This means that the number of attempts 'A' is equal to 'T / TTL'.",
+      "zh-CHS": "最后，要计算所选时间段“T”内欺骗的组合机会“P_cs”，应该意识到，每次目标域的TTL“TTL”过期时，攻击者都有一个新的机会窗口。这意味着尝试次数“A”等于“T/TTL”。"
+    },
+    {
+      "indent": 3,
+      "text": "To calculate the combined chance of at least one success, the following formula holds:",
+      "zh-CHS": "要计算至少一次成功的组合机会，以下公式适用："
+    },
+    {
+      "indent": 3,
+      "text": "                                                     (T / TTL)\n                      A          (       D * R * W )\nP_cs = 1 - ( 1 - P_s )    =  1 - ( 1  -  --------- )\n                                 (       N * P * I )",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When common numbers (as listed above) for D, W, N, P, and I are inserted, this formula reduces to:",
+      "zh-CHS": "当插入D、W、N、P和I的常用数字（如上所列）时，该公式将简化为："
+    },
+    {
+      "indent": 3,
+      "text": "                            (T / TTL)\n           (         R    )\nP_cs = 1 - ( 1 -  ------- )\n           (      1638400 )",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "From this formula, it can be seen that, if the nameserver implementation is unchanged, only raising the TTL offers protection. Raising N, the number of authoritative nameservers, is not feasible beyond a small number.",
+      "zh-CHS": "从这个公式可以看出，如果名称服务器实现保持不变，则只有提高TTL才能提供保护。提高N（权威名称服务器的数量）是不可行的，超过一个小数目。"
+    },
+    {
+      "indent": 3,
+      "text": "For the degenerate case of a zero-second TTL, a window of opportunity opens for each query sent, making the effective TTL equal to 'W' above, the response time of the authoritative server.",
+      "zh-CHS": "对于零秒TTL的退化情况，为每个发送的查询打开一个机会窗口，使有效TTL等于上面的“W”，即权威服务器的响应时间。"
+    },
+    {
+      "indent": 3,
+      "text": "This last case also holds for spoofing techniques that do not rely on TTL expiry, but use repeated and changing queries.",
+      "zh-CHS": "最后一种情况也适用于不依赖TTL到期，但使用重复和不断变化的查询的欺骗技术。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Discussion",
+      "section_title": true,
+      "zh-CHS": "8. 讨论"
+    },
+    {
+      "indent": 3,
+      "text": "The calculations above indicate the relative ease with which DNS data can be spoofed. For example, using the formula derived earlier on an RRSet with a 3600 second TTL, an attacker sending 7000 fake response packets/s (a rate of 4.5 Mbit/s), stands a 10% chance of spoofing a record in the first 24 hours, which rises to 50% after a week.",
+      "zh-CHS": "上面的计算表明DNS数据相对容易被欺骗。例如，使用前面在RRSet上推导的公式，使用3600秒TTL，攻击者发送7000个假响应包/秒（速率为4.5 Mbit/s），在前24小时内欺骗记录的几率为10%，一周后会上升到50%。"
+    },
+    {
+      "indent": 3,
+      "text": "For an RRSet with a TTL of 60 seconds, the 10% level is hit after 24 minutes, 50% after less than 3 hours, 90% after around 9 hours.",
+      "zh-CHS": "对于TTL为60秒的RRSet，24分钟后达到10%的水平，不足3小时后达到50%，约9小时后达到90%。"
+    },
+    {
+      "indent": 3,
+      "text": "For some classes of attacks, the effective TTL is near zero, as noted above.",
+      "zh-CHS": "如上所述，对于某些类型的攻击，有效TTL接近于零。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the attacks mentioned above can be detected by watchful server operators - an unexpected incoming stream of 4.5 Mbit/s of packets might be noticed.",
+      "zh-CHS": "请注意，警惕的服务器操作员可以检测到上述攻击-可能会注意到意外的4.5 Mbit/s数据包传入流。"
+    },
+    {
+      "indent": 3,
+      "text": "An important assumption however in these calculations is a known or static destination port of the authentic response.",
+      "zh-CHS": "然而，这些计算中的一个重要假设是真实响应的已知或静态目标端口。"
+    },
+    {
+      "indent": 3,
+      "text": "If that port number is unknown and needs to be guessed as well, the problem space expands by a factor of 64000, leading the attacker to need in excess of 285Gb/s to achieve similar success rates.",
+      "zh-CHS": "如果该端口号未知且需要猜测，则问题空间将扩大64000倍，导致攻击者需要超过285Gb/s才能获得类似的成功率。"
+    },
+    {
+      "indent": 3,
+      "text": "Such bandwidth is not generally available, nor is it expected to be so in the foreseeable future.",
+      "zh-CHS": "这种带宽通常不可用，在可预见的未来也不可能如此。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that some firewalls may need reconfiguring if they are currently set up to only allow outgoing queries from a single DNS source port.",
+      "zh-CHS": "请注意，如果某些防火墙当前设置为仅允许从单个DNS源端口发出查询，则可能需要重新配置。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Repetitive Spoofing Attempts for a Single Domain Name",
+      "section_title": true,
+      "zh-CHS": "8.1. 对单个域名的重复欺骗尝试"
+    },
+    {
+      "indent": 3,
+      "text": "Techniques are available to use an effectively infinite number of queries to achieve a desired spoofing goal. In the math above, this reduces the effective TTL to 0.",
+      "zh-CHS": "可以使用有效的无限多个查询来实现所需的欺骗目标。在上面的数学中，这将有效TTL减少到0。"
+    },
+    {
+      "indent": 3,
+      "text": "If such techniques are employed, using the same 7000 packets/s rate mentioned above, and using 1 source port, the spoofing chance rises to 50% within 7 seconds.",
+      "zh-CHS": "如果采用此类技术，使用上述相同的7000包/秒速率，并使用1个源端口，欺骗几率在7秒内上升到50%。"
+    },
+    {
+      "indent": 3,
+      "text": "If 64000 ports are used, as recommended in this document, using the same query rate, the 50% level is reached after around 116 hours.",
+      "zh-CHS": "如果按照本文档中的建议使用64000个端口，使用相同的查询速率，则大约116小时后将达到50%的级别。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Forgery Countermeasures",
+      "section_title": true,
+      "zh-CHS": "9. 伪造对策"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Query Matching Rules",
+      "section_title": true,
+      "zh-CHS": "9.1. 查询匹配规则"
+    },
+    {
+      "indent": 3,
+      "text": "A resolver implementation MUST match responses to all of the following attributes of the query:",
+      "zh-CHS": "解析程序实现必须将响应与查询的以下所有属性相匹配："
+    },
+    {
+      "indent": 3,
+      "text": "o Source address against query destination address",
+      "zh-CHS": "o 源地址与查询目标地址"
+    },
+    {
+      "indent": 3,
+      "text": "o Destination address against query source address",
+      "zh-CHS": "o 针对查询源地址的目标地址"
+    },
+    {
+      "indent": 3,
+      "text": "o Destination port against query source port",
+      "zh-CHS": "o 目标端口对查询源端口"
+    },
+    {
+      "indent": 3,
+      "text": "o Query ID",
+      "zh-CHS": "o 查询ID"
+    },
+    {
+      "indent": 3,
+      "text": "o Query name",
+      "zh-CHS": "o 查询名称"
+    },
+    {
+      "indent": 3,
+      "text": "o Query class and type",
+      "zh-CHS": "o 查询类和类型"
+    },
+    {
+      "indent": 3,
+      "text": "before applying DNS trustworthiness rules (see Section 5.4.1 of [RFC2181]).",
+      "zh-CHS": "在应用DNS可信规则之前（见[RFC2181]第5.4.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "A mismatch and the response MUST be considered invalid.",
+      "zh-CHS": "不匹配和响应必须被视为无效。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Extending the Q-ID Space by Using Ports and Addresses",
+      "section_title": true,
+      "zh-CHS": "9.2. 通过使用端口和地址扩展Q-ID空间"
+    },
+    {
+      "indent": 3,
+      "text": "Resolver implementations MUST:",
+      "zh-CHS": "解析程序实现必须："
+    },
+    {
+      "indent": 3,
+      "text": "o Use an unpredictable source port for outgoing queries from the range of available ports (53, or 1024 and above) that is as large as possible and practicable;",
+      "zh-CHS": "o 使用不可预测的源端口从尽可能大且可行的可用端口范围（53或1024及以上）进行传出查询；"
+    },
+    {
+      "indent": 3,
+      "text": "o Use multiple different source ports simultaneously in case of multiple outstanding queries;",
+      "zh-CHS": "o 如果有多个未完成的查询，请同时使用多个不同的源端口；"
+    },
+    {
+      "indent": 3,
+      "text": "o Use an unpredictable query ID for outgoing queries, utilizing the full range available (0-65535).",
+      "zh-CHS": "o 利用完整的可用范围（0-65535），对传出查询使用不可预测的查询ID。"
+    },
+    {
+      "indent": 3,
+      "text": "Resolvers that have multiple IP addresses SHOULD use them in an unpredictable manner for outgoing queries.",
+      "zh-CHS": "具有多个IP地址的解析程序应以不可预测的方式使用它们进行传出查询。"
+    },
+    {
+      "indent": 3,
+      "text": "Resolver implementations SHOULD provide means to avoid usage of certain ports.",
+      "zh-CHS": "解析器实现应该提供避免使用某些端口的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Resolvers SHOULD favor authoritative nameservers with which a trust relation has been established; stub-resolvers SHOULD be able to use Transaction Signature (TSIG) ([RFC2845]) or IPsec ([RFC4301]) when communicating with their recursive resolver.",
+      "zh-CHS": "解析程序应该支持与之建立信任关系的权威名称服务器；存根解析程序应该能够在与其递归解析程序通信时使用事务签名（TSIG）（[RFC2845]）或IPsec（[RFC4301]）。"
+    },
+    {
+      "indent": 3,
+      "text": "In case a cryptographic verification of response validity is available (TSIG, SIG(0)), resolver implementations MAY waive above rules, and rely on this guarantee instead.",
+      "zh-CHS": "如果响应有效性的加密验证可用（TSIG，SIG（0）），解析器实现可以放弃上述规则，转而依赖此保证。"
+    },
+    {
+      "indent": 3,
+      "text": "Proper unpredictability can be achieved by employing a high quality (pseudo-)random generator, as described in [RFC4086].",
+      "zh-CHS": "如[RFC4086]所述，可通过使用高质量（伪）随机生成器实现适当的不可预测性。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2.1. Justification and Discussion",
+      "section_title": true,
+      "zh-CHS": "9.2.1. 理由和讨论"
+    },
+    {
+      "indent": 3,
+      "text": "Since an attacker can force a full DNS resolver to send queries to the attacker's own nameservers, any constant or sequential state held by such a resolver can be measured, and it must not be trivially easy to reverse engineer the resolver's internal state in a way that allows low-cost, high-accuracy prediction of future state.",
+      "zh-CHS": "由于攻击者可以强制完整DNS解析程序向攻击者自己的名称服务器发送查询，因此可以测量此类解析程序持有的任何常量或顺序状态，并且以允许对未来状态进行低成本、高精度预测的方式对解析程序的内部状态进行反向工程绝不容易。"
+    },
+    {
+      "indent": 3,
+      "text": "A full DNS resolver with only one or a small number of upstream-facing endpoints is effectively using constants for IP source address and UDP port number, and these are very predictable by potential attackers, and must therefore be avoided.",
+      "zh-CHS": "只有一个或少数面向上游的端点的完整DNS解析程序有效地使用了IP源地址和UDP端口号的常量，这些都是潜在攻击者可以预测的，因此必须避免。"
+    },
+    {
+      "indent": 3,
+      "text": "A full DNS resolver that uses a simple increment to get its next DNS query ID is likewise very predictable and so very spoofable.",
+      "zh-CHS": "使用简单增量获取下一个DNS查询ID的完整DNS解析程序同样是非常可预测的，因此非常容易伪造。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, weak random number generators have been shown to expose their internal state, such that an attacker who witnesses several sequential \"random\" values can easily predict the next ones. A crypto-strength random number generator is one whose output cannot be predicted no matter how many successive values are witnessed.",
+      "zh-CHS": "最后，弱随机数生成器显示了其内部状态，因此，目睹多个连续“随机”值的攻击者可以轻松预测下一个值。密码强度随机数生成器是一种无论有多少连续值都无法预测其输出的生成器。"
+    },
+    {
+      "indent": 0,
+      "text": "9.3. Spoof Detection and Countermeasure",
+      "section_title": true,
+      "zh-CHS": "9.3. 欺骗检测与对策"
+    },
+    {
+      "indent": 3,
+      "text": "If a resolver detects that an attempt is being made to spoof it, perhaps by discovering that many packets fail the criteria as outlined above, it MAY abandon the UDP query and re-issue it over TCP. TCP, by the nature of its use of sequence numbers, is far more resilient against forgery by third parties.",
+      "zh-CHS": "如果解析程序检测到有人试图欺骗它，可能是发现许多数据包不符合上述条件，它可能会放弃UDP查询并通过TCP重新发出查询。TCP由于其使用序列号的性质，对第三方的伪造具有更大的弹性。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "10. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document provides clarification of the DNS specification to decrease the probability that DNS responses can be successfully forged. Recommendations found above should be considered complementary to possible cryptographical enhancements of the domain name system, which protect against a larger class of attacks.",
+      "zh-CHS": "本文档对DNS规范进行了澄清，以降低成功伪造DNS响应的可能性。上述建议应被视为对域名系统可能的加密增强的补充，以防止更大类别的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "This document recommends the use of UDP source port number randomization to extend the effective DNS transaction ID beyond the available 16 bits.",
+      "zh-CHS": "本文档建议使用UDP源端口号随机化将有效DNS事务ID扩展到可用的16位之外。"
+    },
+    {
+      "indent": 3,
+      "text": "A resolver that does not implement the recommendations outlined above can easily be forced to accept spoofed responses, which in turn are passed on to client computers -- misdirecting (user) traffic to possibly malicious entities.",
+      "zh-CHS": "未实现上述建议的解析程序很容易被强制接受伪造的响应，而这些响应又被传递到客户端计算机——将（用户）流量错误地定向到可能的恶意实体。"
+    },
+    {
+      "indent": 3,
+      "text": "This document directly impacts the security of the Domain Name System, implementers are urged to follow its recommendations.",
+      "zh-CHS": "本文件直接影响域名系统的安全性，敦促实施者遵循其建议。"
+    },
+    {
+      "indent": 3,
+      "text": "Most security considerations can be found in Sections 4 and 5, while proposed countermeasures are described in Section 9.",
+      "zh-CHS": "大多数安全注意事项可在第4节和第5节中找到，而建议的对策则在第9节中描述。"
+    },
+    {
+      "indent": 3,
+      "text": "For brevity's sake, in lieu of repeating the security considerations references, the reader is referred to these sections.",
+      "zh-CHS": "为了简洁起见，读者不必重复参考文献中的安全注意事项，而是可以参考这些章节。"
+    },
+    {
+      "indent": 3,
+      "text": "Nothing in this document specifies specific algorithms for operators to use; it does specify algorithms implementations SHOULD or MUST support.",
+      "zh-CHS": "本文件中没有规定操作员使用的特定算法；它确实指定了实现应该或必须支持的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that the effects of source port randomization may be dramatically reduced by NAT devices that either serialize or limit in volume the UDP source ports used by the querying resolver.",
+      "zh-CHS": "应该注意的是，源端口随机化的影响可以通过NAT设备显著降低，NAT设备可以序列化或限制查询解析器使用的UDP源端口的数量。"
+    },
+    {
+      "indent": 3,
+      "text": "DNS recursive servers sitting behind at NAT or a statefull firewall may consume all available NAT translation entries/ports when operating under high query load. Port randomization will cause translation entries to be consumed faster than with fixed query port.",
+      "zh-CHS": "当在高查询负载下运行时，位于NAT或全状态防火墙后面的DNS递归服务器可能会使用所有可用的NAT转换条目/端口。端口随机化将导致翻译条目的使用速度比使用固定查询端口快。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid this, NAT boxes and statefull firewalls can/should purge outgoing DNS query translation entries 10-17 seconds after the last outgoing query on that mapping was sent. [RFC4787]-compliant devices need to treat UDP messages with port 53 differently than most other UDP protocols.",
+      "zh-CHS": "为了避免这种情况，NAT盒和状态完整防火墙可以/应该在发送映射的最后一个传出查询10-17秒后清除传出DNS查询转换条目。[RFC4787]-兼容设备需要以与大多数其他UDP协议不同的方式处理端口53的UDP消息。"
+    },
+    {
+      "indent": 3,
+      "text": "To minimize the potential that port/state exhaustion attacks can be staged from the outside, it is recommended that services that generate a number of DNS queries for each connection should be rate limited. This applies in particular to email servers.",
+      "zh-CHS": "为了最大限度地减少可能从外部发起的端口/状态耗尽攻击，建议对为每个连接生成大量DNS查询的服务进行速率限制。这尤其适用于电子邮件服务器。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "11. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Source port randomization in DNS was first implemented and possibly invented by Dan J. Bernstein.",
+      "zh-CHS": "DNS中的源端口随机化最早由Dan J.Bernstein实现并可能由他发明。"
+    },
+    {
+      "indent": 3,
+      "text": "Although any mistakes remain our own, the authors gratefully acknowledge the help and contributions of: Stephane Bortzmeyer Alfred Hoenes Peter Koch Sean Leach Norbert Sendetzky Paul Vixie Florian Weimer Wouter Wijngaards Dan Wing",
+      "zh-CHS": "尽管任何错误都是我们自己的错误，但作者衷心感谢Stephane Bortzmeyer Alfred Hoenes Peter Koch Sean Leach Norbert Sendetzky Paul Vixie Florian Weimer Wouter Wijngaards Dan Wing的帮助和贡献"
+    },
+    {
+      "indent": 0,
+      "text": "12. References",
+      "section_title": true,
+      "zh-CHS": "12. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "12.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "12.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1034] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[RFC1034]Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1035] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[RFC1035]Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 1035，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2181] Elz, R. and R. Bush, \"Clarifications to the DNS Specification\", RFC 2181, July 1997.",
+      "zh-CHS": "[RFC2181]Elz，R.和R.Bush，“DNS规范的澄清”，RFC 21811997年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2827] Ferguson, P. and D. Senie, \"Network Ingress Filtering: Defeating Denial of Service Attacks which employ IP Source Address Spoofing\", BCP 38, RFC 2827, May 2000.",
+      "zh-CHS": "[RFC2827]Ferguson，P.和D.Senie，“网络入口过滤：击败利用IP源地址欺骗的拒绝服务攻击”，BCP 38，RFC 2827，2000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2845] Vixie, P., Gudmundsson, O., Eastlake, D., and B. Wellington, \"Secret Key Transaction Authentication for DNS (TSIG)\", RFC 2845, May 2000.",
+      "zh-CHS": "[RFC2845]Vixie，P.，Gudmundsson，O.，Eastlake，D.，和B.Wellington，“DNS秘密密钥交易认证（TSIG）”，RFC 28452000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3013] Killalea, T., \"Recommended Internet Service Provider Security Services and Procedures\", BCP 46, RFC 3013, November 2000.",
+      "zh-CHS": "[RFC3013]Killalea，T.，“推荐的互联网服务提供商安全服务和程序”，BCP 46，RFC 3013，2000年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4033] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, March 2005.",
+      "zh-CHS": "[RFC4033]Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4086] Eastlake, D., Schiller, J., and S. Crocker, \"Randomness Requirements for Security\", BCP 106, RFC 4086, June 2005.",
+      "zh-CHS": "[RFC4086]Eastlake，D.，Schiller，J.，和S.Crocker，“安全的随机性要求”，BCP 106，RFC 4086，2005年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5321] Klensin, J., \"Simple Mail Transfer Protocol\", RFC 5321, October 2008.",
+      "zh-CHS": "[RFC5321]Klensin，J.，“简单邮件传输协议”，RFC 53212008年10月。"
+    },
+    {
+      "indent": 0,
+      "text": "12.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "12.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1123] Braden, R., \"Requirements for Internet Hosts - Application and Support\", STD 3, RFC 1123, October 1989.",
+      "zh-CHS": "[RFC1123]Braden，R.，“互联网主机的要求-应用和支持”，STD 3，RFC 1123，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3833] Atkins, D. and R. Austein, \"Threat Analysis of the Domain Name System (DNS)\", RFC 3833, August 2004.",
+      "zh-CHS": "[RFC3833]Atkins，D.和R.Austein，“域名系统（DNS）的威胁分析”，RFC 38332004年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4301] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[RFC4301]Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4787] Audet, F. and C. Jennings, \"Network Address Translation (NAT) Behavioral Requirements for Unicast UDP\", BCP 127, RFC 4787, January 2007.",
+      "zh-CHS": "[RFC4787]Audet，F.和C.Jennings，“单播UDP的网络地址转换（NAT）行为要求”，BCP 127，RFC 4787，2007年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5358] Damas, J. and F. Neves, \"Preventing Use of Recursive Nameservers in Reflector Attacks\", BCP 140, RFC 5358, October 2008.",
+      "zh-CHS": "[RFC5358]Damas，J.和F.Neves，“防止在反射器攻击中使用递归名称服务器”，BCP 140，RFC 5358，2008年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[vu-457875] United States CERT, \"Various DNS service implementations generate multiple simultaneous queries for the same resource record\", VU 457875, November 2002.",
+      "zh-CHS": "[vu-457875]美国CERT，“各种DNS服务实现为同一资源记录同时生成多个查询”，vu 457875，2002年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Bert Hubert Netherlabs Computer Consulting BV. Braillelaan 10 Rijswijk (ZH) 2289 CM The Netherlands",
+      "zh-CHS": "伯特·休伯特·尼日实验室计算机咨询有限公司。布雷莱兰10里杰斯威克（中弘）2289厘米荷兰"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: bert.hubert@netherlabs.nl",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Remco van Mook Equinix Auke Vleerstraat 1 Enschede 7521 PE The Netherlands",
+      "zh-CHS": "荷兰恩斯凯德7521号莱姆科·范·穆克·埃克尼克斯·奥克·维勒斯特拉特酒店"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: remco@eu.equinix.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

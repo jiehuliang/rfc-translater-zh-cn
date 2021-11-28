@@ -1,0 +1,1302 @@
+{
+  "title": {
+    "text": "RFC 7293: The Require-Recipient-Valid-Since Header Field and SMTP Service Extension",
+    "zh-CHS": "RFC 7293"
+  },
+  "number": 7293,
+  "created_at": "2021-11-02 13:37:00.595130+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                          W. Mills\nRequest for Comments: 7293                                   Yahoo! Inc.\nCategory: Standards Track                                   M. Kucherawy\nISSN: 2070-1721                                           Facebook, Inc.\n                                                               July 2014",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "The Require-Recipient-Valid-Since Header Field and SMTP Service Extension",
+      "zh-CHS": "“要求收件人自标头和SMTP服务扩展名起有效”"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an extension for the Simple Mail Transfer Protocol (SMTP) called \"RRVS\" to provide a method for senders to indicate to receivers a point in time when the ownership of the target mailbox was known to the sender. This can be used to detect changes of mailbox ownership and thus prevent mail from being delivered to the wrong party. This document also defines a header field called \"Require-Recipient-Valid-Since\" that can be used to tunnel the request through servers that do not support the extension.",
+      "zh-CHS": "本文档定义了一个名为“RRVS”的简单邮件传输协议（SMTP）扩展，为发件人提供了一种方法，用于向收件人指示发件人知道目标邮箱所有权的时间点。这可用于检测邮箱所有权的更改，从而防止邮件传递到错误的一方。本文档还定义了一个名为“requirerecipient Valid-Since”的标题字段，可用于通过不支持扩展的服务器对请求进行隧道传输。"
+    },
+    {
+      "indent": 3,
+      "text": "The intended use of these facilities is on automatically generated messages, such as account statements or password change instructions, that might contain sensitive information, though it may also be useful in other applications.",
+      "zh-CHS": "这些功能的预期用途是用于自动生成的消息，例如可能包含敏感信息的帐户对账单或密码更改指示，但在其他应用程序中也可能有用。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7293.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7293."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2014 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2014 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3\n2.  Definitions . . . . . . . . . . . . . . . . . . . . . . . . .   4\n3.  Description . . . . . . . . . . . . . . . . . . . . . . . . .   4\n  3.1.  The \"RRVS\" SMTP Extension . . . . . . . . . . . . . . . .   5\n  3.2.  The \"Require-Recipient-Valid-Since\" Header Field  . . . .   5\n  3.3.  Timestamps  . . . . . . . . . . . . . . . . . . . . . . .   6\n4.  Use By Generators . . . . . . . . . . . . . . . . . . . . . .   6\n5.  Handling By Receivers . . . . . . . . . . . . . . . . . . . .   7\n  5.1.  SMTP Extension Used . . . . . . . . . . . . . . . . . . .   7\n    5.1.1.  Relays  . . . . . . . . . . . . . . . . . . . . . . .   8\n  5.2.  Header Field Used . . . . . . . . . . . . . . . . . . . .   9\n    5.2.1.  Design Choices  . . . . . . . . . . . . . . . . . . .  10\n  5.3.  Clock Synchronization . . . . . . . . . . . . . . . . . .  11\n6.  Relaying without RRVS Support . . . . . . . . . . . . . . . .  11\n  6.1.  Header Field Conversion . . . . . . . . . . . . . . . . .  11\n7.  Header Field with Multiple Recipients . . . . . . . . . . . .  12\n8.  Special Use Addresses . . . . . . . . . . . . . . . . . . . .  13\n  8.1.  Mailing Lists . . . . . . . . . . . . . . . . . . . . . .  13\n  8.2.  Single-Recipient Aliases  . . . . . . . . . . . . . . . .  13\n  8.3.  Multiple-Recipient Aliases  . . . . . . . . . . . . . . .  14\n  8.4.  Confidential Forwarding Addresses . . . . . . . . . . . .  14\n  8.5.  Suggested Mailing List Enhancements . . . . . . . . . . .  14\n9.  Continuous Ownership  . . . . . . . . . . . . . . . . . . . .  15\n10. Digital Signatures  . . . . . . . . . . . . . . . . . . . . .  15\n11. Authentication-Results Definitions  . . . . . . . . . . . . .  16\n12. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  16\n  12.1.  SMTP Extension Example . . . . . . . . . . . . . . . . .  17\n  12.2.  Header Field Example . . . . . . . . . . . . . . . . . .  17\n  12.3.  Authentication-Results Example . . . . . . . . . . . . .  17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "13. Security Considerations . . . . . . . . . . . . . . . . . . .  18\n  13.1.  Abuse Countermeasures  . . . . . . . . . . . . . . . . .  18\n  13.2.  Suggested Use Restrictions . . . . . . . . . . . . . . .  18\n  13.3.  False Sense of Security  . . . . . . . . . . . . . . . .  18\n  13.4.  Reassignment of Mailboxes  . . . . . . . . . . . . . . .  19\n14. Privacy Considerations  . . . . . . . . . . . . . . . . . . .  19\n  14.1.  The Tradeoff . . . . . . . . . . . . . . . . . . . . . .  19\n  14.2.  Probing Attacks  . . . . . . . . . . . . . . . . . . . .  19\n  14.3.  Envelope Recipients  . . . . . . . . . . . . . . . . . .  20\n  14.4.  Risks with Use . . . . . . . . . . . . . . . . . . . . .  20\n15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  20\n  15.1.  SMTP Extension Registration  . . . . . . . . . . . . . .  20\n  15.2.  Header Field Registration  . . . . . . . . . . . . . . .  20\n  15.3.  Enhanced Status Code Registration  . . . . . . . . . . .  21\n  15.4.  Authentication Results Registration  . . . . . . . . . .  22\n16. Acknowledgments . . . . . . . . . . . . . . . . . . . . . . .  22\n17. References  . . . . . . . . . . . . . . . . . . . . . . . . .  23\n  17.1.  Normative References . . . . . . . . . . . . . . . . . .  23\n  17.2.  Informative References . . . . . . . . . . . . . . . . .  23",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Email addresses sometimes get reassigned to a different person. For example, employment changes at a company can cause an address used for an ex-employee to be assigned to a new employee, or a mail service provider (MSP) might expire an account and then let someone else register for the local-part that was previously used. Those who sent mail to the previous owner of an address might not know that it has been reassigned. This can lead to the sending of email to the correct address but the wrong recipient. This situation is of particular concern with transactional mail related to purchases, online accounts, and the like.",
+      "zh-CHS": "电子邮件地址有时会被重新分配给另一个人。例如，公司的雇用变动可能会导致前员工使用的地址被分配给新员工，或者邮件服务提供商（MSP）可能会使帐户过期，然后让其他人注册以前使用的本地部分。向地址的前所有者发送邮件的人可能不知道该地址已被重新分配。这可能导致将电子邮件发送到正确的地址，但收件人错误。这种情况在与购买、在线帐户等相关的事务性邮件中尤为重要。"
+    },
+    {
+      "indent": 3,
+      "text": "What is needed is a way to indicate an attribute of the recipient that will distinguish between the previous owner of an address and its current owner, if they are different. Further, this needs to be done in a way that respects privacy.",
+      "zh-CHS": "所需要的是一种指示收件人属性的方法，该属性将区分地址的前所有者和当前所有者（如果它们不同的话）。此外，这需要以尊重隐私的方式进行。"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanisms specified here allow the sender of the mail to indicate how \"old\" the address assignment is expected to be. In effect, the sender is saying, \"I know that the intended recipient was using this address at this point in time. I don't want this message delivered to anyone else\". A receiving system can then compare this information against the point in time at which the address was assigned to its current user. If the assignment was made later than the point in time indicated in the message, there is a good chance",
+      "zh-CHS": "此处指定的机制允许邮件发件人指示地址分配的预期“旧”程度。实际上，发件人是在说，“我知道目标收件人此时正在使用此地址。我不希望此邮件传递给任何其他人”。然后，接收系统可以将此信息与地址分配给当前用户的时间点进行比较。如果分配时间晚于消息中指示的时间点，则很有可能"
+    },
+    {
+      "indent": 3,
+      "text": "the current user of the address is not the correct recipient. The receiving system can then prevent delivery and, preferably, notify the original sender of the problem.",
+      "zh-CHS": "地址的当前用户不是正确的收件人。然后，接收系统可以阻止发送，并且最好将问题通知原始发送者。"
+    },
+    {
+      "indent": 3,
+      "text": "The primary application is transactional mail (such as account information, password change requests, and other automatically generated messages) rather than user-authored content. However, it may be useful in other contexts; for example, a personal address book could record the time an email address was added to it, and thus use that time with this extension.",
+      "zh-CHS": "主要应用程序是事务性邮件（例如帐户信息、密码更改请求和其他自动生成的消息），而不是用户编写的内容。然而，它在其他情况下可能有用；例如，个人通讯簿可以记录电子邮件地址添加到其中的时间，从而将该时间与此扩展一起使用。"
+    },
+    {
+      "indent": 3,
+      "text": "Because the use cases for this extension are strongly tied to privacy issues, attention to the Security Considerations (Section 13) and the Privacy Considerations (Section 14) is particularly important. Note, especially, the limitation described in Section 13.3.",
+      "zh-CHS": "由于此扩展的用例与隐私问题紧密相关，因此关注安全考虑（第13节）和隐私考虑（第14节）尤为重要。特别注意第13.3节中所述的限制。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Definitions",
+      "section_title": true,
+      "zh-CHS": "2. 定义"
+    },
+    {
+      "indent": 3,
+      "text": "For a description of the email architecture, consult [EMAIL-ARCH].",
+      "zh-CHS": "有关电子邮件体系结构的描述，请参阅[email-ARCH]。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [KEYWORDS].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[关键词]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Description",
+      "section_title": true,
+      "zh-CHS": "3. 描述"
+    },
+    {
+      "indent": 3,
+      "text": "To address the problem described in Section 1, a mail-sending client (usually an automated agent) needs to indicate to the server to which it is connecting that it expects the destination address of the message to have been under continuous ownership (see Section 9) since a specified point time. That specified time would be the time when the intended recipient gave the address to the message author, or perhaps a more recent time when the intended recipient reconfirmed ownership of the address with the sender.",
+      "zh-CHS": "为了解决第1节中描述的问题，邮件发送客户端（通常是自动代理）需要向其所连接的服务器指示，它希望邮件的目标地址自指定时间点以来一直处于持续所有权（请参见第9节）。指定的时间是预期收件人将地址提供给邮件作者的时间，或者可能是预期收件人与发件人重新确认地址所有权的最近时间。"
+    },
+    {
+      "indent": 3,
+      "text": "Two mechanisms are defined here: an extension to the Simple Mail Transfer Protocol [SMTP] and a new message header field. The SMTP extension permits strong assurance of enforcement by confirming support at each handling step for a message and the option to demand support at all nodes in the handling path of the message (and returning of the message to the originator otherwise). The header field can be used when the Message Delivery Agent (MDA) supports this function, but an intermediary system between the sending system and the MDA does not. However, the header field does not provide the same strong assurance described above and is more prone to exposure of private information (see Section 14.1).",
+      "zh-CHS": "这里定义了两种机制：简单邮件传输协议[SMTP]的扩展和新的邮件头字段。SMTP扩展通过在邮件的每个处理步骤中确认支持，以及在邮件处理路径中的所有节点上请求支持的选项（以及以其他方式将邮件返回给发起者），从而能够有力地保证强制执行。当消息传递代理（MDA）支持此功能，但发送系统和MDA之间的中间系统不支持此功能时，可以使用header字段。但是，标题字段不提供上述相同的有力保证，更容易暴露私人信息（见第14.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The SMTP extension is called \"RRVS\" and adds a parameter to the SMTP \"RCPT\" command that indicates the most recent point in time when the message author believed the destination mailbox to be under the continuous ownership of a specific party. Similarly, the \"Require-Recipient-Valid-Since\" header field includes an intended recipient coupled with a timestamp indicating the same thing.",
+      "zh-CHS": "SMTP扩展名称为“RRVS”，并向SMTP“RCPT”命令添加一个参数，该参数指示邮件作者认为目标邮箱处于特定方持续所有权下的最近时间点。类似地，“Require Recipient Valid-Since”头字段包括一个预期的收件人，该收件人与一个指示相同内容的时间戳相耦合。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. The \"RRVS\" SMTP Extension",
+      "section_title": true,
+      "zh-CHS": "3.1. “RRVS”SMTP扩展名"
+    },
+    {
+      "indent": 3,
+      "text": "Extensions to SMTP are described in Section 2.2 of [SMTP].",
+      "zh-CHS": "[SMTP]的第2.2节介绍了SMTP的扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "The name of the extension is \"RRVS\", an abbreviation of \"Require Recipient Valid Since\". Servers implementing the SMTP extension advertise an additional EHLO keyword of \"RRVS\", which has no associated parameters, introduces no new SMTP commands, and does not alter the MAIL command.",
+      "zh-CHS": "扩展名为“RRVS”，是“要求收件人自生效”的缩写。实现SMTP扩展的服务器会公布附加的EHLO关键字“RRVS”，该关键字没有相关参数，不会引入新的SMTP命令，也不会更改MAIL命令。"
+    },
+    {
+      "indent": 3,
+      "text": "A Message Transfer Agent (MTA) implementing RRVS can transmit or accept one new parameter to the RCPT command. An MDA can also accept this new parameter. The parameter is \"RRVS\", and the value is a timestamp expressed as \"date-time\" as defined in [DATETIME], with the added restriction that a \"time-secfrac\" MUST NOT be used. The timestamp MAY optionally be followed by a semicolon character and a letter (known as the \"no-support action\"), indicating the action to be taken when a downstream MTA is discovered that does not support the extension. Valid actions are \"R\" (reject; the default) and \"C\" (continue).",
+      "zh-CHS": "实现RRVS的消息传输代理（MTA）可以向RCPT命令传输或接受一个新参数。MDA也可以接受这个新参数。参数为“RRVS”，该值是一个时间戳，表示为[DATETIME]中定义的“日期-时间”，并增加了一个限制，即不得使用“time-secfrac”。时间戳后面可以选择一个分号字符和一个字母（称为“无支持操作”），指示在发现不支持扩展的下游MTA时要采取的操作。有效操作为“R”（拒绝；默认值）和“C”（继续）。"
+    },
+    {
+      "indent": 3,
+      "text": "Formally, the new parameter and its value are defined as follows:",
+      "zh-CHS": "在形式上，新参数及其值定义如下："
+    },
+    {
+      "indent": 7,
+      "text": "rrvs-param = \"RRVS=\" date-time [ \";\" ( \"C\" / \"R\" ) ]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, this extension increases the maximum command length for the RCPT command by 33 characters.",
+      "zh-CHS": "因此，此扩展将RCPT命令的最大命令长度增加33个字符。"
+    },
+    {
+      "indent": 3,
+      "text": "The meaning of this extension, when used, is described in Section 5.1.",
+      "zh-CHS": "第5.1节描述了使用该扩展时的含义。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. The \"Require-Recipient-Valid-Since\" Header Field",
+      "section_title": true,
+      "zh-CHS": "3.2. “要求收件人自生效日期起生效”标题字段"
+    },
+    {
+      "indent": 3,
+      "text": "The general constraints on syntax and placement of header fields in a message are defined in \"Internet Message Format\" [MAIL].",
+      "zh-CHS": "“Internet消息格式”[MAIL]中定义了消息中标题字段的语法和位置的一般约束。"
+    },
+    {
+      "indent": 3,
+      "text": "Using Augmented Backus-Naur Form [ABNF], the syntax for the field is:",
+      "zh-CHS": "使用扩展的Backus Naur Form[ABNF]，字段的语法为："
+    },
+    {
+      "indent": 5,
+      "text": "rrvs = \"Require-Recipient-Valid-Since:\" addr-spec \";\" date-time CRLF",
+      "zh-CHS": "rrvs=“要求收件人自以下日期起生效：”地址规范“；”日期时间CRLF"
+    },
+    {
+      "indent": 3,
+      "text": "\"date-time\" is defined in Section 3.3, and \"addr-spec\" is defined in Section 3.4.1 of [MAIL].",
+      "zh-CHS": "“日期-时间”定义见第3.3节，“地址规范”定义见[邮件]第3.4.1节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Timestamps",
+      "section_title": true,
+      "zh-CHS": "3.3. 时间标记"
+    },
+    {
+      "indent": 3,
+      "text": "The header field version of this protocol has a different format for the date and time expression than the SMTP extension does. This is because message header fields use a format to express date and time that is specific to message header fields, and this is consistent with that usage.",
+      "zh-CHS": "此协议的标头字段版本的日期和时间表达式的格式与SMTP扩展名的格式不同。这是因为消息头字段使用特定于消息头字段的格式来表示日期和时间，这与该用法一致。"
+    },
+    {
+      "indent": 3,
+      "text": "Use of both date and time is done to be consistent with how current implementations typically store the timestamp and to make it easy to include the time zone. In practice, granularity beyond the date may or may not be useful.",
+      "zh-CHS": "日期和时间的使用是为了与当前实现通常存储时间戳的方式保持一致，并便于包含时区。实际上，超过日期的粒度可能有用，也可能无用。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Use By Generators",
+      "section_title": true,
+      "zh-CHS": "4. 发电机使用"
+    },
+    {
+      "indent": 3,
+      "text": "When a message is generated whose content is sufficiently sensitive that an author or author's ADministrative Management Domain (ADMD), see [EMAIL-ARCH], wishes to protect against misdelivery using this protocol, it determines for each recipient mailbox on the message a timestamp at which it last confirmed ownership of that mailbox. It then applies the SMTP extension when sending the message to its destination.",
+      "zh-CHS": "当生成内容足够敏感的邮件时，如果作者或作者的管理域（ADMD）（参见[EMAIL-ARCH]）希望使用此协议防止误发，则会为邮件上的每个收件人邮箱确定其上次确认该邮箱所有权的时间戳。然后在将邮件发送到其目标时应用SMTP扩展名。"
+    },
+    {
+      "indent": 3,
+      "text": "In cases where the outgoing MTA does not support the extension, the header field defined above can be used to pass the request through that system. However, use of the header field is only a \"best-effort\" approach to solving the stated goals, and it has some shortcomings:",
+      "zh-CHS": "在传出MTA不支持扩展的情况下，可以使用上面定义的标头字段通过该系统传递请求。然而，使用标题字段只是解决所述目标的“尽力而为”方法，它有一些缺点："
+    },
+    {
+      "indent": 3,
+      "text": "1. The positive confirmation of support at each handling node, with the option to return the message to the originator when end-to-end support cannot be confirmed, will be unavailable;",
+      "zh-CHS": "1. 每个处理节点的支持肯定确认将不可用，当无法确认端到端支持时，可以选择将消息返回给发起人；"
+    },
+    {
+      "indent": 3,
+      "text": "2. The protocol is focused on affecting delivery (that is, the transaction) rather than content, and therefore use of a header field in the content is generally inappropriate;",
+      "zh-CHS": "2. 协议的重点是影响交付（即事务）而不是内容，因此在内容中使用头字段通常是不合适的；"
+    },
+    {
+      "indent": 3,
+      "text": "3. The mechanism cannot be used with multiple recipients without unintentionally exposing information about one recipient to the others (see Section 7); and",
+      "zh-CHS": "3. 该机制不能用于多个收件人，而不会无意中将一个收件人的信息泄露给其他收件人（见第7节）；和"
+    },
+    {
+      "indent": 3,
+      "text": "4. There is a risk of the timestamp parameter being inadvertently forwarded, automatically or intentionally by the user (since user agents might not reveal the presence of the header field), and therefore exposed to unintended recipients. (See Section 14.4.)",
+      "zh-CHS": "4. 存在时间戳参数被用户无意中自动或有意转发的风险（因为用户代理可能不会显示标题字段的存在），因此会暴露给非预期的收件人。（见第14.4节。）"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, the header field format MUST NOT be used unless the originator or relay has specific knowledge that the receiving MDA or an intermediary MTA will apply it properly. In any case, it SHOULD NOT be used for the multi-recipient case.",
+      "zh-CHS": "因此，除非发起者或中继知道接收MDA或中间MTA将正确应用该格式，否则不得使用标题字段格式。在任何情况下，都不应将其用于多收件人情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Use of the header field mechanism is further restricted by the practices described in Section 7.2 of [SMTP], Section 3.6.3 of [MAIL], and Section 7 of this document.",
+      "zh-CHS": "头字段机制的使用受到[SMTP]第7.2节、[MAIL]第3.6.3节和本文件第7节所述实践的进一步限制。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Handling By Receivers",
+      "section_title": true,
+      "zh-CHS": "5. 收件人的处理"
+    },
+    {
+      "indent": 3,
+      "text": "If a receiver implements this specification, then there are two possible evaluation paths:",
+      "zh-CHS": "如果接收器实现此规范，则有两种可能的评估路径："
+    },
+    {
+      "indent": 3,
+      "text": "1. The sending client uses the extension, and so there is an RRVS parameter on a RCPT TO command in the SMTP session, and the parameters of interest are taken only from there (and the header field, if present, is disregarded); or",
+      "zh-CHS": "1. 发送客户端使用扩展名，因此在SMTP会话中，RCPT TO命令上有一个RRVS参数，并且只从那里获取感兴趣的参数（如果存在，则忽略标头字段）；或"
+    },
+    {
+      "indent": 3,
+      "text": "2. The sending client does not use the extension, so the RRVS parameter is not present on the RCPT TO commands in the SMTP session, but the corresponding header field might be present in the message.",
+      "zh-CHS": "2. 发送客户端不使用扩展名，因此在SMTP会话中，RCPT TO命令上不存在RRVS参数，但消息中可能存在相应的标头字段。"
+    },
+    {
+      "indent": 3,
+      "text": "When the continuous ownership test fails for transient reasons (such as an unavailable database or other condition that is likely temporary), normal transient failure handling for the message is applied.",
+      "zh-CHS": "当连续所有权测试因暂时原因（如数据库不可用或其他可能是暂时的情况）失败时，将对消息应用正常的暂时故障处理。"
+    },
+    {
+      "indent": 3,
+      "text": "If the continuous ownership test cannot be completed because the necessary datum (the mailbox creation or reassignment date and time) was not recorded, the MDA doing the evaluation selects a date and time to use that is the latest possible point in time at which the mailbox could have been created or reassigned. For example, this might be the earliest of all recorded mailbox creation/reassignment timestamps, or the time when the host was first installed. If no reasonable substitute for the timestamp can be selected, the MDA rejects the message using an SMTP reply code, preferably with an enhanced mail system status code (see Section 15.3), that indicates the test cannot be completed. A message originator can then decide whether to reissue the message without RRVS protection or find another way to reach the mailbox owner.",
+      "zh-CHS": "如果由于未记录必要的数据（邮箱创建或重新分配日期和时间）而无法完成连续所有权测试，则执行评估的MDA将选择一个日期和时间，该日期和时间是可能已创建或重新分配邮箱的最新时间点。例如，这可能是所有记录的邮箱创建/重新分配时间戳中最早的，也可能是主机首次安装的时间。如果无法选择时间戳的合理替代品，MDA将使用SMTP回复代码拒绝邮件，最好使用增强的邮件系统状态代码（参见第15.3节），这表明测试无法完成。然后，邮件发起者可以决定是在没有RRVS保护的情况下重新发出邮件，还是找到其他方法来联系邮箱所有者。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. SMTP Extension Used",
+      "section_title": true,
+      "zh-CHS": "5.1. 使用的SMTP扩展名"
+    },
+    {
+      "indent": 3,
+      "text": "For an MTA supporting the SMTP extension, the requirement is to continue enforcement of RRVS during the relaying process to the next MTA or the MDA.",
+      "zh-CHS": "对于支持SMTP扩展的MTA，要求在中继到下一个MTA或MDA的过程中继续执行RRV。"
+    },
+    {
+      "indent": 3,
+      "text": "A receiving MTA or MDA that implements the SMTP extension declared above and observes an RRVS parameter on a RCPT TO command checks whether the current owner of the destination mailbox has held it continuously, far enough back to include the given point in time, and delivers it unless that check returns in the negative. Specifically, an MDA will do the following before continuing with delivery:",
+      "zh-CHS": "一个接收MTA或MDA，它实现上面声明的SMTP扩展，并观察RCPT TO命令上的RRVS参数，以检查目标邮箱的当前所有者是否已连续持有该邮箱，并返回足够远的时间以包括给定的时间点，并将其传递，除非该检查返回否定值。具体而言，MDA将在继续交付之前执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "1. Ignore the parameter if the named mailbox is known to be a role account as listed in \"Mailbox Names for Common Services, Roles and Functions\" [ROLES].",
+      "zh-CHS": "1. 如果已知命名邮箱是“公用服务、角色和功能的邮箱名称”[Roles]中列出的角色帐户，请忽略该参数。"
+    },
+    {
+      "indent": 3,
+      "text": "2. If the address is not known to be a role account, and if that address has not been under continuous ownership since the timestamp specified in the extension, return a 550 error to the RCPT command. (See also Section 15.3.)",
+      "zh-CHS": "2. 如果不知道该地址是角色帐户，并且该地址自扩展中指定的时间戳以来未处于持续所有权之下，则向RCPT命令返回550错误。（另见第15.3节。）"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. Relays",
+      "section_title": true,
+      "zh-CHS": "5.1.1. 接力"
+    },
+    {
+      "indent": 3,
+      "text": "An MTA that does not make mailbox ownership checks, such as an MTA positioned to do SMTP ingress at an organizational boundary, SHOULD relay the RRVS extension parameter to the next MTA or MDA so that it can be processed there.",
+      "zh-CHS": "不进行邮箱所有权检查的MTA（如定位为在组织边界执行SMTP入口的MTA）应将RRVS扩展参数中继到下一个MTA或MDA，以便在那里进行处理。"
+    },
+    {
+      "indent": 3,
+      "text": "For the SMTP extension, the optional RRVS parameter defined in Section 5.1 indicates the action to be taken when relaying a message to another MTA that does not advertise support for this extension. When this is the case and the no-support action was not specified or is \"R\" (reject), the MTA handling the message MUST reject the message by:",
+      "zh-CHS": "对于SMTP扩展，第5.1节中定义的可选RRVS参数表示将邮件中继到另一个未公布对此扩展支持的MTA时要采取的操作。在这种情况下，如果未指定“不支持”操作或为“R”（拒绝），则处理邮件的MTA必须通过以下方式拒绝邮件："
+    },
+    {
+      "indent": 3,
+      "text": "1. returning a 550 error to the DATA command, if synchronous service is being provided to the SMTP client that introduced the message, or",
+      "zh-CHS": "1. 如果向引入邮件的SMTP客户端提供同步服务，则向DATA命令返回550错误，或"
+    },
+    {
+      "indent": 3,
+      "text": "2. generating a Delivery Status Notification [DSN] to indicate to the originator of the message that the non-delivery occurred and terminating further relay attempts.",
+      "zh-CHS": "2. 生成传递状态通知[DSN]，以向消息的发起人指示未传递已发生，并终止进一步的中继尝试。"
+    },
+    {
+      "indent": 3,
+      "text": "An enhanced mail system status code is defined for such rejections in Section 15.3.",
+      "zh-CHS": "第15.3节为此类拒绝定义了增强的邮件系统状态代码。"
+    },
+    {
+      "indent": 3,
+      "text": "See Section 8.2 for additional discussion.",
+      "zh-CHS": "更多讨论见第8.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "When relaying, an MTA MUST preserve the no-support action if it was used by the SMTP client.",
+      "zh-CHS": "中继时，如果SMTP客户端使用MTA，则MTA必须保留“不支持”操作。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Header Field Used",
+      "section_title": true,
+      "zh-CHS": "5.2. 使用的标题字段"
+    },
+    {
+      "indent": 3,
+      "text": "A receiving system that implements this specification, upon receiving a message bearing a \"Require-Recipient-Valid-Since\" header field when no corresponding RRVS SMTP extension was used, checks whether the destination mailbox owner has held it continuously, far enough back to include the given date-time, and delivers it unless that check returns in the negative. Expressed as a sequence of steps:",
+      "zh-CHS": "实现此规范的接收系统在接收到带有“Require Recipient Valid Since”标头字段的邮件时，如果未使用相应的RRVS SMTP扩展名，则会检查目标邮箱所有者是否已将其持续保留到足够远的时间，以包括给定的日期和时间，除非那张支票的结果是否定的，否则就把它寄出去。表示为一系列步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. Extract those Require-Recipient-Valid-Since fields from the message that contain a recipient for which no corresponding RRVS SMTP extension was used.",
+      "zh-CHS": "1. 从包含未使用相应RRVS SMTP扩展名的收件人的邮件中提取那些Require Recipient Valid Since字段。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Discard any such fields that match any of these criteria:",
+      "zh-CHS": "2. 放弃符合以下任何条件的任何此类字段："
+    },
+    {
+      "indent": 7,
+      "text": "* are syntactically invalid;",
+      "zh-CHS": "* 语法无效；"
+    },
+    {
+      "indent": 7,
+      "text": "* name a role account as listed in [ROLES];",
+      "zh-CHS": "* 按照[角色]中列出的名称命名角色帐户；"
+    },
+    {
+      "indent": 7,
+      "text": "* the \"addr-spec\" portion does not match a current recipient, as listed in the RCPT TO commands in the SMTP session; or",
+      "zh-CHS": "* “addr spec”部分与SMTP会话中RCPT TO命令中列出的当前收件人不匹配；或"
+    },
+    {
+      "indent": 7,
+      "text": "* the \"addr-spec\" portion does not refer to a mailbox handled for local delivery by this ADMD.",
+      "zh-CHS": "* “addr spec”部分不是指由此ADMD处理以进行本地传递的邮箱。"
+    },
+    {
+      "indent": 3,
+      "text": "3. For each field remaining, determine if the named address has been under continuous ownership since the corresponding timestamp. If it has not, reject the message.",
+      "zh-CHS": "3. 对于剩余的每个字段，确定命名地址自相应的时间戳以来是否一直处于持续所有权之下。如果没有，则拒绝该消息。"
+    },
+    {
+      "indent": 3,
+      "text": "4. RECOMMENDED: If local delivery is being performed, remove all instances of this field prior to delivery to a mailbox; if the message is being forwarded, remove those instances of this header field that were not discarded by step 2 above.",
+      "zh-CHS": "4. 建议：如果正在执行本地传递，请在传递到邮箱之前删除此字段的所有实例；如果邮件正在转发，请删除上述步骤2未放弃的此标头字段的实例。"
+    },
+    {
+      "indent": 3,
+      "text": "Handling proceeds normally upon completion of the above steps if rejection has not been performed.",
+      "zh-CHS": "如果未执行拒收，则在完成上述步骤后，处理将正常进行。"
+    },
+    {
+      "indent": 3,
+      "text": "The final step is not mandatory as not all mail handling agents are capable of stripping away header fields, and there are sometimes reasons to keep the field intact such as debugging or presence of digital signatures that might be invalidated by such a change. See Section 10 for additional discussion.",
+      "zh-CHS": "最后一步不是强制性的，因为并非所有邮件处理代理都能够剥离标题字段，而且有时有理由保持该字段不变，例如调试或存在可能因此类更改而无效的数字签名。更多讨论见第10节。"
+    },
+    {
+      "indent": 3,
+      "text": "If a message is to be rejected within the SMTP protocol itself (versus generating a rejection message separately), servers implementing this protocol SHOULD also implement the SMTP extension described in \"Enhanced Mail System Status Codes\" [ESC] and use the enhanced status codes described in Section 15.3 as appropriate.",
+      "zh-CHS": "如果要在SMTP协议本身中拒绝邮件（而不是单独生成拒绝邮件），则实现此协议的服务器还应实现“增强邮件系统状态代码”[ESC]中所述的SMTP扩展，并酌情使用第15.3节中所述的增强状态代码。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementation by this method is expected to be transparent to non-participants, since they would typically ignore this header field.",
+      "zh-CHS": "这种方法的实现对于非参与者来说是透明的，因为他们通常会忽略这个头字段。"
+    },
+    {
+      "indent": 3,
+      "text": "This header field is not normally added to a message that is addressed to multiple recipients. The intended use of this field involves an author seeking to protect transactional or otherwise sensitive data intended for a single recipient, and thus generating independent messages for each individual recipient is normal practice. See Section 7 for further discussion and restrictions.",
+      "zh-CHS": "此标题字段通常不会添加到发送给多个收件人的邮件中。此字段的预期用途涉及作者试图保护针对单个收件人的事务性或其他敏感数据，因此为每个收件人生成独立消息是正常做法。有关进一步的讨论和限制，请参见第7节。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2.1. Design Choices",
+      "section_title": true,
+      "zh-CHS": "5.2.1. 设计选择"
+    },
+    {
+      "indent": 3,
+      "text": "The presence of the address in the field content supports the case where a message bearing this header field is forwarded. The specific use case is as follows:",
+      "zh-CHS": "字段内容中的地址支持转发带有此头字段的消息的情况。具体用例如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "1. A user subscribes to a service \"S\" at date-time \"D\" and confirms an email address at the user's current location, \"A\";",
+      "zh-CHS": "1. 用户在日期时间“D”订阅服务“S”，并在用户的当前位置“A”确认电子邮件地址；"
+    },
+    {
+      "indent": 3,
+      "text": "2. At some later date, the user intends to leave the current location and thus creates a new mailbox elsewhere, at \"B\";",
+      "zh-CHS": "2. 在稍后的某个日期，用户打算离开当前位置，从而在“B”的其他位置创建一个新邮箱；"
+    },
+    {
+      "indent": 3,
+      "text": "3. The user configures address \"A\" to forward to \"B\";",
+      "zh-CHS": "3. 用户将地址“A”配置为转发到“B”；"
+    },
+    {
+      "indent": 3,
+      "text": "4. \"S\" constructs a message to \"A\" claiming that the address was valid at date-time \"D\" and sends it to \"A\";",
+      "zh-CHS": "4. “S”向“a”构造一条消息，声称该地址在日期时间“D”有效，并将其发送给“a”；"
+    },
+    {
+      "indent": 3,
+      "text": "5. The receiving MTA for \"A\" determines that the forwarding in effect was created by the same party that owned the mailbox there and thus concludes that the continuous ownership test has been satisfied;",
+      "zh-CHS": "5. “A”的接收MTA确定有效转发是由拥有邮箱的同一方创建的，因此得出结论，已满足连续所有权测试；"
+    },
+    {
+      "indent": 3,
+      "text": "6. If possible, the MTA for \"A\" removes this header field from the message, and in either case, forwards it to \"B\"; and",
+      "zh-CHS": "6. 如果可能，“A”的MTA会从邮件中删除此标头字段，并在任何情况下将其转发给“B”；和"
+    },
+    {
+      "indent": 3,
+      "text": "7. On receipt at \"B\", either the header field has been removed or the header field does not refer to a current envelope recipient, and in either case the MTA delivers the message.",
+      "zh-CHS": "7. 在“B”处收到邮件时，要么邮件头字段已被删除，要么邮件头字段未指向当前信封收件人，并且在任何情况下，MTA都会传递邮件。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 8 discusses some interesting use cases, such as the case where \"B\" above results in further forwarding of the message.",
+      "zh-CHS": "第8节讨论了一些有趣的用例，例如上面的“B”导致进一步转发消息的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "SMTP has never required any correspondence between addresses in the RFC5321.MailFrom and RFC5321.RcptTo parameters and header fields of a message, which is why the header field defined here contains the recipient address to which the timestamp applies.",
+      "zh-CHS": "SMTP从未要求RFC5321.MailFrom和RFC5321.RcptTo参数中的地址与邮件的标头字段之间存在任何对应关系，这就是为什么此处定义的标头字段包含时间戳适用的收件人地址。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Clock Synchronization",
+      "section_title": true,
+      "zh-CHS": "5.3. 时钟同步"
+    },
+    {
+      "indent": 3,
+      "text": "The timestamp portion of this specification supports a precision at the seconds level. Although uncommon, it is not impossible for a clock at either a generator or a receiver to be incorrect, leading to an incorrect result in the RRVS evaluation.",
+      "zh-CHS": "本规范的时间戳部分支持秒级精度。虽然不常见，但发电机或接收器的时钟不可能不正确，导致RRVS评估结果不正确。"
+    },
+    {
+      "indent": 3,
+      "text": "To minimize the risk of such incorrect results, both generators and receivers implementing this specification MUST use a standard clock synchronization protocol such as [NTP] to synchronize to a common clock.",
+      "zh-CHS": "为了最大限度地降低此类错误结果的风险，实现本规范的发生器和接收器必须使用标准时钟同步协议（如[NTP]）与公共时钟同步。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Relaying without RRVS Support",
+      "section_title": true,
+      "zh-CHS": "6. 无RRV支持的中继"
+    },
+    {
+      "indent": 3,
+      "text": "When a message is received using the SMTP extension defined here but will not be delivered locally (that is, it needs to be relayed further), the MTA to which the relay will take place might not be compliant with this specification. Where the MTA in possession of the message observes it is going to relay the message to an MTA that does not advertise this extension, it needs to choose one of the following actions:",
+      "zh-CHS": "当使用此处定义的SMTP扩展名接收邮件但不会在本地传递（即，需要进一步中继）时，将进行中继的MTA可能不符合此规范。如果拥有邮件的MTA发现它要将邮件转发给不播发此扩展的MTA，则需要选择以下操作之一："
+    },
+    {
+      "indent": 3,
+      "text": "1. Decline to relay the message further, preferably generating a Delivery Status Notification [DSN] to indicate failure (RECOMMENDED);",
+      "zh-CHS": "1. 拒绝进一步中继消息，优选地生成传递状态通知[DSN]以指示失败（推荐）；"
+    },
+    {
+      "indent": 3,
+      "text": "2. Downgrade the data thus provided in the SMTP extension to a header field, as described in Section 6.1 below (SHOULD NOT unless the conditions in that section are satisfied, and only when the previous option is not available); or",
+      "zh-CHS": "2. 将SMTP扩展中提供的数据降级为标题字段，如下文第6.1节所述（除非满足该节中的条件，且仅当前一选项不可用时才应降级）；或"
+    },
+    {
+      "indent": 3,
+      "text": "3. Silently continue with delivery, dropping the protection offered by this protocol.",
+      "zh-CHS": "3. 以静默方式继续传递，放弃此协议提供的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "Using options other than the first option needs to be avoided unless there is specific knowledge that further relaying with the degraded protections thus provided does not introduce undue risk.",
+      "zh-CHS": "需要避免使用除第一个选项以外的其他选项，除非有明确的知识，即使用由此提供的降级保护进行进一步继电保护不会带来不必要的风险。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Header Field Conversion",
+      "section_title": true,
+      "zh-CHS": "6.1. 标题字段转换"
+    },
+    {
+      "indent": 3,
+      "text": "If an SMTP server (\"B\") receives a message bearing one or more \"Require-Recipient-Valid-Since\" header fields from a client (\"A\"), presumably because \"A\" does not support the SMTP extension, and needs to relay the corresponding message on to another server (\"C\") (thereby becoming a client), and \"C\" advertises support for the SMTP extension, \"B\" SHOULD delete the header field(s) and instead relay this information by making use of the SMTP extension. Note that such modification of the header might affect later validation of the",
+      "zh-CHS": "如果SMTP服务器（“B”）从客户端（“a”）接收到包含一个或多个“Require Recipient Valid Since”头字段的邮件（“a”），可能是因为“a”不支持SMTP扩展，需要将相应的邮件中继到另一台服务器（“C”）（从而成为客户端），“C”宣传支持SMTP扩展，“B”应删除标头字段，并改为使用SMTP扩展来中继此信息。请注意，对标头的此类修改可能会影响以后对"
+    },
+    {
+      "indent": 3,
+      "text": "header upon delivery; for example, a hash of the modified header would produce a different result. This might be a valid cause for some operators to skip this delete operation.",
+      "zh-CHS": "交付时的标题；例如，修改的头的散列将产生不同的结果。这可能是某些操作员跳过此删除操作的有效原因。"
+    },
+    {
+      "indent": 3,
+      "text": "Conversely, if \"B\" has received a mailbox timestamp from \"A\" using the SMTP extension for which it must now relay the message on to \"C\", but \"C\" does not advertise the SMTP extension, and \"B\" does not reject the message because rejection was specifically declined by the client (see Section 5.1.1), \"B\" SHOULD add a Require-Recipient-Valid-Since header field matching the mailbox to which relaying is being done, and the corresponding valid-since timestamp for it, if it has prior information that the eventual MDA or another intermediate MTA supports this mechanism and will be able to process the header field as described in this specification.",
+      "zh-CHS": "相反，如果“B”已使用SMTP分机从“a”接收到邮箱时间戳，此时它必须将邮件转发到“C”，但“C”不播发SMTP分机，“B”不拒绝邮件，因为拒绝被客户端明确拒绝（见第5.1.1节），“B”应添加一个Require Recipient Valid-Since标头字段，该字段与正在进行中继的邮箱相匹配，并为其添加相应的Valid-Since时间戳，前提是它具有最终MDA或另一个中间MTA支持此机制的先验信息，并且能够按照本规范中的描述处理标头字段。"
+    },
+    {
+      "indent": 3,
+      "text": "The admonitions about very cautious use of the header field described in Section 4 apply to this relaying mechanism as well. If multiple mailbox timestamps are received from \"A\", the admonitions in Section 7 also apply.",
+      "zh-CHS": "第4节中描述的关于非常谨慎地使用报头字段的警告也适用于这种中继机制。如果从“A”收到多个邮箱时间戳，则第7节中的警告也适用。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Header Field with Multiple Recipients",
+      "section_title": true,
+      "zh-CHS": "7. 具有多个收件人的标题字段"
+    },
+    {
+      "indent": 3,
+      "text": "Numerous issues arise when using the header field form of this extension, particularly when multiple recipients are specified for a single message resulting in multiple fields each with a distinct address and timestamp.",
+      "zh-CHS": "使用此扩展的标题字段形式时会出现许多问题，特别是当为单个邮件指定多个收件人时，会导致多个字段，每个字段都有不同的地址和时间戳。"
+    },
+    {
+      "indent": 3,
+      "text": "Because of the nature of SMTP, a message bearing a multiplicity of Require-Recipient-Valid-Since header fields could result in a single delivery attempt for multiple recipients (in particular, if two of the recipients are handled by the same server), and if any one of them fails the test, the delivery fails to all of them; it then becomes necessary to do one of the following:",
+      "zh-CHS": "由于SMTP的性质，包含多个Require Recipient Valid的邮件可能会导致多个收件人的一次传递尝试（特别是，如果两个收件人由同一台服务器处理），并且如果其中任何一个未通过测试，则所有收件人的传递都将失败；然后有必要执行以下操作之一："
+    },
+    {
+      "indent": 3,
+      "text": "o reject the message on completion of the DATA phase of the SMTP session, which is a rejection of delivery to all recipients, or",
+      "zh-CHS": "o 在SMTP会话的数据阶段完成时拒绝邮件，这意味着拒绝向所有收件人传递邮件，或者"
+    },
+    {
+      "indent": 3,
+      "text": "o accept the message on completion of DATA, and then generate a Delivery Status Notification [DSN] message for each of the failed recipients.",
+      "zh-CHS": "o 在数据完成时接受消息，然后为每个失败的收件人生成传递状态通知[DSN]消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional complexity arises when a message is sent to two recipients, \"A\" and \"B\", presumably with different timestamps, both of which are then redirected to a common address \"C\". The author is not necessarily aware of the current or past ownership of mailbox \"C\", or indeed that \"A\" and/or \"B\" have been redirected. This might",
+      "zh-CHS": "当一封邮件被发送到两个收件人“a”和“B”时，可能会产生额外的复杂性，这两个收件人可能具有不同的时间戳，然后这两个时间戳都被重定向到一个公共地址“C”。作者不一定知道邮箱“C”的当前或过去所有权，或者确实知道“A”和/或“B”已被重定向。这可能"
+    },
+    {
+      "indent": 3,
+      "text": "result in either or both of the two deliveries failing at \"C\", which is likely to confuse the message author, who (as far as the author is aware) never sent a message to \"C\" in the first place.",
+      "zh-CHS": "导致两次传递中的一次或两次都在“C”处失败，这可能会使消息作者感到困惑，因为他（据作者所知）一开始从未向“C”发送过消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, there is an obvious concern with the fan-out of a message bearing the timestamps of multiple users; tight control over the handling of the timestamp information is very difficult to assure as the number of handling agents increases.",
+      "zh-CHS": "最后，有一个明显的问题是带有多个用户时间戳的消息的扇出；随着处理代理数量的增加，很难保证对时间戳信息处理的严格控制。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Special Use Addresses",
+      "section_title": true,
+      "zh-CHS": "8. 特殊用途地址"
+    },
+    {
+      "indent": 3,
+      "text": "In [DSN-SMTP], an SMTP extension was defined to allow SMTP clients to request generation of DSNs and related information to allow such reports to be maximally useful. Section 5.2.7 of that document explored the issue of the use of that extension where the recipient is a mailing list. This extension has similar concerns, which are covered here following that document as a model.",
+      "zh-CHS": "在[DSN-SMTP]中，定义了一个SMTP扩展，允许SMTP客户端请求生成DSN和相关信息，以最大限度地利用此类报告。该文件第5.2.7节探讨了收件人是邮件列表时使用该扩展的问题。此扩展具有类似的关注点，在该文档之后作为一个模型介绍。"
+    },
+    {
+      "indent": 3,
+      "text": "For all cases described below, a receiving MTA SHOULD NOT introduce RRVS in either form (SMTP extension or header field) if the message did not arrive with RRVS in use. This would amount to second guessing the message originator's intention and might lead to an undesirable outcome.",
+      "zh-CHS": "对于下面描述的所有情况，如果邮件到达时未使用RRV，则接收MTA不应以任何形式（SMTP扩展名或标头字段）引入RRV。这相当于对消息发起人的意图进行二次猜测，并可能导致不希望的结果。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Mailing Lists",
+      "section_title": true,
+      "zh-CHS": "8.1. 邮件列表"
+    },
+    {
+      "indent": 3,
+      "text": "Delivery to a mailing list service is considered a final delivery. Where this protocol is in use, it is evaluated as per any normal delivery: if the same mailing list has been operating in place of the specified recipient mailbox since at least the timestamp given as the RRVS parameter, the message is delivered to the list service normally, and is otherwise not delivered.",
+      "zh-CHS": "向邮件列表服务的传递被视为最终传递。在使用此协议的情况下，将根据任何正常传递对其进行评估：如果至少在作为RRVS参数给定的时间戳之后，相同的邮件列表代替指定的收件人邮箱一直在运行，则邮件将正常传递到列表服务，否则不会传递。"
+    },
+    {
+      "indent": 3,
+      "text": "It is important, however, that the participating MDA passing the message to the list service needs to omit the RRVS parameter in either form (SMTP extension or header field) when doing so. The emission of a message from the list service to its subscribers constitutes a new message not covered by the previous transaction.",
+      "zh-CHS": "但是，重要的是，将消息传递给列表服务的参与MDA在执行此操作时，需要以任何形式（SMTP扩展名或标头字段）忽略RRVS参数。从列表服务向其订阅者发送的消息构成了前一事务未涵盖的新消息。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Single-Recipient Aliases",
+      "section_title": true,
+      "zh-CHS": "8.2. 单一收件人别名"
+    },
+    {
+      "indent": 3,
+      "text": "Upon delivery of an RRVS-protected message to an alias (acting in place of a mailbox) that results in relaying of the message to a single other destination, the usual RRVS check is performed. The continuous ownership test here might succeed if, for example, a conventional user inbox was replaced with an alias on behalf of that same user, and the time when this was done is recorded in a way that can be queried by the relaying MTA.",
+      "zh-CHS": "将受RRVS保护的邮件传递到别名（代替邮箱）后，会将邮件中继到单个其他目的地，通常会执行RRVS检查。例如，如果用代表同一用户的别名替换传统用户收件箱，并且以中继MTA可以查询的方式记录完成此操作的时间，则此处的持续所有权测试可能会成功。"
+    },
+    {
+      "indent": 3,
+      "text": "If the relaying system also performs some kind of step where ownership of the new destination address is confirmed, it SHOULD apply RRVS using the later of that timestamp and the one that was used inbound. This also allows for changes to the alias without disrupting the protection offered by RRVS.",
+      "zh-CHS": "如果中继系统还执行某种确认新目的地地址所有权的步骤，则应使用该时间戳和入站使用的时间戳中的较晚者应用RRV。这还允许在不中断RRV提供的保护的情况下更改别名。"
+    },
+    {
+      "indent": 3,
+      "text": "If the relaying system has no such time records related to the new destination address, the RRVS SMTP extension is not used on the relaying SMTP session, and the header field relative to the local alias is removed, in accordance with Section 5.",
+      "zh-CHS": "如果中继系统没有与新目标地址相关的时间记录，则根据第5节，中继SMTP会话上不使用RRVS SMTP扩展，并且删除与本地别名相关的头字段。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3. Multiple-Recipient Aliases",
+      "section_title": true,
+      "zh-CHS": "8.3. 多个收件人别名"
+    },
+    {
+      "indent": 3,
+      "text": "Upon delivery of an RRVS-protected message to an alias (acting in place of a mailbox) that results in relaying of the message to multiple other destinations, the usual RRVS check is performed as in Section 8.2. The MTA expanding such an alias then decides which of the options enumerated in that section is to be applied for each new recipient.",
+      "zh-CHS": "将受RRVS保护的邮件传递到别名（代替邮箱）后，会导致邮件中继到多个其他目的地，通常的RRVS检查将按照第8.2节的规定执行。然后，扩展此别名的MTA将决定对每个新收件人应用该节中列举的选项。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4. Confidential Forwarding Addresses",
+      "section_title": true,
+      "zh-CHS": "8.4. 机密转发地址"
+    },
+    {
+      "indent": 3,
+      "text": "In the above cases, the original author could receive message rejections, such as DSNs, from the ultimate destination, where the RRVS check (or indeed, any other) fails and rejection is warranted. This can reveal the existence of a forwarding relationship between the original intended recipient and the actual final recipient.",
+      "zh-CHS": "在上述情况下，原始作者可能会收到来自最终目的地的消息拒绝，如DSN，在最终目的地，RRVS检查（或任何其他）失败，并且拒绝是有保证的。这可以揭示原始预期收件人和实际最终收件人之间存在转发关系。"
+    },
+    {
+      "indent": 3,
+      "text": "Where this is a concern, the initial delivery attempt is to be treated like a mailing list delivery, with RRVS evaluation done and then all RRVS information removed from the message prior to relaying it to its true destination.",
+      "zh-CHS": "如果这是一个问题，则初始传递尝试将被视为邮件列表传递，完成RRVS评估，然后在将邮件转发到其真实目的地之前从邮件中删除所有RRVS信息。"
+    },
+    {
+      "indent": 0,
+      "text": "8.5. Suggested Mailing List Enhancements",
+      "section_title": true,
+      "zh-CHS": "8.5. 建议的邮件列表增强功能"
+    },
+    {
+      "indent": 3,
+      "text": "Mailing list services could store the timestamp at which a subscriber was added to a mailing list. This specification could then be used in conjunction with that information in order to restrict list traffic to the original subscriber, rather than a different person now in possession of an address under which the original subscriber was added to the list. Upon receiving a rejection caused by this specification, the list service can remove that address from further distribution.",
+      "zh-CHS": "邮件列表服务可以存储订户添加到邮件列表的时间戳。然后，可以将该规范与该信息结合使用，以将列表通信量限制在原始订户，而不是现在拥有将原始订户添加到列表中的地址的其他人。在收到此规范导致的拒绝后，列表服务可以从进一步分发中删除该地址。"
+    },
+    {
+      "indent": 3,
+      "text": "A mailing list service that receives a message containing the header field defined here needs to remove it from the message prior to redistributing it, limiting exposure of information regarding the relationship between the message's author and the mailing list.",
+      "zh-CHS": "接收包含此处定义的标题字段的邮件的邮件列表服务需要在重新分发之前将其从邮件中删除，从而限制有关邮件作者和邮件列表之间关系的信息的公开。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Continuous Ownership",
+      "section_title": true,
+      "zh-CHS": "9. 持续所有权"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of this specification, an address is defined as having been under continuous ownership since a given date-time if a message sent to the address at any point since the given date-time would not go to anyone except the owner at that given date-time. That is, while an address may have been suspended or otherwise disabled for some period, any mail actually delivered would have been delivered exclusively to the same owner. It is presumed that some sort of relationship exists between the message sender and the intended recipient. Presumably, there has been some confirmation process applied to establish this ownership of the receiver's mailbox; however, the method of making such determinations is a local matter and outside the scope of this document.",
+      "zh-CHS": "在本规范中，如果自给定日期时间起发送到地址的消息在该给定日期时间不会发送给除所有者以外的任何人，则地址定义为自给定日期时间起一直处于持续所有权之下。也就是说，虽然一个地址可能已经被暂停或禁用了一段时间，但任何实际发送的邮件都将被专门发送给同一所有者。假定消息发送者和预期接收者之间存在某种关系。据推测，已经应用了一些确认过程来确定收件人邮箱的所有权；然而，进行此类测定的方法是一个局部问题，不在本文件的范围内。"
+    },
+    {
+      "indent": 3,
+      "text": "Evaluating the notion of continuous ownership is accomplished by doing any query that establishes whether the above condition holds for a given mailbox.",
+      "zh-CHS": "评估持续所有权的概念是通过执行任何查询来完成的，该查询确定上述条件是否适用于给定邮箱。"
+    },
+    {
+      "indent": 3,
+      "text": "Determining continuous ownership of a mailbox is a local matter at the receiving site. The only possible answers to the continuous-ownership-since question are \"yes\", \"no\", and \"unknown\"; the action to be taken in the \"unknown\" case is a matter of local policy.",
+      "zh-CHS": "确定邮箱的持续所有权是接收站点的本地事务。对于“自”问题的持续所有权，唯一可能的答案是“是”、“否”和“未知”；在“未知”案件中采取的行动是当地政策问题。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, when control of a domain name is transferred, the new domain owner might be unable to determine whether the owner of the subject address has been under continuous ownership since the stated date-time if the mailbox history is not also transferred (or was not previously maintained). It will also be \"unknown\" if whatever database contains mailbox ownership data is temporarily unavailable at the time a message arrives for delivery. In this latter case, typical SMTP temporary failure handling is appropriate.",
+      "zh-CHS": "例如，当域名的控制权被转移时，如果邮箱历史记录未被转移（或以前未维护），新的域名所有者可能无法确定主题地址的所有者自指定日期时间以来是否一直处于持续所有权之下。如果包含邮箱所有权数据的任何数据库在邮件到达进行传递时暂时不可用，则它也将是“未知”的。在后一种情况下，典型的SMTP临时故障处理是合适的。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid exposing account details unnecessarily, if the address specified has had one continuous owner since it was created, any confirmation date-time SHOULD be considered to pass the test, even if that date-time is earlier than the account creation date and time. This is further discussed in Section 13.",
+      "zh-CHS": "为避免不必要地公开帐户详细信息，如果指定的地址自创建以来有一个连续的所有者，则任何确认日期时间都应被视为通过测试，即使该日期时间早于帐户创建日期和时间。这将在第13节中进一步讨论。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Digital Signatures",
+      "section_title": true,
+      "zh-CHS": "10. 数字签名"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol mandates removal of the header field (when used) upon delivery in all but exceptional circumstances. If a message with the header field were digitally signed in a way that included the header field, altering a message in this way would invalidate the signature. However, the header field is strictly for tunneling purposes and should be regarded by the rest of the transport system as purely trace information.",
+      "zh-CHS": "该协议要求在除特殊情况外的所有情况下交付时删除标题字段（使用时）。如果以包含标头字段的方式对带有标头字段的消息进行数字签名，则以这种方式更改消息将使签名无效。但是，标头字段严格用于隧道目的，传输系统的其余部分应将其视为纯粹的跟踪信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, the header field MUST NOT be included in the content covered by digital signatures.",
+      "zh-CHS": "因此，标题字段不得包含在数字签名覆盖的内容中。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Authentication-Results Definitions",
+      "section_title": true,
+      "zh-CHS": "11. 身份验证结果定义"
+    },
+    {
+      "indent": 3,
+      "text": "[AUTHRES] defines a mechanism for indicating, via a header field, the results of message authentication checks. Section 15 registers RRVS as a new method that can be reported in this way, as well as corresponding result names. The possible result names and their meanings are as follows:",
+      "zh-CHS": "[AUTHRES]定义了一种机制，用于通过标头字段指示消息身份验证检查的结果。第15节将RRV注册为一种新方法，可以通过这种方式报告，以及相应的结果名称。可能的结果名称及其含义如下："
+    },
+    {
+      "indent": 3,
+      "text": "none: The message had no recipient mailbox timestamp associated with it, either via the SMTP extension or header field method; this protocol was not in use.",
+      "zh-CHS": "无：通过SMTP扩展名或标头字段方法，邮件没有与之关联的收件人邮箱时间戳；该协议未被使用。"
+    },
+    {
+      "indent": 3,
+      "text": "unknown: At least one form of this protocol was in use, but continuous ownership of the recipient mailbox could not be determined.",
+      "zh-CHS": "未知：此协议至少有一种形式正在使用，但无法确定收件人邮箱的持续所有权。"
+    },
+    {
+      "indent": 3,
+      "text": "temperror: At least one form of this protocol was in use, but some kind of error occurred during evaluation that was transient in nature; a later retry will likely produce a final result.",
+      "zh-CHS": "temperror：该协议至少有一种形式正在使用中，但在评估过程中出现了某种性质的暂时性错误；稍后重试可能会产生最终结果。"
+    },
+    {
+      "indent": 3,
+      "text": "permerror: At least one form of this protocol was in use, but some kind of error occurred during evaluation that was not recoverable; a later retry will not likely produce a final result.",
+      "zh-CHS": "permerror：此协议至少有一种形式正在使用，但在评估过程中发生了某种无法恢复的错误；稍后重试可能不会产生最终结果。"
+    },
+    {
+      "indent": 3,
+      "text": "pass: At least one form of this protocol was in use, and the destination mailbox was confirmed to have been under continuous ownership since the timestamp thus provided.",
+      "zh-CHS": "通过：此协议至少有一种形式正在使用，并且自提供时间戳以来，目标邮箱已被确认为持续所有权。"
+    },
+    {
+      "indent": 3,
+      "text": "fail: At least one form of this protocol was in use, and the destination mailbox was confirmed not to have been under continuous ownership since the timestamp thus provided.",
+      "zh-CHS": "失败：此协议至少有一种形式正在使用，并且自提供时间戳以来，已确认目标邮箱未处于持续所有权之下。"
+    },
+    {
+      "indent": 3,
+      "text": "Where multiple recipients are present on a message, multiple results can be reported using the mechanism described in [AUTHRES].",
+      "zh-CHS": "如果邮件上有多个收件人，则可以使用[AUTHRES]中描述的机制报告多个结果。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Examples",
+      "section_title": true,
+      "zh-CHS": "12. 例子"
+    },
+    {
+      "indent": 3,
+      "text": "In the following examples, \"C:\" indicates data sent by an SMTP client, and \"S:\" indicates responses by the SMTP server. Message content is CRLF terminated, though these are omitted here for ease of reading.",
+      "zh-CHS": "在以下示例中，“C:”表示SMTP客户端发送的数据，“S:”表示SMTP服务器的响应。消息内容以CRLF终止，但为了便于阅读，此处省略了这些内容。"
+    },
+    {
+      "indent": 0,
+      "text": "12.1. SMTP Extension Example",
+      "section_title": true,
+      "zh-CHS": "12.1. SMTP扩展名示例"
+    },
+    {
+      "indent": 5,
+      "text": "C: [connection established]\nS: 220 server.example.com ESMTP ready\nC: EHLO client.example.net\nS: 250-server.example.com\nS: 250 RRVS\nC: MAIL FROM:<sender@example.net>\nS: 250 OK\nC: RCPT TO:<receiver@example.com> RRVS=2014-04-03T23:01:00Z\nS: 550 5.7.17 receiver@example.com is no longer valid\nC: QUIT\nS: 221 So long!",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "12.2. Header Field Example",
+      "section_title": true,
+      "zh-CHS": "12.2. 标题字段示例"
+    },
+    {
+      "indent": 5,
+      "text": "C: [connection established]\nS: 220 server.example.com ESMTP ready\nC: HELO client.example.net\nS: 250 server.example.com\nC: MAIL FROM:<sender@example.net>\nS: 250 OK\nC: RCPT TO:<receiver@example.com>\nS: 250 OK\nC: DATA\nS: 354 Ready for message content\nC: From: Mister Sender <sender@example.net>\n   To: Miss Receiver <receiver@example.com>\n   Subject: Are you still there?\n   Date: Fri, 28 Jun 2013 18:01:01 +0200\n   Require-Recipient-Valid-Since: receiver@example.com;\n     Sat, 1 Jun 2013 09:23:01 -0700",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "   Are you still there?\n   .\nS: 550 5.7.17 receiver@example.com is no longer valid\nC: QUIT\nS: 221 So long!",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "12.3. Authentication-Results Example",
+      "section_title": true,
+      "zh-CHS": "12.3. 验证结果示例"
+    },
+    {
+      "indent": 3,
+      "text": "Here is an example use of the Authentication-Results header field used to yield the results of an RRVS evaluation:",
+      "zh-CHS": "以下是用于生成RRVS评估结果的身份验证结果标头字段的示例用法："
+    },
+    {
+      "indent": 5,
+      "text": "Authentication-Results: mx.example.com; rrvs=pass\n        smtp.rcptto=user@example.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This indicates that the message arrived addressed to the mailbox user@example.com, the continuous ownership test was applied with the provided timestamp, and the check revealed that the test was satisfied. The timestamp is not revealed.",
+      "zh-CHS": "这表示邮件已发送至邮箱user@example.com，使用提供的时间戳应用连续所有权测试，检查表明测试满足要求。时间戳不显示。"
+    },
+    {
+      "indent": 0,
+      "text": "13. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "13. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Abuse Countermeasures",
+      "section_title": true,
+      "zh-CHS": "13.1. 滥用对策"
+    },
+    {
+      "indent": 3,
+      "text": "The response of a server implementing this protocol can disclose information about the age of an existing email mailbox. Implementation of countermeasures against probing attacks is RECOMMENDED. For example, an operator could track appearance of this field with respect to a particular mailbox and observe the timestamps being submitted for testing; if it appears that a variety of timestamps are being tried against a single mailbox in short order, the field could be ignored and the message silently discarded. This concern is discussed further in Section 14.",
+      "zh-CHS": "实现此协议的服务器的响应可能会泄露现有电子邮件邮箱的使用年限信息。建议实施针对探测攻击的对策。例如，操作员可以跟踪该字段相对于特定邮箱的外观，并观察提交测试的时间戳；如果在短时间内对单个邮箱尝试了各种时间戳，则该字段可能会被忽略，消息会被悄悄地丢弃。第14节将进一步讨论这一问题。"
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Suggested Use Restrictions",
+      "section_title": true,
+      "zh-CHS": "13.2. 建议的使用限制"
+    },
+    {
+      "indent": 3,
+      "text": "If the mailbox named in the field is known to have had only a single continuous owner since creation, or not to have existed at all (under any owner) prior to the date-time specified in the field, then the field SHOULD be silently ignored and normal message handling applied so that this information is not disclosed. Such fields are likely the product of either gross error or an attack.",
+      "zh-CHS": "如果已知字段中命名的邮箱自创建以来只有一个连续的所有者，或者在字段中指定的日期时间之前根本不存在（在任何所有者之下），则应忽略该字段并应用正常的邮件处理，以便不披露此信息。这些字段可能是严重错误或攻击的产物。"
+    },
+    {
+      "indent": 3,
+      "text": "A message author using this specification might restrict inclusion of the header field such that it is only done for recipients known also to implement this specification, in order to reduce the possibility of revealing information about the relationship between the author and the mailbox.",
+      "zh-CHS": "使用此规范的邮件作者可能会限制标头字段的包含，以便仅对已知也实施此规范的收件人执行此操作，以减少泄露有关作者与邮箱之间关系的信息的可能性。"
+    },
+    {
+      "indent": 3,
+      "text": "If ownership of an entire domain is transferred, the new owner may not know what addresses were assigned in the past by the prior owner. Hence, no address can be known not to have had a single owner, or to have existed (or not) at all. In this case, the \"unknown\" result is likely appropriate.",
+      "zh-CHS": "如果整个域的所有权被转移，新的所有者可能不知道以前的所有者在过去分配了哪些地址。因此，没有一个地址是已知的没有一个所有者，或者根本不存在（或者根本不存在）。在这种情况下，“未知”结果可能是合适的。"
+    },
+    {
+      "indent": 0,
+      "text": "13.3. False Sense of Security",
+      "section_title": true,
+      "zh-CHS": "13.3. 虚假的安全感"
+    },
+    {
+      "indent": 3,
+      "text": "Senders implementing this protocol likely believe their content is being protected by doing so. It has to be considered, however, that receiving systems might not implement this protocol correctly, or at all. Furthermore, use of RRVS by a sending system constitutes nothing more than a request to the receiving system; that system could choose not to prevent delivery for some local policy, for legal",
+      "zh-CHS": "实现此协议的发件人可能认为他们的内容受到了保护。然而，必须考虑的是，接收系统可能无法正确地或根本无法实现该协议。此外，发送系统使用RRV只构成对接收系统的请求；该系统可以选择不阻止某些地方政策的交付，例如法律上的"
+    },
+    {
+      "indent": 3,
+      "text": "or operational reasons, which compromises the security the sending system believed was a benefit to using RRVS. This could mean the timestamp information involved in the protocol becomes inadvertently revealed.",
+      "zh-CHS": "或操作原因，这会损害发送系统认为使用RRV有益的安全性。这可能意味着协议中涉及的时间戳信息被无意中泄露。"
+    },
+    {
+      "indent": 3,
+      "text": "This concern lends further support to the notion that senders would do well to avoid using this protocol other than when sending to known, trusted receivers.",
+      "zh-CHS": "这种担忧进一步支持了这样一种观点，即发送方最好避免使用该协议，而不是发送给已知的可信接收方。"
+    },
+    {
+      "indent": 0,
+      "text": "13.4. Reassignment of Mailboxes",
+      "section_title": true,
+      "zh-CHS": "13.4. 邮箱的重新分配"
+    },
+    {
+      "indent": 3,
+      "text": "This specification is a direct response to the risks involved with reassignment or recycling of email addresses, an inherently dangerous practice. It is typically expected that email addresses will not have a high rate of turnover or ownership change.",
+      "zh-CHS": "本规范是对重新分配或回收电子邮件地址所涉及的风险的直接回应，这是一种固有的危险做法。通常预期电子邮件地址的周转率或所有权变更率不会很高。"
+    },
+    {
+      "indent": 3,
+      "text": "It is RECOMMENDED to have a substantial period of time between mailbox owners during which the mailbox accepts no mail, giving message generators an opportunity to detect that the previous owner is no longer at that address.",
+      "zh-CHS": "建议邮箱所有者之间有一段较长的时间，在此期间邮箱不接受邮件，从而使邮件生成器有机会检测到以前的所有者不再位于该地址。"
+    },
+    {
+      "indent": 0,
+      "text": "14. Privacy Considerations",
+      "section_title": true,
+      "zh-CHS": "14. 隐私考虑"
+    },
+    {
+      "indent": 0,
+      "text": "14.1. The Tradeoff",
+      "section_title": true,
+      "zh-CHS": "14.1. 权衡"
+    },
+    {
+      "indent": 3,
+      "text": "That some MSPs allow for expiration of account names when they have been unused for a protracted period forces a choice between two potential types of privacy vulnerabilities, one of which presents significantly greater threats to users than the other. Automatically generated mail is often used to convey authentication credentials that can potentially provide access to extremely sensitive information. Supplying such credentials to the wrong party after a mailbox ownership change could allow the previous owner's data to be exposed without his or her authorization or knowledge. In contrast, the information that may be exposed to a third party via the proposal in this document is limited to information about the mailbox history. Given that MSPs have chosen to allow transfers of mailbox ownership without the prior owner's involvement, the information leakage from the extensions specified here creates far lower overall risk than the potential for delivering mail to the wrong party.",
+      "zh-CHS": "一些MSP允许帐户名在长时间未使用时过期，这迫使人们在两种潜在的隐私漏洞之间做出选择，其中一种对用户的威胁要比另一种严重得多。自动生成的邮件通常用于传递身份验证凭据，这些凭据可能提供对极其敏感信息的访问。在邮箱所有权更改后将此类凭据提供给错误的一方可能会允许前所有者的数据在未经其授权或知情的情况下公开。相反，通过本文档中的提案向第三方公开的信息仅限于邮箱历史记录信息。鉴于MSP已选择允许在没有先前所有者参与的情况下转移邮箱所有权，此处指定的扩展的信息泄漏造成的总体风险远远低于向错误方发送邮件的可能性。"
+    },
+    {
+      "indent": 0,
+      "text": "14.2. Probing Attacks",
+      "section_title": true,
+      "zh-CHS": "14.2. 探测攻击"
+    },
+    {
+      "indent": 3,
+      "text": "As described above, use of this extension or header field in probing attacks can disclose information about the history of the mailbox. The harm that can be done by leaking any kind of private information is difficult to predict, so it is prudent to be sensitive to this sort of disclosure, either inadvertently or in response to probing by",
+      "zh-CHS": "如上所述，在探测攻击时使用此扩展名或标头字段可能会泄露有关邮箱历史记录的信息。泄露任何类型的私人信息可能造成的伤害都很难预测，因此谨慎的做法是对此类披露保持敏感，无论是无意中还是在回应警方调查时"
+    },
+    {
+      "indent": 3,
+      "text": "an attacker. It bears restating, then, that implementing countermeasures against abuse of this capability needs strong consideration.",
+      "zh-CHS": "袭击者。因此，值得重申的是，实施反滥用这一能力的对策需要认真考虑。"
+    },
+    {
+      "indent": 0,
+      "text": "14.3. Envelope Recipients",
+      "section_title": true,
+      "zh-CHS": "14.3. 信封收件人"
+    },
+    {
+      "indent": 3,
+      "text": "The email To and Cc header fields are not required to be populated with addresses that match the envelope recipient set, and Cc may even be absent. However, the algorithm in Section 3 requires that this header field contain a match for an envelope recipient in order to be actionable. As such, use of this specification can reveal some or all of the original intended recipient set to any party that can see the message in transit or upon delivery.",
+      "zh-CHS": "电子邮件收件人和抄送头字段不需要填充与信封收件人集匹配的地址，抄送甚至可能不存在。但是，第3节中的算法要求此标头字段包含信封收件人的匹配项，以便可以执行操作。因此，使用本规范可将部分或全部原始预期收件人集透露给任何一方，该方可在传输中或交付时看到邮件。"
+    },
+    {
+      "indent": 3,
+      "text": "For a message destined to a single recipient, this is unlikely to be a concern, which is one of the reasons use of this specification on multi-recipient messages is discouraged.",
+      "zh-CHS": "对于发送给单个收件人的邮件，这不太可能是一个问题，这也是不鼓励在多收件人邮件上使用此规范的原因之一。"
+    },
+    {
+      "indent": 0,
+      "text": "14.4. Risks with Use",
+      "section_title": true,
+      "zh-CHS": "14.4. 使用风险"
+    },
+    {
+      "indent": 3,
+      "text": "MDAs might not implement the recommendation to remove the header field defined here when messages are delivered, either out of ignorance or due to error. Since user agents often do not render all of the header fields present, the message could be forwarded to another party that would then inadvertently have the content of this header field.",
+      "zh-CHS": "出于无知或错误的原因，在传递消息时，MDA可能不会实现删除此处定义的标头字段的建议。由于用户代理通常不会呈现所有存在的头字段，因此消息可能会转发给另一方，而该方随后会无意中拥有此头字段的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "A bad actor may detect use of either form of the RRVS protocol and interpret it as an indication of high-value content.",
+      "zh-CHS": "不良参与者可能会检测到任何形式的RRVS协议的使用，并将其解释为高价值内容的指示。"
+    },
+    {
+      "indent": 0,
+      "text": "15. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "15. IANA考虑"
+    },
+    {
+      "indent": 0,
+      "text": "15.1. SMTP Extension Registration",
+      "section_title": true,
+      "zh-CHS": "15.1. SMTP扩展注册"
+    },
+    {
+      "indent": 3,
+      "text": "Section 2.2.2 of [SMTP] sets out the procedure for registering a new SMTP extension. IANA has registered the SMTP extension using the details provided in Section 3.1 of this document.",
+      "zh-CHS": "[SMTP]的第2.2.2节规定了注册新SMTP扩展的过程。IANA已使用本文件第3.1节中提供的详细信息注册了SMTP扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "15.2. Header Field Registration",
+      "section_title": true,
+      "zh-CHS": "15.2. 标题字段注册"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has added the following entry to the \"Permanent Message Header Field Names\" registry, as per the procedure found in [IANA-HEADERS]:",
+      "zh-CHS": "IANA已按照[IANA-HEADERS]中的程序将以下条目添加到“永久消息头字段名称”注册表中："
+    },
+    {
+      "indent": 5,
+      "text": "Header field name: Require-Recipient-Valid-Since\nApplicable protocol: mail ([MAIL])\nStatus: standard\nAuthor/Change controller: IETF\nSpecification document(s): RFC 7293",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Related information: Requesting review of any proposed changes and additions to this field is recommended.",
+      "zh-CHS": "相关信息：建议要求审查该领域的任何拟议变更和补充。"
+    },
+    {
+      "indent": 0,
+      "text": "15.3. Enhanced Status Code Registration",
+      "section_title": true,
+      "zh-CHS": "15.3. 增强的状态码注册"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has registered the following in the Enumerated Status Codes table of the \"Simple Mail Transfer Protocol (SMTP) Enhanced Status Codes Registry\":",
+      "zh-CHS": "IANA已在“简单邮件传输协议（SMTP）增强状态代码注册表”的枚举状态代码表中注册了以下内容："
+    },
+    {
+      "indent": 5,
+      "text": "Code: X.7.17 Sample Text: Mailbox owner has changed Associated basic status code: 5XX Description: This status code is returned when a message is received with a Require-Recipient-Valid-Since field or RRVS extension and the receiving system is able to determine that the intended recipient mailbox has not been under continuous ownership since the specified date-time. Reference: RFC 7293 Submitter: M. Kucherawy Change controller: IESG",
+      "zh-CHS": "代码：X.7.17示例文本：邮箱所有者已更改关联的基本状态代码：5XX说明：当接收到带有Require Recipient Valid-Since字段或RRVS扩展名的邮件时，将返回此状态代码，并且接收系统能够确定自指定的日期和时间。参考：RFC 7293提交人：M.Kucherawy变更控制员：IESG"
+    },
+    {
+      "indent": 6,
+      "text": "Code: X.7.18 Sample Text: Domain owner has changed Associated basic status code: 5XX Description: This status code is returned when a message is received with a Require-Recipient-Valid-Since field or RRVS extension and the receiving system wishes to disclose that the owner of the domain name of the recipient has changed since the specified date-time. Reference: RFC 7293 Submitter: M. Kucherawy Change controller: IESG",
+      "zh-CHS": "代码：X.7.18示例文本：域所有者已更改关联的基本状态代码：5XX说明：当接收到要求收件人自字段或RRVS扩展名生效的邮件时，将返回此状态代码，并且接收系统希望披露收件人的域名所有者自指定日期起已更改日期时间。参考：RFC 7293提交人：M.Kucherawy变更控制员：IESG"
+    },
+    {
+      "indent": 6,
+      "text": "Code: X.7.19 Sample Text: RRVS test cannot be completed Associated basic status code: 5XX Description: This status code is returned when a message is received with a Require-Recipient-Valid-Since field or RRVS extension and the receiving system cannot complete the requested evaluation because the required timestamp was not recorded. The message originator needs to decide whether to reissue the message without RRVS protection. Reference: RFC 7293",
+      "zh-CHS": "代码：X.7.19示例文本：无法完成RRVS测试关联的基本状态代码：5XX说明：当接收到带有Require Recipient Valid-Since字段或RRVS扩展名的消息时，将返回此状态代码，并且接收系统无法完成请求的评估，因为未记录所需的时间戳。消息发起人需要决定是否在没有RRVS保护的情况下重新发出消息。参考：RFC 7293"
+    },
+    {
+      "indent": 6,
+      "text": "Submitter: M. Kucherawy Change controller: IESG",
+      "zh-CHS": "提交人：M.Kucherawy变更控制员：IESG"
+    },
+    {
+      "indent": 0,
+      "text": "15.4. Authentication Results Registration",
+      "section_title": true,
+      "zh-CHS": "15.4. 认证结果注册"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has registered the following in the \"Email Authentication Methods\" registry:",
+      "zh-CHS": "IANA已在“电子邮件身份验证方法”注册表中注册了以下内容："
+    },
+    {
+      "indent": 3,
+      "text": "Method: rrvs",
+      "zh-CHS": "方法：rrvs"
+    },
+    {
+      "indent": 3,
+      "text": "Specifying Document: RFC 7293",
+      "zh-CHS": "指定文件：RFC 7293"
+    },
+    {
+      "indent": 3,
+      "text": "ptype: smtp",
+      "zh-CHS": "p类型：smtp"
+    },
+    {
+      "indent": 3,
+      "text": "Property: rcptto",
+      "zh-CHS": "物业名称：rcptto"
+    },
+    {
+      "indent": 3,
+      "text": "Value: envelope recipient",
+      "zh-CHS": "值：信封收件人"
+    },
+    {
+      "indent": 3,
+      "text": "Status: active",
+      "zh-CHS": "状态：活动"
+    },
+    {
+      "indent": 3,
+      "text": "Version: 1",
+      "zh-CHS": "版本:1"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has also registered the following in the \"Email Authentication Result Names\" registry:",
+      "zh-CHS": "IANA还在“电子邮件身份验证结果名称”注册表中注册了以下内容："
+    },
+    {
+      "indent": 3,
+      "text": "Codes: none, unknown, temperror, permerror, pass, fail",
+      "zh-CHS": "代码：无、未知、温度错误、permerror、通过、失败"
+    },
+    {
+      "indent": 3,
+      "text": "Defined: RFC 7293",
+      "zh-CHS": "定义：RFC 7293"
+    },
+    {
+      "indent": 3,
+      "text": "Auth Method(s): rrvs",
+      "zh-CHS": "验证方法：rrvs"
+    },
+    {
+      "indent": 3,
+      "text": "Meaning: Section 11 of RFC 7293",
+      "zh-CHS": "含义：RFC 7293第11节"
+    },
+    {
+      "indent": 3,
+      "text": "Status: active",
+      "zh-CHS": "状态：活动"
+    },
+    {
+      "indent": 0,
+      "text": "16. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "16. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Erling Ellingsen proposed the idea.",
+      "zh-CHS": "埃尔林·埃林森提出了这个想法。"
+    },
+    {
+      "indent": 3,
+      "text": "Reviews and comments were provided by Michael Adkins, Kurt Andersen, Eric Burger, Alissa Cooper, Dave Cridland, Dave Crocker, Ned Freed, John Levine, Alexey Melnikov, Jay Nancarrow, Hector Santos, Gregg Stefancik, and Ed Zayas.",
+      "zh-CHS": "评论和评论由迈克尔·阿德金斯、库尔特·安德森、埃里克·伯格、艾莉莎·库珀、戴夫·克里德兰、戴夫·克罗克、内德·弗里德、约翰·莱文、阿列克西·梅尔尼科夫、杰·南卡罗、赫克托·桑托斯、格雷格·斯特凡奇克和埃德·扎亚斯提供。"
+    },
+    {
+      "indent": 0,
+      "text": "17. References",
+      "section_title": true,
+      "zh-CHS": "17. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "17.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "17.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[ABNF] Crocker, D. and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", STD 68, RFC 5234, January 2008.",
+      "zh-CHS": "[ABNF]Crocker，D.和P.Overell，“语法规范的扩充BNF:ABNF”，STD 68，RFC 5234，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DATETIME] Klyne, G., Ed. and C. Newman, \"Date and Time on the Internet: Timestamps\", RFC 3339, July 2002.",
+      "zh-CHS": "[日期时间]Klyne，G.，Ed.和C.Newman，“互联网上的日期和时间：时间戳”，RFC 3339，2002年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IANA-HEADERS] Klyne, G., Nottingham, M., and J. Mogul, \"Registration Procedures for Message Header Fields\", BCP 90, RFC 3864, September 2004.",
+      "zh-CHS": "[IANA-HEADERS]Klyne，G.，Nottingham，M.和J.Mogul，“消息头字段的注册程序”，BCP 90，RFC 3864，2004年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KEYWORDS] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MAIL] Resnick, P., Ed., \"Internet Message Format\", RFC 5322, October 2008.",
+      "zh-CHS": "[邮件]Resnick，P.，Ed.，“互联网信息格式”，RFC5322，2008年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NTP] Mills, D., Martin, J., Burbank, J., and W. Kasch, \"Network Time Protocol Version 4: Protocol and Algorithms Specification\", RFC 5905, June 2010.",
+      "zh-CHS": "[NTP]Mills，D.，Martin，J.，Burbank，J.，和W.Kasch，“网络时间协议版本4：协议和算法规范”，RFC 59052010年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ROLES] Crocker, D., \"Mailbox Names for Common Services, Roles and Functions\", RFC 2142, May 1997.",
+      "zh-CHS": "[角色]Crocker，D.，“公共服务、角色和功能的邮箱名称”，RFC 2142，1997年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SMTP] Klensin, J., \"Simple Mail Transfer Protocol\", RFC 5321, October 2008.",
+      "zh-CHS": "[SMTP]Klensin，J.，“简单邮件传输协议”，RFC 53212008年10月。"
+    },
+    {
+      "indent": 0,
+      "text": "17.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "17.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[AUTHRES] Kucherawy, M., \"Message Header Field for Indicating Message Authentication Status\", RFC 7001, September 2013.",
+      "zh-CHS": "[AUTHRES]Kucherawy，M.，“用于指示消息身份验证状态的消息头字段”，RFC 70012013年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DSN] Moore, K. and G. Vaudreuil, \"An Extensible Message Format for Delivery Status Notifications\", RFC 3464, January 2003.",
+      "zh-CHS": "[DSN]Moore，K.和G.Vaudreuil，“交付状态通知的可扩展消息格式”，RFC 3464，2003年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DSN-SMTP] Moore, K., \"Simple Mail Transfer Protocol (SMTP) Service Extension for Delivery Status Notifications (DSNs)\", RFC 3461, January 2003.",
+      "zh-CHS": "[DSN-SMTP]Moore，K.，“用于传递状态通知（DSN）的简单邮件传输协议（SMTP）服务扩展”，RFC 3461，2003年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[EMAIL-ARCH] Crocker, D., \"Internet Mail Architecture\", RFC 5598, July 2009.",
+      "zh-CHS": "[EMAIL-ARCH]Crocker，D.，“互联网邮件体系结构”，RFC 55982009年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ESC] Vaudreuil, G., \"Enhanced Mail System Status Codes\", RFC 3463, January 2003.",
+      "zh-CHS": "[ESC]Vaudreuil，G.“增强型邮件系统状态代码”，RFC 3463，2003年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "William J. Mills Yahoo! Inc.",
+      "zh-CHS": "威廉米尔斯雅虎！股份有限公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: wmills_92105@yahoo.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Murray S. Kucherawy Facebook, Inc. 1 Hacker Way Menlo Park, CA 94025 USA",
+      "zh-CHS": "美国加利福尼亚州门罗公园黑客路1号Murray S.Kucherawy Facebook，Inc.94025"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: msk@fb.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

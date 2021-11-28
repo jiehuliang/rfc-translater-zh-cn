@@ -1,0 +1,1076 @@
+{
+  "title": {
+    "text": "RFC 4272: BGP Security Vulnerabilities Analysis",
+    "zh-CHS": "RFC 4272"
+  },
+  "number": 4272,
+  "created_at": "2021-11-13 09:36:18.496531+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          S. Murphy\nRequest for Comments: 4272                                  Sparta, Inc.\nCategory: Informational                                     January 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "BGP Security Vulnerabilities Analysis",
+      "zh-CHS": "BGP安全漏洞分析"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "Border Gateway Protocol 4 (BGP-4), along with a host of other infrastructure protocols designed before the Internet environment became perilous, was originally designed with little consideration for protection of the information it carries. There are no mechanisms internal to BGP that protect against attacks that modify, delete, forge, or replay data, any of which has the potential to disrupt overall network routing behavior.",
+      "zh-CHS": "边界网关协议4（BGP-4）以及在互联网环境变得危险之前设计的许多其他基础设施协议最初设计时很少考虑对其承载的信息的保护。BGP内部没有任何机制可以防止修改、删除、伪造或重播数据的攻击，任何攻击都有可能破坏整个网络路由行为。"
+    },
+    {
+      "indent": 3,
+      "text": "This document discusses some of the security issues with BGP routing data dissemination. This document does not discuss security issues with forwarding of packets.",
+      "zh-CHS": "本文档讨论了BGP路由数据分发的一些安全问题。本文档不讨论数据包转发的安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Specification of Requirements ..............................5\n2. Attacks .........................................................6\n3. Vulnerabilities and Risks .......................................7\n   3.1. Vulnerabilities in BGP Messages ............................8\n        3.1.1. Message Header ......................................9\n        3.1.2. OPEN ................................................9\n        3.1.3. KEEPALIVE ..........................................11\n        3.1.4. NOTIFICATION .......................................11\n        3.1.5. UPDATE .............................................11\n               3.1.5.1. Unfeasible Routes Length, Total\n                        Path Attribute Length .....................12\n               3.1.5.2. Withdrawn Routes ..........................13\n               3.1.5.3. Path Attributes ...........................13\n               3.1.5.4. NLRI ......................................16\n   3.2. Vulnerabilities through Other Protocols ...................16\n        3.2.1. TCP Messages .......................................16\n               3.2.1.1. TCP SYN ...................................16\n               3.2.1.2. TCP SYN ACK ...............................17\n               3.2.1.3. TCP ACK ...................................17\n               3.2.1.4. TCP RST/FIN/FIN-ACK .......................17\n               3.2.1.5. DoS and DDos ..............................18\n        3.2.2. Other Supporting Protocols .........................18\n               3.2.2.1. Manual Stop ...............................18\n               3.2.2.2. Open Collision Dump .......................18\n               3.2.2.3. Timer Events ..............................18\n4. Security Considerations ........................................19\n   4.1. Residual Risk .............................................19\n   4.2. Operational Protections ...................................19\n5. References .....................................................21\n   5.1. Normative References ......................................21\n   5.2. Informative References ....................................21",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The inter-domain routing protocol BGP was created when the Internet environment had not yet reached the present, contentious state. Consequently, the BGP design did not include protections against deliberate or accidental errors that could cause disruptions of routing behavior.",
+      "zh-CHS": "域间路由协议BGP是在Internet环境尚未达到当前有争议的状态时创建的。因此，BGP设计不包括针对可能导致路由行为中断的故意或意外错误的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "This document discusses the vulnerabilities of BGP, based on the BGP specification [RFC4271]. Readers are expected to be familiar with the BGP RFC and the behavior of BGP.",
+      "zh-CHS": "本文档基于BGP规范[RFC4271]讨论BGP的漏洞。读者应熟悉BGP RFC和BGP的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "It is clear that the Internet is vulnerable to attack through its routing protocols and BGP is no exception. Faulty, misconfigured, or deliberately malicious sources can disrupt overall Internet behavior by injecting bogus routing information into the BGP-distributed routing database (by modifying, forging, or replaying BGP packets). The same methods can also be used to disrupt local and overall network behavior by breaking the distributed communication of information between BGP peers. The sources of bogus information can be either outsiders or true BGP peers.",
+      "zh-CHS": "很明显，互联网很容易通过其路由协议受到攻击，BGP也不例外。错误的、配置错误的或故意的恶意源可以通过将虚假路由信息注入BGP分布式路由数据库（通过修改、伪造或重播BGP数据包）来破坏整个互联网行为。同样的方法也可以通过中断BGP对等点之间的分布式信息通信来中断本地和整体网络行为。虚假信息的来源可以是局外人，也可以是真实的BGP同行。"
+    },
+    {
+      "indent": 3,
+      "text": "Cryptographic authentication of peer-peer communication is not an integral part of BGP. As a TCP/IP protocol, BGP is subject to all TCP/IP attacks, e.g., IP spoofing, session stealing, etc. Any outsider can inject believable BGP messages into the communication between BGP peers, and thereby inject bogus routing information or break the peer-peer connection. Any break in the peer-peer communication has a ripple effect on routing that can be widespread. Furthermore, outsider sources can also disrupt communications between BGP peers by breaking their TCP connection with spoofed packets. Outsider sources of bogus BGP information can reside anywhere in the world.",
+      "zh-CHS": "对等通信的加密身份验证不是BGP的组成部分。作为一种TCP/IP协议，BGP受到所有TCP/IP攻击，例如IP欺骗、会话窃取等。任何外部人员都可以将可信的BGP消息注入BGP对等方之间的通信，从而注入虚假路由信息或中断对等方连接。对等通信中的任何中断都会对路由产生连锁反应，这种影响可能非常普遍。此外，外部源还可以通过使用伪造数据包中断BGP对等方之间的TCP连接来中断BGP对等方之间的通信。伪造BGP信息的外部来源可以存在于世界任何地方。"
+    },
+    {
+      "indent": 3,
+      "text": "Consequently, the current BGP specification requires that a BGP implementation must support the authentication mechanism specified in [TCPMD5]. However, the requirement for support of that authentication mechanism cannot ensure that the mechanism is configured for use. The mechanism of [TCPMD5] is based on a pre-installed, shared secret; it does not have the capability of IPsec [IPsec] to agree on a shared secret dynamically. Consequently, the use of [TCPMD5] must be a deliberate decision, not an automatic feature or a default.",
+      "zh-CHS": "因此，当前的BGP规范要求BGP实现必须支持[TCPMD5]中指定的身份验证机制。但是，支持该身份验证机制的要求无法确保该机制已配置为可供使用。[TCPMD5]的机制基于预先安装的共享机密；它不具备IPsec[IPsec]动态同意共享秘密的能力。因此，[TCPMD5]的使用必须是经过深思熟虑的决定，而不是自动特性或默认值。"
+    },
+    {
+      "indent": 3,
+      "text": "The current BGP specification also allows for implementations that would accept connections from \"unconfigured peers\" ([RFC4271] Section 8). However, the specification is not clear as to what an unconfigured peer might be, or how the protections of [TCPMD5] would",
+      "zh-CHS": "当前的BGP规范还允许实现接受来自“未配置对等方”的连接（RFC4271第8节）。但是，规范不清楚未配置的对等机可能是什么，也不清楚[TCPMD5]的保护将如何实现"
+    },
+    {
+      "indent": 3,
+      "text": "apply in such a case. Therefore, it is not possible to include an analysis of the security issues of this feature. When a specification that describes this feature more fully is released, a security analysis should be part of that specification.",
+      "zh-CHS": "适用于这种情况。因此，不可能对该功能的安全问题进行分析。当更全面地描述此功能的规范发布时，安全分析应该是该规范的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "BGP speakers themselves can inject bogus routing information, either by masquerading as any other legitimate BGP speaker, or by distributing unauthorized routing information as themselves. Historically, misconfigured and faulty routers have been responsible for widespread disruptions in the Internet. The legitimate BGP peers have the context and information to produce believable, yet bogus, routing information, and therefore have the opportunity to cause great damage. The cryptographic protections of [TCPMD5] and operational protections cannot exclude the bogus information arising from a legitimate peer. The risk of disruptions caused by legitimate BGP speakers is real and cannot be ignored.",
+      "zh-CHS": "BGP演讲者自己可以通过伪装成任何其他合法BGP演讲者，或通过分发未经授权的路由信息作为自己，来注入伪造的路由信息。从历史上看，配置错误和有故障的路由器是造成互联网普遍中断的原因。合法的BGP对等方拥有产生可信但虚假的路由信息的上下文和信息，因此有机会造成重大损害。[TCPMD5]的加密保护和操作保护不能排除来自合法对等方的虚假信息。合法BGP扬声器造成中断的风险是真实存在的，不容忽视。"
+    },
+    {
+      "indent": 3,
+      "text": "Bogus routing information can have many different effects on routing behavior. If the bogus information removes routing information for a particular network, that network can become unreachable for the portion of the Internet that accepts the bogus information. If the bogus information changes the route to a network, then packets destined for that network may be forwarded by a sub-optimal path, or by a path that does not follow the expected policy, or by a path that will not forward the traffic. Consequently, traffic to that network could be delayed by a path that is longer than necessary. The network could become unreachable from areas where the bogus information is accepted. Traffic might also be forwarded along a path that permits some adversary to view or modify the data. If the bogus information makes it appear that an autonomous system originates a network when it does not, then packets for that network may not be deliverable for the portion of the Internet that accepts the bogus information. A false announcement that an autonomous systems originates a network may also fragment aggregated address blocks in other parts of the Internet and cause routing problems for other networks.",
+      "zh-CHS": "伪造的路由信息会对路由行为产生许多不同的影响。如果虚假信息删除了特定网络的路由信息，则接受虚假信息的互联网部分可能无法访问该网络。如果虚假信息改变了到网络的路由，则目的地为该网络的分组可通过次优路径、不遵循预期策略的路径或不转发业务的路径转发。因此，到该网络的流量可能会因路径过长而延迟。网络可能无法从接受虚假信息的区域访问。流量也可能沿着允许某些对手查看或修改数据的路径转发。如果虚假信息使自治系统在没有发起网络时似乎发起了网络，则该网络的分组对于接受虚假信息的互联网部分可能不可交付。自治系统发起网络的错误声明也可能会将互联网其他部分的聚合地址块分割开来，并导致其他网络的路由问题。"
+    },
+    {
+      "indent": 3,
+      "text": "The damages that might result from these attacks include:",
+      "zh-CHS": "这些攻击可能造成的损害包括："
+    },
+    {
+      "indent": 6,
+      "text": "starvation: Data traffic destined for a node is forwarded to a part of the network that cannot deliver it.",
+      "zh-CHS": "饥饿：发送给节点的数据流量被转发到网络中无法传输的部分。"
+    },
+    {
+      "indent": 6,
+      "text": "network congestion: More data traffic is forwarded through some portion of the network than would otherwise need to carry the traffic.",
+      "zh-CHS": "网络拥塞：通过网络的某些部分转发的数据流量比承载流量所需的数据流量更多。"
+    },
+    {
+      "indent": 6,
+      "text": "blackhole: Large amounts of traffic are directed to be forwarded through one router that cannot handle the increased level of traffic and drops many/most/all packets.",
+      "zh-CHS": "黑洞：大量流量被定向通过一个路由器转发，该路由器无法处理增加的流量，并丢弃许多/大部分/所有数据包。"
+    },
+    {
+      "indent": 6,
+      "text": "delay: Data traffic destined for a node is forwarded along a path that is in some way inferior to the path it would otherwise take.",
+      "zh-CHS": "延迟：以节点为目的地的数据流量沿着一条路径转发，这条路径在某种程度上低于该节点将采用的路径。"
+    },
+    {
+      "indent": 6,
+      "text": "looping: Data traffic is forwarded along a path that loops, so that the data is never delivered.",
+      "zh-CHS": "循环：数据流量沿着循环路径转发，因此数据永远不会被传递。"
+    },
+    {
+      "indent": 6,
+      "text": "eavesdrop: Data traffic is forwarded through some router or network that would otherwise not see the traffic, affording an opportunity to see the data.",
+      "zh-CHS": "窃听：数据流量通过一些路由器或网络转发，否则这些路由器或网络将看不到流量，从而提供查看数据的机会。"
+    },
+    {
+      "indent": 6,
+      "text": "partition: Some portion of the network believes that it is partitioned from the rest of the network, when, in fact, it is not.",
+      "zh-CHS": "分区：网络的某些部分认为它与网络的其余部分是分区的，而事实上并非如此。"
+    },
+    {
+      "indent": 6,
+      "text": "cut: Some portion of the network believes that it has no route to some network to which it is, in fact, connected.",
+      "zh-CHS": "cut：网络的某些部分认为它没有到它实际上连接到的某个网络的路由。"
+    },
+    {
+      "indent": 6,
+      "text": "churn: The forwarding in the network changes at a rapid pace, resulting in large variations in the data delivery patterns (and adversely affecting congestion control techniques).",
+      "zh-CHS": "搅动：网络中的转发速度快速变化，导致数据传输模式发生巨大变化（并对拥塞控制技术产生不利影响）。"
+    },
+    {
+      "indent": 6,
+      "text": "instability: BGP becomes unstable in such a way that convergence on a global forwarding state is not achieved.",
+      "zh-CHS": "不稳定：BGP变得不稳定，以至于无法在全局转发状态下收敛。"
+    },
+    {
+      "indent": 6,
+      "text": "overload: The BGP messages themselves become a significant portion of the traffic the network carries.",
+      "zh-CHS": "过载：BGP消息本身成为网络承载流量的重要部分。"
+    },
+    {
+      "indent": 6,
+      "text": "resource exhaustion: The BGP messages themselves cause exhaustion of critical router resources, such as table space.",
+      "zh-CHS": "资源耗尽：BGP消息本身导致关键路由器资源（如表空间）耗尽。"
+    },
+    {
+      "indent": 6,
+      "text": "address-spoofing: Data traffic is forwarded through some router or network that is spoofing the legitimate address, thus enabling an active attack by affording the opportunity to modify the data.",
+      "zh-CHS": "地址欺骗：数据流量通过欺骗合法地址的路由器或网络转发，从而提供修改数据的机会，从而发起主动攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "These consequences can fall exclusively on one end-system prefix or may effect the operation of the network as a whole.",
+      "zh-CHS": "这些后果可能完全落在一个终端系统前缀上，或者可能影响整个网络的运行。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Specification of Requirements",
+      "section_title": true,
+      "zh-CHS": "1.1. 需求说明"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Attacks",
+      "section_title": true,
+      "zh-CHS": "2. 攻击"
+    },
+    {
+      "indent": 3,
+      "text": "BGP, in and of itself, is subject to the following attacks. (The list is taken from the IAB RFC that provides guidelines for the \"Security Considerations\" section of RFCs [SecCons].)",
+      "zh-CHS": "BGP本身受到以下攻击。（该列表摘自IAB RFC，该RFC为RFC[安全委员会]的“安全注意事项”部分提供了指南。）"
+    },
+    {
+      "indent": 6,
+      "text": "confidentiality violations: The routing data carried in BGP is carried in cleartext, so eavesdropping is a possible attack against routing data confidentiality. (Routing data confidentiality is not a common requirement.)",
+      "zh-CHS": "机密性违规：BGP中携带的路由数据以明文形式携带，因此窃听可能是对路由数据机密性的攻击。（路由数据保密性不是常见要求。）"
+    },
+    {
+      "indent": 6,
+      "text": "replay: BGP does not provide for replay protection of its messages.",
+      "zh-CHS": "重播：BGP不为其消息提供重播保护。"
+    },
+    {
+      "indent": 6,
+      "text": "message insertion: BGP does not provide protection against insertion of messages. However, because BGP uses TCP, when the connection is fully established, message insertion by an outsider would require accurate sequence number prediction (not entirely out of the question, but more difficult with mature TCP implementations) or session-stealing attacks.",
+      "zh-CHS": "消息插入：BGP不提供防止插入消息的保护。但是，由于BGP使用TCP，当连接完全建立时，外部人员插入消息将需要准确的序列号预测（这并非完全不可能，但在成熟的TCP实现中更为困难）或会话窃取攻击。"
+    },
+    {
+      "indent": 6,
+      "text": "message deletion: BGP does not provide protection against deletion of messages. Again, this attack is more difficult against a mature TCP implementation, but is not entirely out of the question.",
+      "zh-CHS": "消息删除：BGP不提供防止删除消息的保护。同样，对于成熟的TCP实现，这种攻击更为困难，但并非完全不可能。"
+    },
+    {
+      "indent": 6,
+      "text": "message modification: BGP does not provide protection against modification of messages. A modification that was syntactically correct and did not change the length of the TCP payload would in general not be detectable.",
+      "zh-CHS": "消息修改：BGP不提供消息修改保护。语法正确且未改变TCP有效负载长度的修改通常无法检测到。"
+    },
+    {
+      "indent": 6,
+      "text": "man-in-the-middle: BGP does not provide protection against man-in-the-middle attacks. As BGP does not perform peer entity authentication, a man-in-the-middle attack is child's play.",
+      "zh-CHS": "中间人：BGP不提供针对中间人攻击的保护。由于BGP不执行对等实体身份验证，中间人攻击是儿戏。"
+    },
+    {
+      "indent": 6,
+      "text": "denial of service: While bogus routing data can present a denial of service attack on the end systems that are trying to transmit data through the network and on the network infrastructure itself, certain bogus information can represent a denial of service on the BGP routing protocol. For example, advertising large numbers of more specific routes (i.e., longer prefixes) can cause BGP traffic and router table size to increase, even explode.",
+      "zh-CHS": "拒绝服务：虽然伪造路由数据可能会对试图通过网络传输数据的终端系统和网络基础设施本身造成拒绝服务攻击，但某些伪造信息可能表示BGP路由协议上的拒绝服务。例如，广告大量更具体的路由（即更长的前缀）可能会导致BGP流量和路由器表大小增加，甚至爆炸。"
+    },
+    {
+      "indent": 3,
+      "text": "The mandatory-to-support mechanism of [TCPMD5] will counter message insertion, deletion, and modification, man-in-the-middle and denial of service attacks from outsiders. The use of [TCPMD5] does not protect against eavesdropping attacks, but routing data confidentiality is not a goal of BGP. The mechanism of [TCPMD5] does",
+      "zh-CHS": "[TCPMD5]的强制支持机制将对抗来自外部的消息插入、删除和修改、中间人和拒绝服务攻击。[TCPMD5]的使用不能防止窃听攻击，但路由数据机密性不是BGP的目标。[TCPMD5]的机制不起作用"
+    },
+    {
+      "indent": 3,
+      "text": "not protect against replay attacks, so the only protection against replay is provided by the TCP sequence number processing. Therefore, a replay attack could be mounted against a BGP connection protected with [TCPMD5] but only in very carefully timed circumstances. The mechanism of [TCPMD5] cannot protect against bogus routing information that originates from an insider.",
+      "zh-CHS": "不能防止重播攻击，因此唯一的重播保护是由TCP序列号处理提供的。因此，只能在非常谨慎的时间情况下，才能针对受[TCPMD5]保护的BGP连接发起重播攻击。[TCPMD5]的机制无法防止来自内部人员的虚假路由信息。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Vulnerabilities and Risks",
+      "section_title": true,
+      "zh-CHS": "3. 脆弱性和风险"
+    },
+    {
+      "indent": 3,
+      "text": "The risks in BGP arise from three fundamental vulnerabilities:",
+      "zh-CHS": "BGP中的风险来自三个基本漏洞："
+    },
+    {
+      "indent": 3,
+      "text": "(1) BGP has no internal mechanism that provides strong protection of the integrity, freshness, and peer entity authenticity of the messages in peer-peer BGP communications.",
+      "zh-CHS": "(1) BGP并没有内部机制来提供对对等BGP通信中消息的完整性、新鲜性和对等实体真实性的强大保护。"
+    },
+    {
+      "indent": 3,
+      "text": "(2) no mechanism has been specified within BGP to validate the authority of an AS to announce NLRI information.",
+      "zh-CHS": "(2) BGP中未指定任何机制来验证AS发布NLRI信息的权限。"
+    },
+    {
+      "indent": 3,
+      "text": "(3) no mechanism has been specified within BGP to ensure the authenticity of the path attributes announced by an AS.",
+      "zh-CHS": "(3) BGP中未指定任何机制来确保AS宣布的路径属性的真实性。"
+    },
+    {
+      "indent": 3,
+      "text": "The first fundamental vulnerability motivated the mandated support of [TCPMD5] in the BGP specification. When the support of [TCPMD5] is employed, message integrity and peer entity authentication are provided. The mechanism of [TCPMD5] assumes that the MD5 algorithm is secure and that the shared secret is protected and chosen to be difficult to guess.",
+      "zh-CHS": "第一个基本漏洞促使BGP规范中强制支持[TCPMD5]。使用[TCPMD5]支持时，提供消息完整性和对等实体身份验证。[TCPMD5]的机制假设MD5算法是安全的，并且共享密钥受到保护，并且被选择为难以猜测。"
+    },
+    {
+      "indent": 3,
+      "text": "In the discussion that follows, the vulnerabilities are described in terms of the BGP Finite State Machine events. The events are defined and discussed in section 8 of [RFC4271]. The events mentioned here are:",
+      "zh-CHS": "在下面的讨论中，将根据BGP有限状态机事件描述这些漏洞。[RFC4271]第8节对事件进行了定义和讨论。这里提到的事件是："
+    },
+    {
+      "indent": 3,
+      "text": "[Administrative Events]",
+      "zh-CHS": "[行政活动]"
+    },
+    {
+      "indent": 8,
+      "text": "Event 2: ManualStop",
+      "zh-CHS": "事件2：手动停止"
+    },
+    {
+      "indent": 8,
+      "text": "Event 8: AutomaticStop",
+      "zh-CHS": "事件8：自动停止"
+    },
+    {
+      "indent": 3,
+      "text": "[Timer Events]",
+      "zh-CHS": "[计时器事件]"
+    },
+    {
+      "indent": 8,
+      "text": "Event 9: ConnectRetryTimer_Expires",
+      "zh-CHS": "事件9:ConnectRetryTimer\\u过期"
+    },
+    {
+      "indent": 8,
+      "text": "Event 10: HoldTimer_Expires",
+      "zh-CHS": "事件10:HoldTimer\\u过期"
+    },
+    {
+      "indent": 8,
+      "text": "Event 11: KeepaliveTimer_Expires",
+      "zh-CHS": "事件11:KeepaliveTimer_过期"
+    },
+    {
+      "indent": 8,
+      "text": "Event 12: DelayOpenTimer_Expires",
+      "zh-CHS": "事件12:DelayOpenTimer\\u过期"
+    },
+    {
+      "indent": 8,
+      "text": "Event 13: IdleHoldTimer_Expires",
+      "zh-CHS": "事件13:IdleHoldTimer\\u过期"
+    },
+    {
+      "indent": 3,
+      "text": "[TCP Connection based Events]",
+      "zh-CHS": "[基于TCP连接的事件]"
+    },
+    {
+      "indent": 8,
+      "text": "Event 14: TcpConnection_Valid",
+      "zh-CHS": "事件14:TcpConnection_有效"
+    },
+    {
+      "indent": 8,
+      "text": "Event 16: Tcp_CR_Acked",
+      "zh-CHS": "事件16：Tcp\\u确认"
+    },
+    {
+      "indent": 8,
+      "text": "Event 17: TcpConnectionConfirmed",
+      "zh-CHS": "事件17:TCP连接已确认"
+    },
+    {
+      "indent": 8,
+      "text": "Event 18: TcpConnectionFails",
+      "zh-CHS": "事件18:TcpConnectionFails"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP Messages based Events]",
+      "zh-CHS": "[基于事件的BGP消息]"
+    },
+    {
+      "indent": 8,
+      "text": "Event 19: BGPOpen",
+      "zh-CHS": "事件19:BGPOpen"
+    },
+    {
+      "indent": 8,
+      "text": "Event 20: BGPOpen with DelayOpenTimer running",
+      "zh-CHS": "事件20:DelayOpenTimer运行的BGPOpen"
+    },
+    {
+      "indent": 8,
+      "text": "Event 21: BGPHeaderErr",
+      "zh-CHS": "事件21:bgpheaderrer"
+    },
+    {
+      "indent": 8,
+      "text": "Event 22: BGPOpenMsgErr",
+      "zh-CHS": "事件22:BGPOpenMsgErr"
+    },
+    {
+      "indent": 8,
+      "text": "Event 23: OpenCollisionDump",
+      "zh-CHS": "事件23：OpenCollisionDump"
+    },
+    {
+      "indent": 8,
+      "text": "Event 24: NotifMsgVerErr",
+      "zh-CHS": "事件24：Notifmsgverer"
+    },
+    {
+      "indent": 8,
+      "text": "Event 25: NotifMsg",
+      "zh-CHS": "事件25：NotifMsg"
+    },
+    {
+      "indent": 8,
+      "text": "Event 26: KeepAliveMsg",
+      "zh-CHS": "事件26：KeepAliveMsg"
+    },
+    {
+      "indent": 8,
+      "text": "Event 27: UpdateMsg",
+      "zh-CHS": "事件27:UpdateMsg"
+    },
+    {
+      "indent": 8,
+      "text": "Event 28: UpdateMsgErr",
+      "zh-CHS": "事件28:UpdateMsgErr"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Vulnerabilities in BGP Messages",
+      "section_title": true,
+      "zh-CHS": "3.1. BGP消息中的漏洞"
+    },
+    {
+      "indent": 3,
+      "text": "There are four different BGP message types - OPEN, KEEPALIVE, NOTIFICATION, and UPDATE. This section contains a discussion of the vulnerabilities arising from each message and the ability of outsiders or BGP peers to exploit the vulnerabilities. To summarize, outsiders can use bogus OPEN, KEEPALIVE, NOTIFICATION, or UPDATE messages to disrupt the BGP peer-peer connections. They can use bogus UPDATE messages to disrupt routing without breaking the peer-peer connection. Outsiders can also disrupt BGP peer-peer connections by inserting bogus TCP packets that disrupt the TCP connection processing. In general, the ability of outsiders to use bogus BGP and TCP messages is limited, but not eliminated, by the TCP sequence number processing. The use of [TCPMD5] can counter these",
+      "zh-CHS": "有四种不同的BGP消息类型-打开、保留、通知和更新。本节讨论了每条消息产生的漏洞以及外部人员或BGP对等方利用这些漏洞的能力。总之，外部人员可以使用虚假的打开、保留、通知或更新消息来中断BGP对等连接。他们可以使用虚假的更新消息来中断路由，而不会中断对等连接。外部人员也可以通过插入破坏TCP连接处理的虚假TCP数据包来中断BGP对等连接。一般来说，外部人员使用伪造BGP和TCP消息的能力受到TCP序列号处理的限制，但并未消除。使用[TCPMD5]可以抵消这些影响"
+    },
+    {
+      "indent": 3,
+      "text": "outsider attacks. BGP peers themselves are permitted to break peer-peer connections, at any time, using NOTIFICATION messages. Thus, there is no additional risk of broken connections through their use of OPEN, KEEPALIVE, or UPDATE messages. However, BGP peers can disrupt routing (in impermissible ways) by issuing UPDATE messages that contain bogus routing information. In particular, bogus ATOMIC_AGGREGATE, NEXT_HOP and AS_PATH attributes and bogus NLRI in UPDATE messages can disrupt routing. The use of [TCPMD5] will not counter these attacks from BGP peers.",
+      "zh-CHS": "局外人的攻击。BGP对等方本身可以随时使用通知消息中断对等方连接。因此，使用OPEN、KEEPALIVE或UPDATE消息不会增加连接中断的风险。但是，BGP对等方可以通过发出包含虚假路由信息的更新消息来中断路由（以不允许的方式）。特别是，更新消息中的伪原子聚合、下一跳和AS路径属性以及伪NLRI可能会中断路由。[TCPMD5]的使用不会抵抗来自BGP对等方的这些攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Each message introduces certain vulnerabilities and risks, which are discussed in the following sections.",
+      "zh-CHS": "每条消息都会引入某些漏洞和风险，这些将在以下部分中讨论。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.1. Message Header",
+      "section_title": true,
+      "zh-CHS": "3.1.1. 消息头"
+    },
+    {
+      "indent": 3,
+      "text": "Event 21: Each BGP message starts with a standard header. In all cases, syntactic errors in the message header will cause the BGP speaker to close the connection, release all associated BGP resources, delete all routes learned through that connection, run its decision process to decide on new routes, and cause the state to return to Idle. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. An outsider who could spoof messages with message header errors could cause disruptions in routing over a wide area.",
+      "zh-CHS": "事件21：每个BGP消息都以标准头开始。在所有情况下，消息头中的语法错误都会导致BGP说话者关闭连接，释放所有相关的BGP资源，删除通过该连接学习到的所有路由，运行其决策过程以决定新路由，并导致状态返回空闲状态。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。一个能够用消息头错误欺骗消息的局外人可能会在广域范围内造成路由中断。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2. OPEN",
+      "section_title": true,
+      "zh-CHS": "3.1.2. 打开"
+    },
+    {
+      "indent": 3,
+      "text": "Event 19: Receipt of an OPEN message in states Connect or Active will cause the BGP speaker to bring down the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted.",
+      "zh-CHS": "事件19：收到连接或活动状态下的打开消息将导致BGP扬声器关闭连接，释放所有相关BGP资源，删除所有相关路由，运行其决策过程，并导致状态返回空闲状态。删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。"
+    },
+    {
+      "indent": 3,
+      "text": "In state OpenConfirm or Established, the arrival of an OPEN may indicate a connection collision has occurred. If this connection is to be dropped, then Event 23 will be issued. (Event 23, discussed below, results in the same set of disruptive actions as mentioned above for states Connect or Active.)",
+      "zh-CHS": "在状态OpenConfirm或builded中，打开的到达可能表示发生了连接冲突。如果要断开此连接，则将发出事件23。（下面讨论的事件23会导致与上述连接或活动状态相同的一组中断操作。）"
+    },
+    {
+      "indent": 3,
+      "text": "In state OpenSent, the arrival of an OPEN message will cause the BGP speaker to transition to the OpenConfirm state. If an outsider was able to spoof an OPEN message (requiring very careful timing), then the later arrival of the legitimate peer's OPEN message might lead",
+      "zh-CHS": "在OpenSent状态下，打开消息的到达将导致BGP扬声器转换为OpenConfirm状态。如果一个局外人能够欺骗一条公开的消息（需要非常小心的计时），那么合法对等方的公开消息稍后到达可能会导致"
+    },
+    {
+      "indent": 3,
+      "text": "the BGP speaker to declare a connection collision. The collision detection procedure may cause the legitimate connection to be dropped.",
+      "zh-CHS": "BGP扬声器无法声明连接冲突。碰撞检测过程可能导致合法连接断开。"
+    },
+    {
+      "indent": 3,
+      "text": "Consequently, the ability of an outsider to spoof this message can lead to a severe disruption of routing over a wide area.",
+      "zh-CHS": "因此，外部人员欺骗此消息的能力可能会导致广域路由的严重中断。"
+    },
+    {
+      "indent": 3,
+      "text": "Event 20: If an OPEN message arrives when the DelayOpen timer is running when the connection is in state OpenSent, OpenConfirm or Established, the BGP speaker will bring down the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. However, because the OpenDelay timer should never be running in these states, this effect could only be caused by an error in the implementation (a NOTIFICATION is sent with the error code \"Finite State Machine Error\"). It would be difficult, if not impossible, for an outsider to induce this Finite State Machine error.",
+      "zh-CHS": "事件20：如果在连接处于OpenSent、OpenConfirm或Established状态时，DelayOpen计时器正在运行时收到打开消息，则BGP扬声器将关闭连接，释放所有相关BGP资源，删除所有相关路由，运行其决策过程，并使状态返回空闲状态。删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。但是，由于OpenDelay计时器永远不应该在这些状态下运行，因此这种影响只能由实现中的错误引起（发送带有错误代码“有限状态机错误”的通知）。对于一个局外人来说，诱发这种有限状态机错误即使不是不可能，也是很困难的。"
+    },
+    {
+      "indent": 3,
+      "text": "In states Connect and Active, this event will cause a transition to the OpenConfirm state. As in Event 19, if an outsider were able to spoof an OPEN, which arrived while the DelayOpen timer was running, then a later arriving OPEN (from the legitimate peer) might be considered a connection collision and the legitimate connection could be dropped.",
+      "zh-CHS": "在连接和活动状态下，此事件将导致转换到OpenConfirm状态。与事件19一样，如果外部人员能够欺骗在DelayOpen计时器运行时到达的OPEN，则稍后到达的OPEN（来自合法对等方）可能被视为连接冲突，合法连接可能会被丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "Consequently, the ability of an outsider to spoof this message can lead to a severe disruption of routing over a wide area.",
+      "zh-CHS": "因此，外部人员欺骗此消息的能力可能会导致广域路由的严重中断。"
+    },
+    {
+      "indent": 3,
+      "text": "Event 22: Errors in the OPEN message (e.g., unacceptable Hold state, malformed Optional Parameter, unsupported version, etc.) will cause the BGP speaker to bring down the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. Consequently, the ability of an outsider to spoof this message can lead to a severe disruption of routing over a wide area.",
+      "zh-CHS": "事件22：打开消息中的错误（例如，不可接受的保持状态、格式错误的可选参数、不支持的版本等）将导致BGP扬声器关闭连接、释放所有相关BGP资源、删除所有相关路由、运行其决策过程，并导致状态返回空闲状态。删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。因此，外部人员欺骗此消息的能力可能会导致广域路由的严重中断。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.3. KEEPALIVE",
+      "section_title": true,
+      "zh-CHS": "3.1.3. 保持活力"
+    },
+    {
+      "indent": 3,
+      "text": "Event 26: Receipt of a KEEPALIVE message, when the peering connection is in the Connect, Active, and OpenSent states, would cause the BGP speaker to transition to the Idle state and fail to establish a connection. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. The ability of an outsider to spoof this message can lead to a disruption of routing. To exploit this vulnerability deliberately, the KEEPALIVE must be carefully timed in the sequence of messages exchanged between the peers; otherwise, it causes no damage.",
+      "zh-CHS": "事件26：当对等连接处于Connect、Active和OpenSent状态时，收到KEEPALIVE消息将导致BGP扬声器转换到Idle状态并无法建立连接。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。局外人伪造此消息的能力可能会导致路由中断。要故意利用此漏洞，必须按照对等方之间交换的消息顺序仔细计时KEEPALIVE；否则，不会造成损坏。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.4. NOTIFICATION",
+      "section_title": true,
+      "zh-CHS": "3.1.4. 通知"
+    },
+    {
+      "indent": 3,
+      "text": "Event 25: Receipt of a NOTIFICATION message in any state will cause the BGP speaker to bring down the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, in any state but Established, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. Consequently, the ability of an outsider to spoof this message can lead to a severe disruption of routing over a wide area.",
+      "zh-CHS": "事件25：收到任何状态的通知消息将导致BGP扬声器关闭连接，释放所有相关BGP资源，删除所有相关路由，运行其决策过程，并导致状态返回空闲状态。删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，在任何未建立的状态下，可执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。因此，外部人员欺骗此消息的能力可能会导致广域路由的严重中断。"
+    },
+    {
+      "indent": 3,
+      "text": "Event 24: A NOTIFICATION message carrying an error code of \"Version Error\" behaves the same as in Event 25, with the exception that the optional peer oscillation damping is not performed in states OpenSent or OpenConfirm, or in states Connect or Active if the DelayOpen timer is running. Therefore, the damage caused is one small bit less, because restarting the connection is not affected.",
+      "zh-CHS": "事件24：带有“版本错误”错误代码的通知消息的行为与事件25中的行为相同，但在OpenSent或OpenConfirm状态下，或者在DelayOpen计时器运行时，在Connect或Active状态下，不执行可选对等振荡阻尼。因此，造成的损坏会少一点，因为重新启动连接不会受到影响。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5. UPDATE",
+      "section_title": true,
+      "zh-CHS": "3.1.5. 使现代化"
+    },
+    {
+      "indent": 3,
+      "text": "Event 8: A BGP speaker may optionally choose to automatically disconnect a BGP connection if the total number of prefixes exceeds a configured maximum. In such a case, an UPDATE may carry a number of prefixes that would result in that maximum being exceeded. The BGP speaker would disconnect the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping",
+      "zh-CHS": "事件8：如果前缀总数超过配置的最大值，BGP扬声器可以选择自动断开BGP连接。在这种情况下，更新可能会带有许多前缀，这将导致超过该最大值。BGP扬声器将断开连接，释放所有相关BGP资源，删除所有相关路由，运行其决策过程，并使状态返回空闲状态。删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼"
+    },
+    {
+      "indent": 3,
+      "text": "process can affect how soon the connection can be restarted. Consequently, the ability of an outsider to spoof this message can lead to a severe disruption of routing over a wide area.",
+      "zh-CHS": "进程可能会影响重新启动连接的速度。因此，外部人员欺骗此消息的能力可能会导致广域路由的严重中断。"
+    },
+    {
+      "indent": 3,
+      "text": "Event 28: If the UPDATE message is malformed, then the BGP speaker will bring down the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. (Here, \"malformed\" refers to improper Withdrawn Routes Length, Total Attribute Length, or Attribute Length, missing mandatory well-known attributes, Attribute Flags that conflict with the Attribute Type Codes, syntactic errors in the ORIGIN, NEXT_HOP or AS_PATH, etc.) The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. Consequently, the ability of an outsider to spoof this message could cause widespread disruption of routing. As a BGP speaker has the authority to close a connection whenever it wants, this message gives BGP speakers no additional opportunity to cause damage.",
+      "zh-CHS": "事件28：如果更新消息格式不正确，则BGP扬声器将关闭连接，释放所有关联的BGP资源，删除所有关联的路由，运行其决策过程，并使状态返回空闲状态。（此处，“格式不正确”指的是不正确的提取路由长度、属性总长度或属性长度、缺少必需的已知属性、与属性类型代码冲突的属性标志、源、下一跳或AS_路径中的语法错误等。）删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。因此，外部人员欺骗此消息的能力可能会导致路由的广泛中断。由于BGP扬声器有权随时关闭连接，因此此消息不会给BGP扬声器带来额外的损坏机会。"
+    },
+    {
+      "indent": 3,
+      "text": "Event 27: An Update message that arrives in any state except Established will cause the BGP speaker to bring down the connection, release all associated BGP resources, delete all associated routes, run its decision process, and cause the state to return to Idle. The deletion of routes can cause a cascading effect in which routing changes propagate through other peers. Also, optionally, an implementation-specific peer oscillation damping may be performed. The peer oscillation damping process can affect how soon the connection can be restarted. Consequently, the ability of an outsider to spoof this message can lead to a severe disruption of routing over a wide area.",
+      "zh-CHS": "事件27：以除已建立状态外的任何状态到达的更新消息将导致BGP扬声器关闭连接，释放所有相关BGP资源，删除所有相关路由，运行其决策过程，并导致状态返回空闲状态。删除路由可能会导致级联效应，其中路由更改会通过其他对等方传播。此外，可选地，可以执行特定于实现的对等振荡阻尼。对等振荡阻尼过程可能会影响重新启动连接的速度。因此，外部人员欺骗此消息的能力可能会导致广域路由的严重中断。"
+    },
+    {
+      "indent": 3,
+      "text": "In the Established state, the Update message carries the routing information. The ability to spoof any part of this message can lead to a disruption of routing, whether the source of the message is an outsider or a legitimate BGP speaker.",
+      "zh-CHS": "在建立状态下，更新消息携带路由信息。欺骗此消息的任何部分的能力都可能导致路由中断，无论消息的来源是外来者还是合法的BGP说话者。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5.1. Unfeasible Routes Length, Total Path Attribute Length",
+      "section_title": true,
+      "zh-CHS": "3.1.5.1. 不可行路径长度，路径属性总长度"
+    },
+    {
+      "indent": 3,
+      "text": "There is a vulnerability arising from the ability to modify these fields. If a length is modified, the message is not likely to parse properly, resulting in an error, the transmission of a NOTIFICATION message and the close of the connection (see Event 28, above). As a true BGP speaker is able to close a connection at any time, this vulnerability represents an additional risk only when the source is not the configured BGP peer, i.e., it presents no additional risk from BGP speakers.",
+      "zh-CHS": "修改这些字段的能力会产生一个漏洞。如果修改了长度，则消息可能无法正确解析，从而导致错误、通知消息的传输和连接的关闭（请参阅上面的事件28）。由于真正的BGP扬声器能够随时关闭连接，因此只有当源不是配置的BGP对等方时，此漏洞才代表额外的风险，即它不会带来来自BGP扬声器的额外风险。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5.2. Withdrawn Routes",
+      "section_title": true,
+      "zh-CHS": "3.1.5.2. 撤回路线"
+    },
+    {
+      "indent": 3,
+      "text": "An outsider could cause the elimination of existing legitimate routes by forging or modifying this field. An outsider could also cause the elimination of reestablished routes by replaying this withdrawal information from earlier packets.",
+      "zh-CHS": "外来者可以通过伪造或修改此字段来消除现有的合法路线。外部人员还可以通过重放先前数据包中的退出信息来消除重新建立的路由。"
+    },
+    {
+      "indent": 3,
+      "text": "A BGP speaker could \"falsely\" withdraw feasible routes using this field. However, as the BGP speaker is authoritative for the routes it will announce, it is allowed to withdraw any previously announced routes that it wants. As the receiving BGP speaker will only withdraw routes associated with the sending BGP speaker, there is no opportunity for a BGP speaker to withdraw another BGP speaker's routes. Therefore, there is no additional risk from BGP peers via this field.",
+      "zh-CHS": "BGP演讲者可以使用此字段“错误地”撤回可行的路由。然而，由于BGP发言人对其将宣布的路线具有权威性，因此允许其撤回其想要的任何先前宣布的路线。由于接收BGP扬声器只会撤回与发送BGP扬声器相关的路由，因此BGP扬声器没有机会撤回另一个BGP扬声器的路由。因此，通过该字段，BGP对等方不存在额外风险。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5.3. Path Attributes",
+      "section_title": true,
+      "zh-CHS": "3.1.5.3. 路径属性"
+    },
+    {
+      "indent": 3,
+      "text": "The path attributes present many different vulnerabilities and risks.",
+      "zh-CHS": "路径属性存在许多不同的漏洞和风险。"
+    },
+    {
+      "indent": 3,
+      "text": "o Attribute Flags, Attribute Type Codes, Attribute Length",
+      "zh-CHS": "o 属性标志、属性类型代码、属性长度"
+    },
+    {
+      "indent": 6,
+      "text": "A BGP peer or an outsider could modify the attribute length or attribute type (flags and type codes) not to reflect the attribute values that followed. If the flags were modified, the flags and type code could become incompatible (i.e., a mandatory attribute marked as partial), or an optional attribute could be interpreted as a mandatory attribute or vice versa. If the type code were modified, the attribute value could be interpreted as if it were the data type and value of a different attribute.",
+      "zh-CHS": "BGP对等方或外部人员可以修改属性长度或属性类型（标志和类型代码），以不反映随后的属性值。如果修改了标志，标志和类型代码可能变得不兼容（即，标记为部分的强制属性），或者可选属性可能被解释为强制属性，反之亦然。如果修改了类型代码，则可以将属性值解释为不同属性的数据类型和值。"
+    },
+    {
+      "indent": 6,
+      "text": "The most likely result from modifying the attribute length, flags, or type code would be a parse error of the UPDATE message. A parse error would cause the transmission of a NOTIFICATION message and the close of the connection (see Event 28, above). As a true BGP speaker is able to close a connection at any time, this vulnerability represents an additional risk only when the source is an outsider, i.e., it presents no additional risk from a BGP peer.",
+      "zh-CHS": "修改属性长度、标志或类型代码最有可能导致更新消息的解析错误。解析错误将导致发送通知消息并关闭连接（请参阅上面的事件28）。由于真正的BGP演讲者能够随时关闭连接，因此此漏洞仅在来源为外部人员时才代表额外风险，即它不会带来来自BGP对等方的额外风险。"
+    },
+    {
+      "indent": 3,
+      "text": "o ORIGIN",
+      "zh-CHS": "o 起源"
+    },
+    {
+      "indent": 6,
+      "text": "This field indicates whether the information was learned from IGP or EGP information. This field is used in making routing decisions, so there is some small vulnerability of being able to affect the receiving BGP speaker's routing decision by modifying this field.",
+      "zh-CHS": "此字段指示信息是从IGP还是EGP信息中学习的。此字段用于制定路由决策，因此存在一些小漏洞，可以通过修改此字段影响接收BGP说话人的路由决策。"
+    },
+    {
+      "indent": 3,
+      "text": "o AS_PATH",
+      "zh-CHS": "o AS_路径"
+    },
+    {
+      "indent": 6,
+      "text": "A BGP peer or outsider could announce an AS_PATH that was not accurate for the associated NLRI.",
+      "zh-CHS": "BGP对等方或外部人员可能会宣布关联NLRI不准确的AS_路径。"
+    },
+    {
+      "indent": 6,
+      "text": "Because a BGP peer might not verify that a received AS_PATH begins with the AS number of its peer, a malicious BGP peer could announce a path that begins with the AS of any BGP speaker, with little impact on itself. This could affect the receiving BGP speaker's decision procedure and choice of installed route. The malicious peer could considerably shorten the AS_PATH, which will increase that route's chances of being chosen, possibly giving the malicious peer access to traffic it would otherwise not receive. The shortened AS_PATH also could result in routing loops, as it does not contain the information needed to prevent loops.",
+      "zh-CHS": "由于BGP对等方可能无法验证接收到的AS_路径是否以其对等方的AS编号开始，恶意BGP对等方可能会宣布以任何BGP扬声器的AS编号开始的路径，而对其自身几乎没有影响。这可能会影响接收BGP扬声器的决策程序和安装路线的选择。恶意对等方可能会大大缩短AS_路径，这将增加该路由被选择的机会，可能会让恶意对等方访问它本来不会接收的流量。缩短的AS_路径也可能导致路由循环，因为它不包含防止循环所需的信息。"
+    },
+    {
+      "indent": 6,
+      "text": "It is possible for a BGP speaker to be configured to accept routes with its own AS number in the AS path. Such operational considerations are defined to be \"outside the scope\" of the BGP specification. But because AS_PATHs can legitimately have loops, implementations cannot automatically reject routes with loops. Each BGP speaker verifies only that its own AS number does not appear in the AS_PATH.",
+      "zh-CHS": "BGP扬声器可以配置为接受AS路径中具有其自身AS编号的路由。此类操作考虑被定义为BGP规范的“范围外”。但是因为AS_路径可以合法地具有循环，所以实现不能自动拒绝具有循环的路由。每个BGP扬声器仅验证其自身的AS编号不显示在AS_路径中。"
+    },
+    {
+      "indent": 6,
+      "text": "Coupled with the ability to use any value for the NEXT_HOP, this provides a malicious BGP speaker considerable control over the path traffic will take.",
+      "zh-CHS": "再加上在下一跳中使用任何值的能力，这为恶意BGP扬声器提供了对路径流量的相当大的控制。"
+    },
+    {
+      "indent": 3,
+      "text": "o Originating Routes",
+      "zh-CHS": "o 始发航线"
+    },
+    {
+      "indent": 6,
+      "text": "A special case of announcing a false AS_PATH occurs when the AS_PATH advertises a direct connection to a specific network address. A BGP peer or outsider could disrupt routing to the network(s) listed in the NLRI field by falsely advertising a direct connection to the network. The NLRI would become unreachable to the portion of the network that accepted this false route, unless the ultimate AS on the AS_PATH undertook to tunnel the packets it was forwarded for this NLRI toward their true destination AS by a valid path. But even when the packets are tunneled to the correct destination AS, the route followed may not be optimal, or may not follow the intended policy. Additionally, routing for other networks in the Internet could be affected if the false advertisement fragmented an aggregated address block, forcing the routers to handle (issue UPDATES, store, manage) the multiple fragments rather than the single aggregate. False originations for multiple addresses can result in routers and transit networks along the announced route to become flooded with misdirected traffic.",
+      "zh-CHS": "当AS_路径播发到特定网络地址的直接连接时，会出现一种特殊情况，即宣布错误的AS_路径。BGP对等方或外部人员可能会通过虚假宣传与网络的直接连接而中断到NLRI字段中列出的网络的路由。接受此错误路由的网络部分将无法访问NLRI，除非AS_路径上的最终AS承诺通过有效路径将其转发给此NLRI的数据包隧道至其真实目的地AS。但是，即使数据包通过隧道传输到正确的目的地AS，遵循的路由也可能不是最优的，或者可能不遵循预期的策略。此外，如果虚假广告将聚合地址块分割，迫使路由器处理（发布更新、存储、管理）多个片段而不是单个聚合，则Internet中其他网络的路由可能会受到影响。多个地址的错误起始可能会导致公布路线沿线的路由器和传输网络充斥着定向错误的流量。"
+    },
+    {
+      "indent": 3,
+      "text": "o NEXT_HOP",
+      "zh-CHS": "o 下一步"
+    },
+    {
+      "indent": 6,
+      "text": "The NEXT_HOP attribute defines the IP address of the border router that should be used as the next hop when forwarding the NLRI listed in the UPDATE message. If the recipient is an external peer, then the recipient and the NEXT_HOP address must share a subnet. It is clear that an outsider who modified this field could disrupt the forwarding of traffic between the two ASes.",
+      "zh-CHS": "“下一跳”属性定义边界路由器的IP地址，在转发更新消息中列出的NLRI时，该地址应用作下一跳。如果收件人是外部对等方，则收件人和下一跳地址必须共享一个子网。显然，修改此字段的外部人员可能会中断两个ASE之间的流量转发。"
+    },
+    {
+      "indent": 6,
+      "text": "If the recipient of the message is an external peer of an AS and the route was learned from another peer AS (this is one of two forms of \"third party\" NEXT_HOP), then the BGP speaker advertising the route has the opportunity to direct the recipient to forward traffic to a BGP speaker at the NEXT_HOP address. This affords the opportunity to direct traffic at a router that may not be able to continue forwarding the traffic. A malicious BGP speaker can also use this technique to force another AS to carry traffic it would otherwise not have to carry. In some cases, this could be to the malicious BGP speaker's benefit, as it could cause traffic to be carried long-haul by the victim AS to some other peering point it shared with the victim.",
+      "zh-CHS": "如果消息的接收者是AS的外部对等方，并且路由是从另一个对等方AS学习的（这是“第三方”下一跃点的两种形式之一），则公布路由的BGP演讲者有机会指示接收者将流量转发到下一跃点地址的BGP演讲者。这提供了在可能无法继续转发流量的路由器上引导流量的机会。恶意的BGP扬声器也可以使用此技术强制另一个AS承载本来不需要承载的流量。在某些情况下，这可能对恶意BGP说话者有利，因为这可能导致受害者将流量传输到与受害者共享的其他对等点。"
+    },
+    {
+      "indent": 3,
+      "text": "o MULTI_EXIT_DISC",
+      "zh-CHS": "o 多出口光盘"
+    },
+    {
+      "indent": 6,
+      "text": "The MULTI_EXIT_DISC attribute is used in UPDATE messages transmitted between inter-AS BGP peers. While the MULTI_EXIT_DISC received from an inter-AS peer may be propagated within an AS, it may not be propagated to other ASes. Consequently, this field is only used in making routing decisions internal to one AS. Modifying this field, whether by an outsider or a BGP peer, could influence routing within an AS to be sub-optimal, but the effect should be limited in scope.",
+      "zh-CHS": "MULTI_EXIT_DISC属性用于在inter AS BGP对等点之间传输的更新消息。虽然从AS间对等方接收的MULTI_EXIT_光盘可以在AS内传播，但它不能传播到其他AS。因此，该字段仅用于在一个AS内部做出路由决策。无论是由外部人员还是BGP对等方修改此字段，都可能会影响AS内的路由，使其处于次优状态，但影响范围应有限。"
+    },
+    {
+      "indent": 3,
+      "text": "o LOCAL_PREF",
+      "zh-CHS": "o 本地优先"
+    },
+    {
+      "indent": 6,
+      "text": "The LOCAL_PREF attribute must be included in all messages with internal peers, and excluded from messages with external peers. Consequently, modification of the LOCAL_PREF could effect the routing process within the AS only. Note that there is no requirement in the BGP RFC that the LOCAL_PREF be consistent among the internal BGP speakers of an AS. Because BGP peers are free to choose the LOCAL_PREF, modification of this field is a vulnerability with respect to outsiders only.",
+      "zh-CHS": "本地_PREF属性必须包含在具有内部对等点的所有消息中，并从具有外部对等点的消息中排除。因此，修改本地_PREF可能只影响AS内的路由过程。请注意，BGP RFC中没有要求AS的内部BGP扬声器之间的本地前缀保持一致。由于BGP对等方可以自由选择本地_PREF，因此修改此字段仅对外部人员而言是一个漏洞。"
+    },
+    {
+      "indent": 3,
+      "text": "o ATOMIC_AGGREGATE",
+      "zh-CHS": "o 原子聚集体"
+    },
+    {
+      "indent": 6,
+      "text": "The ATOMIC_AGGREGATE field indicates that an AS somewhere along the way has aggregated several routes and advertised the aggregate NLRI without the AS_SET being formed as usual from the ASes in the aggregated routes' AS_PATHs. BGP speakers receiving a route with ATOMIC_AGGREGATE are restricted from making the NLRI any more specific. Removing the ATOMIC_AGGREGATE attribute would remove the restriction, possibly causing traffic intended for the more specific NLRI to be routed incorrectly. Adding the ATOMIC_AGGREGATE attribute, when no aggregation was done, would have little effect beyond restricting the un-aggregated NLRI from being made more specific. This vulnerability exists whether the source is a BGP peer or an outsider.",
+      "zh-CHS": "ATOMIC_AGGREGATE（原子_聚合）字段表示沿途某处的AS聚合了多条路由并公布了聚合NLRI，而没有像往常一样从聚合路由的AS_路径中的ASE形成AS_集。使用原子_聚合接收路由的BGP扬声器受到限制，无法使NLRI更加具体。删除ATOMIC_AGGREGATE属性将删除该限制，这可能会导致用于更特定NLRI的流量路由错误。当没有进行聚合时，添加ATOMIC_AGGREGATE属性除了限制未聚合的NLRI变得更具体之外，几乎没有什么效果。无论源是BGP对等方还是外部用户，都存在此漏洞。"
+    },
+    {
+      "indent": 3,
+      "text": "o AGGREGATOR",
+      "zh-CHS": "o 聚合器"
+    },
+    {
+      "indent": 6,
+      "text": "This field may be included by a BGP speaker who has computed the routes represented in the UPDATE message by aggregating other routes. The field contains the AS number and IP address of the last aggregator of the route. It is not used in making any routing decisions, so it does not represent a vulnerability.",
+      "zh-CHS": "BGP演讲者可以包括该字段，该演讲者通过聚合其他路由来计算更新消息中表示的路由。该字段包含路由的最后一个聚合器的AS编号和IP地址。它不用于做出任何路由决策，因此它并不表示存在漏洞。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5.4. NLRI",
+      "section_title": true,
+      "zh-CHS": "3.1.5.4. NLRI"
+    },
+    {
+      "indent": 3,
+      "text": "By modifying or forging this field, either an outsider or BGP peer source could cause disruption of routing to the announced network, overwhelm a router along the announced route, cause data loss when the announced route will not forward traffic to the announced network, route traffic by a sub-optimal route, etc.",
+      "zh-CHS": "通过修改或伪造此字段，外部或BGP对等源都可能导致到已宣布网络的路由中断、沿已宣布路由压倒路由器、当已宣布路由不会将流量转发到已宣布网络时导致数据丢失、通过次优路由路由流量等。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Vulnerabilities through Other Protocols",
+      "section_title": true,
+      "zh-CHS": "3.2. 通过其他协议的漏洞"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1. TCP Messages",
+      "section_title": true,
+      "zh-CHS": "3.2.1. TCP消息"
+    },
+    {
+      "indent": 3,
+      "text": "BGP runs over TCP, listening on port 179. Therefore, BGP is subject to attack through attacks on TCP.",
+      "zh-CHS": "BGP通过TCP运行，监听端口179。因此，BGP会受到TCP攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1.1. TCP SYN",
+      "section_title": true,
+      "zh-CHS": "3.2.1.1. TCP同步"
+    },
+    {
+      "indent": 3,
+      "text": "SYN flooding: Like other protocols, BGP is subject to the effects on the TCP implementation of SYN flooding attacks, and must rely on the implementation's protections against these attacks.",
+      "zh-CHS": "SYN洪泛：与其他协议一样，BGP受SYN洪泛攻击对TCP实现的影响，必须依赖实现对这些攻击的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "Event 14: If an outsider were able to send a SYN to the BGP speaker at the appropriate time during connection establishment, then the legitimate peer's SYN would appear to be a second connection. If the outsider were able to continue with a sequence of packets resulting",
+      "zh-CHS": "事件14：如果外部人员能够在连接建立期间的适当时间向BGP扬声器发送SYN，则合法对等方的SYN将显示为第二个连接。如果外部人员能够继续执行一系列数据包，则"
+    },
+    {
+      "indent": 3,
+      "text": "in a BGP connection (guessing the BGP speaker's choice for sequence number on the SYN ACK, for example), then the outsider's connection and the legitimate peer's connection would appear to be a connection collision. Depending on the outcome of the collision detection (i.e., if the outsider chooses a BGP identifier so as to win the race), the legitimate peer's true connection could be destroyed. The use of [TCPMD5] can counter this attack.",
+      "zh-CHS": "在BGP连接中（例如，猜测BGP说话人对SYN ACK上的序列号的选择），则外部连接和合法对等连接将出现连接冲突。根据冲突检测的结果（即，如果局外人选择BGP标识符以赢得比赛），合法对等方的真实连接可能会被破坏。使用[TCPMD5]可以抵抗此攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1.2. TCP SYN ACK",
+      "section_title": true,
+      "zh-CHS": "3.2.1.2. TCP同步确认"
+    },
+    {
+      "indent": 3,
+      "text": "Event 16: If an outsider were able to respond to a BGP speaker's SYN before the legitimate peer, then the legitimate peer's SYN-ACK would receive an empty ACK reply, causing the legitimate peer to issue a RST that would break the connection. The BGP speaker would bring down the connection, release all associated BGP resources, delete all associated routes, and run its decision process. This attack requires that the outsider be able to predict the sequence number used in the SYN. The use of [TCPMD5] can counter this attack.",
+      "zh-CHS": "事件16：如果外部人员能够在合法对等方之前响应BGP说话人的SYN，则合法对等方的SYN-ACK将收到空ACK应答，导致合法对等方发出RST，中断连接。BGP演讲者将关闭连接，释放所有相关的BGP资源，删除所有相关的路由，并运行其决策过程。此攻击要求外部人员能够预测SYN中使用的序列号。使用[TCPMD5]可以抵抗此攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1.3. TCP ACK",
+      "section_title": true,
+      "zh-CHS": "3.2.1.3. TCP确认"
+    },
+    {
+      "indent": 3,
+      "text": "Event 17: If an outsider were able to spoof an ACK at the appropriate time during connection establishment, then the BGP speaker would consider the connection complete, send an OPEN (Event 17), and transition to the OpenSent state. The arrival of the legitimate peer's ACK would not be delivered to the BGP process, as it would look like a duplicate packet. Thus, this message does not present a vulnerability to BGP during connection establishment. Spoofing an ACK after connection establishment requires knowledge of the sequence numbers in use, and is, in general, a very difficult task. The use of [TCPMD5] can counter this attack.",
+      "zh-CHS": "事件17：如果一个局外人能够在连接建立的适当时间欺骗ACK，那么BGP扬声器将考虑连接完成，发送一个打开（事件17），并转换到OpenStand状态。合法对等方的ACK不会发送到BGP进程，因为它看起来像一个重复的数据包。因此，在连接建立期间，此消息不会对BGP造成漏洞。在建立连接后欺骗ACK需要了解正在使用的序列号，通常是一项非常困难的任务。使用[TCPMD5]可以抵抗此攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1.4. TCP RST/FIN/FIN-ACK",
+      "section_title": true,
+      "zh-CHS": "3.2.1.4. TCP RST/FIN/FIN-ACK"
+    },
+    {
+      "indent": 3,
+      "text": "Event 18: If an outsider were able to spoof a RST, the BGP speaker would bring down the connection, release all associated BGP resources, delete all associated routes, and run its decision process. If an outsider were able to spoof a FIN, then data could still be transmitted, but any attempt to receive it would trigger a notification that the connection is closing. In most cases, this results in the connection being placed in an Idle state. But if the connection is in the Connect state or the OpenSent state at the time, the connection will return to an Active state.",
+      "zh-CHS": "事件18：如果外人能够欺骗RST，BGP演讲者将关闭连接，释放所有相关BGP资源，删除所有相关路由，并运行其决策过程。如果外人能够欺骗FIN，那么数据仍然可以传输，但任何接收数据的尝试都会触发连接正在关闭的通知。在大多数情况下，这会导致连接处于空闲状态。但是，如果连接当时处于连接状态或OpenSent状态，则连接将返回到活动状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Spoofing a RST in this situation requires an outsider to guess a sequence number that need only be within the receive window [Watson04]. This is generally an easier task than guessing the exact",
+      "zh-CHS": "在这种情况下欺骗RST需要外部人员猜测一个序列号，该序列号只需要在接收窗口内[Watson04]。这通常比猜测确切的数字更容易"
+    },
+    {
+      "indent": 3,
+      "text": "sequence number required to spoof a FIN. The use of [TCPMD5] can counter this attack.",
+      "zh-CHS": "欺骗FIN所需的序列号。使用[TCPMD5]可以抵抗此攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1.5. DoS and DDos",
+      "section_title": true,
+      "zh-CHS": "3.2.1.5. 拒绝服务和拒绝服务"
+    },
+    {
+      "indent": 3,
+      "text": "Because the packets directed to TCP port 179 are passed to the BGP process, which potentially resides on a slower processor in the router, flooding a router with TCP port 179 packets is an avenue for DoS attacks against the router. No BGP mechanism can defeat such attacks; other mechanisms must be employed.",
+      "zh-CHS": "由于定向到TCP端口179的数据包被传递到BGP进程，BGP进程可能位于路由器中较慢的处理器上，因此用TCP端口179数据包淹没路由器是针对路由器的DoS攻击的一种途径。没有任何BGP机制能够击败此类攻击；必须采用其他机制。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2. Other Supporting Protocols",
+      "section_title": true,
+      "zh-CHS": "3.2.2. 其他支持协议"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2.1. Manual Stop",
+      "section_title": true,
+      "zh-CHS": "3.2.2.1. 手动停止"
+    },
+    {
+      "indent": 3,
+      "text": "Event 2: A manual stop event causes the BGP speaker to bring down the connection, release all associated BGP resources, delete all associated routes, and run its decision process. If the mechanism by which a BGP speaker was informed of a manual stop is not carefully protected, the BGP connection could be destroyed by an outsider. Consequently, BGP security is secondarily dependent on the security of the management and configuration protocols that are used to signal this event.",
+      "zh-CHS": "事件2：手动停止事件导致BGP扬声器断开连接，释放所有相关BGP资源，删除所有相关路由，并运行其决策过程。如果通知BGP扬声器手动停止的机制未得到仔细保护，BGP连接可能会被外部人员破坏。因此，BGP安全性在第二个方面取决于用于发出此事件信号的管理和配置协议的安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2.2. Open Collision Dump",
+      "section_title": true,
+      "zh-CHS": "3.2.2.2. 开放式冲突转储"
+    },
+    {
+      "indent": 3,
+      "text": "Event 23: The OpenCollisionDump event may be generated administratively when a connection collision event is detected and the connection has been selected to be disconnected. When this event occurs in any state, the BGP connection is dropped, the BGP resources are released, the associated routes are deleted, etc. Consequently, BGP security is secondarily dependent on the security of the management and configuration protocols that are used to signal this event.",
+      "zh-CHS": "事件23：当检测到连接冲突事件并且已选择断开连接时，可以通过管理方式生成OpenCollisionDump事件。当此事件在任何状态下发生时，BGP连接将断开，BGP资源将被释放，相关路由将被删除，等等。因此，BGP安全性在第二个方面取决于用于发出此事件信号的管理和配置协议的安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2.3. Timer Events",
+      "section_title": true,
+      "zh-CHS": "3.2.2.3. 计时器事件"
+    },
+    {
+      "indent": 3,
+      "text": "Events 9-13: BGP employs five timers (ConnectRetry, Hold, Keepalive, MinASOrigination-Interval, and MinRouteAdvertisementInterval) and two optional timers (DelayOpen and IdleHold). These timers are critical to BGP operation. For example, if the Hold timer value were changed, the remote peer might consider the connection unresponsive and bring the connection down, thus releasing resources, deleting associated routes, etc. Consequently, BGP security is secondarily dependent on the security of the operation, management, and configuration protocols that are used to modify the timers.",
+      "zh-CHS": "事件9-13:BGP使用五个计时器（连接重试、保持、保持、MinASOrigination Interval和MinRouteAdVertisementerval）和两个可选计时器（DelayOpen和IdleHold）。这些定时器对BGP操作至关重要。例如，如果保持定时器值被更改，远程对等体可能会认为连接不响应，并导致连接下降，从而释放资源，删除相关路由等。因此，BGP安全性二次依赖于操作、管理的安全性，以及用于修改计时器的配置协议。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This entire memo is about security, describing an analysis of the vulnerabilities that exist in BGP.",
+      "zh-CHS": "整个备忘录都是关于安全性的，描述了对BGP中存在的漏洞的分析。"
+    },
+    {
+      "indent": 3,
+      "text": "Use of the mandatory-to-support mechanisms of [TCPMD5] counters the message insertion, deletion, and modification attacks, as well as man-in-the-middle attacks by outsiders. If routing data confidentiality is desired (there is some controversy as to whether it is a desirable security service), the use of IPsec ESP could provide that service.",
+      "zh-CHS": "使用强制来支持[TCPMD5]的机制可以对抗消息插入、删除和修改攻击，以及外部人员的中间人攻击。如果需要路由数据的机密性（关于它是否是一个需要的安全服务存在一些争议），则使用IPsec ESP可以提供该服务。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Residual Risk",
+      "section_title": true,
+      "zh-CHS": "4.1. 剩余风险"
+    },
+    {
+      "indent": 3,
+      "text": "As cryptographic-based mechanisms, both [TCPMD5] and IPsec [IPsec] assume that the cryptographic algorithms are secure, that secrets used are protected from exposure and are chosen well so as not to be guessable, that the platforms are securely managed and operated to prevent break-ins, etc.",
+      "zh-CHS": "作为基于加密的机制，[TCPMD5]和IPsec[IPsec]都假定加密算法是安全的，所使用的秘密受到保护，不会暴露，并且选择得很好，因此不可猜测，平台得到了安全管理和操作，以防止入侵等。"
+    },
+    {
+      "indent": 3,
+      "text": "These mechanisms do not prevent attacks that arise from a router's legitimate BGP peers. There are several possible solutions to prevent a BGP speaker from inserting bogus information in its advertisements to its peers (i.e., from mounting an attack on a network's origination or AS-PATH):",
+      "zh-CHS": "这些机制不能防止来自路由器合法BGP对等点的攻击。有几种可能的解决方案可防止BGP演讲者在向其对等方发布的广告中插入虚假信息（即，对网络的发起或AS-PATH发起攻击）："
+    },
+    {
+      "indent": 3,
+      "text": "(1) Origination Protection: sign the originating AS.",
+      "zh-CHS": "(1) 发起保护：将发起作为签名。"
+    },
+    {
+      "indent": 3,
+      "text": "(2) Origination and Adjacency Protection: sign the originating AS and predecessor information ([Smith96])",
+      "zh-CHS": "(2) 起始和邻接保护：在起始AS和前置信息上签名（[Smith96]）"
+    },
+    {
+      "indent": 3,
+      "text": "(3) Origination and Route Protection: sign the originating AS, and nest signatures of AS_PATHs to the number of consecutive bad routers you want to prevent from causing damage. ([SBGP00])",
+      "zh-CHS": "(3) 发起和路由保护：对发起AS进行签名，并将AS_路径的签名嵌套到要防止造成损坏的连续坏路由器的数量上。（[SBGP00]）"
+    },
+    {
+      "indent": 3,
+      "text": "(4) Filtering: rely on a registry to verify the AS_PATH and NLRI originating AS ([RPSL]).",
+      "zh-CHS": "(4) 筛选：依靠注册表验证AS_路径和源自AS（[RPSL]）的NLRI。"
+    },
+    {
+      "indent": 3,
+      "text": "Filtering is in use near some customer attachment points, but is not effective near the Internet center. The other mechanisms are still controversial and are not yet in common use.",
+      "zh-CHS": "过滤在某些客户连接点附近使用，但在互联网中心附近无效。其他机制仍有争议，尚未普遍使用。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Operational Protections",
+      "section_title": true,
+      "zh-CHS": "4.2. 操作保护"
+    },
+    {
+      "indent": 3,
+      "text": "BGP is primarily used as a means to provide reachability information to Autonomous Systems (AS) and to distribute external reachability internally within an AS. BGP is the routing protocol used to",
+      "zh-CHS": "BGP主要用于向自治系统（as）提供可达性信息，并在as内部分发外部可达性。BGP是用于"
+    },
+    {
+      "indent": 3,
+      "text": "distribute global routing information in the Internet. Therefore, BGP is used by all major Internet Service Providers (ISP), as well as many smaller providers and other organizations.",
+      "zh-CHS": "在Internet中分发全局路由信息。因此，所有主要的互联网服务提供商（ISP）以及许多较小的提供商和其他组织都使用BGP。"
+    },
+    {
+      "indent": 3,
+      "text": "BGP's role in the Internet puts BGP implementations in unique conditions, and places unique security requirements on BGP. BGP is operated over interprovider interfaces in which traffic levels push the state of the art in specialized packet forwarding hardware and exceed the performance capabilities of hardware implementation of decryption by many orders of magnitude. The capability of an attacker using a single workstation with high speed interface to generate false traffic for denial of service (DoS) far exceeds the capability of software-based decryption or appropriately-priced cryptographic hardware to detect the false traffic. Under such conditions, one means to protect the network elements from DoS attacks is to use packet-based filtering techniques based on relatively simple inspections of packets. As a result, for an ISP carrying large volumes of traffic, the ability to packet filter on the basis of port numbers is an important protection against DoS attacks, and a necessary adjunct to cryptographic strength in encapsulation.",
+      "zh-CHS": "BGP在互联网中的角色使BGP的实施处于独特的条件下，并对BGP提出了独特的安全要求。BGP在供应商间接口上运行，在这种接口中，通信量水平推动了专用分组转发硬件的最新技术，并在许多数量级上超过了硬件实现解密的性能能力。攻击者使用具有高速接口的单个工作站为拒绝服务（DoS）生成虚假流量的能力远远超过基于软件的解密或适当定价的加密硬件检测虚假流量的能力。在这种情况下，保护网元免受DoS攻击的一种方法是使用基于数据包的过滤技术，该技术基于对数据包的相对简单的检查。因此，对于承载大量流量的ISP，基于端口号进行数据包过滤的能力是防止DoS攻击的重要保护，也是封装中加密强度的必要补充。"
+    },
+    {
+      "indent": 3,
+      "text": "Current practice in ISP operation is to use certain common filtering techniques to reduce the exposure to attacks from outside the ISP. To protect Internal BGP (IBGP) sessions, filters are applied at all borders to an ISP network. This removes all traffic destined for network elements' internal addresses (typically contained within a single prefix) and the BGP port number (179). If the BGP port number is found, packets from within an ISP are not forwarded from an internal interface to the BGP speaker's address (on which External BGP (EBGP) sessions are supported), or to a peer's EBGP address. Appropriate router design can limit the risk of compromise when a BGP peer fails to provide adequate filtering. The risk can be limited to the peering session on which filtering is not performed by the peer, or to the interface or line card on which the peering is supported. There is substantial motivation, and little effort is required, for ISPs to maintain such filters.",
+      "zh-CHS": "ISP操作的当前实践是使用某些常见的过滤技术来减少ISP外部攻击的风险。为了保护内部BGP（IBGP）会话，在ISP网络的所有边界都应用了过滤器。这将删除所有发送到网元内部地址（通常包含在单个前缀中）和BGP端口号（179）的通信量。如果找到BGP端口号，则ISP内的数据包不会从内部接口转发到BGP扬声器地址（支持外部BGP（EBGP）会话）或对等方的EBGP地址。当BGP对等方无法提供足够的过滤时，适当的路由器设计可以限制泄露的风险。风险可限于对等方未执行过滤的对等会话，或支持对等的接口或线路卡。ISP维护此类过滤器的动机很强，几乎不需要付出任何努力。"
+    },
+    {
+      "indent": 3,
+      "text": "These operational practices can considerably raise the difficulty for an outsider to launch a DoS attack against an ISP. Prevented from injecting sufficient traffic from outside a network to effect a DoS attack, the attacker would have to undertake more difficult tasks, such as compromising the ISP network elements or undetected tapping into physical media.",
+      "zh-CHS": "这些操作实践会大大增加外部人员对ISP发起DoS攻击的难度。由于无法从网络外部注入足够的流量来实施DoS攻击，攻击者将不得不执行更困难的任务，例如破坏ISP网络元素或未被检测到的对物理介质的窃听。"
+    },
+    {
+      "indent": 0,
+      "text": "5. References",
+      "section_title": true,
+      "zh-CHS": "5. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "5.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", RFC 2119, BCP 14, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，RFC 2119，BCP 14，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[TCPMD5] Heffernan, A., \"Protection of BGP Sessions via the TCP MD5 Signature Option\", RFC 2385, August 1998.",
+      "zh-CHS": "[TCPMD5]Heffernan，A.，“通过TCP MD5签名选项保护BGP会话”，RFC 2385，1998年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4271] Rekhter, Y., Li, T., and S. Hares, Eds., \"A Border Gateway Protocol 4 (BGP-4)\", RFC 4271, January 2006.",
+      "zh-CHS": "[RFC4271]Rekhter，Y.，Li，T.，和S.Hares编辑，“边境网关协议4（BGP-4）”，RFC 42712006年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "5.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[IPsec] Kent, S. and R. Atkinson, \"Security Architecture for the Internet Protocol\", RFC 2401, November 1998.",
+      "zh-CHS": "[IPsec]Kent，S.和R.Atkinson，“互联网协议的安全架构”，RFC 2401，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SBGP00] Kent, S., Lynn, C. and Seo, K., \"Secure Border Gateway Protocol (Secure-BGP)\", IEEE Journal on Selected Areas in Communications, Vol. 18, No. 4, April 2000, pp. 582-592.",
+      "zh-CHS": "[SBGP00]Kent，S.，Lynn，C.和Seo，K.，“安全边界网关协议（安全BGP）”，IEEE通信选定领域杂志，第18卷，第4期，2000年4月，第582-592页。"
+    },
+    {
+      "indent": 3,
+      "text": "[SecCons] Rescorla, E. and B. Korver, \"Guidelines for Writing RFC Text on Security Considerations\", BCP 72, RFC 3552, July 2003.",
+      "zh-CHS": "[SecCons]Rescorla，E.和B.Korver，“关于安全考虑的RFC文本编写指南”，BCP 72，RFC 3552，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Smith96] Smith, B. and Garcia-Luna-Aceves, J.J., \"Securing the Border Gateway Routing Protocol\", Proc. Global Internet '96, London, UK, 20-21 November 1996.",
+      "zh-CHS": "[Smith96]Smith，B.和Garcia Luna Aceves，J.J.，“保护边界网关路由协议”，Proc。1996年11月20日至21日，英国伦敦，1996年全球互联网。"
+    },
+    {
+      "indent": 3,
+      "text": "[RPSL] Villamizar, C., Alaettinoglu, C., Meyer, D., and S. Murphy, \"Routing Policy System Security\", RFC 2725, December 1999.",
+      "zh-CHS": "[RPSL]Villamizar，C.，Alaettinoglu，C.，Meyer，D.，和S.Murphy，“路由策略系统安全”，RFC 27251999年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Watson04] Watson, P., \"Slipping In The Window: TCP Reset Attacks\", CanSecWest 2004, April 2004.",
+      "zh-CHS": "[Watson04]Watson，P.，“在窗口中滑动：TCP重置攻击”，CanSecWest 2004，2004年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Sandra Murphy Sparta, Inc. 7075 Samuel Morse Drive Columbia, MD 21046",
+      "zh-CHS": "桑德拉·墨菲·斯巴达公司，地址：马里兰州哥伦比亚塞缪尔·莫尔斯大道7075号，邮编：21046"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Sandy@tislabs.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

@@ -1,0 +1,843 @@
+{
+  "title": {
+    "text": "RFC 8488: RIPE NCC's Implementation of Resource Public Key Infrastructure (RPKI) Certificate Tree Validation",
+    "zh-CHS": "RFC 8488"
+  },
+  "number": 8488,
+  "created_at": "2021-10-30 02:41:56.124289+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                      O. Muravskiy\nRequest for Comments: 8488                                      RIPE NCC\nCategory: Informational                                   T. Bruijnzeels\nISSN: 2070-1721                                               NLnet Labs\n                                                           December 2018",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "RIPE NCC's Implementation of Resource Public Key Infrastructure (RPKI) Certificate Tree Validation",
+      "zh-CHS": "资源公钥基础设施（RPKI）证书树验证的成熟NCC实现"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an approach to validating the content of the Resource Public Key Infrastructure (RPKI) certificate tree, as it is implemented in the RIPE NCC RPKI Validator. This approach is independent of a particular object retrieval mechanism, which allows it to be used with repositories available over the rsync protocol, the RPKI Repository Delta Protocol (RRDP), and repositories that use a mix of both.",
+      "zh-CHS": "本文档描述了一种验证资源公钥基础设施（RPKI）证书树内容的方法，它是在成熟的NCC RPKI验证器中实现的。这种方法独立于特定的对象检索机制，该机制允许它与通过rsync协议、RPKI存储库增量协议（RRDP）和混合使用这两种协议的存储库一起使用。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are candidates for any level of Internet Standard; see Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at https://www.rfc-editor.org/info/rfc8488.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问https://www.rfc-editor.org/info/rfc8488."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2018 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2018 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(https://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   4\n2.  General Considerations  . . . . . . . . . . . . . . . . . . .   4\n  2.1.  Hash Comparisons  . . . . . . . . . . . . . . . . . . . .   4\n  2.2.  Discovery of RPKI Objects Issued by a CA  . . . . . . . .   5\n  2.3.  Manifest Entries versus Repository Content  . . . . . . .   5\n3.  Top-Down Validation of a Single Trust Anchor Certificate Tree   6\n  3.1.  Fetching the Trust Anchor Certificate Using the Trust\n        Anchor Locator  . . . . . . . . . . . . . . . . . . . . .   6\n  3.2.  CA Certificate Validation . . . . . . . . . . . . . . . .   7\n    3.2.1.  Finding the Most Recent Valid Manifest and CRL  . . .   8\n    3.2.2.  Validating Manifest Entries . . . . . . . . . . . . .   9\n  3.3.  Object Store Cleanup  . . . . . . . . . . . . . . . . . .  10\n4.  Remote Objects Fetcher  . . . . . . . . . . . . . . . . . . .  11\n  4.1.  Fetcher Operations  . . . . . . . . . . . . . . . . . . .  11\n    4.1.1.  Fetch Repository Objects  . . . . . . . . . . . . . .  12\n    4.1.2.  Fetch Single Repository Object  . . . . . . . . . . .  12\n5.  Local Object Store  . . . . . . . . . . . . . . . . . . . . .  12\n  5.1.  Store Operations  . . . . . . . . . . . . . . . . . . . .  12\n    5.1.1.  Store Repository Object . . . . . . . . . . . . . . .  12\n    5.1.2.  Get Objects by Hash . . . . . . . . . . . . . . . . .  12\n    5.1.3.  Get Certificate Objects by URI  . . . . . . . . . . .  13\n    5.1.4.  Get Manifest Objects by AKI . . . . . . . . . . . . .  13\n    5.1.5.  Delete Objects for a URI  . . . . . . . . . . . . . .  13\n    5.1.6.  Delete Outdated Objects . . . . . . . . . . . . . . .  13\n    5.1.7.  Update Object's Validation Time . . . . . . . . . . .  13\n6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  13\n7.  Security Considerations . . . . . . . . . . . . . . . . . . .  13\n  7.1.  Hash Collisions . . . . . . . . . . . . . . . . . . . . .  13\n  7.2.  Algorithm Agility . . . . . . . . . . . . . . . . . . . .  13\n  7.3.  Mismatch between the Expected and Actual Location of an\n        Object in the Repository  . . . . . . . . . . . . . . . .  14\n  7.4.  Manifest Content versus Publication Point Content . . . .  14\n  7.5.  Possible Denial of Service  . . . . . . . . . . . . . . .  15\n8.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  15\n  8.1.  Normative References  . . . . . . . . . . . . . . . . . .  15\n  8.2.  Informative References  . . . . . . . . . . . . . . . . .  16\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  16\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes how the RIPE NCC RPKI Validator version 2.25 has been implemented. Source code for this software can be found at [rpki-validator]. The purpose of this document is to provide transparency to users of (and contributors to) this software tool.",
+      "zh-CHS": "本文档描述了成熟的NCC RPKI验证程序2.25版是如何实现的。此软件的源代码可在[rpki validator]上找到。本文档的目的是为该软件工具的用户（和贡献者）提供透明度。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to use information published in RPKI repositories, Relying Parties (RPs) need to retrieve and validate the content of certificates, Certificate Revocation Lists (CRLs), and other RPKI signed objects. To validate a particular object, one must ensure that all certificates in the certificate chain up to the Trust Anchor (TA) are valid. Therefore, the validation of a certificate tree is performed top-down, starting from the TA certificate and descending the certificate chain, validating every encountered certificate and its products. The result of this process is a list of all encountered RPKI objects with a validity status attached to each of them. These results may later be used by an RP in making routing decisions, etc.",
+      "zh-CHS": "为了使用在RPKI存储库中发布的信息，依赖方（RP）需要检索和验证证书、证书吊销列表（CRL）和其他RPKI签名对象的内容。要验证特定对象，必须确保证书链中直至信任锚（TA）的所有证书都有效。因此，证书树的验证是自上而下执行的，从TA证书开始，从证书链向下，验证遇到的每个证书及其产品。此过程的结果是所有遇到的RPKI对象的列表，每个对象都附加了有效性状态。这些结果可能稍后被RP用于制定路由决策等。"
+    },
+    {
+      "indent": 3,
+      "text": "Traditionally, RPKI data is made available to RPs through the repositories [RFC6481] accessible over the rsync protocol [rsync]. RPs are advised to keep a local copy of repository data and perform regular updates of this copy from the repository (see Section 5 of [RFC6481]). The RRDP [RFC8182] introduces another method to fetch repository data and keep the local copy up to date with the repository.",
+      "zh-CHS": "传统上，RPKI数据通过可通过rsync协议[rsync]访问的存储库[RFC6481]提供给RPs。建议RPs保留存储库数据的本地副本，并定期从存储库更新该副本（请参阅[RFC6481]第5节）。RRDP[RFC8182]引入了另一种方法来获取存储库数据并使本地副本与存储库保持最新。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes how the RIPE NCC RPKI Validator discovers RPKI objects to download, builds certificate paths, and validates RPKI objects, independently of what repository access protocol is used. To achieve this, it puts downloaded RPKI objects in an object store, where each RPKI object can be found by its URI, the hash of its content, the value of its Authority Key Identifier (AKI) extension, or a combination of these. It also keeps track of the download and validation time for every object, to decide which locally stored objects are not used in the RPKI tree validation and could be removed.",
+      "zh-CHS": "本文档描述了成熟的NCC RPKI验证器如何发现要下载的RPKI对象、构建证书路径和验证RPKI对象，而与使用的存储库访问协议无关。为了实现这一点，它将下载的RPKI对象放在一个对象存储中，每个RPKI对象都可以通过其URI、其内容的散列、其授权密钥标识符（AKI）扩展的值或这些的组合找到。它还跟踪每个对象的下载和验证时间，以确定哪些本地存储的对象不用于RPKI树验证，并且可以删除。"
+    },
+    {
+      "indent": 0,
+      "text": "2. General Considerations",
+      "section_title": true,
+      "zh-CHS": "2. 一般考虑"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Hash Comparisons",
+      "section_title": true,
+      "zh-CHS": "2.1. 散列比较"
+    },
+    {
+      "indent": 3,
+      "text": "This algorithm relies on the collision resistance properties of the hash algorithm (defined in [RFC7935]) to compute the hash of repository objects. It assumes that any two objects for which the hash value is the same are identical.",
+      "zh-CHS": "该算法依赖哈希算法（在[RFC7935]中定义）的抗冲突属性来计算存储库对象的哈希。它假定哈希值相同的任意两个对象是相同的。"
+    },
+    {
+      "indent": 3,
+      "text": "The hash comparison is used when matching objects in the repository with entries on the manifest (Section 3.2.2) and when looking up objects in the object store (Section 5).",
+      "zh-CHS": "在将存储库中的对象与清单上的条目进行匹配（第3.2.2节）和在对象存储中查找对象（第5节）时，使用哈希比较。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Discovery of RPKI Objects Issued by a CA",
+      "section_title": true,
+      "zh-CHS": "2.2. 发现CA发布的RPKI对象"
+    },
+    {
+      "indent": 3,
+      "text": "There are several possible ways of discovering potential products of a Certification Authority (CA) certificate: one could 1) use all objects located in a repository directory designated as a publication point for a CA, 2) only use objects mentioned on the manifest located at that publication point (see Section 6 of [RFC6486]), or 3) use all known repository objects whose AKI extension matches the Subject Key Identifier (SKI) extension (Section 4.2.1 of [RFC5280]) of a CA certificate.",
+      "zh-CHS": "有几种可能的方法可以发现证书颁发机构（CA）证书的潜在产品：1）可以使用指定为CA发布点的存储库目录中的所有对象，2）只能使用位于该发布点的清单上提到的对象（请参见[RFC6486]第6节），或3）使用其AKI扩展与CA证书的主题密钥标识符（SKI）扩展（RFC5280）第4.2.1节）匹配的所有已知存储库对象。"
+    },
+    {
+      "indent": 3,
+      "text": "For publication points whose content is consistent with the manifest and issuing certificate, all of these approaches should produce the same result. For inconsistent publication points, the results might be different. Section 6 of [RFC6486] leaves the decision on how to deal with inconsistencies to a local policy.",
+      "zh-CHS": "对于内容与清单和颁发证书一致的发布点，所有这些方法都应产生相同的结果。对于不一致的发布点，结果可能不同。[RFC6486]第6节将如何处理不一致的决定留给当地政策。"
+    },
+    {
+      "indent": 3,
+      "text": "The implementation described here does not rely on content of repository directories but uses the Authority Key Identifier (AKI) extension of a manifest and a CRL to find in an object store (Section 5) a manifest and a CRL issued by a particular CA (see Section 3.2.1). It further uses the hashes of the manifest's fileList entries (Section 4.2.1 of [RFC6486]) to find other objects issued by the CA, as described in Section 3.2.2.",
+      "zh-CHS": "这里描述的实现不依赖于存储库目录的内容，而是使用清单和CRL的授权密钥标识符（AKI）扩展在对象存储（第5节）中查找由特定CA发布的清单和CRL（参见第3.2.1节）。如第3.2.2节所述，它进一步使用清单文件列表条目的散列（RFC6486的第4.2.1节）来查找CA发布的其他对象。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Manifest Entries versus Repository Content",
+      "section_title": true,
+      "zh-CHS": "2.3. 清单条目与存储库内容"
+    },
+    {
+      "indent": 3,
+      "text": "Since the current set of RPKI standards (see [RFC6481], [RFC6486], and [RFC6487]) requires use of the manifest [RFC6486] to describe the content of a publication point, this implementation requires strict consistency between the publication point content and manifest content. (This is a more stringent requirement than established in [RFC6486].) Therefore, it will not process objects that are found in the publication point but do not match any of the entries of that publication point's manifest (see Section 3.2.2). It will also issue warnings for all found mismatches, so that the responsible operators could be made aware of inconsistencies and fix them.",
+      "zh-CHS": "由于当前的一组RPKI标准（请参见[RFC6481]、[RFC6486]和[RFC6487]）要求使用清单[RFC6486]来描述发布点的内容，因此此实现要求发布点内容和清单内容之间严格一致。（这是比[RFC6486]中规定的更严格的要求）因此，它不会处理在发布点中找到但与该发布点清单的任何条目不匹配的对象（见第3.2.2节）。它还将对所有发现的不匹配发出警告，以便让负责的运营商知道不一致之处并加以纠正。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Top-Down Validation of a Single Trust Anchor Certificate Tree",
+      "section_title": true,
+      "zh-CHS": "3. 单个信任锚证书树的自顶向下验证"
+    },
+    {
+      "indent": 3,
+      "text": "When several Trust Anchors are configured, validation of their corresponding certificate trees is performed concurrently and independently from each other. For every configured Trust Anchor, the following steps are performed:",
+      "zh-CHS": "当配置了多个信任锚点时，它们对应的证书树的验证将同时执行，并且彼此独立。对于每个已配置的信任锚点，将执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. The validation of a TA certificate tree starts from its TA certificate. To retrieve the TA certificate, a Trust Anchor Locator (TAL) object is used, as described in Section 3.1.",
+      "zh-CHS": "1. TA证书树的验证从其TA证书开始。如第3.1节所述，为了检索TA证书，使用信任锚定位器（TAL）对象。"
+    },
+    {
+      "indent": 3,
+      "text": "2. If the TA certificate is retrieved, it is validated according to Section 7 of [RFC6487] and Section 2.2 of [RFC7730]. Otherwise, the validation of the certificate tree is aborted and an error is issued.",
+      "zh-CHS": "2. 如果检索到TA证书，则根据[RFC6487]第7节和[RFC7730]第2.2节对其进行验证。否则，将中止证书树的验证并发出错误。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If the TA certificate is valid, then all its subordinate objects are validated as described in Section 3.2. Otherwise, the validation of the certificate tree is aborted and an error is issued.",
+      "zh-CHS": "3. 如果TA证书有效，则按照第3.2节所述验证其所有从属对象。否则，将中止证书树的验证并发出错误。"
+    },
+    {
+      "indent": 3,
+      "text": "4. For each repository object that was validated during this validation run, the validation timestamp is updated in the object store (see Section 5.1.7).",
+      "zh-CHS": "4. 对于在此验证运行期间验证的每个存储库对象，将在对象存储中更新验证时间戳（请参阅第5.1.7节）。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Outdated objects are removed from the store as described in Section 3.3. This completes the validation of the TA certificate tree.",
+      "zh-CHS": "5. 如第3.3节所述，从仓库中移除过期物品。这就完成了TA证书树的验证。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Fetching the Trust Anchor Certificate Using the Trust Anchor Locator",
+      "zh-CHS": "3.1. 使用信任锚定位器获取信任锚证书"
+    },
+    {
+      "indent": 3,
+      "text": "The following steps are performed in order to fetch a Trust Anchor certificate:",
+      "zh-CHS": "执行以下步骤以获取信任锚证书："
+    },
+    {
+      "indent": 3,
+      "text": "1. (Optional) If the TAL contains a prefetch.uris field, pass the URIs contained in that field to the fetcher (see Section 4.1.1). (This field is a non-standard addition to the TAL format. It helps with fetching non-hierarchical rsync repositories more efficiently.)",
+      "zh-CHS": "1. （可选）如果TAL包含prefetch.uris字段，则将该字段中包含的URI传递给抓取程序（参见第4.1.1节）。（此字段是TAL格式的非标准添加项。它有助于更高效地获取非层次结构的rsync存储库。）"
+    },
+    {
+      "indent": 3,
+      "text": "2. Extract the first TA certificate URI from the TAL's URI section (see Section 2.1 of [RFC7730]) and pass it to the object fetcher (Section 4.1.2). If the fetcher returns an error, repeat this step for every URI in the URI section until no error is encountered or no more URIs are left.",
+      "zh-CHS": "2. 从TAL的URI部分提取第一个TA证书URI（参见[RFC7730]的第2.1节），并将其传递给对象获取程序（第4.1.2节）。如果获取程序返回错误，请对URI部分中的每个URI重复此步骤，直到没有遇到错误或不再留下URI。"
+    },
+    {
+      "indent": 3,
+      "text": "3. From the object store (see Section 5.1.3), retrieve all certificate objects for which the URI matches the URI extracted from the TAL in the previous step and the public key matches the subjectPublicKeyInfo extension of the TAL (see Section 2.1 of [RFC7730]).",
+      "zh-CHS": "3. 从对象存储（参见第5.1.3节）检索URI与上一步从TAL中提取的URI匹配且公钥与TAL的subjectPublicKeyInfo扩展匹配的所有证书对象（参见[RFC7730]第2.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "4. If no such objects are found or if more than one such objects are found, issue an error and abort the certificate tree validation process with an error. Otherwise, use the single found object as the TA certificate.",
+      "zh-CHS": "4. 如果未找到此类对象，或者找到多个此类对象，则发出错误并以错误中止证书树验证过程。否则，将单个找到的对象用作TA证书。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. CA Certificate Validation",
+      "section_title": true,
+      "zh-CHS": "3.2. CA证书验证"
+    },
+    {
+      "indent": 3,
+      "text": "The following steps describe the validation of a single CA resource certificate:",
+      "zh-CHS": "以下步骤描述单个CA资源证书的验证："
+    },
+    {
+      "indent": 3,
+      "text": "1. If both the caRepository (Section 4.8.8.1 of [RFC6487]) and the id-ad-rpkiNotify (Section 3.2 of [RFC8182]) instances of an accessMethod are present in the Subject Information Access extension of the CA certificate, use a local policy to determine which pointer to use. Extract the URI from the selected pointer and pass it to the object fetcher (that will then fetch all objects available from that repository; see Section 4.1.1).",
+      "zh-CHS": "1. 如果CA证书的主题信息访问扩展中存在accessMethod的caRepository（RFC6487的第4.8.8.1节）和id ad RpkNotify（RFC8182的第3.2节）实例，请使用本地策略确定要使用的指针。从所选指针提取URI并将其传递给对象获取程序（该程序将从该存储库获取所有可用对象；请参见第4.1.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. For the CA certificate, find the current manifest and certificate revocation list (CRL) using the procedure described in Section 3.2.1. If no such manifest and CRL could be found, stop validation of this certificate, consider it invalid, and issue an error.",
+      "zh-CHS": "2. 对于CA证书，使用第3.2.1节中描述的程序查找当前清单和证书吊销列表（CRL）。如果找不到这样的清单和CRL，请停止验证该证书，认为它无效，并发出错误。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Compare the URI found in the id-ad-rpkiManifest field (Section 4.8.8.1 of [RFC6487]) of the SIA extension of the certificate with the URI of the manifest found in the previous step. If they are different, issue a warning but continue the validation process using the manifest found in the previous step. (This warning indicates that there is a mismatch between the expected and the actual location of an object in a repository. See Section 7.3 for the explanation of this mismatch and the decision made.)",
+      "zh-CHS": "3. 将证书SIA扩展的id ad rpkiManifest字段（RFC6487的第4.8.8.1节）中找到的URI与上一步中找到的清单的URI进行比较。如果它们不同，则发出警告，但使用上一步中找到的清单继续验证过程。（此警告表示存储库中对象的预期位置与实际位置不匹配。有关此不匹配的解释和所做的决定，请参阅第7.3节。）"
+    },
+    {
+      "indent": 3,
+      "text": "4. Perform discovery and validation of manifest entries as described in Section 3.2.2.",
+      "zh-CHS": "4. 如第3.2.2节所述，执行清单条目的发现和验证。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Validate all resource certificate objects found on the manifest using the CRL object:",
+      "zh-CHS": "5. 使用CRL对象验证清单上找到的所有资源证书对象："
+    },
+    {
+      "indent": 7,
+      "text": "* If the strict validation option is enabled by the operator, the validation is performed according to Section 7 of [RFC6487].",
+      "zh-CHS": "* 如果操作员启用了严格验证选项，则根据[RFC6487]第7节进行验证。"
+    },
+    {
+      "indent": 7,
+      "text": "* Otherwise, the validation is performed according to Section 7 of [RFC6487] but with the exception of the resource certification path validation, which is performed according to Section 4.2.4.4 of [RFC8360].",
+      "zh-CHS": "* 否则，根据[RFC6487]第7节进行验证，但资源认证路径验证除外，该验证根据[RFC8360]第4.2.4.4节进行。"
+    },
+    {
+      "indent": 7,
+      "text": "(Note that this implementation uses the operator configuration to decide which algorithm to use for path validation. It applies the selected algorithm to all resource certificates, rather than applying an appropriate algorithm per resource certificate based on the object identifier (OID) for the Certificate Policy found in that certificate, as specified in [RFC8360].)",
+      "zh-CHS": "（请注意，此实现使用操作员配置来决定用于路径验证的算法。它将所选算法应用于所有资源证书，而不是基于对象标识符（OID）对每个资源证书应用适当的算法。）对于在该证书中找到的证书策略，请参见[RFC8360]。）"
+    },
+    {
+      "indent": 3,
+      "text": "6. Validate all Route Origin Authorization (ROA) objects found on the manifest using the CRL object found on the manifest, according to Section 4 of [RFC6482].",
+      "zh-CHS": "6. 根据[RFC6482]第4节，使用清单上的CRL对象验证清单上的所有路由来源授权（ROA）对象。"
+    },
+    {
+      "indent": 3,
+      "text": "7. Validate all Ghostbusters Record objects found on the manifest using the CRL object found on the manifest, according to Section 7 of [RFC6493].",
+      "zh-CHS": "7. 根据[RFC6493]第7节，使用清单上的CRL对象验证清单上的所有Ghostbusters记录对象。"
+    },
+    {
+      "indent": 3,
+      "text": "8. For every valid CA certificate object found on the manifest, apply the procedure described in this section, recursively, provided that this CA certificate (identified by its SKI) has not yet been validated during current tree validation run.",
+      "zh-CHS": "8. 对于清单上找到的每个有效CA证书对象，递归地应用本节中描述的过程，前提是此CA证书（由其SKI标识）在当前树验证运行期间尚未验证。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1. Finding the Most Recent Valid Manifest and CRL",
+      "section_title": true,
+      "zh-CHS": "3.2.1. 查找最新的有效清单和CRL"
+    },
+    {
+      "indent": 3,
+      "text": "To find the most recent issued manifest and CRL objects of a particular CA certificate, the following steps are performed:",
+      "zh-CHS": "要查找特定CA证书的最新发布的清单和CRL对象，请执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. From the store (see Section 5.1.4), fetch all objects of type manifest whose certificate's AKI extension matches the SKI of the current CA certificate. If no such objects are found, stop processing the current CA certificate and issue an error.",
+      "zh-CHS": "1. 从存储中（参见第5.1.4节），获取其证书的AKI扩展与当前CA证书的SKI匹配的manifest类型的所有对象。如果未找到此类对象，请停止处理当前CA证书并发出错误。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Among found objects, find the manifest object with the highest manifestNumber field (Section 4.2.1 of [RFC6486]) for which all following conditions are met:",
+      "zh-CHS": "2. 在找到的对象中，查找manifestNumber字段最高的manifestNumber对象（RFC6486的第4.2.1节），该字段满足以下所有条件："
+    },
+    {
+      "indent": 7,
+      "text": "* There is only one entry in the manifest for which the store contains exactly one object of type CRL, the hash of which matches the hash of the entry.",
+      "zh-CHS": "* 清单中只有一个条目的存储区正好包含一个CRL类型的对象，其哈希值与该条目的哈希值匹配。"
+    },
+    {
+      "indent": 7,
+      "text": "* The manifest's certificate AKI equals the above CRL's AKI.",
+      "zh-CHS": "* 舱单的AKI证书等于上述CRL的AKI。"
+    },
+    {
+      "indent": 7,
+      "text": "* The above CRL is a valid object according to Section 6.3 of [RFC5280].",
+      "zh-CHS": "* 根据[RFC5280]第6.3节，上述CRL为有效对象。"
+    },
+    {
+      "indent": 7,
+      "text": "* The manifest is a valid object according to Section 4.4 of [RFC6486], and its EE certificate is not in the CRL found above.",
+      "zh-CHS": "* 根据[RFC6486]第4.4节，清单是有效对象，其EE证书不在上述CRL中。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If there is an object that matches the above criteria, consider this object to be the valid manifest, and consider the CRL found at the previous step to be the valid CRL for the current CA certificate's publication point.",
+      "zh-CHS": "3. 如果有一个与上述标准相匹配的对象，请将此对象视为有效清单，并将前一步骤中找到的CRL视为当前CA证书发布点的有效CRL。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Report an error for every other manifest with a number higher than the number of the valid manifest.",
+      "zh-CHS": "4. 对于编号高于有效清单编号的其他清单，报告一个错误。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.2. Validating Manifest Entries",
+      "section_title": true,
+      "zh-CHS": "3.2.2. 验证清单条目"
+    },
+    {
+      "indent": 3,
+      "text": "For every entry in the manifest object:",
+      "zh-CHS": "对于清单对象中的每个条目："
+    },
+    {
+      "indent": 3,
+      "text": "1. Construct an entry's URI by appending the entry name to the current CA's publication point URI.",
+      "zh-CHS": "1. 通过将条目名称附加到当前CA的发布点URI来构造条目的URI。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Get all objects from the store whose hash attribute equals the entry's hash (see Section 5.1.2).",
+      "zh-CHS": "2. 从散列属性等于条目散列的存储中获取所有对象（参见第5.1.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If no such objects are found, issue an error for this manifest entry and progress to the next entry. This case indicates that the repository does not have an object at the location listed in the manifest or that the object's hash does not match the hash listed in the manifest.",
+      "zh-CHS": "3. 如果找不到此类对象，则为此清单条目发出错误，并前进到下一个条目。这种情况表示存储库在清单中列出的位置没有对象，或者该对象的哈希与清单中列出的哈希不匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "4. For every found object, compare its URI with the URI of the manifest entry.",
+      "zh-CHS": "4. 对于找到的每个对象，将其URI与清单条目的URI进行比较。"
+    },
+    {
+      "indent": 7,
+      "text": "* For every object with a non-matching URI, issue a warning. This case indicates that the object from the manifest entry is (also) found at a different location in a (possibly different) repository.",
+      "zh-CHS": "* 对于每个具有不匹配URI的对象，发出警告。本例表示清单条目中的对象（也）位于（可能不同的）存储库中的不同位置。"
+    },
+    {
+      "indent": 7,
+      "text": "* If no objects with a matching URI are found, issue a warning. This case indicates that there is no object found in the repository at the location listed in the manifest entry (but there is at least one matching object found at a different location).",
+      "zh-CHS": "* 如果找不到具有匹配URI的对象，则发出警告。本例表示在清单条目中列出的位置的存储库中找不到任何对象（但在其他位置至少找到一个匹配对象）。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Use all found objects for further validation as per Section 3.2.",
+      "zh-CHS": "5. 根据第3.2节，使用所有找到的对象进行进一步验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Please note that the above steps will not reject objects whose hash matches the hash listed in the manifest but whose URI does not. See Section 7.3 for additional information.",
+      "zh-CHS": "请注意，上述步骤不会拒绝哈希与清单中列出的哈希匹配但URI不匹配的对象。更多信息见第7.3节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Object Store Cleanup",
+      "section_title": true,
+      "zh-CHS": "3.3. 对象存储清理"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of every TA tree validation, some objects are removed from the store using the following rules:",
+      "zh-CHS": "在每个TA树验证结束时，使用以下规则从存储中删除一些对象："
+    },
+    {
+      "indent": 3,
+      "text": "1. Given all objects that were encountered during the current validation run, remove from the store (Section 5.1.6) all objects whose URI attribute matches the URI of one of the encountered objects but whose content's hash does not match the hash of any of the encountered objects. This removes from the store objects that were replaced in the repository by their newer versions with the same URIs.",
+      "zh-CHS": "1. 给定当前验证运行期间遇到的所有对象，从存储区（第5.1.6节）中删除其URI属性与遇到的某个对象的URI匹配但其内容的哈希与遇到的任何对象的哈希不匹配的所有对象。这将从存储库中删除已由具有相同URI的较新版本替换的对象。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Remove from the store all objects that were last encountered during validation a long time ago (as specified by the local policy). This removes objects that do not appear on any valid manifest anymore (but possibly are still published in a repository).",
+      "zh-CHS": "2. 从存储中删除很久以前在验证期间最后遇到的所有对象（由本地策略指定）。这将删除不再出现在任何有效清单上（但可能仍在存储库中发布）的对象。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Remove from the store all objects that were downloaded recently (as specified by the local policy) but that have never been used in the validation process. This removes objects that have never appeared on any valid manifest.",
+      "zh-CHS": "3. 从存储中删除最近下载（由本地策略指定）但从未在验证过程中使用过的所有对象。这将删除从未出现在任何有效清单上的对象。"
+    },
+    {
+      "indent": 3,
+      "text": "Shortening the time interval used in step 2 will free more disk space used by the store, at the expense of downloading removed objects again if they are still published in the repository.",
+      "zh-CHS": "缩短步骤2中使用的时间间隔将释放存储区使用的更多磁盘空间，如果删除的对象仍在存储库中发布，则需要再次下载这些对象。"
+    },
+    {
+      "indent": 3,
+      "text": "Extending the time interval used in step 3 will prevent repeated downloads of unused repository objects. However, it will also extend the interval at which unused objects are removed. This creates a risk that such objects will fill up all available disk space if a large enough amount of such objects is published in the repository (either by mistake or with a malicious intent).",
+      "zh-CHS": "延长步骤3中使用的时间间隔将防止重复下载未使用的存储库对象。但是，它还将延长删除未使用对象的时间间隔。如果存储库中发布了足够多的此类对象（无论是错误发布还是恶意发布），则此类对象可能会填满所有可用磁盘空间。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Remote Objects Fetcher",
+      "section_title": true,
+      "zh-CHS": "4. 远程对象获取程序"
+    },
+    {
+      "indent": 3,
+      "text": "The fetcher is responsible for downloading objects from remote repositories (described in Section 3 of [RFC6481]) using the rsync protocol [rsync] or RRDP [RFC8182].",
+      "zh-CHS": "获取程序负责使用rsync协议[rsync]或RRDP[RFC8182]从远程存储库（如[RFC6481]第3节所述）下载对象。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Fetcher Operations",
+      "section_title": true,
+      "zh-CHS": "4.1. 取数器操作"
+    },
+    {
+      "indent": 3,
+      "text": "For every visited URI, the fetcher keeps track of the last time a successful fetch occurred.",
+      "zh-CHS": "对于每个访问的URI，获取程序都会跟踪上次成功获取的时间。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. Fetch Repository Objects",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 获取存储库对象"
+    },
+    {
+      "indent": 3,
+      "text": "This operation receives one parameter -- a URI. For an rsync repository, this URI points to a directory. For an RRDP repository, it points to the repository's notification file.",
+      "zh-CHS": "此操作接收一个参数——URI。对于rsync存储库，此URI指向一个目录。对于RRDP存储库，它指向存储库的通知文件。"
+    },
+    {
+      "indent": 3,
+      "text": "The fetcher follows these steps:",
+      "zh-CHS": "获取程序执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. If data associated with the URI has been downloaded recently (as specified by the local policy), skip the following steps.",
+      "zh-CHS": "1. 如果最近下载了与URI关联的数据（由本地策略指定），请跳过以下步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Download remote objects using the URI provided (for an rsync repository, use recursive mode). If the URI contains the \"https\" schema and download has failed, issue a warning, replace the \"https\" schema in the URI with \"http\", and try to download objects again using the resulting URI.",
+      "zh-CHS": "2. 使用提供的URI下载远程对象（对于rsync存储库，使用递归模式）。如果URI包含“https”模式并且下载失败，则发出警告，将URI中的“https”模式替换为“http”，然后尝试使用生成的URI再次下载对象。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If remote objects cannot be downloaded, issue an error and skip the following steps.",
+      "zh-CHS": "3. 如果无法下载远程对象，请发出错误并跳过以下步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Perform syntactic verification of fetched objects. The type of every object (certificate, manifest, CRL, ROA, or Ghostbusters Record) is determined based on the object's filename extension (.cer, .mft, .crl, .roa, and .gbr, respectively). The syntax of the object is described in Section 4 of [RFC6487] for resource certificates, step 1 of Section 3 of [RFC6488] for signed objects, Section 4 of [RFC6486] for manifests, [RFC5280] for CRLs, Section 3 of [RFC6482] for ROAs, and Section 5 of [RFC6493] for Ghostbusters Records.",
+      "zh-CHS": "4. 对获取的对象执行语法验证。每个对象（证书、清单、CRL、ROA或Ghostbusters记录）的类型都是根据对象的文件扩展名（.cer、.mft、.CRL、.ROA和.gbr）确定的。资源证书的[RFC6487]第4节、签名对象的[RFC6488]第3节第1步、清单的[RFC6486]第4节、CRL的[RFC5280]的[RFC6482]第3节、ROA的[RFC6493]的第5节描述了对象的语法。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Put every downloaded and syntactically correct object in the object store (Section 5.1.1).",
+      "zh-CHS": "5. 将每个已下载且语法正确的对象放入对象存储（第5.1.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The time interval used in step 1 should be chosen based on the acceptable delay in receiving repository updates.",
+      "zh-CHS": "应根据接收存储库更新的可接受延迟来选择步骤1中使用的时间间隔。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Fetch Single Repository Object",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 获取单个存储库对象"
+    },
+    {
+      "indent": 3,
+      "text": "This operation receives one parameter -- a URI that points to an object in a repository.",
+      "zh-CHS": "此操作接收一个参数——一个指向存储库中对象的URI。"
+    },
+    {
+      "indent": 3,
+      "text": "The fetcher follows these steps:",
+      "zh-CHS": "获取程序执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. Download a remote object using the URI provided. If the URI contains the \"https\" schema and download failed, issue a warning, replace the \"https\" schema in the URI with \"http\", and try to download the object using the resulting URI.",
+      "zh-CHS": "1. 使用提供的URI下载远程对象。如果URI包含“https”模式且下载失败，则发出警告，将URI中的“https”模式替换为“http”，并尝试使用生成的URI下载对象。"
+    },
+    {
+      "indent": 3,
+      "text": "2. If the remote object cannot be downloaded, issue an error and skip the following steps.",
+      "zh-CHS": "2. 如果无法下载远程对象，请发出错误并跳过以下步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Perform syntactic verification of the fetched object. The type of object (certificate, manifest, CRL, ROA, or Ghostbusters Record) is determined based on the object's filename extension (.cer, .mft, .crl, .roa, and .gbr, respectively). The syntax of the object is described in Section 4 of [RFC6487] for resource certificates, step 1 of Section 3 of [RFC6488] for signed objects, Section 4 of [RFC6486] for manifests, [RFC5280] for CRLs, Section 3 of [RFC6482] for ROAs, and Section 5 of [RFC6493] for Ghostbusters Records.",
+      "zh-CHS": "3. 对获取的对象执行语法验证。对象的类型（证书、清单、CRL、ROA或Ghostbusters记录）分别基于对象的文件扩展名（.cer、.mft、.CRL、.ROA和.gbr）确定。资源证书的[RFC6487]第4节、签名对象的[RFC6488]第3节第1步、清单的[RFC6486]第4节、CRL的[RFC5280]的[RFC6482]第3节、ROA的[RFC6493]的第5节描述了对象的语法。"
+    },
+    {
+      "indent": 3,
+      "text": "4. If the downloaded object is not syntactically correct, issue an error and skip further steps.",
+      "zh-CHS": "4. 如果下载的对象语法不正确，则发出错误并跳过进一步的步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Delete all objects from the object store (Section 5.1.5) whose URI matches the URI given.",
+      "zh-CHS": "5. 从对象存储（第5.1.5节）中删除URI与给定URI匹配的所有对象。"
+    },
+    {
+      "indent": 3,
+      "text": "6. Put the downloaded object in the object store (Section 5.1.1).",
+      "zh-CHS": "6. 将下载的对象放入对象存储（第5.1.1节）。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Local Object Store",
+      "section_title": true,
+      "zh-CHS": "5. 本地对象存储"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Store Operations",
+      "section_title": true,
+      "zh-CHS": "5.1. 商店经营"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. Store Repository Object",
+      "section_title": true,
+      "zh-CHS": "5.1.1. 存储库对象"
+    },
+    {
+      "indent": 3,
+      "text": "Put the given object in the store if there is no record with the same hash and URI fields. Note that in the (unlikely) event of hash collision, the given object will not replace the object in the store.",
+      "zh-CHS": "如果没有具有相同哈希和URI字段的记录，则将给定对象放入存储区。请注意，在散列冲突（不太可能）事件中，给定对象不会替换存储中的对象。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.2. Get Objects by Hash",
+      "section_title": true,
+      "zh-CHS": "5.1.2. 通过散列获取对象"
+    },
+    {
+      "indent": 3,
+      "text": "Retrieve all objects from the store whose hash attribute matches the given hash.",
+      "zh-CHS": "从存储中检索哈希属性与给定哈希匹配的所有对象。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.3. Get Certificate Objects by URI",
+      "section_title": true,
+      "zh-CHS": "5.1.3. 通过URI获取证书对象"
+    },
+    {
+      "indent": 3,
+      "text": "Retrieve from the store all objects of type certificate whose URI attribute matches the given URI.",
+      "zh-CHS": "从存储中检索URI属性与给定URI匹配的证书类型的所有对象。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.4. Get Manifest Objects by AKI",
+      "section_title": true,
+      "zh-CHS": "5.1.4. 通过AKI获取清单对象"
+    },
+    {
+      "indent": 3,
+      "text": "Retrieve from the store all objects of type manifest whose AKI attribute matches the given AKI.",
+      "zh-CHS": "从存储中检索其AKI属性与给定AKI匹配的manifest类型的所有对象。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.5. Delete Objects for a URI",
+      "section_title": true,
+      "zh-CHS": "5.1.5. 删除URI的对象"
+    },
+    {
+      "indent": 3,
+      "text": "For a given URI, delete all objects in the store with a matching URI attribute.",
+      "zh-CHS": "对于给定的URI，删除存储中具有匹配URI属性的所有对象。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.6. Delete Outdated Objects",
+      "section_title": true,
+      "zh-CHS": "5.1.6. 删除过时的对象"
+    },
+    {
+      "indent": 3,
+      "text": "For a given URI and a list of hashes, delete all objects in the store with a matching URI whose hash attribute is not in the given list of hashes.",
+      "zh-CHS": "对于给定的URI和哈希列表，删除存储中具有匹配URI的所有对象，该URI的哈希属性不在给定的哈希列表中。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.7. Update Object's Validation Time",
+      "section_title": true,
+      "zh-CHS": "5.1.7. 更新对象的验证时间"
+    },
+    {
+      "indent": 3,
+      "text": "For all objects in the store whose hash attribute matches the given hash, set the last validation time attribute to the given timestamp.",
+      "zh-CHS": "对于存储区中哈希属性与给定哈希匹配的所有对象，请将上次验证时间属性设置为给定的时间戳。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document has no IANA actions.",
+      "zh-CHS": "本文档没有IANA操作。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Hash Collisions",
+      "section_title": true,
+      "zh-CHS": "7.1. 散列冲突"
+    },
+    {
+      "indent": 3,
+      "text": "This implementation will not detect possible hash collisions in the hashes of repository objects (calculated using the file hash algorithm specified in [RFC7935]). It considers objects with same hash values to be identical.",
+      "zh-CHS": "此实现不会在存储库对象的哈希中检测可能的哈希冲突（使用[RFC7935]中指定的文件哈希算法计算）。它认为具有相同哈希值的对象是相同的。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Algorithm Agility",
+      "section_title": true,
+      "zh-CHS": "7.2. 算法敏捷性"
+    },
+    {
+      "indent": 3,
+      "text": "This implementation only supports hash algorithms and key sizes specified in [RFC7935]. Algorithm agility described in [RFC6916] is not supported.",
+      "zh-CHS": "此实现仅支持[RFC7935]中指定的哈希算法和密钥大小。不支持[RFC6916]中描述的算法敏捷性。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Mismatch between the Expected and Actual Location of an Object in the Repository",
+      "zh-CHS": "7.3. 存储库中对象的预期位置与实际位置不匹配"
+    },
+    {
+      "indent": 3,
+      "text": "According to Section 2 of [RFC6481], all objects issued by a particular CA certificate are expected to be located in one repository publication point, specified in the SIA extension of that CA certificate. The manifest object issued by that CA certificate enumerates all other issued objects, listing their filenames and content hashes.",
+      "zh-CHS": "根据[RFC6481]的第2节，由特定CA证书颁发的所有对象应位于该CA证书的SIA扩展中指定的一个存储库发布点。该CA证书颁发的清单对象枚举所有其他已颁发的对象，列出它们的文件名和内容哈希。"
+    },
+    {
+      "indent": 3,
+      "text": "However, it is possible that an object whose content hash matches the hash listed in the manifest either has a different filename or is located at a different publication point in a repository.",
+      "zh-CHS": "但是，内容哈希与清单中列出的哈希匹配的对象可能具有不同的文件名或位于存储库中的不同发布点。"
+    },
+    {
+      "indent": 3,
+      "text": "On the other hand, all RPKI objects, either explicitly or within their embedded EE certificate, have an AKI extension that contains the key identifier of their issuing CA certificate. Therefore, it is always possible to perform an RPKI validation of the object whose expected location does not match its actual location, provided that the certificate that matches the AKI of the object in question is known to the system that performs validation.",
+      "zh-CHS": "另一方面，所有RPKI对象，无论是显式的还是在其嵌入的EE证书中，都有一个AKI扩展，该扩展包含其颁发CA证书的密钥标识符。因此，如果执行验证的系统知道与所讨论对象的AKI匹配的证书，则始终可以对预期位置与其实际位置不匹配的对象执行RPKI验证。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of a mismatch as described above, this implementation will not exclude an object from further validation merely because its actual location or filename does not match the expected location or filename. This decision was made because the actual location of a file in a repository is taken from the repository retrieval mechanism, which, in the case of an rsync repository, does not provide any cryptographic security, and in the case of an RRDP repository, provides only a transport-layer security with the fallback to unsecured transport. On the other hand, the manifest is an RPKI signed object, and its content could be verified in the context of the RPKI validation.",
+      "zh-CHS": "在如上所述的不匹配情况下，此实现不会仅因为对象的实际位置或文件名与预期位置或文件名不匹配而将其排除在进一步验证之外。之所以做出此决定，是因为文件在存储库中的实际位置取自存储库检索机制，对于rsync存储库，该机制不提供任何加密安全性；对于RRDP存储库，该机制仅提供传输层安全性，可回退到不安全的传输。另一方面，清单是一个RPKI签名的对象，其内容可以在RPKI验证的上下文中进行验证。"
+    },
+    {
+      "indent": 0,
+      "text": "7.4. Manifest Content versus Publication Point Content",
+      "section_title": true,
+      "zh-CHS": "7.4. 清单内容与发布点内容"
+    },
+    {
+      "indent": 3,
+      "text": "This algorithm uses the content of a manifest object to determine other objects issued by a CA certificate. It verifies that the manifest is located in the publication point designated in the CA certificate's SIA extension. However, if there are other (not listed in the manifest) objects located in the same publication point directory, they are ignored even if they might be valid and issued by the same CA as the manifest. (This RP behavior is allowed, but not required, by [RFC6486].)",
+      "zh-CHS": "此算法使用清单对象的内容来确定CA证书颁发的其他对象。它验证清单是否位于CA证书的SIA扩展中指定的发布点。但是，如果在同一发布点目录中有其他（未在清单中列出）对象，则将忽略它们，即使它们可能是有效的，并且由与清单相同的CA发布。（此RP行为是[RFC6486]允许的，但不是必需的。）"
+    },
+    {
+      "indent": 0,
+      "text": "7.5. Possible Denial of Service",
+      "section_title": true,
+      "zh-CHS": "7.5. 可能的拒绝服务"
+    },
+    {
+      "indent": 3,
+      "text": "The store cleanup procedure described in Section 3.3 tries to minimize removal and subsequent re-fetch of objects that are published in a repository but not used in the validation. Once such objects are removed from the remote repository, they will be discarded from the local object store after a period of time specified by a local policy. By generating an excessive amount of syntactically valid RPKI objects, a man-in-the-middle attack between a validating tool and a repository could force an implementation to fetch and store those objects in the object store (see Section 4.1.1) before they are validated and discarded, leading to out-of-memory or out-of-disk-space conditions and, subsequently, a denial of service.",
+      "zh-CHS": "第3.3节中描述的存储区清理过程试图最大限度地减少在存储库中发布但未在验证中使用的对象的删除和后续重新获取。一旦这些对象从远程存储库中删除，它们将在本地策略指定的一段时间后从本地对象存储中丢弃。通过生成大量语法上有效的RPKI对象，验证工具和存储库之间的中间人攻击可能会迫使实现在验证和丢弃这些对象之前获取这些对象并将其存储在对象存储库中（参见第4.1.1节），从而导致内存不足或磁盘空间不足的情况，随后，拒绝服务。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5280] Cooper, D., Santesson, S., Farrell, S., Boeyen, S., Housley, R., and W. Polk, \"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile\", RFC 5280, DOI 10.17487/RFC5280, May 2008, <https://www.rfc-editor.org/info/rfc5280>.",
+      "zh-CHS": "[RFC5280]Cooper，D.，Santesson，S.，Farrell，S.，Boeyen，S.，Housley，R.，和W.Polk，“Internet X.509公钥基础设施证书和证书撤销列表（CRL）配置文件”，RFC 5280，DOI 10.17487/RFC5280，2008年5月<https://www.rfc-editor.org/info/rfc5280>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6481] Huston, G., Loomans, R., and G. Michaelson, \"A Profile for Resource Certificate Repository Structure\", RFC 6481, DOI 10.17487/RFC6481, February 2012, <https://www.rfc-editor.org/info/rfc6481>.",
+      "zh-CHS": "[RFC6481]Huston，G.，Loomans，R.，和G.Michaelson，“资源证书存储库结构的配置文件”，RFC 6481，DOI 10.17487/RFC6481，2012年2月<https://www.rfc-editor.org/info/rfc6481>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6482] Lepinski, M., Kent, S., and D. Kong, \"A Profile for Route Origin Authorizations (ROAs)\", RFC 6482, DOI 10.17487/RFC6482, February 2012, <https://www.rfc-editor.org/info/rfc6482>.",
+      "zh-CHS": "[RFC6482]Lepinski，M.，Kent，S.，和D.Kong，“路线原产地授权（ROA）的概要”，RFC 6482，DOI 10.17487/RFC6482，2012年2月<https://www.rfc-editor.org/info/rfc6482>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6486] Austein, R., Huston, G., Kent, S., and M. Lepinski, \"Manifests for the Resource Public Key Infrastructure (RPKI)\", RFC 6486, DOI 10.17487/RFC6486, February 2012, <https://www.rfc-editor.org/info/rfc6486>.",
+      "zh-CHS": "[RFC6486]Austein，R.，Huston，G.，Kent，S.，和M.Lepinski，“资源公钥基础设施（RPKI）清单”，RFC 6486，DOI 10.17487/RFC6486，2012年2月<https://www.rfc-editor.org/info/rfc6486>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6487] Huston, G., Michaelson, G., and R. Loomans, \"A Profile for X.509 PKIX Resource Certificates\", RFC 6487, DOI 10.17487/RFC6487, February 2012, <https://www.rfc-editor.org/info/rfc6487>.",
+      "zh-CHS": "[RFC6487]Huston，G.，Michaelson，G.，和R.Loomans，“X.509 PKIX资源证书的配置文件”，RFC 6487，DOI 10.17487/RFC6487，2012年2月<https://www.rfc-editor.org/info/rfc6487>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6488] Lepinski, M., Chi, A., and S. Kent, \"Signed Object Template for the Resource Public Key Infrastructure (RPKI)\", RFC 6488, DOI 10.17487/RFC6488, February 2012, <https://www.rfc-editor.org/info/rfc6488>.",
+      "zh-CHS": "[RFC6488]Lepinski，M.，Chi，A.，和S.Kent，“资源公钥基础设施（RPKI）的签名对象模板”，RFC 6488，DOI 10.17487/RFC6488，2012年2月<https://www.rfc-editor.org/info/rfc6488>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6493] Bush, R., \"The Resource Public Key Infrastructure (RPKI) Ghostbusters Record\", RFC 6493, DOI 10.17487/RFC6493, February 2012, <https://www.rfc-editor.org/info/rfc6493>.",
+      "zh-CHS": "[RFC6493]布什，R.，“资源公钥基础设施（RPKI）捉鬼记录”，RFC 6493，DOI 10.17487/RFC6493，2012年2月<https://www.rfc-editor.org/info/rfc6493>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6916] Gagliano, R., Kent, S., and S. Turner, \"Algorithm Agility Procedure for the Resource Public Key Infrastructure (RPKI)\", BCP 182, RFC 6916, DOI 10.17487/RFC6916, April 2013, <https://www.rfc-editor.org/info/rfc6916>.",
+      "zh-CHS": "[RFC6916]Gagliano，R.，Kent，S.和S.Turner，“资源公钥基础设施（RPKI）的算法敏捷程序”，BCP 182，RFC 6916，DOI 10.17487/RFC6916，2013年4月<https://www.rfc-editor.org/info/rfc6916>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7730] Huston, G., Weiler, S., Michaelson, G., and S. Kent, \"Resource Public Key Infrastructure (RPKI) Trust Anchor Locator\", RFC 7730, DOI 10.17487/RFC7730, January 2016, <https://www.rfc-editor.org/info/rfc7730>.",
+      "zh-CHS": "[RFC7730]Huston，G.，Weiler，S.，Michaelson，G.，和S.Kent，“资源公钥基础设施（RPKI）信任锚定位器”，RFC 7730，DOI 10.17487/RFC7730，2016年1月<https://www.rfc-editor.org/info/rfc7730>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7935] Huston, G. and G. Michaelson, Ed., \"The Profile for Algorithms and Key Sizes for Use in the Resource Public Key Infrastructure\", RFC 7935, DOI 10.17487/RFC7935, August 2016, <https://www.rfc-editor.org/info/rfc7935>.",
+      "zh-CHS": "[RFC7935]Huston，G.和G.Michaelson，编辑，“用于资源公钥基础设施的算法和密钥大小的配置文件”，RFC 7935，DOI 10.17487/RFC7935，2016年8月<https://www.rfc-editor.org/info/rfc7935>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8182] Bruijnzeels, T., Muravskiy, O., Weber, B., and R. Austein, \"The RPKI Repository Delta Protocol (RRDP)\", RFC 8182, DOI 10.17487/RFC8182, July 2017, <https://www.rfc-editor.org/info/rfc8182>.",
+      "zh-CHS": "[RFC8182]Bruijnzeels，T.，Muravskiy，O.，Weber，B.，和R.Austein，“RPKI存储库增量协议（RRDP）”，RFC 8182，DOI 10.17487/RFC8182，2017年7月<https://www.rfc-editor.org/info/rfc8182>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8360] Huston, G., Michaelson, G., Martinez, C., Bruijnzeels, T., Newton, A., and D. Shaw, \"Resource Public Key Infrastructure (RPKI) Validation Reconsidered\", RFC 8360, DOI 10.17487/RFC8360, April 2018, <https://www.rfc-editor.org/info/rfc8360>.",
+      "zh-CHS": "[RFC8360]Huston，G.，Michaelson，G.，Martinez，C.，Bruinzeels，T.，Newton，A.，和D.Shaw，“重新考虑资源公钥基础设施（RPKI）验证”，RFC 8360，DOI 10.17487/RFC8360，2018年4月<https://www.rfc-editor.org/info/rfc8360>."
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[rpki-validator] \"RIPE-NCC/rpki-validator source code\", <https://github.com/RIPE-NCC/rpki-validator>.",
+      "zh-CHS": "[rpki验证程序]“RIMME-NCC/rpki验证程序源代码”<https://github.com/RIPE-NCC/rpki-validator>."
+    },
+    {
+      "indent": 3,
+      "text": "[rsync] \"rsync\", October 2018, <https://rsync.samba.org>.",
+      "zh-CHS": "[rsync]“rsync”，2018年10月<https://rsync.samba.org>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the algorithm as it is implemented by the software development team at the RIPE NCC, which, over time, included Mikhail Puzanov, Erik Rozendaal, Miklos Juhasz, Misja Alma, Thiago da Cruz Pereira, Yannis Gonianakis, Andrew Snare, Varesh Tapadia, Paolo Milani, Thies Edeling, Hans Westerbeek, Rudi Angela, and Constantijn Visinescu. The authors would also like to acknowledge contributions by Carlos Martinez, Andy Newton, Rob Austein, and Stephen Kent.",
+      "zh-CHS": "本文件描述了由成熟的NCC软件开发团队实施的算法，随着时间的推移，该团队包括米哈伊尔·普扎诺夫、埃里克·罗森达尔、米克洛斯·朱哈兹、米沙·阿尔马、蒂亚戈·达克鲁斯·佩雷拉、亚尼斯·戈尼亚纳斯、安德鲁·斯纳尔、瓦雷什·塔帕迪亚、保罗·米拉尼、提斯·埃德林、汉斯·韦斯特比克、鲁迪·安吉拉、，康斯坦丁·维西内斯库。作者还要感谢卡洛斯·马丁内斯、安迪·牛顿、罗伯·奥斯汀和斯蒂芬·肯特的贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Oleg Muravskiy RIPE NCC",
+      "zh-CHS": "Oleg Muravskiy成熟NCC"
+    },
+    {
+      "indent": 3,
+      "text": "Email: oleg@ripe.net\nURI:   https://www.ripe.net/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Tim Bruijnzeels NLnet Labs",
+      "zh-CHS": "Tim Bruijnzeels NLnet实验室"
+    },
+    {
+      "indent": 3,
+      "text": "Email: tim@nlnetlabs.nl\nURI:   https://www.nlnetlabs.nl/",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

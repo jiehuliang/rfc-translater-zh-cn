@@ -1,0 +1,745 @@
+{
+  "title": {
+    "text": "RFC 6281: Understanding Apple's Back to My Mac (BTMM) Service",
+    "zh-CHS": "RFC 6281"
+  },
+  "number": 6281,
+  "created_at": "2021-11-05 21:36:24.042364+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                       S. Cheshire\nRequest for Comments: 6281                                    Apple Inc.\nCategory: Informational                                           Z. Zhu\nISSN: 2070-1721                                                     UCLA\n                                                             R. Wakikawa\n                                                              Toyota ITC\n                                                                L. Zhang\n                                                                    UCLA\n                                                               June 2011",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "Understanding Apple's Back to My Mac (BTMM) Service",
+      "zh-CHS": "了解苹果的“回到我的Mac（BTMM）”服务"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the implementation of Apple Inc.'s Back to My Mac (BTMM) service. BTMM provides network connectivity between devices so that a user can perform file sharing and screen sharing among multiple computers at home, at work, or on the road. The implementation of BTMM addresses the issues of single sign-on authentication, secure data communication, service discovery, and end-to-end connectivity in the face of Network Address Translators (NATs) and mobility of devices.",
+      "zh-CHS": "本文档描述了Apple Inc.的“回到我的Mac（BTMM）”服务的实现。BTMM提供设备之间的网络连接，以便用户可以在家中、工作中或路上的多台计算机之间执行文件共享和屏幕共享。BTMM的实现解决了单点登录身份验证、安全数据通信、服务发现以及面对网络地址转换器（NAT）和设备移动性时的端到端连接问题。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6281.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6281."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2011 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2011 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2\n2.  An Overview of Back to My Mac  . . . . . . . . . . . . . . . .  3\n3.  Encoding Host Information in DNS Resource Records  . . . . . .  5\n4.  NAT Traversal  . . . . . . . . . . . . . . . . . . . . . . . .  6\n  4.1.  Introduction to NAT-PMP  . . . . . . . . . . . . . . . . .  6\n  4.2.  Requesting/Removing a Port Mapping . . . . . . . . . . . .  7\n  4.3.  Obtaining NAT Box's Public IP Address  . . . . . . . . . .  7\n  4.4.  Unsupported Scenarios  . . . . . . . . . . . . . . . . . .  8\n5.  Handling IP Address or Port Changes  . . . . . . . . . . . . .  8\n  5.1.  Updating Local Interfaces and Tunnels  . . . . . . . . . .  8\n  5.2.  Dynamically Updating Reachability Information  . . . . . .  8\n  5.3.  Getting Up-to-Date DNS Resource Records without Polling  .  9\n6.  IPv6 ULA as Host ID  . . . . . . . . . . . . . . . . . . . . . 11\n  6.1.  The Need for a Host Identifier . . . . . . . . . . . . . . 11\n  6.2.  What to Use as Host Identifiers  . . . . . . . . . . . . . 11\n  6.3.  IPv6 ULA Configuration . . . . . . . . . . . . . . . . . . 11\n7.  Securing Communication . . . . . . . . . . . . . . . . . . . . 12\n  7.1.  Authentication for Connecting to Remote Host . . . . . . . 12\n  7.2.  Authentication for DNS Exchanges . . . . . . . . . . . . . 12\n  7.3.  IPsec for Secure End-to-End Data Communication . . . . . . 13\n8.  Security Considerations  . . . . . . . . . . . . . . . . . . . 14\n9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 14\n  9.1.  Normative Reference  . . . . . . . . . . . . . . . . . . . 14\n  9.2.  Informative References . . . . . . . . . . . . . . . . . . 15",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Apple Inc.'s Back to My Mac (BTMM) service was first shipped with MAC OS X 10.5 release in October 2007; since then, it has been widely used. BTMM provides an integrated solution to host mobility support, NAT traversal, and secure end-to-end data delivery through a combination of several existing protocols and software tools instead of designing new protocols. Note that we generally refer to Network Address Port Translation (NAPT) as NAT in this document. This document describes the implementation of BTMM and describes how BTMM works in MAC OS X version 10.5.x; BTMM continues to evolve over time.",
+      "zh-CHS": "苹果公司的“回到我的Mac（BTMM）”服务于2007年10月首次随MacOSX10.5发行版发布；此后，它得到了广泛的应用。BTMM通过多种现有协议和软件工具的组合而不是设计新协议，为主机移动性支持、NAT穿越和安全端到端数据传输提供了一个集成解决方案。注意，在本文档中，我们通常将网络地址端口转换（NAPT）称为NAT。本文档描述了BTMM的实现，并描述了BTMM如何在MAC OS X版本10.5.X中工作；BTMM将随着时间的推移不断发展。"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM provides secure transport connections among a set of devices that may be located over a dynamic and heterogeneous network environment. Independent from whether a user is traveling and accessing the Internet via airport WiFi or staying at home behind a NAT, BTMM allows the user to connect to any Mac hosts with a click, after which the user can share files with remote computers or control the remote host through screen sharing. When a user changes locations and thus also changes the IP address of his computer (e.g., roaming around with a laptop and receiving dynamically allocated IP address), BTMM provides a means for the roaming host to update its reachability information to keep it reachable by the user's other Mac devices. BTMM maintains end-to-end transport connections in the face of host IP address changes through the use of unique host identifiers. It also provides a means to reach devices behind a NAT.",
+      "zh-CHS": "BTMM在一组可能位于动态异构网络环境上的设备之间提供安全的传输连接。无论用户是通过机场WiFi旅行和访问互联网，还是在NAT后呆在家里，BTMM都允许用户通过单击连接到任何Mac主机，之后用户可以与远程计算机共享文件或通过屏幕共享控制远程主机。当用户更改位置并因此更改其计算机的IP地址（例如，使用笔记本电脑漫游并接收动态分配的IP地址）时，BTMM为漫游主机提供更新其可达性信息的方法，以使其可由用户的其他Mac设备访问。BTMM通过使用唯一的主机标识符，在主机IP地址发生变化时保持端到端传输连接。它还提供了一种到达NAT后面设备的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM achieves the above functions mainly by integrating a set of existing protocols and software tools. It uses DNS-based Service Discovery [DNS-SD] to announce host reachability information, dynamic DNS update [RFC2136] to refresh the DNS resource records (RRs) when a host detects network changes, and DNS Long-Lived Queries (LLQs) [DNS-LLQ] to notify hosts immediately when the answers to their earlier DNS queries have changed. BTMM uses the IPv6 Unique Local Address (ULA) [RFC4193] as the host identifier and employs the NAT Port Mapping Protocol (PMP) [NAT-PMP] to assist NAT traversal. It uses Kerberos [RFC4120] for end-to-end authentication and uses IPsec [RFC4301] to secure data communications between two end hosts.",
+      "zh-CHS": "BTMM主要通过集成一套现有的协议和软件工具来实现上述功能。它使用基于DNS的服务发现[DNS-SD]来宣布主机可达性信息，使用动态DNS更新[RFC2136]在主机检测到网络更改时刷新DNS资源记录（RRs），使用DNS长期查询（LLQ）[DNS-LLQ]在主机先前DNS查询的答案更改时立即通知主机。BTMM使用IPv6唯一本地地址（ULA）[RFC4193]作为主机标识符，并使用NAT端口映射协议（PMP）[NAT-PMP]帮助NAT穿越。它使用Kerberos[RFC4120]进行端到端身份验证，并使用IPsec[RFC4301]保护两个终端主机之间的数据通信。"
+    },
+    {
+      "indent": 0,
+      "text": "2. An Overview of Back to My Mac",
+      "section_title": true,
+      "zh-CHS": "2. 返回我的Mac的概述"
+    },
+    {
+      "indent": 3,
+      "text": "To keep an established TCP connection running while either of the two end hosts may change its IP address requires that the connection use unique and stable identifiers that do not change with the addresses, and that a mapping service exists between these stable identifiers and dynamically changing IP addresses. BTMM uses DNS to provide this mapping service. Figure 1 provides a sketch of the basic components in the BTMM implementation.",
+      "zh-CHS": "要在两个终端主机中的任何一个可能更改其IP地址时保持已建立的TCP连接运行，需要连接使用不随地址更改的唯一和稳定标识符，并且在这些稳定标识符和动态更改的IP地址之间存在映射服务。BTMM使用DNS提供此映射服务。图1提供了BTMM实现中基本组件的示意图。"
+    },
+    {
+      "indent": 7,
+      "text": "    DDNS update    +--------+  DDNS update\n  +--------------->|        |<-------+\n  |                |  DNS   |        |\n  |      LLQ       |        | LLQ    |\n  |    +---------->|        |<----+  |\n  |    |           |        |     |  |\n  |    |           +--------+     |  |\n  |    |                          |  |            +----------+\n  |    V                      +---+--+----+       |          |\n+-+-------+                   |           +-------|          |\n|Endhost N|     Tunnel        |    NAT    +------>|Endhost M |\n|         |<=====================================>|          |\n+---------+                   |           |       |          |\n                              +-----------+       +----------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 1",
+      "zh-CHS": "图1"
+    },
+    {
+      "indent": 3,
+      "text": "Apple Inc. operates a DNS domain called members.me.com and provides DNS name resolution services for all the subdomains underneath. Every BTMM user is assigned a DNS subdomain under members.me.com, e.g., alice.members.me.com. The user then assigns a DNS name for each of her computers, e.g., myMacPro.alice.members.me.com. The reachability information of each of the user's hosts is encoded in DNS resource records and published in the DNS. For example, if the host myMacPro.alice.members.me.com has a public IPv4 address P, P represents the reachability information to the host. On the other hand, if the host is behind a NAT, its reachability information is composed of the public IP address of the NAT box and the port number opened on the NAT to reach the internal host. In this case, both the public IP address of the NAT box and the port number are encoded into DNS using DNS SRV records [RFC2782], as we explain in the next section. When a user logs in from a host M, M starts updating the DNS server about its reachability information. If the user has multiple hosts, M also sets up LLQs with the DNS server for her other hosts, so that the DNS server can push any reachability changes of these other hosts to M immediately.",
+      "zh-CHS": "苹果公司运营一个名为members.me.com的DNS域名，并为其下的所有子域提供DNS名称解析服务。每个BTMM用户都在members.me.com（例如alice.members.me.com）下分配了一个DNS子域。然后，用户为她的每台计算机分配一个DNS名称，例如myMacPro.alice.members.me.com。每个用户主机的可达性信息在DNS资源记录中编码并在DNS中发布。例如，如果主机myMacPro.alice.members.me.com具有公共IPv4地址P，则P表示主机的可达性信息。另一方面，如果主机位于NAT后面，则其可达性信息由NAT盒的公共IP地址和NAT上打开以到达内部主机的端口号组成。在这种情况下，NAT盒的公共IP地址和端口号都使用DNS SRV记录[RFC2782]编码到DNS中，我们将在下一节中解释。当用户从主机M登录时，主机M开始更新DNS服务器的可达性信息。如果用户有多个主机，M还为其其他主机与DNS服务器建立LLQ，以便DNS服务器可以立即将这些其他主机的任何可达性更改推送到M。"
+    },
+    {
+      "indent": 3,
+      "text": "To obtain a unique identifier for each host, BTMM automatically generates an IPv6 ULA for each host as its identifier at machine boot time. This design choice allows BTMM to reuse all the existing code of applications and protocols that already support IPv6. To ensure end-to-end data security, BTMM leverages the existing IPsec to protect the communications and Kerberos to perform end-to-end authentication.",
+      "zh-CHS": "为了获得每个主机的唯一标识符，BTMM会在机器启动时自动为每个主机生成一个IPv6 ULA作为其标识符。此设计选择允许BTMM重用已经支持IPv6的应用程序和协议的所有现有代码。为了确保端到端数据安全，BTMM利用现有的IPsec保护通信，并使用Kerberos执行端到端身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM provides an IPv6 socket interface to user applications. It then wraps the IPv6 packets with IPsec Encapsulating Security Payload (ESP) [RFC4303] and encapsulates the packets in a UDP/IP tunnel, as illustrated in Figure 2. Note that this is the case even when both ends have public IPv4 addresses.",
+      "zh-CHS": "BTMM为用户应用程序提供IPv6套接字接口。然后，它用IPsec封装安全负载（ESP）[RFC4303]包装IPv6数据包，并将数据包封装在UDP/IP隧道中，如图2所示。请注意，即使两端都有公共IPv4地址，情况也是如此。"
+    },
+    {
+      "indent": 4,
+      "text": "+-------------+------------+------------+---------------+\n| IPv4 Header | UDP Header | IPsec ESP  | IPv6 Packet   |\n+-------------+------------+------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 2",
+      "zh-CHS": "图2"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections describe each of the basic components in BTMM. Since this document is intended to be an informal description of the BTMM implementation, it does not include all the details (e.g., packet format, error code, etc) of each component.",
+      "zh-CHS": "以下各节介绍BTMM中的每个基本组件。由于本文件旨在对BTMM实施进行非正式描述，因此不包括每个组件的所有细节（例如，数据包格式、错误代码等）。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Encoding Host Information in DNS Resource Records",
+      "section_title": true,
+      "zh-CHS": "3. 在DNS资源记录中编码主机信息"
+    },
+    {
+      "indent": 3,
+      "text": "For each host, BTMM encodes into DNS both the host identifier and its current location information. BTMM stores the host identifier (IPv6 ULA) in a DNS AAAA RR and uses a DNS SRV RR [RFC2782] to represent the host's current location information. For hosts behind a NAT box, the use of a DNS SRV RR allows BTMM to store both the public IP address of the NAT box and also the port opened for the host.",
+      "zh-CHS": "对于每个主机，BTMM将主机标识符及其当前位置信息编码到DNS中。BTMM将主机标识符（IPv6 ULA）存储在DNS AAAA RR中，并使用DNS SRV RR[RFC2782]表示主机的当前位置信息。对于NAT盒后面的主机，使用DNS SRV RR允许BTMM存储NAT盒的公共IP地址和为主机打开的端口。"
+    },
+    {
+      "indent": 3,
+      "text": "The SRV RR consists of eight fields: _Service._Proto.Name, Time to Live (TTL), Class, Type, Priority, Weight, Port, and Target. BTMM uses SRV RRs in the following way.",
+      "zh-CHS": "SRV RR由八个字段组成：_Service._Proto.Name、生存时间（TTL）、类、类型、优先级、权重、端口和目标。BTMM以以下方式使用SRV RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "Service is the symbolic name of the desired service. In the BTMM case, the service is named \"autotunnel\", which means that the information contained in the SRV RR is used by BTMM to automatically set up a tunnel between two end hosts.",
+      "zh-CHS": "服务是所需服务的符号名称。在BTMM案例中，服务名为“自动隧道”，这意味着BTMM使用SRV RR中包含的信息在两个终端主机之间自动建立隧道。"
+    },
+    {
+      "indent": 3,
+      "text": "Proto is the symbolic name of the desired protocol. In this document, the protocol is \"_udp\". BTMM uses \"_udp\" to tunnel packets between the two ends to achieve NAT traversal.",
+      "zh-CHS": "Proto是所需协议的符号名。在本文档中，协议为“_udp”。BTMM使用“_udp”在两端之间通过隧道传输数据包，实现NAT穿越。"
+    },
+    {
+      "indent": 3,
+      "text": "Name is the domain this RR refers to. When a user subscribes to BTMM service with the username \"alice\", a domain name \"alice.members.me.com\" is assigned to her. The user assigns a name, such as \"myMacPro\", to each host that is appended to the assigned domain name. Hence, the first part of the SRV record would look like this: \"_autotunnel._udp.myMacPro.alice.members.me.com\".",
+      "zh-CHS": "名称是此RR引用的域。当用户使用用户名“alice”订阅BTMM服务时，将为其分配一个域名“alice.members.me.com”。用户为附加到指定域名的每个主机分配一个名称，如“myMacPro”。因此，SRV记录的第一部分如下所示：“\\u autotunnel.\\u udp.myMacPro.alice.members.me.com”。"
+    },
+    {
+      "indent": 3,
+      "text": "Priority and Weight are set to zero, since there is only one instance that provides autotunnel service for each name in BTMM.",
+      "zh-CHS": "优先级和权重设置为零，因为只有一个实例为BTMM中的每个名称提供自动隧道服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Port is the port opened on the target host of the service. In BTMM, most likely it is the external port a NAT opened for the host behind it. Knowing the port number is the basic requirement for NAT traversal via UDP encapsulation. If the host is not behind a NAT, the port opened on the host for autotunnel service is placed here.",
+      "zh-CHS": "端口是在服务的目标主机上打开的端口。在BTMM中，很可能是NAT为其后面的主机打开的外部端口。知道端口号是通过UDP封装进行NAT遍历的基本要求。如果主机不在NAT后面，则主机上为自动隧道服务打开的端口将放在此处。"
+    },
+    {
+      "indent": 3,
+      "text": "Target is the canonical hostname of the host that provides the service. In BTMM, it refers to a name constructed by appending the user's domain name to an autotunnel label, which identifies the host and is not generally user-visible. The autotunnel label is created by concatenating \"AutoTunnel\" with the IEEE EUI-64 identifier [EUI64] of the primary network interface. Hence, an example for the Target field would look like this: AutoTunnel-00-22-69-FF-FE-8E-34- 2A.alice.members.me.com. After obtaining the SRV RR, the remote host can query the A RR for the Target and get the external tunnel address for the BTMM client during the NAT Traversal.",
+      "zh-CHS": "Target是提供服务的主机的标准主机名。在BTMM中，它指的是通过将用户的域名附加到自动隧道标签上而构造的名称，自动隧道标签标识主机，通常用户看不见。自动隧道标签是通过将“自动隧道”与主网络接口的IEEE EUI-64标识符[EUI64]连接起来创建的。因此，目标字段的示例如下所示：AutoTunnel-00-22-69-FF-FE-8E-34-2A.alice.members.me.com。获取SRV RR后，远程主机可以在NAT遍历期间查询目标的A RR，并获取BTMM客户端的外部隧道地址。"
+    },
+    {
+      "indent": 0,
+      "text": "4. NAT Traversal",
+      "section_title": true,
+      "zh-CHS": "4. 内网互联"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM's NAT traversal function requires NAT router devices to support NAT-PMP or the Universal Plug and Play (UPnP) Internet Gateway Device (IGD). NAT-PMP is the alternative introduced by Apple Inc. to the more common IGD Standardized Device Control Protocol [IGD] as published in the UPnP Forum. Both NAT-PMP and IGD require the NAT devices to be able to open a port for inbound traffic to some host behind it and to inform the host about its public IP address. The differences between IGD and NAT-PMP can be found in [NAT-PMP]. This section focuses on NAT-PMP.",
+      "zh-CHS": "BTMM的NAT穿越功能要求NAT路由器设备支持NAT-PMP或通用即插即用（UPnP）互联网网关设备（IGD）。NAT-PMP是苹果公司推出的替代方案，用于UPnP论坛上发布的更常见的IGD标准化设备控制协议[IGD]。NAT-PMP和IGD都要求NAT设备能够为其后面的某个主机的入站流量打开一个端口，并将其公共IP地址通知该主机。IGD和NAT-PMP之间的差异可在[NAT-PMP]中找到。本节重点介绍NAT-PMP。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Introduction to NAT-PMP",
+      "section_title": true,
+      "zh-CHS": "4.1. NAT-PMP简介"
+    },
+    {
+      "indent": 3,
+      "text": "NAT-PMP is a protocol that is designed specifically to handle the NAT traversal without manual configuration. When a host determines that its primary IPv4 address is in one of the private IP address ranges defined in \"Address Allocation for Private Internets\" [RFC1918], it invokes NAT-PMP to communicate with the NAT gateway to request the creation of inbound mappings on demand. Having created a NAT mapping to allow inbound traffic, the client host then publishes its NAT box's public IP address and external port number in a DNS server.",
+      "zh-CHS": "NAT-PMP是专门设计用于处理NAT穿越的协议，无需手动配置。当主机确定其主IPv4地址位于“专用Internet地址分配”[RFC1918]中定义的某个专用IP地址范围内时，它将调用NAT-PMP与NAT网关通信，请求按需创建入站映射。创建NAT映射以允许入站流量后，客户端主机随后在DNS服务器中发布其NAT盒的公共IP地址和外部端口号。"
+    },
+    {
+      "indent": 3,
+      "text": "A host sends its Port Mapping Protocol request to the default gateway, which means that by default, this protocol is designed for small home networks where the host's default gateway is the NAT router. If the host finds that NAT-PMP or UPnP IGD is not available on its network, it would proceed under the assumption that the network is a public network.",
+      "zh-CHS": "主机将其端口映射协议请求发送到默认网关，这意味着默认情况下，此协议专为小型家庭网络设计，其中主机的默认网关是NAT路由器。如果主机发现NAT-PMP或UPnP IGD在其网络上不可用，则将在假设该网络为公共网络的情况下继续。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Requesting/Removing a Port Mapping",
+      "section_title": true,
+      "zh-CHS": "4.2. 请求/删除端口映射"
+    },
+    {
+      "indent": 3,
+      "text": "To request a port mapping, the client host sends its request packet via UDP to port 5351 of its configured gateway address and waits 250 ms for a response [NAT-PMP]. If no response is received after 250 ms, the host repeats the process with exponential back-off.",
+      "zh-CHS": "为了请求端口映射，客户端主机通过UDP将其请求数据包发送到其配置的网关地址的端口5351，并等待250毫秒以等待响应[NAT-PMP]。如果250毫秒后没有收到响应，主机将以指数后退的方式重复该过程。"
+    },
+    {
+      "indent": 3,
+      "text": "While requesting the port mapping, the host can specify the desired external port (e.g., the port that is identical to the internal port opened on the host), but the NAT device is not obliged to allocate the desired one. If such a port is not available, the NAT device responds with another port. The primary reason for allowing the host to request a specific port is to help recovery from a NAT device crash by allowing the host to request the same port number used before the crash. This simple mechanism allows the end hosts (instead of the NAT box) to keep the mapping states, which turns hard state in the network into soft state, and enables automatic recovery whenever possible.",
+      "zh-CHS": "在请求端口映射时，主机可以指定所需的外部端口（例如，与主机上打开的内部端口相同的端口），但NAT设备没有义务分配所需的端口。如果这样的端口不可用，NAT设备将使用另一个端口进行响应。允许主机请求特定端口的主要原因是通过允许主机请求崩溃前使用的相同端口号来帮助从NAT设备崩溃中恢复。这种简单的机制允许终端主机（而不是NAT盒）保持映射状态，从而将网络中的硬状态转变为软状态，并尽可能实现自动恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "The default port-mapping lifetime is 3600 seconds. The host tries to renew the mapping every 1800 seconds. The renewal message sent by the client host, whether for the purpose of extending the lease or recreating mappings after the NAT device reboots, is the same as the message requesting a port mapping.",
+      "zh-CHS": "默认端口映射生存期为3600秒。主机尝试每1800秒更新一次映射。客户端主机发送的续订消息（无论是为了扩展租约还是在NAT设备重新启动后重新创建映射）与请求端口映射的消息相同。"
+    },
+    {
+      "indent": 3,
+      "text": "A mapping may be removed in a variety of ways. If a client host fails to renew a mapping, the mapping is automatically deleted when its lifetime expires. If the client host's DHCP address lease expires, the NAT device also automatically deletes the mapping. A client host can also send an explicit packet to request the deletion of a mapping that is no longer needed.",
+      "zh-CHS": "可以通过多种方式删除映射。如果客户端主机无法续订映射，则映射的生存期到期时将自动删除。如果客户端主机的DHCP地址租约到期，NAT设备也会自动删除映射。客户端主机还可以发送显式数据包，请求删除不再需要的映射。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Obtaining NAT Box's Public IP Address",
+      "section_title": true,
+      "zh-CHS": "4.3. 获取NAT盒的公共IP地址"
+    },
+    {
+      "indent": 3,
+      "text": "To determine the public IP address of the NAT, the client host also sends the query packet to port 5351 of the configured gateway address. The NAT device responds with a packet containing the public IP address of NAT.",
+      "zh-CHS": "为了确定NAT的公共IP地址，客户端主机还将查询包发送到所配置网关地址的端口5351。NAT设备使用包含NAT的公共IP地址的数据包进行响应。"
+    },
+    {
+      "indent": 3,
+      "text": "In case the public IP address of the NAT changes, the NAT gateway sends a gratuitous response to the link-local multicast address 224.0.0.1, port 5350 to notify the clients about the new IP address, and the host can then update its DNS SRV record to reflect its new reachability as we describe in the next section.",
+      "zh-CHS": "在NAT的公共IP地址发生变化的情况下，NAT网关向链路本地多播地址224.0.0.1、端口5350发送免费响应，以通知客户端新的IP地址，然后主机可以更新其DNS SRV记录以反映其新的可达性，如我们在下一节中所述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Unsupported Scenarios",
+      "section_title": true,
+      "zh-CHS": "4.4. 不支持的场景"
+    },
+    {
+      "indent": 3,
+      "text": "There are a number of situations where NAT-PMP (and consequently BTMM) does not work.",
+      "zh-CHS": "在许多情况下，NAT-PMP（因此BTMM）不起作用。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.1. NAT behind NAT",
+      "section_title": true,
+      "zh-CHS": "4.4.1. 纳特在纳特后面"
+    },
+    {
+      "indent": 3,
+      "text": "Some people's primary IP address assigned by their ISPs may itself be a NAT address. In addition, some people may have a public IP address, but may put their hosts (perhaps unknowingly) behind multiple nested NAT boxes. NAT traversal cannot be achieved with NAT-PMP in such situations.",
+      "zh-CHS": "有些人的ISP分配的主IP地址本身可能是NAT地址。此外，有些人可能有一个公共IP地址，但可能会将他们的主机（可能是不知不觉地）放在多个嵌套的NAT框后面。在这种情况下，NAT-PMP无法实现NAT穿越。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.2. NATs and Routed Private Networks",
+      "section_title": true,
+      "zh-CHS": "4.4.2. NAT和路由专用网络"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, a site may run multiple subnets in the private network behind a NAT gateway. Such subnetting breaks the assumption of NAT-PMP protocol because a host's default router is not necessarily the device performing NAT.",
+      "zh-CHS": "在某些情况下，站点可能在NAT网关后面的专用网络中运行多个子网。这种子网打破了NAT-PMP协议的假设，因为主机的默认路由器不一定是执行NAT的设备。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Handling IP Address or Port Changes",
+      "section_title": true,
+      "zh-CHS": "5. 处理IP地址或端口更改"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes how BTMM handles IP address or port number changes, so that the hosts of the same user can find each other and keep ongoing TCP connections even after the changes happen at one or both ends.",
+      "zh-CHS": "本节介绍BTMM如何处理IP地址或端口号的更改，以便同一用户的主机可以找到彼此并保持TCP连接，即使更改发生在一端或两端。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Updating Local Interfaces and Tunnels",
+      "section_title": true,
+      "zh-CHS": "5.1. 更新本地接口和隧道"
+    },
+    {
+      "indent": 3,
+      "text": "After a BTMM client receives the notification about the network changes, it updates the list of active interfaces. Then, the client sends requests to the NAT device (if it is behind a NAT) in order to create a port mapping and obtain the new public IP address.",
+      "zh-CHS": "BTMM客户端收到有关网络更改的通知后，将更新活动接口列表。然后，客户端向NAT设备发送请求（如果它在NAT后面），以创建端口映射并获取新的公共IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Next, the BTMM client makes changes to the local autotunnel interface, i.e., configures the IPv6 interface for the inner address of the tunnel. If there are established tunnels, it scans to find those whose local inner/outer addresses have been changed since the tunnel was set up, and then puts in the current addresses.",
+      "zh-CHS": "接下来，BTMM客户端对本地自动隧道接口进行更改，即为隧道的内部地址配置IPv6接口。如果存在已建立的隧道，它将扫描以查找自隧道建立以来其本地内部/外部地址已更改的隧道，然后输入当前地址。"
+    },
+    {
+      "indent": 3,
+      "text": "With all these done, the BTMM client publishes the changes to DNS.",
+      "zh-CHS": "完成所有这些操作后，BTMM客户端将更改发布到DNS。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Dynamically Updating Reachability Information",
+      "section_title": true,
+      "zh-CHS": "5.2. 动态更新可达性信息"
+    },
+    {
+      "indent": 3,
+      "text": "The mobile nature of BTMM clients implies that dynamic DNS updates are required if the location information of hosts are to be published via DNS.",
+      "zh-CHS": "BTMM客户端的移动特性意味着，如果要通过DNS发布主机的位置信息，则需要动态DNS更新。"
+    },
+    {
+      "indent": 3,
+      "text": "However, a mobile host may have dynamically updated an RR but the updated value has not been propagated to the authoritative DNS server, leaving stale RRs in the server. Hence, Dynamic DNS Update Leases (DDULs) [DDUL] are employed by BTMM to minimize the chances of stale RRs. Note that DDUL controls the lifetime of dynamically updated RRs at the authoritative DNS servers, while the RRs' TTL values control the cache lifetime at caching resolvers.",
+      "zh-CHS": "但是，移动主机可能已动态更新RR，但更新的值尚未传播到权威DNS服务器，从而在服务器中留下过时的RR。因此，BTMM采用动态DNS更新租约（DDUL）[DDUL]来最小化过时RRs的机会。请注意，DDUL控制权威DNS服务器上动态更新的RRs的生存期，而RRs的TTL值控制缓存解析程序上的缓存生存期。"
+    },
+    {
+      "indent": 3,
+      "text": "In case of network changes, the RRs of a host are updated immediately after local interfaces are properly configured, and after the port mapping and the public IP address of the NAT are obtained. Usually there are 4 types of RRs involved: a AAAA RR for updating the new host identifier of the host (possibly the same as the old one); an SRV RR for updating the autotunnel service information, which includes the new external port; an A RR for updating the new public IP address; and a TXT RR for describing the autotunnel device information. The name for the SRV RR is discussed in Section 3, and the names for the A, AAAA, and TXT RRs are specified in the Target field of the SRV RR. The host then constructs and sends an SRV query for the dynamic DNS server to which it should send updates. Following our example for alice, it queries the SRV RR for _dns-update-tls._udp.alice.members.me.com. Then, the updates are sent to the dynamic DNS server returned in the Target field of query response.",
+      "zh-CHS": "在网络发生变化的情况下，在正确配置本地接口、获得NAT的端口映射和公共IP地址后，立即更新主机的RRs。通常涉及4种RRs：用于更新主机的新主机标识符（可能与旧主机标识符相同）的AAAA RR；SRV RR，用于更新自动隧道服务信息，包括新的外部端口；用于更新新公共IP地址的RR；以及用于描述自动隧道设备信息的TXT RR。第3节讨论了SRV RR的名称，在SRV RR的目标字段中指定了A、AAAA和TXT RR的名称。然后，主机构造并发送动态DNS服务器的SRV查询，并将更新发送到该服务器。按照我们的alice示例，它查询SRV RR中的_dns-update-tls._udp.alice.members.me.com。然后，将更新发送到查询响应的目标字段中返回的动态DNS服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, periodic refreshes are also required by the DDUL even in the absence of any network changes. The update requests contain a signed 32-bit integer indicating the lease life in seconds. To reduce network and server load, a minimum lease of 30 minutes is required. On the other hand, to avoid stale information, a lease longer than 2 hours is not allowed in BTMM. The typical length is 90 minutes. The client host refreshes the RRs before the lease expires to prevent them from being deleted by the server.",
+      "zh-CHS": "此外，即使在没有任何网络更改的情况下，DDUL也需要定期刷新。更新请求包含一个有符号的32位整数，表示租赁期限（以秒为单位）。为了减少网络和服务器负载，需要至少租用30分钟。另一方面，为了避免过时的信息，BTMM中不允许租赁时间超过2小时。典型长度为90分钟。客户端主机在租约到期之前刷新RRs，以防止服务器删除它们。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Getting Up-to-Date DNS Resource Records without Polling",
+      "section_title": true,
+      "zh-CHS": "5.3. 无需轮询即可获取最新的DNS资源记录"
+    },
+    {
+      "indent": 3,
+      "text": "In dynamic environments, changes to DNS information can often be frequent. However, since a DNS query only retrieves the RR value available at that instance in time, one must continue to query DNS to learn the latest changes. This solution presents the dilemma of choosing a low polling rate that leaves the client with stale information or choosing a high polling rate that would have an adverse impact on the network and server.",
+      "zh-CHS": "在动态环境中，对DNS信息的更改通常很频繁。但是，由于DNS查询只能及时检索该实例中可用的RR值，因此必须继续查询DNS以了解最新的更改。此解决方案面临的难题是：选择一个低轮询率会使客户端保留陈旧信息，还是选择一个高轮询率会对网络和服务器产生不利影响。"
+    },
+    {
+      "indent": 3,
+      "text": "To let the hosts that care about particular DNS RRs learn the changes quickly and efficiently, BTMM uses DNS Long-Lived Queries (LLQs) [DNS-LLQ] to let the DNS server notify the client host once any changes are made to the concerned DNS data.",
+      "zh-CHS": "为了让关心特定DNS RR的主机快速有效地了解更改，BTMM使用DNS长寿命查询（LLQ）[DNS-LLQ]让DNS服务器在对相关DNS数据进行任何更改后通知客户端主机。"
+    },
+    {
+      "indent": 3,
+      "text": "To obtain the LLQ server information, the client issues an SRV query. So alice's host issues a query for _dns-llq-tls._udp.alice.members.me.com and obtains the server that provides LLQ service. LLQs are initiated by a client and are completed via a four-way handshake: Initial Request, Challenge, Challenge Response, and ACK + Answers. During the Challenge phase, the DNS server provides a unique identifier for the request, and the client is required to echo this identifier in the Challenge Response phase. This handshake provides resilience to packet loss, demonstrates client reachability, and reduces denial-of-service attack opportunities.",
+      "zh-CHS": "为了获取LLQ服务器信息，客户机发出一个SRV查询。因此，alice的主机向_dns-llq-tls._udp.alice.members.me.com发出查询，并获取提供llq服务的服务器。LLQ由客户端发起，并通过四向握手完成：初始请求、质询、质询响应和ACK+应答。在质询阶段，DNS服务器为请求提供唯一的标识符，客户端需要在质询响应阶段回显该标识符。这种握手提供了对数据包丢失的恢复能力，演示了客户端的可达性，并减少了拒绝服务攻击的机会。"
+    },
+    {
+      "indent": 3,
+      "text": "LLQ lease is negotiated during the handshake. In BTMM, the minimum lease is 15 minutes, and the maximum lease is 2 hours. Leases are refreshed before they expire.",
+      "zh-CHS": "LLQ租约在握手过程中协商。在BTMM中，最小租用时间为15分钟，最大租用时间为2小时。租约将在到期前刷新。"
+    },
+    {
+      "indent": 3,
+      "text": "When a change (\"event\") occurs to a name server's domain, the server checks if the new or deleted RRs answer any LLQs. If so, the RRs are sent to the LLQ issuers in the form of a gratuitous DNS response. The client acknowledges the reception of the notification; otherwise, the server resends the response. If a total of 3 transmissions (with exponential backoff) fail, the client is considered unreachable, and the LLQ is deleted.",
+      "zh-CHS": "当名称服务器的域发生更改（“事件”）时，服务器将检查新的或删除的RRs是否回答任何LLQ。如果是这样，RRs将以无偿DNS响应的形式发送给LLQ发行人。客户确认收到通知；否则，服务器将重新发送响应。如果总共有3次传输（指数退避）失败，则认为客户端无法访问，并删除LLQ。"
+    },
+    {
+      "indent": 3,
+      "text": "A BTMM client then updates its tunnels according to the query answers. The callback function for automatically updating tunnels is depicted Figure 3.",
+      "zh-CHS": "然后，BTMM客户端根据查询答案更新其隧道。用于自动更新隧道的回调函数如图3所示。"
+    },
+    {
+      "indent": 7,
+      "text": "                   1:  Push Updated AAAA RR       +------------+\n            <-----------------------------------  |            |\n                2: Query for autotunnel SRV RR    |            |\n+--------+  ----------------------------------->  |            |\n|        |        3: Reply Updated SRV RR         | DNS server |\n| client |  <-----------------------------------  |            |\n|        |      4: Query for Target in SRV RR     |            |\n+--------+  ----------------------------------->  |            |\n                5: Reply Updated A RR of Target   |            |\n            <-----------------------------------  |            |\n                                                  +------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "In Step 1: Client learns the inner IP address of the tunnel. In Step 3: Client learns the port opened for UDP NAT traversal. In Step 5: Client learns the public IP address of the remote NAT, i.e., the outer IP address of the tunnel.",
+      "zh-CHS": "在步骤1：客户端学习隧道的内部IP地址。在步骤3：客户端学习为UDP NAT遍历打开的端口。在步骤5：客户端学习远程NAT的公共IP地址，即隧道的外部IP地址。"
+    },
+    {
+      "indent": 33,
+      "text": "Figure 3",
+      "zh-CHS": "图3"
+    },
+    {
+      "indent": 0,
+      "text": "6. IPv6 ULA as Host ID",
+      "section_title": true,
+      "zh-CHS": "6. IPv6作为主机ID"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. The Need for a Host Identifier",
+      "section_title": true,
+      "zh-CHS": "6.1. 对主机标识符的需要"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM needs to assign a topology-independent identifier to each client host for the following reasons. First, two end hosts may wish to have the established TCP connections survive network changes. Second, sometimes one needs a constant identifier to be associated with a key so that the Security Association can survive the location changes.",
+      "zh-CHS": "出于以下原因，BTMM需要为每个客户机主机分配一个拓扑独立的标识符。首先，两个终端主机可能希望已建立的TCP连接在网络更改后仍然有效。其次，有时需要一个与密钥关联的常量标识符，以便安全关联能够在位置更改后继续存在。"
+    },
+    {
+      "indent": 3,
+      "text": "The above needs for a host identifier impose very little constraint on the properties of the identifier. In particular, one notes that this identifier does not need to be a permanent one as long as its lifetime is no shorter than the lifetime of any TCP connection or any Security Association that runs on the host.",
+      "zh-CHS": "上述对主机标识符的需求对标识符的属性几乎没有限制。特别是，需要注意的是，只要该标识符的生命周期不短于主机上运行的任何TCP连接或任何安全关联的生命周期，则该标识符不需要是永久标识符。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. What to Use as Host Identifiers",
+      "section_title": true,
+      "zh-CHS": "6.2. 使用什么作为主机标识符"
+    },
+    {
+      "indent": 3,
+      "text": "Much effort has been put into the development of host identifiers. Possible candidates for host identifiers include DNS name and Host Identity Tag (HIT) in the Host Identity Protocol (HIP) [RFC4423]. However, because the current protocol stack used IP as identifiers in TCP, other transport protocols, and some applications, if one does not wish to rewrite all the transport protocol and application code, then DNS is ruled out as infeasible because DNS names have variable lengths.",
+      "zh-CHS": "在主机标识符的开发上投入了大量精力。主机标识符的可能候选项包括主机标识协议（HIP）[RFC4423]中的DNS名称和主机标识标签（HIT）。但是，由于当前协议栈在TCP、其他传输协议和某些应用程序中使用IP作为标识符，如果不希望重写所有传输协议和应用程序代码，则DNS将被排除为不可行，因为DNS名称具有可变长度。"
+    },
+    {
+      "indent": 3,
+      "text": "For HIP, although publickey-based HIT has the same length as an IPv6 address, we still lack a secure way to retrieve the public keys. Under this condition, using HIT would not bring us much benefit.",
+      "zh-CHS": "对于HIP，尽管基于公钥的HIT与IPv6地址具有相同的长度，但我们仍然缺乏检索公钥的安全方法。在这种情况下，使用HIT不会给我们带来多少好处。"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM chooses to use IPv6 ULA as the host identifier so that all the existing IPv6 code can be used directly. Since the identifier does not need to stay constant over machine shutdown or crashes, each host creates an IPv6 ULA at boot time. Furthermore, since a host does not leak this ULA to the network, it would not cause any problem to the routing system.",
+      "zh-CHS": "BTMM选择使用IPv6 ULA作为主机标识符，以便可以直接使用所有现有IPv6代码。由于标识符不需要在机器关闭或崩溃时保持不变，因此每个主机在引导时都会创建一个IPv6 ULA。此外，由于主机不会将此ULA泄漏到网络，因此不会对路由系统造成任何问题。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. IPv6 ULA Configuration",
+      "section_title": true,
+      "zh-CHS": "6.3. IPv6 ULA配置"
+    },
+    {
+      "indent": 3,
+      "text": "In BTMM, IPv6 ULA is advertised to be used in the autotunnel service of the host. Thus, the IPv6 address needs to be configured before BTMM starts its service.",
+      "zh-CHS": "在BTMM中，IPv6 ULA被公布用于主机的自动隧道服务。因此，需要在BTMM启动其服务之前配置IPv6地址。"
+    },
+    {
+      "indent": 3,
+      "text": "When the machine boots up, the IPv6 address for autotunnel service is initialized as zeros, and the autotunnel interface is marked as inactive. During the process when BTMM updates the interfaces list",
+      "zh-CHS": "机器启动时，自动隧道服务的IPv6地址初始化为零，自动隧道接口标记为非活动。在BTMM更新接口列表的过程中"
+    },
+    {
+      "indent": 3,
+      "text": "(which is performed every time the network changes), BTMM would randomly generate an IPv6 ULA according to [RFC4193] if the IPv6 address is found uninitialized. The first octet of the ULA is set to be \"0xFD\", and the following 7 octets are randomly selected from 0~255. Finally, the EUI-64 identifier fills up the remaining 8 octets. Since there are 56 random bits plus a theoretically unique EUI-64 identifier, it is unlikely for an IPv6 ULA collision between any two hosts of the same subscriber to occur.",
+      "zh-CHS": "（每次网络改变时都会执行此操作），如果发现IPv6地址未初始化，BTMM将根据[RFC4193]随机生成IPv6 ULA。ULA的第一个八位字节设置为“0xFD”，以下7个八位字节从0~255中随机选择。最后，EUI-64标识符填充剩余的8个八位字节。由于有56个随机位加上理论上唯一的EUI-64标识符，因此不太可能在同一订阅服务器的任何两台主机之间发生IPv6 ULA冲突。"
+    },
+    {
+      "indent": 3,
+      "text": "This locally generated ULA remains unchanged when the machine is on, despite its location changes. Hence, the user can fully enjoy the benefits brought by topology-independent host identifiers. After the machine is turned off, this particular ULA is no longer kept.",
+      "zh-CHS": "本地生成的ULA在机器打开时保持不变，尽管其位置发生变化。因此，用户可以充分享受拓扑无关主机标识符带来的好处。机器关闭后，不再保留此特定的ULA。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Securing Communication",
+      "section_title": true,
+      "zh-CHS": "7. 确保通信安全"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM users often have to fetch their personal data via a network they don't trust (or they do not know whether or not it's trustworthy). Hence, it is important for BTMM to have an effective means to secure the communications.",
+      "zh-CHS": "BTMM用户通常必须通过他们不信任的网络获取他们的个人数据（或者他们不知道这些数据是否可信）。因此，重要的是BTMM有一个有效的手段来确保通信的安全。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Authentication for Connecting to Remote Host",
+      "section_title": true,
+      "zh-CHS": "7.1. 用于连接到远程主机的身份验证"
+    },
+    {
+      "indent": 3,
+      "text": "Kerberos is a \"single sign on\" technology and has been supported in Apple's products since MAC OS X 10.5. Each Mac OS X client maintains a local Key Distribution Center (KDC) for the use of Bonjour and peer-to-peer security.",
+      "zh-CHS": "Kerberos是一种“单点登录”技术，自MAC OS X 10.5以来，它一直在苹果的产品中得到支持。每个Mac OS X客户端都维护一个本地密钥分发中心（KDC），以便使用Bonjour和对等安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "When the user first signs in to MobileMe on a host, it automatically receives a digital certificate and private key for \"Back to My Mac Encryption Certificate\" from KDC. When the user connects to another system using BTMM, authentication is performed using the Public Key Cryptography for Initial Authentication in Kerberos (PKINIT) protocol [RFC4556] with that certificate. After that, the user is granted a \"ticket\" that permits it to continue to use the services on the remote host without re-authenticating until the ticket expires (a ticket usually has a 10-hour lifetime).",
+      "zh-CHS": "当用户第一次在主机上登录MobileMe时，它会自动从KDC接收“返回我的Mac加密证书”的数字证书和私钥。当用户使用BTMM连接到另一个系统时，将使用Kerberos（PKINIT）协议[RFC4556]中用于初始身份验证的公钥密码对该证书执行身份验证。之后，用户被授予一张“票证”，允许其继续使用远程主机上的服务，而无需重新验证，直到票证过期（票证通常有10小时的生存期）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Authentication for DNS Exchanges",
+      "section_title": true,
+      "zh-CHS": "7.2. DNS交换的身份验证"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM uses Transaction SIGnature (TSIG) to authenticate the user when dynamic DNS update is performed [RFC2845]. Also, to protect the subscriber's privacy, LLQ is required to contain TSIG. This authentication mechanism is based on the shared secret key, which in BTMM's case is derived from the subscriber's MobileMe account password.",
+      "zh-CHS": "在执行动态DNS更新时，BTMM使用事务签名（TSIG）对用户进行身份验证[RFC2845]。此外，为了保护用户的隐私，LLQ必须包含TSIG。此身份验证机制基于共享密钥，在BTMM的情况下，共享密钥来自订户的MobileMe帐户密码。"
+    },
+    {
+      "indent": 3,
+      "text": "Every time a DNS request/response is going to be issued, a TSIG RR is dynamically computed with the HMAC-MD5 [RFC2104] message digest algorithm (and the TSIG RR will be discarded once its has been used). Inside the TSIG RR, the name of the shared secret key in the domain name syntax is included, so the receiver knows which key to use (this is especially useful if the receiver is the DNS server). This TSIG RR is appended to the additional data section before the message is sent out. The receiver of the message verifies the TSIG RR and proceeds only if the TSIG is valid.",
+      "zh-CHS": "每次发出DNS请求/响应时，都会使用HMAC-MD5[RFC2104]消息摘要算法动态计算TSIG RR（一旦使用了TSIG RR，TSIG RR将被丢弃）。在TSIG RR中，域名语法中包含共享密钥的名称，因此接收方知道要使用哪个密钥（如果接收方是DNS服务器，这尤其有用）。在发送消息之前，此TSIG RR会附加到附加数据部分。消息接收器验证TSIG RR，并仅在TSIG有效时继续。"
+    },
+    {
+      "indent": 3,
+      "text": "Besides, the DNS messages are also protected by TLS [RFC5246] to prevent eavesdropping.",
+      "zh-CHS": "此外，DNS消息还受到TLS[RFC5246]的保护，以防止窃听。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. IPsec for Secure End-to-End Data Communication",
+      "section_title": true,
+      "zh-CHS": "7.3. 用于安全端到端数据通信的IPsec"
+    },
+    {
+      "indent": 0,
+      "text": "7.3.1. Internet Key Exchange",
+      "section_title": true,
+      "zh-CHS": "7.3.1. 因特网密钥交换"
+    },
+    {
+      "indent": 3,
+      "text": "Before the Security Association can be established between two end hosts, the Internet Key Exchange (IKE) [RFC5996] process needs to be accomplished.",
+      "zh-CHS": "在两个终端主机之间建立安全关联之前，需要完成Internet密钥交换（IKE）[RFC5996]过程。"
+    },
+    {
+      "indent": 3,
+      "text": "BTMM calls Racoon [Racoon], the IKE daemon, to do the key exchange, after which the key is put into the Security Association Database (SAD). The exchange mode is set to be aggressive so that it will not take too long, and it uses a pre-shared key to do the user authentication. The subscriber's Fully Qualified Domain Name (FQDN) is used as both identifier and pre-shared key during the IKE process.",
+      "zh-CHS": "BTMM调用IKE守护进程Racoon[Racoon]进行密钥交换，然后将密钥放入安全关联数据库（SAD）。exchange模式被设置为主动模式，因此不会花费太长时间，并且它使用预共享密钥进行用户身份验证。在IKE过程中，订阅服务器的完全限定域名（FQDN）用作标识符和预共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3.2. Discussion: End-to-End Encryption",
+      "section_title": true,
+      "zh-CHS": "7.3.2. 讨论：端到端加密"
+    },
+    {
+      "indent": 3,
+      "text": "When it comes time to set up Security Associations between two BTMM clients, we have two choices: put the other host's IPv4 address in the destination address field or put it in the IPv6 address of the remote end.",
+      "zh-CHS": "当需要在两个BTMM客户端之间建立安全关联时，我们有两个选择：将另一个主机的IPv4地址放在目标地址字段中，或将其放在远程端的IPv6地址中。"
+    },
+    {
+      "indent": 3,
+      "text": "If the IPv4 address (which is the public address of a NAT) is chosen to associate with a Security Association, that means we set up a Security Association between one end host and the NAT of the other host. The IPv6 packet would then be wrapped by the UDP header and then get encrypted by ESP. After the encrypted packet arrives at the NAT, the NAT device decrypts the packet and sends it to the destination according to the port mapping. Although this approach seems viable, there are 3 drawbacks:",
+      "zh-CHS": "如果选择IPv4地址（NAT的公共地址）与安全关联关联，这意味着我们在一个终端主机和另一个主机的NAT之间建立了安全关联。然后，IPv6数据包将被UDP报头包装，然后由ESP进行加密。加密数据包到达NAT后，NAT设备解密数据包并根据端口映射将其发送到目的地。尽管这种方法似乎可行，但有3个缺点："
+    },
+    {
+      "indent": 3,
+      "text": "o First, the encryption is not really end-to-end, i.e., only the path between one end host and the NAT device of the other end is protected. The rest of the path, from the NAT device to the other BTMM client, is unprotected and vulnerable to attacks. If the NAT",
+      "zh-CHS": "o 首先，加密不是真正的端到端，即只有一端主机和另一端NAT设备之间的路径受到保护。从NAT设备到其他BTMM客户端的其余路径未受保护，容易受到攻击。如果NAT"
+    },
+    {
+      "indent": 6,
+      "text": "device is not trustworthy, the communication is at high risk. Even if the NAT device is trustworthy (e.g., the user owns the NAT), it is not uncommon for the NAT to communicate with the host through a broadcast channel, which provides opportunities for an eavesdropper to sniff the sensitive data (consider the unlocked \"free\" WiFi access near your neighborhood).",
+      "zh-CHS": "设备不可信，通信存在高风险。即使NAT设备是可信的（例如，用户拥有NAT），NAT通过广播频道与主机通信也并不少见，这为窃听者提供了嗅探敏感数据的机会（考虑您附近未锁定的“免费”WiFi接入）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Second, quite a few BTMM clients are on the move very often. Every time they change their attachment points to the Internet, they will get different IPv4 addresses. As a result, the previously established Security Associations become obsoleted, and the two end hosts need to re-establish them again. This is a waste of time and resources.",
+      "zh-CHS": "o 其次，相当多的BTMM客户经常在移动。每次他们更改到Internet的连接点时，他们将获得不同的IPv4地址。因此，以前建立的安全关联将被淘汰，两个终端主机需要重新建立它们。这是浪费时间和资源。"
+    },
+    {
+      "indent": 3,
+      "text": "o Third, this approach assumes that the NAT device is able and willing to do the IPsec ESP for the host behind it, which is not always the case.",
+      "zh-CHS": "o 第三，这种方法假设NAT设备能够并且愿意为其背后的主机执行IPsec ESP，但情况并非总是如此。"
+    },
+    {
+      "indent": 3,
+      "text": "Consequently, BTMM decides to put the IPv6 ULA into the destination field of IPsec Security Associations. In this way, the end-to-end path between the hosts is fully protected, and the Security Associations survive the network changes since the IPv6 ULA remains the same even if the BTMM client changes its location. Furthermore, the encryption is transparent to the NAT device, which means the NAT device is not required to interfere with the IPsec protection.",
+      "zh-CHS": "因此，BTMM决定将IPv6 ULA放入IPsec安全关联的目标字段中。通过这种方式，主机之间的端到端路径得到完全保护，并且安全关联在网络更改后仍然有效，因为即使BTMM客户端更改其位置，IPv6 ULA仍保持不变。此外，加密对NAT设备是透明的，这意味着NAT设备不需要干扰IPsec保护。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The BTMM implementation utilizes existing security protocols to address the end-to-end security considerations. It uses Kerberos [RFC4120] for end-to-end authentication and uses IPsec [RFC4301] to secure data communications between two end hosts.",
+      "zh-CHS": "BTMM实现利用现有的安全协议来解决端到端的安全问题。它使用Kerberos[RFC4120]进行端到端身份验证，并使用IPsec[RFC4301]保护两个终端主机之间的数据通信。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative Reference",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2104] Krawczyk, H., Bellare, M., and R. Canetti, \"HMAC: Keyed-Hashing for Message Authentication\", RFC 2104, February 1997.",
+      "zh-CHS": "[RFC2104]Krawczyk，H.，Bellare，M.，和R.Canetti，“HMAC：用于消息认证的键控哈希”，RFC 2104，1997年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2136] Vixie, P., Thomson, S., Rekhter, Y., and J. Bound, \"Dynamic Updates in the Domain Name System (DNS UPDATE)\", RFC 2136, April 1997.",
+      "zh-CHS": "[RFC2136]Vixie，P.，Thomson，S.，Rekhter，Y.，和J.Bound，“域名系统中的动态更新（DNS更新）”，RFC 21361997年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2782] Gulbrandsen, A., Vixie, P., and L. Esibov, \"A DNS RR for specifying the location of services (DNS SRV)\", RFC 2782, February 2000.",
+      "zh-CHS": "[RFC2782]Gulbrandsen，A.，Vixie，P.和L.Esibov，“用于指定服务位置（DNS SRV）的DNS RR”，RFC 2782，2000年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2845] Vixie, P., Gudmundsson, O., Eastlake, D., and B. Wellington, \"Secret Key Transaction Authentication for DNS (TSIG)\", RFC 2845, May 2000.",
+      "zh-CHS": "[RFC2845]Vixie，P.，Gudmundsson，O.，Eastlake，D.，和B.Wellington，“DNS秘密密钥交易认证（TSIG）”，RFC 28452000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4120] Neuman, C., Yu, T., Hartman, S., and K. Raeburn, \"The Kerberos Network Authentication Service (V5)\", RFC 4120, July 2005.",
+      "zh-CHS": "[RFC4120]Neuman，C.，Yu，T.，Hartman，S.，和K.Raeburn，“Kerberos网络身份验证服务（V5）”，RFC41202005年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4193] Hinden, R. and B. Haberman, \"Unique Local IPv6 Unicast Addresses\", RFC 4193, October 2005.",
+      "zh-CHS": "[RFC4193]Hinden，R.和B.Haberman，“唯一本地IPv6单播地址”，RFC 41932005年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4301] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[RFC4301]Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4303] Kent, S., \"IP Encapsulating Security Payload (ESP)\", RFC 4303, December 2005.",
+      "zh-CHS": "[RFC4303]Kent，S.，“IP封装安全有效载荷（ESP）”，RFC 4303，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4556] Zhu, L. and B. Tung, \"Public Key Cryptography for Initial Authentication in Kerberos (PKINIT)\", RFC 4556, June 2006.",
+      "zh-CHS": "[RFC4556]Zhu，L.和B.Tung，“Kerberos中初始身份验证的公钥加密（PKINIT）”，RFC 45562006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5246] Dierks, T. and E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.2\", RFC 5246, August 2008.",
+      "zh-CHS": "[RFC5246]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.2”，RFC 5246，2008年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5996] Kaufman, C., Hoffman, P., Nir, Y., and P. Eronen, \"Internet Key Exchange Protocol Version 2 (IKEv2)\", RFC 5996, September 2010.",
+      "zh-CHS": "[RFC5996]Kaufman，C.，Hoffman，P.，Nir，Y.，和P.Eronen，“互联网密钥交换协议版本2（IKEv2）”，RFC 59962010年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[DDUL] Sekar, K., \"Dynamic DNS Update Leases\", Work in Progress, August 2006.",
+      "zh-CHS": "[DDUL]Sekar，K.，“动态DNS更新租赁”，正在进行的工作，2006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DNS-LLQ] Sekar, K., \"DNS Long-Lived Queries\", Work in Progess, August 2006.",
+      "zh-CHS": "[DNS-LLQ]Sekar，K.，“DNS长寿命查询”，进展工作，2006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DNS-SD] Cheshire, S. and M. Krochmal, \"DNS-Based Service Discovery\", Work in Progress, February 2011.",
+      "zh-CHS": "[DNS-SD]Cheshire，S.和M.Krocmal，“基于DNS的服务发现”，正在进行的工作，2011年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[EUI64] \"Guidelines for 64-bit Global Identifier (EUI-64)\", <http://standards.ieee.org/regauth/oui/tutorials/ EUI64.html>.",
+      "zh-CHS": "[EUI64]“64位全局标识符（EUI-64）指南”<http://standards.ieee.org/regauth/oui/tutorials/ EUI64.html>。"
+    },
+    {
+      "indent": 3,
+      "text": "[IGD] \"Internet Gateway Device (IGD) Standard Device Control Protocol\", <http://www.upnp.org>.",
+      "zh-CHS": "[IGD]“互联网网关设备（IGD）标准设备控制协议”<http://www.upnp.org>."
+    },
+    {
+      "indent": 3,
+      "text": "[NAT-PMP] Cheshire, S., \"NAT Port Mapping Protocol (NAT-PMP)\", Work in Progress, April 2008.",
+      "zh-CHS": "[NAT-PMP]柴郡，S.，“NAT端口映射协议（NAT-PMP）”，正在进行的工作，2008年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1918] Rekhter, Y., Moskowitz, R., Karrenberg, D., Groot, G., and E. Lear, \"Address Allocation for Private Internets\", BCP 5, RFC 1918, February 1996.",
+      "zh-CHS": "[RFC1918]Rekhter，Y.，Moskowitz，R.，Karrenberg，D.，Groot，G.，和E.Lear，“私人互联网地址分配”，BCP 5，RFC 1918，1996年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4423] Moskowitz, R. and P. Nikander, \"Host Identity Protocol (HIP) Architecture\", RFC 4423, May 2006.",
+      "zh-CHS": "[RFC4423]Moskowitz，R.和P.Nikander，“主机身份协议（HIP）体系结构”，RFC 4423，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Racoon] \"Racoon\", <http://ipsec-tools.sourceforge.net>.",
+      "zh-CHS": "[浣熊]“浣熊”<http://ipsec-tools.sourceforge.net>."
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Stuart Cheshire Apple Inc. 1 Infinite Loop Cupertino, CA 95014 USA Phone: +1 408 974 3207 EMail: cheshire@apple.com",
+      "zh-CHS": "Stuart Cheshire Apple Inc.1美国加利福尼亚州库珀蒂诺无限环路95014电话：+1 408 974 3207电子邮件：cheshire@apple.com"
+    },
+    {
+      "indent": 3,
+      "text": "Zhenkai Zhu UCLA 4805 Boelter Hall, UCLA Los Angeles, CA 90095 USA Phone: +1 310 993 7128 EMail: zhenkai@cs.ucla.edu",
+      "zh-CHS": "Zhenkai Zhu UCLA 4805 Boelter Hall，加利福尼亚州洛杉矶UCLA 90095美国电话：+1 310 993 7128电子邮件：zhenkai@cs.ucla.edu"
+    },
+    {
+      "indent": 3,
+      "text": "Ryuji Wakikawa Toyota ITC 465 Bernardo Avenue Mountain View, CA 94043 USA EMail: ryuji.wakikawa@gmail.com",
+      "zh-CHS": "美国加利福尼亚州伯纳多大道山景城465号丰田国际贸易中心，邮编94043，邮箱：Ryuji。wakikawa@gmail.com"
+    },
+    {
+      "indent": 3,
+      "text": "Lixia Zhang UCLA 3713 Boelter Hall, UCLA Los Angeles, CA 90095 USA Phone: +1 310 825 2695 EMail: lixia@cs.ucla.edu",
+      "zh-CHS": "Lixia Zhang加州大学洛杉矶分校Boelter Hall 3713美国加州大学洛杉矶分校90095电话：+1 310 825 2695电子邮件：lixia@cs.ucla.edu"
+    }
+  ]
+}

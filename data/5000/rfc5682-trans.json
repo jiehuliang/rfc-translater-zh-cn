@@ -1,0 +1,713 @@
+{
+  "title": {
+    "text": "RFC 5682: Forward RTO-Recovery (F-RTO): An Algorithm for Detecting Spurious Retransmission Timeouts with TCP",
+    "zh-CHS": "RFC 5682"
+  },
+  "number": 5682,
+  "created_at": "2021-11-08 12:08:55.455316+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       P. Sarolahti\nRequest for Comments: 5682                         Nokia Research Center\nUpdates: 4138                                                    M. Kojo\nCategory: Standards Track                         University of Helsinki\n                                                             K. Yamamoto\n                                                                 M. Hata\n                                                              NTT Docomo\n                                                          September 2009",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Forward RTO-Recovery (F-RTO): An Algorithm for Detecting Spurious Retransmission Timeouts with TCP",
+      "zh-CHS": "前向RTO恢复（F-RTO）：一种利用TCP检测虚假重传超时的算法"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The purpose of this document is to move the F-RTO (Forward RTO-Recovery) functionality for TCP in RFC 4138 from Experimental to Standards Track status. The F-RTO support for Stream Control Transmission Protocol (SCTP) in RFC 4138 remains with Experimental status. See Appendix B for the differences between this document and RFC 4138.",
+      "zh-CHS": "本文档的目的是将RFC 4138中TCP的F-RTO（前向RTO恢复）功能从实验状态转移到标准跟踪状态。RFC4138中对流控制传输协议（SCTP）的F-RTO支持仍处于实验状态。本文件与RFC 4138之间的差异见附录B。"
+    },
+    {
+      "indent": 3,
+      "text": "Spurious retransmission timeouts cause suboptimal TCP performance because they often result in unnecessary retransmission of the last window of data. This document describes the F-RTO detection algorithm for detecting spurious TCP retransmission timeouts. F-RTO is a TCP sender-only algorithm that does not require any TCP options to operate. After retransmitting the first unacknowledged segment triggered by a timeout, the F-RTO algorithm of the TCP sender monitors the incoming acknowledgments to determine whether the timeout was spurious. It then decides whether to send new segments or retransmit unacknowledged segments. The algorithm effectively helps to avoid additional unnecessary retransmissions and thereby improves TCP performance in the case of a spurious timeout.",
+      "zh-CHS": "虚假的重新传输超时会导致次优的TCP性能，因为它们通常会导致不必要地重新传输最后一个数据窗口。本文档描述了用于检测虚假TCP重传超时的F-RTO检测算法。F-RTO是一种仅限TCP发送方的算法，不需要任何TCP选项即可运行。在重新传输由超时触发的第一个未确认的段后，TCP发送方的F-RTO算法监视传入的确认，以确定超时是否是虚假的。然后决定是发送新段还是重新传输未确认的段。该算法有效地避免了额外的不必要的重传，从而提高了伪超时情况下的TCP性能。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright and License Notice",
+      "zh-CHS": "版权及许可证公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2009 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2009 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括《信托法律条款》第4.e节中所述的简化BSD许可文本，并且提供BSD许可中所述的代码组件时不提供任何担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Conventions and Terminology ................................5\n2. Basic F-RTO Algorithm ...........................................5\n   2.1. The Algorithm ..............................................5\n   2.2. Discussion .................................................7\n3. SACK-Enhanced Version of the F-RTO Algorithm ....................9\n   3.1. The Algorithm ..............................................9\n   3.2. Discussion ................................................11\n4. Taking Actions after Detecting Spurious RTO ....................11\n5. Evaluation of RFC 4138 .........................................12\n6. Security Considerations ........................................13\n7. Acknowledgments ................................................14\nAppendix A. Discussion of Window-Limited Cases ....................15\nAppendix B. Changes since RFC 4138 ................................16\nReferences ........................................................16\n   Normative References ...........................................16\n   Informative References .........................................17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Transmission Control Protocol (TCP) [Pos81] has two methods for triggering retransmissions. First, the TCP sender relies on incoming duplicate acknowledgments (ACKs), which indicate that the receiver is missing some of the data. After a required number of successive duplicate ACKs have arrived at the sender, it retransmits the first unacknowledged segment [APB09] and continues with a loss recovery algorithm such as NewReno [FHG04] or SACK-based (Selective Acknowledgment) loss recovery [BAFW03]. Second, the TCP sender maintains a retransmission timer that triggers retransmission of segments, if they have not been acknowledged before the retransmission timeout (RTO) occurs. When the retransmission timeout occurs, the TCP sender enters the RTO recovery where the congestion window is initialized to one segment and unacknowledged segments are retransmitted using the slow-start algorithm. The retransmission timer is adjusted dynamically, based on the measured round-trip times [PA00].",
+      "zh-CHS": "传输控制协议（TCP）[Pos81]有两种触发重传的方法。首先，TCP发送方依赖于传入的重复确认（ACKs），这表明接收方缺少一些数据。在所需数量的连续重复确认到达发送方后，它将重新传输第一个未确认的段[APB09]，并继续使用丢失恢复算法，如NewReno[FHG04]或基于SACK（选择性确认）的丢失恢复[BAFW03]。其次，TCP发送方维护一个重传计时器，如果在重传超时（RTO）发生之前未确认段，则该计时器将触发段的重传。当发生重新传输超时时，TCP发送方进入RTO恢复，其中拥塞窗口初始化为一个段，未确认的段使用慢启动算法重新传输。根据测量的往返时间[PA00]，动态调整重传计时器。"
+    },
+    {
+      "indent": 3,
+      "text": "It has been pointed out that the retransmission timer can expire spuriously and cause unnecessary retransmissions when no segments have been lost [LK00, GL02, LM03]. After a spurious retransmission timeout, the late acknowledgments of the original segments arrive at the sender, usually triggering unnecessary retransmissions of a whole window of segments during the RTO recovery. Furthermore, after a spurious retransmission timeout, a conventional TCP sender increases the congestion window on each late acknowledgment in slow start. This injects a large number of data segments into the network within one round-trip time, thus violating the packet conservation principle [Jac88].",
+      "zh-CHS": "已经指出，当没有丢失任何段时，重传定时器可能会错误地过期并导致不必要的重传[LK00，GL02，LM03]。在伪重传超时之后，原始段的延迟确认到达发送方，通常在RTO恢复期间触发整个段窗口的不必要重传。此外，在伪重传超时之后，传统TCP发送方在慢启动中增加每个延迟确认的拥塞窗口。这会在一个往返时间内将大量数据段注入网络，从而违反数据包保护原则[Jac88]。"
+    },
+    {
+      "indent": 3,
+      "text": "There are a number of potential reasons for spurious retransmission timeouts. First, some mobile networking technologies involve sudden delay spikes on transmission because of actions taken during a hand-off. Second, a hand-off may take place from a low latency path to a high latency path, suddenly increasing the round-trip time beyond the current RTO value. Third, on a low-bandwidth link the arrival of competing traffic (possibly with higher priority), or some other change in available bandwidth, can cause a sudden increase of the round-trip time. This may trigger a spurious retransmission timeout. A persistently reliable link layer can also cause a sudden delay when a data frame and several retransmissions of it are lost for some reason. This document does not distinguish between the different causes of such a delay spike. Rather, it discusses the spurious retransmission timeouts caused by a delay spike in general.",
+      "zh-CHS": "虚假的重新传输超时有许多潜在原因。首先，一些移动网络技术由于在切换过程中采取的行动而导致传输突然出现延迟峰值。其次，从低延迟路径到高延迟路径的切换可能会发生，从而使往返时间突然增加到当前RTO值之外。第三，在低带宽链路上，竞争流量的到来（可能具有更高的优先级）或可用带宽的某些其他变化可能会导致往返时间突然增加。这可能会触发虚假的重新传输超时。当一个数据帧及其多次重传因某种原因丢失时，持续可靠的链路层也可能导致突然延迟。本文件不区分此类延迟峰值的不同原因。相反，它讨论了由延迟尖峰引起的伪重传超时。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the F-RTO detection algorithm for TCP. It is based on the detection mechanism of the \"Forward RTO-Recovery\" (F-RTO) algorithm [SKR03] that is used for detecting spurious retransmission timeouts and thus avoids unnecessary retransmissions following the retransmission timeout. When the timeout is not spurious, the F-RTO algorithm reverts back to the conventional RTO recovery algorithm, and therefore has similar behavior and performance. In contrast to alternative algorithms proposed for detecting unnecessary retransmissions (Eifel [LK00, LM03] and DSACK-based (Duplicate SACK) algorithms [BA04]), F-RTO does not require any TCP options for its operation, and it can be implemented by modifying only the TCP sender. The Eifel algorithm uses TCP timestamps [BBJ92] for detecting a spurious timeout upon arrival of the first acknowledgment after the retransmission. The DSACK-based algorithms require that the TCP Selective Acknowledgment Option [MMFR96], with the DSACK extension [FMMP00], is in use. With DSACK, the TCP receiver can report if it has received a duplicate segment, enabling the sender to detect afterwards whether it has retransmitted segments unnecessarily. The F-RTO algorithm only attempts to detect and avoid unnecessary retransmissions after an RTO. Eifel and DSACK can also be used for detecting unnecessary retransmissions caused by other events, such as packet reordering.",
+      "zh-CHS": "本文档描述了TCP的F-RTO检测算法。它基于“前向RTO恢复”（F-RTO）算法[SKR03]的检测机制，该算法用于检测伪重传超时，从而避免重传超时后不必要的重传。当超时不是伪超时时，F-RTO算法恢复为传统RTO恢复算法，因此具有类似的行为和性能。与用于检测不必要重传的替代算法（Eifel[LK00，LM03]和基于DSACK（重复SACK）的算法[BA04]）相比，F-RTO的操作不需要任何TCP选项，并且可以通过修改TCP发送方来实现。Eifel算法使用TCP时间戳[BBJ92]在重传后到达第一个确认时检测虚假超时。基于DSACK的算法要求使用TCP选择性确认选项[MMFR96]和DSACK扩展[FMMP00]。通过DSACK，TCP接收方可以报告是否收到了重复的段，从而使发送方能够在事后检测是否不必要地重新传输了段。F-RTO算法仅尝试在RTO后检测并避免不必要的重传。Eifel和DSACK还可用于检测由其他事件（如数据包重新排序）引起的不必要的重新传输。"
+    },
+    {
+      "indent": 3,
+      "text": "When the retransmission timer expires, the F-RTO sender retransmits the first unacknowledged segment as usual [APB09]. Deviating from the normal operation after a timeout, it then tries to transmit new, previously unsent data for the first acknowledgment that arrives after the timeout, given that the acknowledgment advances the window. If the second acknowledgment that arrives after the timeout advances the window (i.e., acknowledges data that was not retransmitted), the F-RTO sender declares the timeout spurious and exits the RTO recovery. However, if either of these two acknowledgments is a duplicate ACK, there will not be sufficient evidence of a spurious timeout. Therefore, the F-RTO sender retransmits the unacknowledged segments in slow start similar to the traditional algorithm. With a SACK-enhanced version of the F-RTO algorithm, spurious timeouts may be detected even if duplicate ACKs arrive after an RTO retransmission.",
+      "zh-CHS": "当重传计时器到期时，F-RTO发送方照常重传第一个未确认的段[APB09]。与超时后的正常操作不同，它会尝试为超时后到达的第一个确认发送新的、以前未发送的数据，前提是确认使窗口提前。如果超时后到达的第二次确认使窗口提前（即确认未重新传输的数据），则F-RTO发送方声明超时为伪超时，并退出RTO恢复。但是，如果这两个确认中的任何一个都是重复的确认，则没有足够的证据表明存在虚假超时。因此，与传统算法类似，F-RTO发送方以慢启动方式重新传输未确认的段。使用SACK增强版本的F-RTO算法，即使RTO重新传输后出现重复的ACK，也可能检测到虚假超时。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies the F-RTO algorithm for TCP only, replacing the F-RTO functionality with TCP in RFC 4138 [SK05] and moving it from Experimental to Standards Track status. The algorithm can also be applied to the Stream Control Transmission Protocol (SCTP) [Ste07] that has acknowledgment and packet retransmission concepts similar to TCP. The considerations on applying F-RTO to SCTP are discussed in RFC 4138, but the F-RTO support for SCTP remains with Experimental status.",
+      "zh-CHS": "本文件规定了仅适用于TCP的F-RTO算法，用RFC 4138[SK05]中的TCP替换了F-RTO功能，并将其从试验状态转移到标准跟踪状态。该算法还可应用于具有类似于TCP的确认和分组重传概念的流控制传输协议（SCTP）[Ste07]。RFC4138中讨论了将F-RTO应用于SCTP的注意事项，但对SCTP的F-RTO支持仍处于实验状态。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is organized as follows. Section 2 describes the basic F-RTO algorithm, and the SACK-enhanced F-RTO algorithm is given in Section 3. Section 4 discusses the possible actions to be taken after detecting a spurious RTO. Section 5 summarizes the experience with F-RTO implementations and the experimental results, and Section 6 discusses the security considerations.",
+      "zh-CHS": "本文件的组织结构如下。第2节描述了基本的F-RTO算法，第3节给出了SACK增强的F-RTO算法。第4节讨论了检测到虚假RTO后可能采取的措施。第5节总结了F-RTO实现的经验和实验结果，第6节讨论了安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Conventions and Terminology",
+      "section_title": true,
+      "zh-CHS": "1.1. 公约和术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14, RFC 2119 [RFC2119] and indicate requirement levels for protocols.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不得”、“应”、“不应”、“建议”、“可”和“可选”应按照BCP 14、RFC 2119[RFC2119]中的描述进行解释，并指明协议的要求级别。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Basic F-RTO Algorithm",
+      "section_title": true,
+      "zh-CHS": "2. 基本F-RTO算法"
+    },
+    {
+      "indent": 3,
+      "text": "A timeout is considered spurious if it would have been avoided had the sender waited longer for an acknowledgment to arrive [LM03]. F-RTO affects the TCP sender behavior only after a retransmission timeout. Otherwise, the TCP behavior remains the same. When the retransmission timer expires, the F-RTO algorithm monitors incoming acknowledgments, and if the TCP sender gets an acknowledgment for a segment that was not retransmitted due to the timeout, the F-RTO algorithm declares a timeout spurious. The actions taken in response to a spurious timeout are not specified in this document, but we discuss some alternatives in Section 4. This section introduces the algorithm and then discusses the different steps of the algorithm in more detail.",
+      "zh-CHS": "如果发送方等待确认到达的时间更长，则可以避免超时，则认为超时是虚假的[LM03]。F-RTO仅在重传超时后影响TCP发送方行为。否则，TCP行为将保持不变。当重传计时器过期时，F-RTO算法将监视传入的确认，如果TCP发送方收到由于超时而未重传的段的确认，F-RTO算法将宣布一个假超时。本文档中未指定响应虚假超时所采取的操作，但我们将在第4节中讨论一些替代方法。本节介绍了该算法，然后详细讨论了该算法的不同步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "Following the practice used with the Eifel Detection algorithm [LM03], we use the \"SpuriousRecovery\" variable to indicate whether the retransmission is declared spurious by the sender. This variable can be used as an input for a corresponding response algorithm. With F-RTO, the value of SpuriousRecovery can be either SPUR_TO (indicating a spurious retransmission timeout) or FALSE (indicating that the timeout is not declared spurious and the TCP sender should follow the conventional RTO recovery algorithm). In addition, we use the \"recover\" variable specified in the NewReno algorithm [FHG04].",
+      "zh-CHS": "按照与Eifel检测算法[LM03]一起使用的实践，我们使用“SpusiousRecovery”变量来指示发送方是否宣布重传为虚假。该变量可用作相应响应算法的输入。对于F-RTO，伪恢复的值可以是SPUR_TO（表示伪重传超时）或FALSE（表示超时未声明为伪超时，TCP发送方应遵循传统的RTO恢复算法）。此外，我们使用NewReno算法[FHG04]中指定的“recover”变量。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. The Algorithm",
+      "section_title": true,
+      "zh-CHS": "2.1. 算法"
+    },
+    {
+      "indent": 3,
+      "text": "A TCP sender implementing the basic F-RTO algorithm MUST take the following steps after the retransmission timer expires. If the retransmission timer expires again during the execution of the F-RTO algorithm, the TCP sender MUST re-start the algorithm processing from step 1. If the sender implements some loss recovery algorithm other than Reno or NewReno [FHG04], the F-RTO algorithm SHOULD NOT be entered when earlier fast recovery is underway.",
+      "zh-CHS": "在重传计时器过期后，实现基本F-RTO算法的TCP发送方必须执行以下步骤。如果在执行F-RTO算法期间重传计时器再次过期，TCP发送方必须从步骤1重新开始算法处理。如果发送方实施了除Reno或NewReno[FHG04]以外的某些损失恢复算法，则在进行早期快速恢复时不应输入F-RTO算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The F-RTO algorithm takes different actions based on whether an incoming acknowledgment advances the cumulative acknowledgment point for a received in-order segment, or whether it is a duplicate acknowledgment to indicate an out-of-order segment. Duplicate acknowledgment is defined in [APB09]. The F-RTO algorithm does not specify actions for receiving a segment that neither acknowledges new data nor is a duplicate acknowledgment. The TCP sender SHOULD ignore such segments and wait for a segment that either acknowledges new data or is a duplicate acknowledgment.",
+      "zh-CHS": "F-RTO算法根据传入确认是否提前了接收到的顺序段的累积确认点，或者是否是重复确认以指示顺序错误段，采取不同的操作。重复确认在[APB09]中定义。F-RTO算法没有指定接收既不确认新数据也不是重复确认的段的操作。TCP发送方应忽略这些段，并等待确认新数据或重复确认的段。"
+    },
+    {
+      "indent": 3,
+      "text": "1) When the retransmission timer expires, retransmit the first unacknowledged segment and set SpuriousRecovery to FALSE. If the TCP sender is already in RTO recovery AND \"recover\" is larger than or equal to SND.UNA (the oldest unacknowledged sequence number [Pos81]), do not enter step 2 of this algorithm. Instead, store the highest sequence number transmitted so far in variable \"recover\" and continue with slow-start retransmissions following the conventional RTO recovery algorithm.",
+      "zh-CHS": "1) 当重新传输计时器过期时，重新传输第一个未确认的段，并将SpusiousRecovery设置为FALSE。如果TCP发送方已经处于RTO恢复中，并且“恢复”大于或等于SND.UNA（最早的未确认序列号[Pos81]），则不要进入此算法的步骤2。相反，将迄今为止传输的最高序列号存储在变量“recover”中，并按照传统RTO恢复算法继续慢启动重传。"
+    },
+    {
+      "indent": 3,
+      "text": "2) When the first acknowledgment after the RTO retransmission arrives at the TCP sender, store the highest sequence number transmitted so far in variable \"recover\". The TCP sender chooses one of the following actions, depending on whether the ACK advances the window or whether it is a duplicate ACK.",
+      "zh-CHS": "2) 当RTO重传后的第一个确认到达TCP发送方时，将迄今为止发送的最高序列号存储在变量“recover”中。TCP发送方选择以下操作之一，具体取决于ACK是否进入窗口或它是否是重复的ACK。"
+    },
+    {
+      "indent": 6,
+      "text": "a) If the acknowledgment is a duplicate ACK, OR the Acknowledgment field covers \"recover\" but not more than \"recover\", OR the acknowledgment does not acknowledge all of the data that was retransmitted in step 1, revert to the conventional RTO recovery and continue by retransmitting unacknowledged data in slow start. Do not enter step 3 of this algorithm. The SpuriousRecovery variable remains as FALSE.",
+      "zh-CHS": "a) 如果确认为重复确认，或确认字段覆盖“恢复”，但不超过“恢复”，或确认未确认步骤1中重新传输的所有数据，则恢复到传统RTO恢复，并通过在慢速启动中重新传输未确认的数据继续。不要进入此算法的步骤3。伪恢复变量仍为FALSE。"
+    },
+    {
+      "indent": 6,
+      "text": "b) Else, if the acknowledgment advances the window AND the Acknowledgment field does not cover \"recover\", transmit up to two new (previously unsent) segments and enter step 3 of this algorithm. If the TCP sender does not have enough unsent data, it can send only one segment. In addition, the TCP sender MAY override the Nagle algorithm [Nag84] and immediately send a segment if needed. Note that sending two segments in this step is allowed by TCP congestion control requirements [APB09]: an F-RTO TCP sender simply chooses different segments to transmit.",
+      "zh-CHS": "b) 否则，如果确认进入窗口，且确认字段不包含“恢复”，则最多发送两个新的（以前未发送的）段，并进入此算法的步骤3。如果TCP发送方没有足够的未发送数据，它只能发送一个段。此外，TCP发送方可以覆盖Nagle算法[Nag84]，并在需要时立即发送一个段。请注意，TCP拥塞控制要求[APB09]允许在此步骤中发送两个段：F-RTO TCP发送方只需选择不同的段进行传输。"
+    },
+    {
+      "indent": 9,
+      "text": "If the TCP sender does not have any new data to send, or the advertised window prohibits new transmissions, the recommended action is to skip step 3 of this algorithm and continue with slow-start retransmissions, following the conventional RTO",
+      "zh-CHS": "如果TCP发送方没有任何新数据要发送，或者播发的窗口禁止新的传输，建议的操作是跳过此算法的步骤3，并按照常规RTO继续慢速启动重新传输"
+    },
+    {
+      "indent": 9,
+      "text": "recovery algorithm. However, alternative ways of handling the window-limited cases that could result in better performance are discussed in Appendix A.",
+      "zh-CHS": "恢复算法。然而，附录A中讨论了处理窗口受限情况的其他方法，这些方法可能会带来更好的性能。"
+    },
+    {
+      "indent": 3,
+      "text": "3) When the second acknowledgment after the RTO retransmission arrives at the TCP sender, the TCP sender either declares the timeout spurious, or starts retransmitting the unacknowledged segments.",
+      "zh-CHS": "3) 当RTO重新传输后的第二次确认到达TCP发送方时，TCP发送方要么宣布超时为伪超时，要么开始重新传输未确认的段。"
+    },
+    {
+      "indent": 6,
+      "text": "a) If the acknowledgment is a duplicate ACK, set the congestion window to no more than 3 * MSS (where MSS indicates Maximum Segment Size), and continue with the slow-start algorithm retransmitting unacknowledged segments. The congestion window can be set to 3 * MSS, because two round-trip times have elapsed since the RTO, and a conventional TCP sender would have increased cwnd to 3 during the same time. Leave SpuriousRecovery set to FALSE.",
+      "zh-CHS": "a) 如果确认为重复确认，则将拥塞窗口设置为不超过3*MSS（其中MSS表示最大段大小），并继续使用慢速启动算法重新传输未确认的段。拥塞窗口可以设置为3*MSS，因为自RTO以来已经经过了两次往返时间，并且传统TCP发送方会在同一时间将cwnd增加到3。将伪恢复设置为FALSE。"
+    },
+    {
+      "indent": 6,
+      "text": "b) If the acknowledgment advances the window (i.e., if it acknowledges data that was not retransmitted after the timeout), declare the timeout spurious, set SpuriousRecovery to SPUR_TO, and set the value of the \"recover\" variable to SND.UNA (the oldest unacknowledged sequence number [Pos81]).",
+      "zh-CHS": "b) 如果确认使窗口提前（即，如果确认超时后未重新传输的数据），则声明超时为伪超时，将伪恢复设置为SPUR_to，并将“recover”变量的值设置为SND.UNA（最早的未确认序列号[Pos81]）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Discussion",
+      "section_title": true,
+      "zh-CHS": "2.2. 讨论"
+    },
+    {
+      "indent": 3,
+      "text": "The F-RTO sender takes cautious actions when it receives duplicate acknowledgments after a retransmission timeout. Because duplicate ACKs may indicate that segments have been lost, reliably detecting a spurious timeout is difficult due to the lack of additional information. Therefore, it is prudent to follow the conventional TCP recovery in those cases.",
+      "zh-CHS": "当F-RTO发送方在重传超时后收到重复确认时，会采取谨慎措施。由于重复的ACK可能表明段已丢失，因此由于缺少额外信息，很难可靠地检测虚假超时。因此，在这些情况下，遵循传统的TCP恢复是谨慎的。"
+    },
+    {
+      "indent": 3,
+      "text": "The condition in step 1 prevents the execution of the F-RTO algorithm in case a previous RTO recovery is underway when the retransmission timer expires, except in case the retransmission timer expires multiple times for the same segment. If the retransmission timer expires during an earlier RTO-based loss recovery, acknowledgments for retransmitted segments may falsely lead the TCP sender to declare the timeout spurious.",
+      "zh-CHS": "当重传计时器到期时，如果先前的RTO恢复正在进行，则步骤1中的条件阻止执行F-RTO算法，但对于同一段，重传计时器多次到期的情况除外。如果重新传输计时器在先前基于RTO的丢失恢复期间过期，则对重新传输的段的确认可能会错误地导致TCP发送方声明超时为伪超时。"
+    },
+    {
+      "indent": 3,
+      "text": "If the first acknowledgment after the RTO retransmission covers the \"recover\" point at algorithm step (2a), there is not enough evidence that a non-retransmitted segment has arrived at the receiver after the timeout. This is a common case when a fast retransmission is lost and has been retransmitted again after an RTO, while the rest of",
+      "zh-CHS": "如果RTO重传后的第一个确认覆盖了算法步骤（2a）的“恢复”点，则没有足够的证据表明在超时之后未重传的段已经到达接收器。当快速重传丢失并且在RTO之后再次重传时，这是一种常见的情况，而其余的RTO"
+    },
+    {
+      "indent": 3,
+      "text": "the unacknowledged segments were successfully delivered to the TCP receiver before the retransmission timeout. Therefore, the timeout cannot be declared spurious in this case.",
+      "zh-CHS": "在重新传输超时之前，未确认的段已成功传递到TCP接收器。因此，在这种情况下，不能将超时声明为伪超时。"
+    },
+    {
+      "indent": 3,
+      "text": "If the first acknowledgment after the RTO retransmission does not acknowledge all of the data that was retransmitted in step 1, the TCP sender reverts to the conventional RTO recovery. Otherwise, a malicious receiver acknowledging partial segments could cause the sender to declare the timeout spurious in a case where data was lost.",
+      "zh-CHS": "如果RTO重新传输后的第一次确认没有确认步骤1中重新传输的所有数据，TCP发送方将恢复到常规RTO恢复。否则，在数据丢失的情况下，确认部分段的恶意接收方可能会导致发送方声明超时是虚假的。"
+    },
+    {
+      "indent": 3,
+      "text": "The TCP sender is allowed to send two new segments in algorithm branch (2b) because the conventional TCP sender would transmit two segments when the first new ACK arrives after the RTO retransmission. If sending new data is not possible in algorithm branch (2b), or if the receiver window limits the transmission, the TCP sender has to send something in order to prevent the TCP transfer from stalling. If no segments were sent, the pipe between sender and receiver might run out of segments, and no further acknowledgments would arrive. Therefore, in the window-limited case, the recommendation is to revert to the conventional RTO recovery with slow-start retransmissions. Appendix A discusses some alternative solutions for window-limited situations.",
+      "zh-CHS": "允许TCP发送方在算法分支（2b）中发送两个新段，因为传统TCP发送方在RTO重传后第一个新ACK到达时将发送两个段。如果无法在算法分支（2b）中发送新数据，或者如果接收器窗口限制了传输，则TCP发送方必须发送一些信息以防止TCP传输暂停。如果没有发送段，发送方和接收方之间的管道可能会用尽段，并且不会收到进一步的确认。因此，在窗口有限的情况下，建议恢复到传统的RTO恢复，并进行慢启动重传。附录A讨论了窗口受限情况下的一些替代解决方案。"
+    },
+    {
+      "indent": 3,
+      "text": "If the retransmission timeout is declared spurious, the TCP sender sets the value of the \"recover\" variable to SND.UNA in order to allow fast retransmit [FHG04]. The \"recover\" variable was proposed for avoiding unnecessary, multiple fast retransmits when the retransmission timer expires during fast recovery with NewReno TCP. Because the F-RTO sender retransmits only the segment that triggered the timeout, the problem of unnecessary multiple fast retransmits [FHG04] cannot occur. Therefore, if three duplicate ACKs arrive at the sender after the timeout, they probably indicate a packet loss, and thus fast retransmit should be used to allow efficient recovery. If there are not enough duplicate ACKs arriving at the sender after a packet loss, the retransmission timer expires again and the sender enters step 1 of this algorithm.",
+      "zh-CHS": "如果重传超时被声明为虚假，TCP发送方将“recover”变量的值设置为SND.UNA，以允许快速重传[FHG04]。“recover”变量用于避免在使用NewReno TCP进行快速恢复期间，当重传计时器过期时发生不必要的多次快速重传。由于F-RTO发送方仅重新传输触发超时的段，因此不必要的多次快速重新传输[FHG04]的问题不会发生。因此，如果三个重复的ack在超时后到达发送方，它们可能表示数据包丢失，因此应该使用快速重传来实现高效恢复。如果在数据包丢失后没有足够的重复ack到达发送方，则重传计时器再次过期，发送方进入该算法的步骤1。"
+    },
+    {
+      "indent": 3,
+      "text": "When the timeout is declared spurious, the TCP sender cannot detect whether the unnecessary RTO retransmission was lost. In principle, the loss of the RTO retransmission should be taken as a congestion signal. Thus, there is a small possibility that the F-RTO sender will violate the congestion control rules, if it chooses to fully revert congestion control parameters after detecting a spurious timeout. The Eifel Detection algorithm has a similar property, while the DSACK option can be used to detect whether the retransmitted segment was successfully delivered to the receiver.",
+      "zh-CHS": "当超时被声明为伪超时时，TCP发送方无法检测不必要的RTO重传是否丢失。原则上，RTO重传的丢失应视为拥塞信号。因此，如果F-RTO发送方在检测到虚假超时后选择完全恢复拥塞控制参数，则F-RTO发送方违反拥塞控制规则的可能性很小。Eifel检测算法具有类似的特性，而DSACK选项可用于检测重传段是否成功交付给接收机。"
+    },
+    {
+      "indent": 3,
+      "text": "The F-RTO algorithm has a side effect on the TCP round-trip time measurement. Because the TCP sender can avoid most of the unnecessary retransmissions after detecting a spurious timeout, the sender is able to take round-trip time samples on the delayed segments. If the regular RTO recovery was used without TCP timestamps, this would not be possible due to the retransmission ambiguity. As a result, the RTO is likely to have more accurate and larger values with F-RTO than with the regular TCP after a spurious timeout that was triggered due to delayed segments. We believe this is an advantage in networks that are prone to delay spikes.",
+      "zh-CHS": "F-RTO算法对TCP往返时间测量有副作用。由于TCP发送方可以在检测到虚假超时后避免大多数不必要的重新传输，因此发送方能够在延迟段上获取往返时间样本。如果在没有TCP时间戳的情况下使用常规RTO恢复，则由于重传的不确定性，这是不可能的。因此，在由于延迟段而触发虚假超时后，使用F-RTO的RTO值可能比使用常规TCP的RTO值更准确、更大。我们认为，这在容易出现延迟峰值的网络中是一个优势。"
+    },
+    {
+      "indent": 3,
+      "text": "There are some situations where the F-RTO algorithm may not avoid unnecessary retransmissions after a spurious timeout. If packet reordering or packet duplication occurs on the segment that triggered the spurious timeout, the F-RTO algorithm may not detect the spurious timeout due to incoming duplicate ACKs. Additionally, if a spurious timeout occurs during fast recovery, the F-RTO algorithm often cannot detect the spurious timeout because the segments that were transmitted before the fast recovery trigger duplicate ACKs. However, we consider these cases rare, and note that in cases where F-RTO fails to detect the spurious timeout, it retransmits the unacknowledged segments in slow start, and thus performs the same as the regular RTO recovery.",
+      "zh-CHS": "在某些情况下，F-RTO算法可能无法避免虚假超时后不必要的重新传输。如果在触发伪超时的段上发生数据包重新排序或数据包重复，则F-RTO算法可能无法检测到由于传入重复确认而导致的伪超时。此外，如果在快速恢复期间出现虚假超时，F-RTO算法通常无法检测到虚假超时，因为在快速恢复之前传输的段会触发重复的ACK。然而，我们认为这些情况是罕见的，并且注意，在F-RTO无法检测假超时的情况下，它在慢启动中重传未确认的段，因此执行与常规RTO恢复相同的情况。"
+    },
+    {
+      "indent": 0,
+      "text": "3. SACK-Enhanced Version of the F-RTO Algorithm",
+      "section_title": true,
+      "zh-CHS": "3. SACK增强版F-RTO算法"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes an alternative version of the F-RTO algorithm that uses the TCP Selective Acknowledgment Option [MMFR96]. By using the SACK option, the TCP sender detects spurious timeouts in most of the cases when packet reordering or packet duplication is present. If the SACK information acknowledges new data that was not transmitted after the RTO retransmission, the sender may declare the timeout spurious, even when duplicate ACKs follow the RTO.",
+      "zh-CHS": "本节介绍使用TCP选择性确认选项[MMFR96]的F-RTO算法的替代版本。通过使用SACK选项，在大多数情况下，当存在数据包重新排序或数据包重复时，TCP发送方会检测到虚假超时。如果SACK信息确认RTO重新传输后未传输的新数据，则发送方可能会宣布超时为伪超时，即使RTO之后有重复的ACK。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. The Algorithm",
+      "section_title": true,
+      "zh-CHS": "3.1. 算法"
+    },
+    {
+      "indent": 3,
+      "text": "Given that the TCP Selective Acknowledgment Option [MMFR96] is enabled for a TCP connection, a TCP sender MAY apply the SACK-enhanced F-RTO algorithm. If the sender applies the SACK-enhanced F-RTO algorithm, it MUST follow the steps below. This algorithm SHOULD NOT be applied if the TCP sender is already in loss recovery when a retransmission timeout occurs.",
+      "zh-CHS": "鉴于TCP连接启用了TCP选择性确认选项[MMFR96]，TCP发送方可以应用SACK增强的F-RTO算法。如果发送方应用SACK增强型F-RTO算法，则必须遵循以下步骤。如果发生重传超时时TCP发送方已经处于丢失恢复中，则不应应用此算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The steps of the SACK-enhanced version of the F-RTO algorithm are as follows. If the retransmission timer expires again during the execution of the SACK-enhanced F-RTO algorithm, the TCP sender MUST re-start the algorithm processing from step 1.",
+      "zh-CHS": "SACK增强版F-RTO算法的步骤如下所示。如果在执行SACK增强型F-RTO算法期间重传计时器再次过期，TCP发送方必须从步骤1重新启动算法处理。"
+    },
+    {
+      "indent": 3,
+      "text": "1) When the retransmission timer expires, retransmit the first unacknowledged segment and set SpuriousRecovery to FALSE. Following the recommendation in the SACK specification [MMFR96], reset the SACK scoreboard. If \"RecoveryPoint\" is larger than or equal to SND.UNA, do not enter step 2 of this algorithm. Instead, set variable \"RecoveryPoint\" to indicate the highest sequence number transmitted so far and continue with slow-start retransmissions following the conventional RTO recovery algorithm.",
+      "zh-CHS": "1) 当重新传输计时器过期时，重新传输第一个未确认的段，并将SpusiousRecovery设置为FALSE。按照SACK规范[MMFR96]中的建议，重置SACK记分板。如果“RecoveryPoint”大于或等于SND.UNA，请不要进入此算法的步骤2。相反，设置变量“RecoveryPoint”以指示迄今为止传输的最高序列号，并按照传统RTO恢复算法继续慢启动重传。"
+    },
+    {
+      "indent": 3,
+      "text": "2) Wait until the acknowledgment of the data retransmitted due to the timeout arrives at the sender. If duplicate ACKs arrive before the cumulative acknowledgment for retransmitted data, adjust the scoreboard according to the incoming SACK information. Stay in step 2 and wait for the next new acknowledgment. If the retransmission timeout expires again, go to step 1 of the algorithm. When a new acknowledgment arrives, set variable \"RecoveryPoint\" to indicate the highest sequence number transmitted so far.",
+      "zh-CHS": "2) 等待由于超时而重新传输的数据的确认到达发送方。如果重复确认在重新传输数据的累积确认之前到达，则根据传入的SACK信息调整记分板。继续执行步骤2，等待下一个新的确认。如果重新传输超时再次过期，请转至算法的步骤1。当新的确认到达时，设置变量“RecoveryPoint”以指示迄今为止传输的最高序列号。"
+    },
+    {
+      "indent": 6,
+      "text": "a) If the Cumulative Acknowledgment field covers \"RecoveryPoint\" but not more than \"RecoveryPoint\", revert to the conventional RTO recovery and set the congestion window to no more than 2 * MSS, like a regular TCP would do. Do not enter step 3 of this algorithm.",
+      "zh-CHS": "a) 如果累积确认字段包括“RecoveryPoint”但不超过“RecoveryPoint”，则恢复到传统RTO恢复，并将拥塞窗口设置为不超过2*ms，就像常规TCP一样。不要进入此算法的步骤3。"
+    },
+    {
+      "indent": 6,
+      "text": "b) Else, if the Cumulative Acknowledgment field does not cover \"RecoveryPoint\" but is larger than SND.UNA, transmit up to two new (previously unsent) segments and proceed to step 3. If the TCP sender is not able to transmit any previously unsent data -- either due to receiver window limitation or because it does not have any new data to send -- the recommended action is to refrain from entering step 3 of this algorithm. Rather, continue with slow-start retransmissions following the conventional RTO recovery algorithm.",
+      "zh-CHS": "b) 否则，如果累积确认字段不包括“RecoveryPoint”，但大于SND.UNA，则最多传输两个新的（以前未发送的）段，然后继续执行步骤3。如果TCP发送方无法传输任何以前未发送的数据（由于接收方窗口限制或由于没有任何新数据可发送），建议不要进入此算法的步骤3。相反，按照传统RTO恢复算法继续慢启动重传。"
+    },
+    {
+      "indent": 9,
+      "text": "It is also possible to apply some of the alternatives for handling window-limited cases discussed in Appendix A.",
+      "zh-CHS": "也可以采用附录A中讨论的一些备选方案来处理窗口有限的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "3) The next acknowledgment arrives at the sender. Either a duplicate ACK or a new cumulative ACK (advancing the window) applies in this step. Other types of ACKs are ignored without any action.",
+      "zh-CHS": "3) 下一个确认到达发送方。在此步骤中应用重复确认或新累积确认（推进窗口）。其他类型的ACK将被忽略而不执行任何操作。"
+    },
+    {
+      "indent": 6,
+      "text": "a) If the Cumulative Acknowledgment field or the SACK information covers more than \"RecoveryPoint\", set the congestion window to no more than 3 * MSS and proceed with the conventional RTO recovery, retransmitting unacknowledged segments. Take this branch also when the acknowledgment is a duplicate ACK and it does not acknowledge any new, previously unacknowledged data",
+      "zh-CHS": "a) 如果累积确认字段或SACK信息覆盖的范围超过“RecoveryPoint”，则将拥塞窗口设置为不超过3*ms，并继续进行常规RTO恢复，重新传输未确认的段。当确认为重复确认且未确认任何新的、以前未确认的数据时，也使用此分支"
+    },
+    {
+      "indent": 9,
+      "text": "below \"RecoveryPoint\" in the SACK information. Leave SpuriousRecovery set to FALSE.",
+      "zh-CHS": "在SACK信息中的“RecoveryPoint”下方。将伪恢复设置为FALSE。"
+    },
+    {
+      "indent": 6,
+      "text": "b) If the Cumulative Acknowledgment field or a SACK information in the ACK does not cover more than \"RecoveryPoint\" AND it acknowledges data that was not acknowledged earlier (either with cumulative acknowledgment or using SACK information), declare the timeout spurious and set SpuriousRecovery to SPUR_TO. The retransmission timeout can be declared spurious, because the segment acknowledged with this ACK was transmitted before the timeout.",
+      "zh-CHS": "b) 如果ACK中的累积确认字段或SACK信息的覆盖范围不超过“RecoveryPoint”，并且它确认了之前未确认的数据（使用累积确认或使用SACK信息），则声明超时虚假并将SpurousRecovery设置为SPUR_。重传超时可能被宣布为虚假，因为使用此ACK确认的段是在超时之前传输的。"
+    },
+    {
+      "indent": 3,
+      "text": "If there are unacknowledged holes between the received SACK information, those segments are retransmitted similarly to the conventional SACK recovery algorithm [BAFW03]. If the algorithm exits with SpuriousRecovery set to SPUR_TO, \"RecoveryPoint\" is set to SND.UNA, thus allowing fast recovery on incoming duplicate acknowledgments.",
+      "zh-CHS": "如果接收到的SACK信息之间存在未确认的空穴，则与传统SACK恢复算法[BAFW03]类似，重新传输这些段。如果算法退出时将SpurousRecovery设置为SPUR_to，“RecoveryPoint”设置为SND.UNA，从而允许对传入的重复确认进行快速恢复。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Discussion",
+      "section_title": true,
+      "zh-CHS": "3.2. 讨论"
+    },
+    {
+      "indent": 3,
+      "text": "The SACK-enhanced algorithm works on the same principle as the basic algorithm, but by utilizing the additional information from the SACK option. When a genuine retransmission timeout occurs during a steady state of a connection, it can be assumed that there are no segments left in the pipe. Otherwise, the acknowledgments triggered by these segments would have triggered the SACK loss recovery or transmission of new segments. Therefore, if the F-RTO sender receives acknowledgments for segments transmitted before the retransmission timeout in response to the two new segments sent at the algorithm step 2, the normal operation of TCP has been just delayed, and the retransmission timeout is considered spurious. Note that this reasoning works only when the TCP sender is not in loss recovery at the time the retransmission timeout occurs. The condition in step 1 checking that \"RecoveryPoint\" is larger than or equal to SND.UNA prevents the execution of the F-RTO algorithm in case a previous loss recovery, either RTO recovery or SACK loss recovery, is underway when the retransmission timer expires. It, however, allows the execution of the F-RTO algorithm, if the retransmission timer expires multiple times for the same segment.",
+      "zh-CHS": "SACK增强算法的工作原理与基本算法相同，但它利用了SACK选项中的附加信息。当连接处于稳定状态期间发生真正的重新传输超时时，可以假定管道中没有剩余的段。否则，这些段触发的确认将触发SACK丢失恢复或新段的传输。因此，如果F-RTO发送方响应于在算法步骤2发送的两个新段，在重传超时之前接收到发送的段的确认，则TCP的正常操作刚刚被延迟，重传超时被认为是虚假的。请注意，只有当TCP发送方在重传超时发生时未处于丢失恢复状态时，此推理才有效。第1步中检查“RecoveryPoint”大于或等于SND.UNA的条件会阻止执行F-RTO算法，以防在重传计时器过期时进行先前的丢失恢复（RTO恢复或SACK丢失恢复）。但是，如果同一段的重传计时器多次过期，则允许执行F-RTO算法。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Taking Actions after Detecting Spurious RTO",
+      "section_title": true,
+      "zh-CHS": "4. 在检测到虚假RTO后采取措施"
+    },
+    {
+      "indent": 3,
+      "text": "Upon a retransmission timeout, a conventional TCP sender assumes that outstanding segments are lost and starts retransmitting the unacknowledged segments. When the retransmission timeout is detected to be spurious, the TCP sender should not continue retransmitting based on the timeout. For example, if the sender was in congestion",
+      "zh-CHS": "在重新传输超时时，传统TCP发送方假定未完成的段丢失，并开始重新传输未确认的段。当检测到重传超时是虚假的时，TCP发送方不应基于该超时继续重传。例如，如果发送方处于拥塞状态"
+    },
+    {
+      "indent": 3,
+      "text": "avoidance phase transmitting new, previously unsent segments, it should continue transmitting previously unsent segments in congestion avoidance.",
+      "zh-CHS": "避免阶段传输新的、以前未发送的段，它应该在拥塞避免中继续传输以前未发送的段。"
+    },
+    {
+      "indent": 3,
+      "text": "There are currently two alternatives specified for a spurious timeout response algorithm, the Eifel Response Algorithm [LG05], and an algorithm for adapting the retransmission timeout after a spurious RTO [BBA06]. If no specific response algorithm is implemented, the TCP SHOULD respond to spurious timeout conservatively, applying the TCP congestion control specification [APB09]. Different response algorithms for spurious retransmission timeouts have been analyzed in some research papers [GL03, Sar03] and IETF documents [SL03].",
+      "zh-CHS": "目前，为伪超时响应算法指定了两种备选方案，Eifel响应算法[LG05]，以及用于在伪RTO[BBA06]之后调整重传超时的算法。如果未实现特定的响应算法，TCP应采用TCP拥塞控制规范[APB09]保守地响应虚假超时。在一些研究论文[GL03，Sar03]和IETF文档[SL03]中分析了针对伪重传超时的不同响应算法。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Evaluation of RFC 4138",
+      "section_title": true,
+      "zh-CHS": "5. RFC4138的评价"
+    },
+    {
+      "indent": 3,
+      "text": "F-RTO was first specified in an Experimental RFC (RFC 4138) that has been implemented in a number of operating systems since it was published. Gained experience has been documented in a separate document [KYHS07], and can be summarized as follows.",
+      "zh-CHS": "F-RTO首先在实验性RFC（RFC 4138）中指定，该RFC自发布以来已在许多操作系统中实现。获得的经验已记录在单独的文件[KYHS07]中，可总结如下。"
+    },
+    {
+      "indent": 3,
+      "text": "If the TCP sender employs F-RTO, it is able to detect spurious RTOs and avoid the unnecessary retransmission of the whole window of data. Because F-RTO avoids the unnecessary retransmissions after a spurious RTO, it is able to adhere to the packet conservation principle, unlike a regular TCP that enters the slow-start recovery unnecessarily and inappropriately restarts the ACK clock while there are segments outstanding in the network. When a spurious RTO has been detected, a sender can select an appropriate congestion control response instead of setting the congestion window to one segment. Because F-RTO avoids unnecessary retransmissions, it is able to take the round-trip time of the delayed segments into account when calculating the RTO estimate, which may help in avoiding further spurious retransmission timeouts.",
+      "zh-CHS": "如果TCP发送方采用F-RTO，它能够检测到虚假的RTO，并避免不必要的整个数据窗口的重新传输。由于F-RTO避免了伪RTO后不必要的重新传输，因此它能够遵守数据包保护原则，不像常规TCP那样，在网络中存在未完成的段时，不必要地进入慢启动恢复并不适当地重新启动ACK时钟。当检测到虚假RTO时，发送方可以选择适当的拥塞控制响应，而不是将拥塞窗口设置为一个段。由于F-RTO避免了不必要的重传，因此在计算RTO估计值时，它能够考虑延迟段的往返时间，这可能有助于避免进一步的伪重传超时。"
+    },
+    {
+      "indent": 3,
+      "text": "Experimental results with the basic F-RTO have been reported in an emulated network using a Linux implementation [SKR03]. Also, different congestion control responses along with the SACK-enhanced version of F-RTO were tested in a similar environment [Sar03]. There are publications analyzing F-RTO performance over commercial Wideband Code Division Multiple Access (W-CDMA) networks, and in an emulated High-Speed Downlink Packet Access (HSDPA) network [Yam05, Hok05]. Also, Microsoft reported positive experiences with their implementation of F-RTO at the IETF-68 meeting.",
+      "zh-CHS": "已在使用Linux实现的仿真网络中报告了基本F-RTO的实验结果[SKR03]。此外，在类似的环境中测试了不同的拥塞控制响应以及SACK增强版F-RTO[Sar03]。有出版物分析了商用宽带码分多址（W-CDMA）网络和模拟高速下行分组接入（HSDPA）网络中的F-RTO性能[Yam05，Hok05]。此外，微软在IETF-68会议上报告了实施F-RTO的积极经验。"
+    },
+    {
+      "indent": 3,
+      "text": "It is known that some spurious RTOs may remain undetected by F-RTO if duplicate acknowledgments arrive at the sender immediately after the spurious RTO, for example due to packet reordering or packet loss. There are rare corner cases where F-RTO could \"hide\" a packet loss",
+      "zh-CHS": "众所周知，如果重复确认在伪RTO之后立即到达发送方，例如由于分组重新排序或分组丢失，则F-RTO可能仍然无法检测到某些伪RTO。F-RTO可以“隐藏”数据包丢失的情况很少"
+    },
+    {
+      "indent": 3,
+      "text": "and therefore lead to inappropriate behavior with non-conservative congestion control response: first, if a massive packet reordering occurred so that the acknowledgment of RTO retransmission arrived at the sender before the acknowledgments of original transmissions, the sender might not detect the loss of the segment that triggered the RTO. Second, a malicious receiver could lead F-RTO to make a wrong conclusion after an RTO by acknowledging segments it has not received. Such a receiver would, however, risk breaking the consistency of the TCP state between the sender and receiver, causing the connection to become unusable, which cannot be of any benefit to the receiver. Therefore, we believe it is not likely that receivers would start employing such tricks on a significant scale. Finally, loss of the unnecessary RTO retransmission cannot be detected without using some explicit acknowledgment scheme such as DSACK. This is common to the other mechanisms for detecting spurious RTO, as well as to regular TCP that does not use DSACK. We note that if the congestion control response to spurious RTO is conservative enough, the above corner cases do not cause problems due to increased congestion.",
+      "zh-CHS": "并因此导致非保守拥塞控制响应的不当行为：首先，如果发生大规模数据包重新排序，使得RTO重传的确认在原始传输确认之前到达发送方，则发送方可能无法检测到触发RTO的段的丢失。其次，恶意接收方可能会在RTO确认未接收到的段后导致F-RTO做出错误结论。但是，这样的接收方可能会破坏发送方和接收方之间TCP状态的一致性，导致连接变得不可用，这对接收方没有任何好处。因此，我们认为接收者不太可能开始大规模使用此类技巧。最后，若不使用某些明确的确认方案（如DSACK），则无法检测到不必要的RTO重传的丢失。这对于检测虚假RTO的其他机制以及不使用DSACK的常规TCP都是通用的。我们注意到，如果对伪RTO的拥塞控制响应足够保守，则上述拐角情况不会由于拥塞增加而导致问题。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The main security threat regarding F-RTO is the possibility that a receiver could mislead the sender into setting too large a congestion window after an RTO. There are two possible ways a malicious receiver could trigger a wrong output from the F-RTO algorithm. First, the receiver can acknowledge data that it has not received. Second, it can delay acknowledgment of a segment it has received earlier, and acknowledge the segment after the TCP sender has been deluded to enter algorithm step 3.",
+      "zh-CHS": "关于F-RTO的主要安全威胁是接收方可能误导发送方在RTO后设置过大的拥塞窗口。恶意接收器有两种可能的方式触发F-RTO算法的错误输出。首先，接收器可以确认它没有接收到的数据。第二，它可以延迟对先前收到的段的确认，并在TCP发送方被欺骗进入算法步骤3后确认该段。"
+    },
+    {
+      "indent": 3,
+      "text": "If the receiver acknowledges a segment it has not really received, the sender can be led to declare spurious timeout in the F-RTO algorithm, step 3. However, because the sender will have an incorrect state, it cannot retransmit the segment that has never reached the receiver. Therefore, this attack is unlikely to be useful for the receiver to maliciously gain a larger congestion window.",
+      "zh-CHS": "如果接收器确认其未真正接收到的段，则可引导发送器在F-RTO算法（步骤3）中声明虚假超时。但是，由于发送方的状态不正确，因此无法重新传输从未到达接收方的段。因此，这种攻击不太可能有助于接收方恶意获得更大的拥塞窗口。"
+    },
+    {
+      "indent": 3,
+      "text": "A common case for a retransmission timeout is that a fast retransmission of a segment is lost. If all other segments have been received, the RTO retransmission causes the whole window to be acknowledged at once. This case is recognized in F-RTO algorithm branch (2a). However, if the receiver only acknowledges one segment after receiving the RTO retransmission, and then the rest of the segments, it could cause the timeout to be declared spurious when it is not. Therefore, it is suggested that, when an RTO occurs during",
+      "zh-CHS": "重传超时的常见情况是丢失段的快速重传。如果已接收到所有其他段，则RTO重新传输会导致立即确认整个窗口。这种情况在F-RTO算法分支（2a）中得到识别。但是，如果接收器在接收到RTO重传后仅确认一个段，然后确认其余的段，则可能会导致超时被宣布为虚假超时，而实际上并非如此。因此，建议当RTO发生在"
+    },
+    {
+      "indent": 3,
+      "text": "the fast recovery phase, the sender would not fully revert the congestion window even if the timeout was declared spurious. Instead, the sender would reduce the congestion window to 1.",
+      "zh-CHS": "在快速恢复阶段，即使超时被宣布为伪超时，发送方也不会完全恢复拥塞窗口。相反，发送方会将拥塞窗口减少到1。"
+    },
+    {
+      "indent": 3,
+      "text": "If there is more than one segment missing at the time of a retransmission timeout, the receiver does not benefit from misleading the sender to declare a spurious timeout because the sender would have to go through another recovery period to retransmit the missing segments, usually after an RTO has elapsed.",
+      "zh-CHS": "如果在重新传输超时时丢失了多个段，则接收器不能从误导发送方声明虚假超时中获益，因为发送方必须经历另一个恢复期来重新传输丢失的段，通常是在RTO已过之后。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Alfred Hoenes, Ilpo Jarvinen, and Murari Sridharan for the comments on this document.",
+      "zh-CHS": "作者感谢Alfred Hoenes、Ilpo Jarvinen和Murari Sridharan对本文件的评论。"
+    },
+    {
+      "indent": 3,
+      "text": "We are also thankful to Reiner Ludwig, Andrei Gurtov, Josh Blanton, Mark Allman, Sally Floyd, Yogesh Swami, Mika Liljeberg, Ivan Arias Rodriguez, Sourabh Ladha, Martin Duke, Motoharu Miyake, Ted Faber, Samu Kontinen, and Kostas Pentikousis who gave valuable feedback during the preparation of RFC 4138, the precursor of this document.",
+      "zh-CHS": "我们还感谢雷纳·路德维希、安德烈·古托夫、乔什·布兰顿、马克·奥尔曼、萨利·弗洛伊德、约格什·斯瓦米、米卡·利耶贝格、伊万·阿里亚斯·罗德里格斯、苏拉布·拉达、马丁·杜克、三宅本春、特德·费伯、萨缪·康蒂宁和科斯塔斯·彭蒂库西斯，他们在本文件前身RFC 4138的编制过程中提供了宝贵的反馈。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Discussion of Window-Limited Cases",
+      "section_title": true,
+      "zh-CHS": "附录A.关于窗口有限案例的讨论"
+    },
+    {
+      "indent": 3,
+      "text": "When the advertised window limits the transmission of two new previously unsent segments, or there are no new data to send, it is recommended in F-RTO algorithm step (2b) that the TCP sender continue with the conventional RTO recovery algorithm. The disadvantage is that the sender may continue unnecessary retransmissions due to possible spurious timeout. This section briefly discusses the options that can potentially improve performance when transmitting previously unsent data is not possible.",
+      "zh-CHS": "当播发的窗口限制两个新的先前未发送的段的传输，或者没有新的数据要发送时，在F-RTO算法步骤（2b）中建议TCP发送方继续使用传统的RTO恢复算法。缺点是，由于可能的虚假超时，发送方可能继续不必要的重新传输。本节简要讨论在无法传输以前未发送的数据时可能提高性能的选项。"
+    },
+    {
+      "indent": 3,
+      "text": "- The TCP sender could reserve an unused space of a size of one or two segments in the advertised window to ensure the use of algorithms such as F-RTO or Limited Transmit [ABF01] in receiver window-limited situations. On the other hand, while doing this, the TCP sender should ensure that the window of outstanding segments is large enough for proper utilization of the available pipe.",
+      "zh-CHS": "- TCP发送方可以在广告窗口中保留一个或两个段大小的未使用空间，以确保在接收方窗口受限的情况下使用诸如F-RTO或受限传输[ABF01]之类的算法。另一方面，在执行此操作时，TCP发送方应确保未完成段的窗口足够大，以便正确利用可用管道。"
+    },
+    {
+      "indent": 3,
+      "text": "- Use additional information if available, e.g., TCP timestamps with the Eifel Detection algorithm, for detecting a spurious timeout. However, Eifel detection may yield different results from F-RTO when ACK losses and an RTO occur within the same round-trip time [SKR03].",
+      "zh-CHS": "- 使用附加信息（如果可用），例如，带有Eifel检测算法的TCP时间戳，用于检测虚假超时。然而，当ACK丢失和RTO发生在同一往返时间内时，Eifel检测可能产生与F-RTO不同的结果[SKR03]。"
+    },
+    {
+      "indent": 3,
+      "text": "- Retransmit data from the tail of the retransmission queue and continue with step 3 of the F-RTO algorithm. It is possible that the retransmission will be made unnecessarily. Furthermore, the operation of the SACK-based F-RTO algorithm would need to consider this case separately, to not use the retransmitted segment to indicate spurious timeout. Given these considerations, this option is not recommended.",
+      "zh-CHS": "- 从重传队列的尾部重传数据，并继续执行F-RTO算法的步骤3。可能会进行不必要的重新传输。此外，基于SACK的F-RTO算法的操作需要单独考虑这种情况，以不使用重传的分段来指示伪超时。考虑到这些因素，不建议使用此选项。"
+    },
+    {
+      "indent": 3,
+      "text": "- Send a zero-sized segment below SND.UNA, similar to a TCP Keep-Alive probe, and continue with step 3 of the F-RTO algorithm. Because the receiver replies with a duplicate ACK, the sender is able to detect whether the timeout was spurious from the incoming acknowledgment. This method does not send data unnecessarily, but it delays the recovery by one round-trip time in cases where the timeout was not spurious. Therefore, this method is not encouraged.",
+      "zh-CHS": "- 在SND.UNA下面发送一个零大小的段，类似于TCP保持活动探测，并继续执行F-RTO算法的步骤3。因为接收者回复了一个重复的ACK，发送者能够从传入的确认中检测超时是否是虚假的。此方法不会不必要地发送数据，但在超时不是虚假的情况下，它会将恢复延迟一个往返时间。因此，不鼓励采用这种方法。"
+    },
+    {
+      "indent": 3,
+      "text": "- In receiver-limited cases, send one octet of new data, regardless of the advertised window limit, and continue with step 3 of the F-RTO algorithm. It is possible that the receiver will have free buffer space to receive the data by the time the segment has",
+      "zh-CHS": "- 在接收器有限的情况下，发送一个八位字节的新数据，而不考虑公布的窗口限制，并继续执行F-RTO算法的步骤3。有可能接收器将有空闲的缓冲区空间，以便在段结束时接收数据"
+    },
+    {
+      "indent": 5,
+      "text": "propagated through the network, in which case no harm is done. If the receiver is not capable of receiving the segment, it rejects the segment and sends a duplicate ACK.",
+      "zh-CHS": "通过网络传播，在这种情况下不会造成伤害。如果接收器不能接收该段，它将拒绝该段并发送一个重复的ACK。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Changes since RFC 4138",
+      "section_title": true,
+      "zh-CHS": "附录B.自RFC 4138以来的变化"
+    },
+    {
+      "indent": 5,
+      "text": "Changes from RFC 4138 are summarized below, apart from minor editing and language improvements.",
+      "zh-CHS": "除了少量的编辑和语言改进外，RFC 4138的变化总结如下。"
+    },
+    {
+      "indent": 3,
+      "text": "* Modified the basic F-RTO algorithm and the SACK-enhanced F-RTO algorithm to prevent the TCP sender from applying the F-RTO algorithm if the retransmission timer expires when an earlier RTO recovery is underway, except when the retransmission timer expires multiple times for the same segment.",
+      "zh-CHS": "* 修改了基本的F-RTO算法和SACK增强的F-RTO算法，以防止TCP发送方在进行早期RTO恢复时，如果重传计时器过期，则应用F-RTO算法，但同一段的重传计时器多次过期的情况除外。"
+    },
+    {
+      "indent": 3,
+      "text": "* Clarified behavior on multiple timeouts.",
+      "zh-CHS": "* 澄清了多次超时的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "* Added a paragraph on acknowledgments that do not acknowledge new data but are not duplicate acknowledgments.",
+      "zh-CHS": "* 添加了一段关于不确认新数据但不是重复确认的确认的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "* Clarified the SACK-algorithm a bit, and added one paragraph of description of the basic idea of the algorithm.",
+      "zh-CHS": "* 稍微澄清了SACK算法，并添加了一段对算法基本思想的描述。"
+    },
+    {
+      "indent": 3,
+      "text": "* Removed SCTP considerations.",
+      "zh-CHS": "* 删除了SCTP注意事项。"
+    },
+    {
+      "indent": 3,
+      "text": "* Removed earlier Appendix sections, except Appendix C from RFC 4138, which is now Appendix A.",
+      "zh-CHS": "* 删除了之前的附录部分，RFC 4138中的附录C除外，现为附录A。"
+    },
+    {
+      "indent": 3,
+      "text": "* Clarified text about the possible response algorithms.",
+      "zh-CHS": "* 澄清关于可能的响应算法的文本。"
+    },
+    {
+      "indent": 3,
+      "text": "* Added section that summarizes the evaluation of RFC 4138.",
+      "zh-CHS": "* 增加了一节，总结了RFC 4138的评估。"
+    },
+    {
+      "indent": 0,
+      "text": "References",
+      "zh-CHS": "工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "Normative References",
+      "zh-CHS": "规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[APB09] Allman, M., Paxson, V., and E. Blanton, \"TCP Congestion Control\", RFC 5681, September 2009.",
+      "zh-CHS": "[APB09]Allman，M.，Paxson，V.，和E.Blanton，“TCP拥塞控制”，RFC 56812009年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BAFW03] Blanton, E., Allman, M., Fall, K., and L. Wang, \"A Conservative Selective Acknowledgment (SACK)-based Loss Recovery Algorithm for TCP\", RFC 3517, April 2003.",
+      "zh-CHS": "[BAFW03]Blanton，E.，Allman，M.，Fall，K.，和L.Wang，“基于保守选择确认（SACK）的TCP丢失恢复算法”，RFC 35172003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[FHG04] Floyd, S., Henderson, T., and A. Gurtov, \"The NewReno Modification to TCP's Fast Recovery Algorithm\", RFC 3782, April 2004.",
+      "zh-CHS": "[FHG04]Floyd，S.，Henderson，T.，和A.Gurtov，“TCP快速恢复算法的NewReno修改”，RFC 3782，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MMFR96] Mathis, M., Mahdavi, J., Floyd, S., and A. Romanow, \"TCP Selective Acknowledgment Options\", RFC 2018, October 1996.",
+      "zh-CHS": "[MMFR96]Mathis，M.，Mahdavi，J.，Floyd，S.，和A.Romanow，“TCP选择性确认选项”，RFC 2018，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[PA00] Paxson, V. and M. Allman, \"Computing TCP's Retransmission Timer\", RFC 2988, November 2000.",
+      "zh-CHS": "[PA00]Paxson，V.和M.Allman，“计算TCP的重传计时器”，RFC 2988，2000年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Pos81] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[Pos81]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Informative References",
+      "zh-CHS": "资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ABF01] Allman, M., Balakrishnan, H., and S. Floyd, \"Enhancing TCP's Loss Recovery Using Limited Transmit\", RFC 3042, January 2001.",
+      "zh-CHS": "[ABF01]Allman，M.，Balakrishnan，H.，和S.Floyd，“使用有限传输增强TCP的丢失恢复”，RFC 3042，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BA04] Blanton, E. and M. Allman, \"Using TCP Duplicate Selective Acknowledgement (DSACKs) and Stream Control Transmission Protocol (SCTP) Duplicate Transmission Sequence Numbers (TSNs) to Detect Spurious Retransmissions\", RFC 3708, February 2004.",
+      "zh-CHS": "[BA04]Blanton，E.和M.Allman，“使用TCP重复选择确认（DSACKs）和流控制传输协议（SCTP）重复传输序列号（TSN）来检测虚假重传”，RFC 37082004年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BBA06] Blanton, J., Blanton, E., and M. Allman, \"Using Spurious Retransmissions to Adapt the Retransmission Timeout\", Work in Progress, December 2006.",
+      "zh-CHS": "[BBA06]Blanton，J.，Blanton，E.，和M.Allman，“使用伪重传来调整重传超时”，正在进行的工作，2006年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BBJ92] Jacobson, V., Braden, R., and D. Borman, \"TCP Extensions for High Performance\", RFC 1323, May 1992.",
+      "zh-CHS": "[BBJ92]Jacobson，V.，Braden，R.，和D.Borman，“高性能TCP扩展”，RFC 1323，1992年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[FMMP00] Floyd, S., Mahdavi, J., Mathis, M., and M. Podolsky, \"An Extension to the Selective Acknowledgement (SACK) Option for TCP\", RFC 2883, July 2000.",
+      "zh-CHS": "[FMMP00]Floyd，S.，Mahdavi，J.，Mathis，M.，和M.Podolsky，“TCP选择性确认（SACK）选项的扩展”，RFC 28832000年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[GL02] Gurtov A. and R. Ludwig, \"Evaluating the Eifel Algorithm for TCP in a GPRS Network\", In Proc. European Wireless, Florence, Italy, February 2002.",
+      "zh-CHS": "[GL02]Gurtov A.和R.Ludwig，“评估GPRS网络中TCP的Eifel算法”，在Proc。欧洲无线，意大利佛罗伦萨，2002年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[GL03] Gurtov A. and R. Ludwig, \"Responding to Spurious Timeouts in TCP\", In Proc. IEEE INFOCOM 03, San Francisco, CA, USA, March 2003.",
+      "zh-CHS": "[GL03]Gurtov A.和R.Ludwig，“响应TCP中的虚假超时”，在Proc。IEEE ICOFCOM 03，旧金山，CA，美国，2003年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Jac88] Jacobson, V., \"Congestion Avoidance and Control\", In Proc. ACM SIGCOMM 88.",
+      "zh-CHS": "[Jac88]Jacobson，V.，“拥塞避免和控制”，在《程序》中。ACM SIGCOMM 88。"
+    },
+    {
+      "indent": 3,
+      "text": "[Hok05] Hokamura, A., et al., \"Performance Evaluation of F-RTO and Eifel Response Algorithms over W-CDMA packet network\", In Proc. Wireless Personal Multimedia Communications (WPMC'05), Sept. 2005.",
+      "zh-CHS": "[Hok05]Hokamura，A.，等，“W-CDMA分组网络上F-RTO和Eifel响应算法的性能评估”，在Proc。无线个人多媒体通信（WPMC'05），2005年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KYHS07] Kojo, M., Yamamoto, K., Hata, M., and P. Sarolahti, \"Evaluation of RFC 4138\", Work in Progress, November 2007.",
+      "zh-CHS": "[KYHS07]Kojo，M.，Yamamoto，K.，Hata，M.，和P.Sarolahti，“RFC 4138的评估”，正在进行的工作，2007年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[LG05] Ludwig, R. and A. Gurtov, \"The Eifel Response Algorithm for TCP\", RFC 4015, February 2005.",
+      "zh-CHS": "[LG05]Ludwig，R.和A.Gurtov，“TCP的Eifel响应算法”，RFC 4015，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[LK00] Ludwig R. and R.H. Katz, \"The Eifel Algorithm: Making TCP Robust Against Spurious Retransmissions\", ACM SIGCOMM Computer Communication Review, 30(1), January 2000.",
+      "zh-CHS": "[LK00]Ludwig R.和R.H.Katz，“Eifel算法：使TCP对伪重传具有鲁棒性”，ACM SIGCOMM计算机通信评论，30（1），2000年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[LM03] Ludwig, R. and M. Meyer, \"The Eifel Detection Algorithm for TCP\", RFC 3522, April 2003.",
+      "zh-CHS": "[LM03]Ludwig，R.和M.Meyer，“TCP的Eifel检测算法”，RFC 3522，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Nag84] Nagle, J., \"Congestion control in IP/TCP internetworks\", RFC 896, January 1984.",
+      "zh-CHS": "[Nag84]Nagle，J.，“IP/TCP网络中的拥塞控制”，RFC 896，1984年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SK05] Sarolahti, P. and M. Kojo, \"Forward RTO-Recovery (F-RTO): An Algorithm for Detecting Spurious Retransmission Timeouts with TCP and the Stream Control Transmission Protocol (SCTP)\", RFC 4138, August 2005.",
+      "zh-CHS": "[SK05]Sarolahti，P.和M.Kojo，“前向RTO恢复（F-RTO）：使用TCP和流控制传输协议（SCTP）检测虚假重传超时的算法”，RFC 4138，2005年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SKR03] Sarolahti, P., Kojo, M., and K. Raatikainen, \"F-RTO: An Enhanced Recovery Algorithm for TCP Retransmission Timeouts\", ACM SIGCOMM Computer Communication Review, 33(2), April 2003.",
+      "zh-CHS": "[SKR03]Sarolahti，P.，Kojo，M.，和K.Raatikainen，“F-RTO：TCP重传超时的增强恢复算法”，ACM SIGCOMM计算机通信评论，33（2），2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Sar03] Sarolahti, P., \"Congestion Control on Spurious TCP Retransmission Timeouts\", In Proc. of IEEE Globecom 2003, San Francisco, CA, USA. December 2003.",
+      "zh-CHS": "[Sar03]Sarolahti，P.，“伪TCP重传超时的拥塞控制”，在Proc。IEEE Global 2003，旧金山，CA，美国。2003年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SL03] Swami Y. and K. Le, \"DCLOR: De-correlated Loss Recovery using SACK Option for spurious timeouts\", Work in Progress, September 2003.",
+      "zh-CHS": "[SL03]Swami Y.和K.Le，“DCLOR：使用SACK选项对虚假超时进行去相关损失恢复”，正在进行的工作，2003年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Ste07] Stewart, R., Ed., \"Stream Control Transmission Protocol\", RFC 4960, September 2007.",
+      "zh-CHS": "[Ste07]Stewart，R.，Ed.“流控制传输协议”，RFC 49602007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Yam05] Yamamoto, K., et al., \"Effects of F-RTO and Eifel Response Algorithms for W-CDMA and HSDPA networks\", In Proc. Wireless Personal Multimedia Communications (WPMC'05), September 2005.",
+      "zh-CHS": "[Yam05]Yamamoto，K.，等人，“F-RTO和Eifel响应算法对W-CDMA和HSDPA网络的影响”，在Proc。无线个人多媒体通信（WPMC'05），2005年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Pasi Sarolahti Nokia Research Center P.O. Box 407 FI-00045 NOKIA GROUP Finland Phone: +358 50 4876607 EMail: pasi.sarolahti@iki.fi",
+      "zh-CHS": "Pasi Sarolahti诺基亚研究中心邮政信箱407 FI-00045诺基亚集团芬兰电话：+358 50 4876607电子邮件：Pasi。sarolahti@iki.fi"
+    },
+    {
+      "indent": 3,
+      "text": "Markku Kojo University of Helsinki P.O. Box 68 FI-00014 UNIVERSITY OF HELSINKI Finland Phone: +358 9 19151305 EMail: kojo@cs.helsinki.fi",
+      "zh-CHS": "马尔库科乔赫尔辛基大学P.O.Box 68芬兰赫尔辛基大学电话FI-0014：+ 358、9、19151305电子邮件：kojo@cs.helsinki.fi"
+    },
+    {
+      "indent": 3,
+      "text": "Kazunori Yamamoto NTT Docomo, Inc. 3-5 Hikarinooka, Yokosuka, Kanagawa, 239-8536, Japan Phone: +81-46-840-3812 EMail: yamamotokaz@nttdocomo.co.jp",
+      "zh-CHS": "山本和仁NTT Docomo，Inc.3-5 Hikarinooka，横须贺，神奈川，239-8536，日本电话：+81-46-840-3812电子邮件：yamamotokaz@nttdocomo.co.jp"
+    },
+    {
+      "indent": 3,
+      "text": "Max Hata NTT Docomo, Inc. 3-5 Hikarinooka, Yokosuka, Kanagawa, 239-8536, Japan Phone: +81-46-840-3812 EMail: hatama@s1.nttdocomo.co.jp",
+      "zh-CHS": "Max Hata NTT Docomo，Inc.3-5 Hikarinooka，横须贺，神奈川，239-8536，日本电话：+81-46-840-3812电子邮件：hatama@s1.nttdocomo.co.jp"
+    }
+  ]
+}

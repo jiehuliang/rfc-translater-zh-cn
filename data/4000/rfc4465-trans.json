@@ -1,0 +1,4473 @@
+{
+  "title": {
+    "text": "RFC 4465: Signaling Compression (SigComp) Torture Tests",
+    "zh-CHS": "RFC 4465"
+  },
+  "number": 4465,
+  "created_at": "2021-11-14 00:40:24.519589+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         A. Surtees\nRequest for Comments: 4465                                       M. West\nCategory: Informational                      Siemens/Roke Manor Research\n                                                               June 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Signaling Compression (SigComp) Torture Tests",
+      "zh-CHS": "信号压缩（SigComp）试验"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document provides a set of \"torture tests\" for implementers of the Signaling Compression (SigComp) protocol. The torture tests check each of the SigComp Universal Decompressor Virtual Machine instructions in turn, focusing in particular on the boundary and error cases that are not generally encountered when running well-behaved compression algorithms. Tests are also provided for other SigComp entities such as the dispatcher and the state handler.",
+      "zh-CHS": "本文档为信令压缩（SigComp）协议的实现者提供了一组“折磨测试”。酷刑测试依次检查每个SigComp Universal Decompressor虚拟机指令，特别关注在运行性能良好的压缩算法时通常不会遇到的边界和错误情况。还为其他SigComp实体（如调度器和状态处理程序）提供了测试。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Torture Tests for UDVM ..........................................4\n   2.1. Bit Manipulation ...........................................4\n   2.2. Arithmetic .................................................5\n   2.3. Sorting ....................................................7\n   2.4. SHA-1 ......................................................8\n   2.5. LOAD and MULTILOAD .........................................9\n   2.6. COPY ......................................................11\n   2.7. COPY-LITERAL and COPY-OFFSET ..............................12\n   2.8. MEMSET ....................................................14\n   2.9. CRC .......................................................15\n   2.10. INPUT-BITS ...............................................16\n   2.11. INPUT-HUFFMAN ............................................17\n   2.12. INPUT-BYTES ..............................................19\n   2.13. Stack Manipulation .......................................20\n   2.14. Program Flow .............................................22\n   2.15. State Creation ...........................................23\n   2.16. STATE-ACCESS .............................................26\n3. Torture Tests for Dispatcher ...................................28\n   3.1. Useful Values .............................................28\n   3.2. Cycles Checking ...........................................31\n   3.3. Message-based Transport ...................................32\n   3.4. Stream-based Transport ....................................34\n   3.5. Input Past the End of a Message ...........................36\n4. Torture Tests for State Handler ................................38\n   4.1. SigComp Feedback Mechanism ................................38\n   4.2. State Memory Management ...................................41\n   4.3. Multiple Compartments .....................................44\n   4.4. Accessing RFC 3485 State ..................................49\n   4.5. Bytecode State Creation ...................................50\n5. Security Considerations ........................................53\n6. Acknowledgements ...............................................53\n7. Normative References ...........................................53\nAppendix A.  UDVM Bytecode for the Torture Tests ..................54\n   A.1. Instructions ..............................................54\n        A.1.1. Bit Manipulation ...................................54\n        A.1.2. Arithmetic .........................................55\n        A.1.3. Sorting ............................................55\n        A.1.4. SHA-1 ..............................................56\n        A.1.5. LOAD and MULTILOAD .................................56\n        A.1.6. COPY ...............................................56\n        A.1.7. COPY-LITERAL and COPY-OFFSET .......................57\n        A.1.8. MEMSET .............................................57\n        A.1.9. CRC ................................................57\n        A.1.10. INPUT-BITS ........................................57\n        A.1.11. INPUT-HUFFMAN .....................................58",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "     A.1.12. INPUT-BYTES .......................................58\n     A.1.13. Stack Manipulation ................................58\n     A.1.14. Program Flow ......................................59\n     A.1.15. State Creation ....................................59\n     A.1.16. STATE-ACCESS ......................................60\nA.2. Dispatcher Tests ..........................................61\n     A.2.1. Useful Values ......................................61\n     A.2.2. Cycles Checking  ...................................62\n     A.2.3. Message-based Transport ............................62\n     A.2.4. Stream-based Transport .............................62\n     A.2.5. Input Past the End of a Message ....................63\nA.3. State Handler Tests .......................................64\n     A.3.1. SigComp Feedback Mechanism .........................64\n     A.3.2. State Memory Management ............................64\n     A.3.3. Multiple Compartments ..............................65\n     A.3.4. Accessing RFC 3485 State ...........................66\n     A.3.5. Bytecode State Creation ............................66",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document provides a set of \"torture tests\" for implementers of the SigComp protocol, RFC 3320 [2]. The idea behind SigComp is to standardize a Universal Decompressor Virtual Machine (UDVM) that can be programmed to understand the output of many well-known compressors including DEFLATE and LZW. The bytecode for the chosen decompressor is uploaded to the UDVM as part of the SigComp message flow.",
+      "zh-CHS": "本文件为SigComp协议RFC 3320[2]的实施者提供了一套“酷刑测试”。SigComp背后的理念是标准化通用减压器虚拟机（UDVM），该虚拟机可编程为了解许多知名压缩机的输出，包括DEFLATE和LZW。所选解压缩器的字节码作为SigComp消息流的一部分上载到UDVM。"
+    },
+    {
+      "indent": 3,
+      "text": "The SigComp User's Guide [1] gives examples of a number of different algorithms that can be used by the SigComp protocol. However, the bytecode for the corresponding decompressors is relatively well behaved and does not test the boundary and error cases that may potentially be exploited by malicious SigComp messages.",
+      "zh-CHS": "SigComp用户指南[1]给出了SigComp协议可以使用的许多不同算法的示例。但是，相应解压缩程序的字节码表现相对良好，不会测试恶意SigComp消息可能利用的边界和错误情况。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is divided into a number of sections, each containing a piece of code designed to test a particular function of one of the SigComp entities (UDVM, dispatcher, and state handler). The specific boundary and error cases tested by the bytecode are also listed, as are the output the code should produce and the number of UDVM cycles that should be used.",
+      "zh-CHS": "本文档分为多个部分，每个部分包含一段代码，用于测试其中一个SigComp实体（UDVM、dispatcher和state handler）的特定功能。还列出了字节码测试的特定边界和错误情况，以及代码应产生的输出和应使用的UDVM循环数。"
+    },
+    {
+      "indent": 3,
+      "text": "Each test runs in the SigComp minimum decompression memory size (that is, 2K), within the minimum number of cycles per bit (that is, 16) and in tests where state is stored 2K state memory size is needed.",
+      "zh-CHS": "每个测试在SigComp最小解压内存大小（即2K）、每位最小循环数（即16）内以及存储状态的测试中运行，需要2K状态内存大小。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Torture Tests for UDVM",
+      "section_title": true,
+      "zh-CHS": "2. UDVM的酷刑测试"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections each provide code to test one or more UDVM instructions. In the interests of readability, the code is given using the SigComp assembly language: a description of how to convert this assembly code into UDVM bytecode can be found in the SigComp User's Guide [1].",
+      "zh-CHS": "以下各节提供测试一个或多个UDVM指令的代码。出于可读性的考虑，代码使用SigComp汇编语言给出：有关如何将此汇编代码转换为UDVM字节码的说明，请参见SigComp用户指南[1]。"
+    },
+    {
+      "indent": 3,
+      "text": "The raw UDVM bytecode for each torture test is given in Appendix A.",
+      "zh-CHS": "附录A中给出了每个酷刑测试的原始UDVM字节码。"
+    },
+    {
+      "indent": 3,
+      "text": "Each section also lists the number of UDVM cycles required to execute the code. Note that this figure only takes into account the cost of executing each UDVM instruction (in particular, it ignores the fact that the UDVM can gain extra cycles as a result of inputting more data).",
+      "zh-CHS": "每个部分还列出了执行代码所需的UDVM周期数。请注意，此图只考虑了执行每个UDVM指令的成本（特别是，它忽略了UDVM可以因输入更多数据而获得额外周期这一事实）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Bit Manipulation",
+      "section_title": true,
+      "zh-CHS": "2.1. 位操纵"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the AND, OR, NOT, LSHIFT, and RSHIFT instructions. When the instructions have a multitype operand, the code tests the case where the multitype contains a fixed integer value, and the case where it contains a memory address at which the 2-byte operand value can be found. In addition, the code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了测试AND、OR、NOT、L换档和R换档说明的装配代码。当指令具有多类型操作数时，代码将测试多类型包含固定整数值的情况，以及它包含可以找到2字节操作数值的内存地址的情况。此外，该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The instructions overwrite themselves with the result of the bit manipulation operation, in which case execution continues normally.",
+      "zh-CHS": "1. 指令用位操作的结果覆盖自身，在这种情况下，执行将正常继续。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The LSHIFT or RSHIFT instructions shift bits beyond the 2-byte boundary, in which case the bits must be discarded.",
+      "zh-CHS": "2. LSHIFT或RSHIFT指令将位移位到2字节边界之外，在这种情况下，必须丢弃位。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The UDVM registers byte_copy_left and byte_copy_right are used to store the results of the bit manipulation operations. Since no byte copying is taking place, these registers should behave in exactly the same manner as ordinary UDVM memory addresses.",
+      "zh-CHS": "3. UDVM寄存器byte_copy_left和byte_copy_right用于存储位操作的结果。由于没有发生字节复制，这些寄存器的行为应与普通UDVM内存地址完全相同。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":a pad (2) :b pad (2)",
+      "zh-CHS": "：a焊盘（2）：b焊盘（2）"
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "JUMP (start) ; Jump to address 255",
+      "zh-CHS": "跳转（启动）；跳转到地址255"
+    },
+    {
+      "indent": 3,
+      "text": "at (255)",
+      "zh-CHS": "at（255）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "; The multitypes are values\n                        ; $start = 448 (first 2 bytes of AND instr)\nAND ($start, 21845)     ; 448 & 21845 = 320 = 0x0140\nOR ($a, 42)             ; 0 | 42 = 42 = 0x002a\nNOT ($b)                ; ~0 = 65535 = 0xffff\nLSHIFT ($a, 3)          ; 42 << 3 = 336 = 0x0150\nRSHIFT ($b, 65535)      ; 65535 >> 65535 = 0 = 0x0000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (64, 4) ; Output 0x0150 0000",
+      "zh-CHS": "产出（64,4）；输出0x0150 0000"
+    },
+    {
+      "indent": 3,
+      "text": "; The multitypes are references",
+      "zh-CHS": "; 多类型是引用"
+    },
+    {
+      "indent": 3,
+      "text": "AND ($a, $start)        ; 336 & 320 = 320 = 0x0140\nOR ($a, $a)             ; 320 | 320 = 320 = 0x0140\nNOT ($a)                ; ~320 = 65215 = 0xfebf\nLSHIFT ($b, $a)         ; 0 << 65215 = 0 = 0x0000\nRSHIFT ($a, $b)         ; 65215 >> 0 = 65215 = 0xfebf",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (64, 4) ; Output 0xfebf 0000",
+      "zh-CHS": "产出（64,4）；输出0xfebf 0000"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is 0x0150 0000 febf 0000. Executing the code costs a total of 22 UDVM cycles.",
+      "zh-CHS": "代码的输出为0x0150 0000 febf 0000。执行代码总共需要22个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Arithmetic",
+      "section_title": true,
+      "zh-CHS": "2.2. 算术"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the ADD, SUBTRACT, MULTIPLY, DIVIDE, and REMAINDER instructions. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了测试加法、减法、乘法、除法和余数指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The instructions overwrite themselves with the result of the arithmetic operation, resulting in continuation as if the bytes were not bytecode.",
+      "zh-CHS": "1. 指令会用算术运算的结果覆盖它们自己，从而导致继续，就好像字节不是字节码一样。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The result does not lie between 0 and 2^16 - 1 inclusive, in which case it must be taken modulo 2^16.",
+      "zh-CHS": "2. 在这种情况下，必须取^16，而不是取^2和^16之间的模。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The divisor in the DIVIDE or REMAINDER instructions is 0 (in which case decompression failure must occur).",
+      "zh-CHS": "3. 除法或余数指令中的除数为0（在这种情况下，必须发生解压缩失败）。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":a                              pad (2)\n:b                              pad (2)\n:type                           pad (1)\n:type_lsb                       pad (1)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, type_lsb, decomp_failure) SUBTRACT ($type, 1) JUMP (start) :decomp_failure DECOMPRESSION-FAILURE",
+      "zh-CHS": "输入字节（1，type_lsb，decomp_failure）减去（$type，1）跳转（start）：decomp_failure decomp-failure"
+    },
+    {
+      "indent": 3,
+      "text": "; Now the value in $type should be 0xffff, 0x0000, or 0x0001 ; according to whether the input was 0x00, 0x01, or 0x02.",
+      "zh-CHS": "; 现在，$type中的值应该是0xffff、0x0000或0x0001；根据输入是0x00、0x01还是0x02。"
+    },
+    {
+      "indent": 3,
+      "text": "at (255)",
+      "zh-CHS": "at（255）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "; The multitypes are values\n                        ; For all three messages\n                        ; $start = 1728 (first 2 bytes of ADD instr)\nADD ($start, 63809)     ; 1728 + 63809 = 1 = 0x0001\nSUBTRACT ($a, 1)        ; 0 - 1 = 65535 = 0xffff\nMULTIPLY ($a, 1001)     ; 65535 * 1001 = 64535 = 0xfc17\nDIVIDE ($a, 101)        ; 64535 / 101 = 638 = 0x027e\nREMAINDER ($a, 11)      ; 638 % 11 = 0 = 0x0000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (64, 4) ; output 0x0000 0000",
+      "zh-CHS": "产出（64,4）；输出0x0000 0000"
+    },
+    {
+      "indent": 3,
+      "text": "; The multitypes are references\nADD ($b, $start)        ; 0 + 1 = 1 = 0x0001\n                        ; If the message is 0x00\nSUBTRACT ($b, $type)    ; 1 - 65535 = 2 = 0x0002\nMULTIPLY ($b, $b)       ; 2 * 2 = 4 = 0x0004\nDIVIDE ($a, $b)         ; 0 / 4 = 0 = 0x0000\nREMAINDER ($b, $type)   ; 4 % 65535 = 4 = 0x0004",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (64, 4) ; output 0x0000 0004",
+      "zh-CHS": "产出（64,4）；输出0x0000 0004"
+    },
+    {
+      "indent": 27,
+      "text": "; If the message is 0x01, $type = 0\n; so decompression failure occurs at\n; REMAINDER ($b, $type)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 27,
+      "text": "; If the message is 0x02, $type = 1 so\n; $b becomes 0 and decompression failure\n; occurs at DIVIDE ($a, $b)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "If the compressed message is 0x00, then the output of the code is 0x0000 0000 0000 0004 and the execution cost should be 25 UDVM cycles. However, if the compressed message is 0x01 or 0x02, then decompression failure occurs.",
+      "zh-CHS": "如果压缩消息为0x00，则代码输出为0x0000 0004，执行成本应为25个UDVM周期。但是，如果压缩消息为0x01或0x02，则会发生解压缩失败。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Sorting",
+      "section_title": true,
+      "zh-CHS": "2.3. 分类"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the SORT-ASCENDING and SORT-DESCENDING instructions. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了测试升序排序和降序排序指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The sorting instructions sort integers with the same value, in which case the original ordering of the integers must be preserved.",
+      "zh-CHS": "1. 排序指令对具有相同值的整数进行排序，在这种情况下，必须保留整数的原始顺序。"
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "SORT-DESCENDING (256, 2, 23) SORT-ASCENDING (256, 2, 23)",
+      "zh-CHS": "降序排序（256,2,23）升序排序（256,2,23）"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (302, 45) END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "输出（302,45）结束消息（0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "at (256)",
+      "zh-CHS": "at（256）"
+    },
+    {
+      "indent": 3,
+      "text": "word (10, 10, 17, 7, 22, 3, 3, 3, 19, 1, 16, 14, 8, 2, 13, 20, 18, 23, 15, 21, 12, 6, 9)",
+      "zh-CHS": "单词（10，10，17，7，22，3，3，3，19，1，16，14，8，2，13，20，18，23，15，21，12，6，9）"
+    },
+    {
+      "indent": 3,
+      "text": "word (28263, 8297, 30057, 8308, 26996, 11296, 31087, 29991, 8275, 18031, 28263, 24864, 30066, 29284, 28448, 29807, 28206, 11776, 28773, 28704, 28276, 29285, 28265)",
+      "zh-CHS": "单词（28263829730057830822699611296129612751803128263248643006629284284284482807 2820617762872877628276292828265）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is 0x466f 7264 2c20 796f 7527 7265 2074 7572 6e69 6e67 2069 6e74 6f20 6120 7065 6e67 7569 6e2e 2053 746f 7020 6974 2e, and the number of cycles required is 371.",
+      "zh-CHS": "代码输出为0x466f 7264 2c20 796f 7527 7265 2074 7572 6e69 6e67 2069 6e74 6f20 6120 7065 6e67 7569 6e2e 2053 746f 7020 6974 2e，所需循环数为371。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. SHA-1",
+      "section_title": true,
+      "zh-CHS": "2.4. SHA-1"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the SHA-1 instruction. The code performs four tests on the SHA-1 algorithm itself and, in addition, checks the following boundary cases specific to the UDVM:",
+      "zh-CHS": "本节给出了测试SHA-1指令的汇编代码。代码对SHA-1算法本身执行四个测试，此外，还检查UDVM特定的以下边界情况："
+    },
+    {
+      "indent": 3,
+      "text": "1. The input string for the SHA-1 hash is obtained by byte copying over an area of the UDVM memory.",
+      "zh-CHS": "1. SHA-1散列的输入字符串是通过在UDVM内存的某个区域上复制字节获得的。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The SHA-1 hash overwrites its own input string.",
+      "zh-CHS": "2. SHA-1散列覆盖它自己的输入字符串。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:hash_value                     pad (20)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "SHA-1 (test_one, 3, hash_value) OUTPUT (hash_value, 20)",
+      "zh-CHS": "SHA-1（测试1，3，散列值）输出（散列值，20）"
+    },
+    {
+      "indent": 3,
+      "text": "SHA-1 (test_two, 56, hash_value) OUTPUT (hash_value, 20)",
+      "zh-CHS": "SHA-1（测试2，56，散列值）输出（散列值，20）"
+    },
+    {
+      "indent": 3,
+      "text": "; Set up a 1-byte buffer LOAD (byte_copy_left, test_three) LOAD (byte_copy_right, test_four)",
+      "zh-CHS": "; 设置1字节缓冲区加载（字节复制左，测试三）加载（字节复制右，测试四）"
+    },
+    {
+      "indent": 3,
+      "text": "; Perform SHA-1 over 16384 bytes in a 1-byte buffer SHA-1 (test_three, 16384, hash_value) OUTPUT (hash_value, 20)",
+      "zh-CHS": "; 在1字节缓冲区SHA-1（测试三，16384，散列值）输出（散列值，20）中对16384字节执行SHA-1"
+    },
+    {
+      "indent": 3,
+      "text": "; Set up an 8-byte buffer LOAD (byte_copy_left, test_four) LOAD (byte_copy_right, test_end)",
+      "zh-CHS": "; 设置8字节缓冲区加载（字节复制左，测试四）加载（字节复制右，测试结束）"
+    },
+    {
+      "indent": 3,
+      "text": "; Perform SHA-1 over 640 bytes in an 8-byte buffer SHA-1 (test_four, 640, test_four) OUTPUT (test_four, 20)",
+      "zh-CHS": "; 在8字节缓冲区SHA-1（测试四，640，测试四）输出（测试四，20）中对640字节执行SHA-1"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_one",
+      "zh-CHS": "：测试一"
+    },
+    {
+      "indent": 3,
+      "text": "byte (97, 98, 99)",
+      "zh-CHS": "字节（97、98、99）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_two",
+      "zh-CHS": "：测试二"
+    },
+    {
+      "indent": 3,
+      "text": "byte (97, 98, 99, 100, 98, 99, 100, 101, 99, 100, 101, 102, 100, 101, 102, 103, 101, 102, 103, 104, 102, 103, 104, 105, 103, 104, 105, 106, 104, 105, 106, 107, 105, 106, 107, 108, 106, 107, 108, 109, 107, 108, 109, 110, 108, 109, 110, 111, 109, 110, 111, 112, 110, 111, 112, 113)",
+      "zh-CHS": "字节（97、98、99、100、98、99、100、101、99、100、101、102、100、102、103、101、102、103、104、104、104、105、105、104、106、106、107、105、106、107、108、109、108、109、110、108、109、110、111、110、112、110、111、112、111、112、113）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_three",
+      "zh-CHS": "：测试三"
+    },
+    {
+      "indent": 3,
+      "text": "byte (97)",
+      "zh-CHS": "字节（97）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_four",
+      "zh-CHS": "：测试四"
+    },
+    {
+      "indent": 3,
+      "text": "byte (48, 49, 50, 51, 52, 53, 54, 55)",
+      "zh-CHS": "字节（48、49、50、51、52、53、54、55）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_end",
+      "zh-CHS": "：测试结束"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is as follows:",
+      "zh-CHS": "代码的输出如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "0xa999 3e36 4706 816a ba3e 2571 7850 c26c 9cd0 d89d 0x8498 3e44 1c3b d26e baae 4aa1 f951 29e5 e546 70f1 0x12ff 347b 4f27 d69e 1f32 8e6f 4b55 73e3 666e 122f 0x4f46 0452 ebb5 6393 4f46 0452 ebb5 6393 4f46 0452",
+      "zh-CHS": "0xa999 3e36 4706 816a ba3e 2571 7850 c26c 9cd0 d89d 0x8498 3e44 1c3b d26e baae 4aa1 f951 29e5 e546 70f1 0x12ff 347b 4f27 d69e 1f32 8e6f 4b55 73e3 666e 122f 0x4f46 0452 ebb5 6393 4f46 0452 ebb5 6393 4f46 0452"
+    },
+    {
+      "indent": 3,
+      "text": "Executing the code costs a total of 17176 UDVM cycles.",
+      "zh-CHS": "执行代码总共需要17176个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. LOAD and MULTILOAD",
+      "section_title": true,
+      "zh-CHS": "2.5. 负载和多负载"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the LOAD and MULTILOAD instructions. The code is designed to test the following boundary cases:",
+      "zh-CHS": "本节给出了测试加载指令和多加载指令的汇编代码。该代码旨在测试以下边界情况："
+    },
+    {
+      "indent": 3,
+      "text": "1. The MULTILOAD instruction overwrites itself or any of its operands, in which case decompression failure occurs.",
+      "zh-CHS": "1. 多重加载指令会覆盖自身或其任何操作数，在这种情况下会发生解压缩失败。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The memory references of MULTILOAD instruction operands are evaluated step-by-step rather than all at once before starting to copy data.",
+      "zh-CHS": "2. 在开始复制数据之前，多加载指令操作数的内存引用将逐步求值，而不是一次求值。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":start pad (1) :start_lsb pad (1)",
+      "zh-CHS": "：开始焊盘（1）：开始焊盘（1）"
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "set (location_a, 128) set (location_b, 132)",
+      "zh-CHS": "集合（位置a，128）集合（位置b，132）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (128, 132)                 ; address 128 contains 132 = 0x0084\nLOAD (130, $location_a)         ; address 130 contains 132 = 0x0084\nLOAD ($location_a, 134)         ; address 132 contains 134 = 0x0086\nLOAD ($location_b, $location_b) ; address 134 contains 134 = 0x0086\nOUTPUT (128, 8)                 ; output 0x0084 0084 0086 0086",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, start_lsb, decompression_failure) MULTIPLY ($start, 2) ADD ($start, 60) MULTILOAD ($start, 3, overlap_start, overlap_end, 128)",
+      "zh-CHS": "输入字节（1，开始\\u lsb，解压\\u失败）乘法（$start，2）加法（$start，60）多重加载（$start，3，重叠\\u开始，重叠\\u结束，128）"
+    },
+    {
+      "indent": 3,
+      "text": ":position",
+      "zh-CHS": "：位置"
+    },
+    {
+      "indent": 3,
+      "text": "set (overlap_start, (position - 7))",
+      "zh-CHS": "设置（重叠开始（位置-7））"
+    },
+    {
+      "indent": 3,
+      "text": "MULTILOAD ($start, 4, 42, 128, $location_a, $location_b)",
+      "zh-CHS": "多重加载（$start、4、42、128、$location_a、$location_b）"
+    },
+    {
+      "indent": 3,
+      "text": ":end",
+      "zh-CHS": "：结束"
+    },
+    {
+      "indent": 3,
+      "text": "set (overlap_end, (end - 1))",
+      "zh-CHS": "集合（重叠_端，（端-1））"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (128, 8) END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "输出（128,8）结束消息（0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":decompression_failure DECOMPRESSION-FAILURE",
+      "zh-CHS": "：解压失败解压失败"
+    },
+    {
+      "indent": 3,
+      "text": "The INPUT-BYTES, MULTIPLY, and ADD instructions give the following values for $start = $64 just before the MULTILOADs begin:",
+      "zh-CHS": "INPUT-BYTES、MULTIPLY和ADD指令在多重加载开始之前给出$start=$64的以下值："
+    },
+    {
+      "indent": 3,
+      "text": "Input $start before 1st MULTILOAD 0x00 60 0x01 62 0x02 64",
+      "zh-CHS": "在第一次多重加载之前输入$start 0x00 60 0x01 62 0x02 64"
+    },
+    {
+      "indent": 3,
+      "text": "Consequently, after the first MULTILOAD the values of $start are the following:",
+      "zh-CHS": "因此，在第一次多重加载后，$start的值如下："
+    },
+    {
+      "indent": 3,
+      "text": "Input $start before 2nd MULTILOAD 0x00 128 0x01 overlap_end = 177 = last byte of 2nd MULTILOAD instruction 0x02 overlap_start = 162 = 7 bytes before 2nd MULTILOAD instruction",
+      "zh-CHS": "输入$start before second MULTILOAD 0x00 128 0x01 overlap\\u end=177=第二条MULTILOAD指令的最后一个字节0x02 overlap\\u start=162=7字节before second MULTILOAD指令"
+    },
+    {
+      "indent": 3,
+      "text": "Consequently, execution of the 2nd MULTILOAD (and any remaining code) gives the following:",
+      "zh-CHS": "因此，第二次多重加载（以及任何剩余代码）的执行将产生以下结果："
+    },
+    {
+      "indent": 3,
+      "text": "Input Outcome 0x00 MULTILOAD reads and writes operand by operand. The output is 0x0084 0084 0086 0086 002a 0080 002a 002a, and the cost of executing the code is 36 UDVM cycles.",
+      "zh-CHS": "输入结果0x00多次加载逐个操作数读取和写入操作数。输出为0x0084 0084 0086 0086 002a 0080 002a 002a，执行代码的成本为36个UDVM周期。"
+    },
+    {
+      "indent": 3,
+      "text": "0x01 The first write of the MULTILOAD instruction would overwrite the last byte of the final MULTILOAD operand, so decompression failure occurs.",
+      "zh-CHS": "0x01多重加载指令的第一次写入将覆盖最终多重加载操作数的最后一个字节，因此发生解压缩失败。"
+    },
+    {
+      "indent": 3,
+      "text": "0x02 The last write of the MULTILOAD would overwrite the MULTILOAD opcode, so decompression failure occurs.",
+      "zh-CHS": "0x02多负载的最后一次写入将覆盖多负载操作码，因此发生解压缩失败。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. COPY",
+      "section_title": true,
+      "zh-CHS": "2.6. 复制"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the COPY instruction. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试复制指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The COPY instruction copies data from both outside the circular buffer and inside the circular buffer within the same operation.",
+      "zh-CHS": "1. COPY指令在同一操作中从循环缓冲区外部和循环缓冲区内部复制数据。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The COPY instruction performs byte-by-byte copying (i.e., some of the later bytes to be copied are themselves written into the UDVM memory by the COPY instruction currently being executed).",
+      "zh-CHS": "2. 复制指令执行逐字节复制（即，一些稍后要复制的字节本身由当前正在执行的复制指令写入UDVM内存）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The COPY instruction overwrites itself and continues executing.",
+      "zh-CHS": "3. 复制指令将覆盖自身并继续执行。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The COPY instruction overwrites the UDVM registers byte_copy_left and byte_copy_right.",
+      "zh-CHS": "4. COPY指令覆盖UDVM寄存器byte_COPY_left和byte_COPY_right。"
+    },
+    {
+      "indent": 3,
+      "text": "5. The COPY instruction writes to and reads from the right of the buffer beginning at byte_copy_right.",
+      "zh-CHS": "5. COPY指令从字节_COPY_right开始写入缓冲区的右侧并从其读取。"
+    },
+    {
+      "indent": 3,
+      "text": "6. The COPY instruction implements byte copying rules when the destination wraps around the buffer.",
+      "zh-CHS": "6. 当目标环绕缓冲区时，COPY指令实现字节复制规则。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left pad (2) :byte_copy_right pad (2)",
+      "zh-CHS": "：字节复制左键盘（2）：字节复制右键盘（2）"
+    },
+    {
+      "indent": 3,
+      "text": "at (128) ; Set up buffer between addresses 64 & 128 LOAD (32, 16384) LOAD (byte_copy_left, 64) LOAD (byte_copy_right, 128)",
+      "zh-CHS": "at（128）；在地址64和128之间设置缓冲区加载（3216384）加载（字节左，64）加载（字节右，128）"
+    },
+    {
+      "indent": 3,
+      "text": "COPY (32, 128, 33)      ; Copy byte by byte starting to the left of\n                        ; the buffer, into the buffer and wrapping\n                        ; the buffer (inc overwriting the\n                        ; boundaries)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (64, 16640) ; Change the start of the buffer to be ; beyond bytecode",
+      "zh-CHS": "载荷（6416640）；将缓冲区的开始更改为；超越字节码"
+    },
+    {
+      "indent": 3,
+      "text": "COPY (64, 85, 65) ; Copy to the left of the buffer, ; overwriting this instruction",
+      "zh-CHS": "副本（64、85、65）；复制到缓冲区的左侧；覆盖此指令"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (32, 119)        ; Output 32 * 0x40 + 86 * 0x41 + 0x55,\n                        ; which is 32 * '@' + 86 'A' + 'U'",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": " ; Set a new small buffer LOAD (byte_copy_left, 32) LOAD (byte_copy_right, 48)",
+      "zh-CHS": "; 设置新的小缓冲区加载（字节左，32）加载（字节右，48）"
+    },
+    {
+      "indent": 3,
+      "text": "MEMSET (32, 4, 65, 1) ; Set first 4 bytes of the buffer to be ; 'ABCD' COPY (32, 4, 48) ; Copy from byte_copy_right (i.e., not ; in buffer)",
+      "zh-CHS": "MEMSET（32,4,65,1）；将缓冲区的前4个字节设置为；'ABCD的副本（32、4、48）；从字节拷贝右拷贝（即，非；在缓冲区中）"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (48, 4) ; Output 0x4142 4344, which is 'ABCD'",
+      "zh-CHS": "产出（48,4）；输出0x4142 4344，即“ABCD”"
+    },
+    {
+      "indent": 3,
+      "text": "COPY (48, 4, 46) ; Copy from two before byte_copy_right to ; wrap around the buffer OUTPUT (32, 2) ; Output 0x4344, which is 'CD'",
+      "zh-CHS": "副本（48、4、46）；从前两个字节复制到右两个字节；环绕缓冲区输出（32,2）；输出0x4344，即“CD”"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The output is above, and executing the code costs a total of 365 UDVM cycles.",
+      "zh-CHS": "输出如上所述，执行代码总共需要365个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7. COPY-LITERAL and COPY-OFFSET",
+      "section_title": true,
+      "zh-CHS": "2.7. 复制文字和复制偏移量"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the COPY-LITERAL and COPY-OFFSET instructions. The code is designed to test similar boundary cases to the code for the COPY instruction, as well as the following condition specific to COPY-LITERAL and COPY-OFFSET:",
+      "zh-CHS": "本节给出了测试COPY-LITERAL和COPY-OFFSET指令的汇编代码。该代码旨在测试复制指令代码的类似边界情况，以及特定于复制文字和复制偏移量的以下条件："
+    },
+    {
+      "indent": 3,
+      "text": "1. The COPY-LITERAL or COPY-OFFSET instruction overwrites the value of its destination.",
+      "zh-CHS": "1. COPY-LITERAL或COPY-OFFSET指令覆盖其目标的值。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The COPY-OFFSET instruction reads from an offset that wraps around the buffer (i.e., the offset is larger than the distance between byte_copy_left and the destination).",
+      "zh-CHS": "2. COPY-OFFSET指令从环绕缓冲区的偏移量读取（即，偏移量大于字节\\u COPY\\u left与目标之间的距离）。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:destination                    pad (2)\n:offset                         pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128) ; Set up circular buffer, source, and ; destination LOAD (32, 16640) LOAD (byte_copy_left, 64) LOAD (byte_copy_right, 128) LOAD (destination, 33)",
+      "zh-CHS": "at（128）；设置循环缓冲区、源和；目标加载（3216640）加载（字节左，64）加载（字节右，128）加载（目标，33）"
+    },
+    {
+      "indent": 3,
+      "text": "COPY-LITERAL (32, 128, $destination)    ; Copy from the left of the\n                        ; buffer overwriting bcl, bcr, and\n                        ; destination wrapping around the buffer\nOUTPUT (64, 8)          ; Check destination has been updated\n                        ; Output 0x4141 4141 0061 4141",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (destination, copy)",
+      "zh-CHS": "加载（目的地，副本）"
+    },
+    {
+      "indent": 3,
+      "text": ":copy ; Overwrite the copy instruction COPY-LITERAL (32, 2, $destination) OUTPUT (copy, 2) ; Output 0x4141",
+      "zh-CHS": "：复印件；覆盖复制指令copy-LITERAL（32,2，$destination）输出（copy，2）；输出0x4141"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (byte_copy_left, 72) ; Set up new circular buffer LOAD (byte_copy_right, 82) LOAD (destination, 82) ; Set destination to byte_copy_right",
+      "zh-CHS": "加载（字节\\复制\\左，72）；设置新的循环缓冲区加载（字节\\复制\\右，82）加载（目标，82）；将目标设置为字节\\复制\\右"
+    },
+    {
+      "indent": 3,
+      "text": "MEMSET (72, 10, 65, 1) ; Fill the buffer with 0x41 - 4A",
+      "zh-CHS": "MEMSET（72,10,65,1）；用0x41-4A填充缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "COPY-OFFSET (2, 6, $destination) ; Copy from within circular ; buffer to outside buffer",
+      "zh-CHS": "拷贝偏移量（2,6，$destination）；从通告内抄送；缓冲区到外部缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (offset, 6) COPY-OFFSET ($offset, 4, $destination) ; Copy from byte_copy_right ; so reading outside buffer",
+      "zh-CHS": "加载（偏移，6）复制偏移（$offset，4，$destination）；从字节复制\\u复制\\u右侧；所以在缓冲区外读取"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT ($byte_copy_right, 10) ; Output 0x494A 4142 4344 494A 4142, ; which is 'IJABCDIJAB' LOAD (destination, 80) ; Put destination within the ; buffer COPY-OFFSET (4, 4, $destination) ; Copy where destination wraps OUTPUT (destination, 2) ; Output 0x004A",
+      "zh-CHS": "输出（$byte\\u copy\\u right，10）；输出0x494A 4142 4344 494A 4142；即“IJABCDIJAB”负载（目的地，80）；将目的地放在指定范围内；缓冲区拷贝偏移量（4，4，$destination）；复制目的地包装输出的位置（目的地，2）；输出0x004A"
+    },
+    {
+      "indent": 3,
+      "text": "COPY-OFFSET (5, 4, $destination)    ; Copy where offset wraps from\n                                    ; left back around to the right\nOUTPUT (destination, 2)             ; Output 0x004E\nOUTPUT ($byte_copy_left, 10)        ; Output the circular buffer\n                                    ; 0x4748 4845 4647 4748 4546,\n                                    ; which is 'GHHEFGGHEF'",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is above, and the cost of execution is 216 UDVM cycles.",
+      "zh-CHS": "代码的输出如上所述，执行成本为216个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "2.8. MEMSET",
+      "section_title": true,
+      "zh-CHS": "2.8. 记忆集"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the MEMSET instruction. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了测试MEMSET指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The MEMSET instruction overwrites the registers byte_copy_left and byte_copy_right.",
+      "zh-CHS": "1. MEMSET指令覆盖寄存器byte_copy_left和byte_copy_right。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The output values of the MEMSET instruction do not lie between 0 and 255 inclusive (in which case they must be taken modulo 2^8).",
+      "zh-CHS": "2. MEMSET指令的输出值不在0和255之间（包括0和255）（在这种情况下，必须取模2^8）。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left pad (2) :byte_copy_right pad (2)",
+      "zh-CHS": "：字节复制左键盘（2）：字节复制右键盘（2）"
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (byte_copy_left, 128) ; sets up a circular buffer LOAD (byte_copy_right, 129) ; of 1 byte between 0x0080 and 0x0081",
+      "zh-CHS": "加载（字节\\复制\\左，128）；设置循环缓冲区加载（字节\\复制\\右，129）；0x0080和0x0081之间的1字节数"
+    },
+    {
+      "indent": 3,
+      "text": "MEMSET (64, 129, 0, 1)  ; fills up the memory in the range\n                     ; 0x0040-0x007f with 0x00, ... 0x3f;\n                     ; then it writes successively at\n                     ; 0x0080 the following values 0x40, ... 0x80\n                     ; as a side effect, the values of\n                     ; bcl and bcr are modified.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "; before and during the MEMSET:\n; byte_copy_left: 0x0080 byte_copy_right: 0x0081\n; after the MEMSET:\n; byte_copy_left: 0x0001 byte_copy_right: 0x0203",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "MEMSET (129, 15, 64, 15)     ; fills the memory range 0x0080-0x008f\n                      ; with values 0x40, 0x4f, ... 0xf4, 0x03, 0x12.\n                      ; as a side effect, it overwrites a\n                      ; part of the code including itself",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (128, 16) ; outputs 0x8040 4f5e 6d7c 8b9a ; a9b8 c7d6 e5f4 0312",
+      "zh-CHS": "产出（128,16）；输出0x8040 4f5e 6d7c 8b9a；a9b8 c7d6 e5f4 0312"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is 0x8040 4f5e 6d7c 8b9a a9b8 c7d6 e5f4 0312. Executing the code costs 166 UDVM cycles.",
+      "zh-CHS": "代码的输出为0x8040 4f5e 6d7c 8b9a a9b8 c7d6 e5f4 0312。执行代码需要166个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "2.9. CRC",
+      "section_title": true,
+      "zh-CHS": "2.9. 华润"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the CRC instruction. The code does not test any specific boundary cases (as there do not appear to be any) but focuses instead on verifying the CRC algorithm.",
+      "zh-CHS": "本节给出测试CRC指令的汇编代码。该代码没有测试任何特定的边界情况（因为似乎没有），而是侧重于验证CRC算法。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:crc_value                      pad (2)\n:crc_string_a                   pad (24)\n:crc_string_b                   pad (20)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "MEMSET (crc_string_a, 24, 1, 1) ; sets up between 0x0046 and 0x005d ; a byte string containing 0x01, ; 0x02, ... 0x18",
+      "zh-CHS": "MEMSET（crc_字符串_a，24，1，1）；在0x0046和0x005d之间设置；包含0x01、、的字节字符串；0x02。。。0x18"
+    },
+    {
+      "indent": 3,
+      "text": "MEMSET (crc_string_b, 20, 128, 1) ; sets up between 0x005e and 0x0071 ; a byte string containing 0x80, ; 0x81, ... 0x93",
+      "zh-CHS": "MEMSET（crc_字符串_b，20，128，1）；在0x005e和0x0071之间设置；包含0x80的字节字符串；0x81。。。0x93"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (2, crc_value, decompression_failure)\n                                 ; reads in 2 bytes representing\n                                 ; the CRC value of the byte string\n                                 ; of 44 bytes starting at 0x0046",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "CRC ($crc_value, crc_string_a, 44, decompression_failure)\n                                   ; computes the CRC value of the\n                                   ; byte string crc_string_a\n                                   ; concatenated with byte string\n                                   ; crc_string_b (with a total\n                                   ; length of 44 bytes).\n                                   ; if the computed value does\n                                   ; not match the 2-byte value read\n                                   ; previously, the program ends\n                                   ; with DECOMPRESSION-FAILURE.\nEND-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":decompression_failure DECOMPRESSION-FAILURE",
+      "zh-CHS": "：解压失败解压失败"
+    },
+    {
+      "indent": 3,
+      "text": "If the compressed message is 0x62cb, then the code should successfully terminate with no output, and with a total execution cost of 95 UDVM cycles. For different 2-byte compressed messages, the code should terminate with a decompression failure.",
+      "zh-CHS": "如果压缩的消息是0x62cb，那么代码应该在没有输出的情况下成功终止，并且总执行成本为95个UDVM周期。对于不同的2字节压缩消息，代码应在解压缩失败时终止。"
+    },
+    {
+      "indent": 0,
+      "text": "2.10. INPUT-BITS",
+      "section_title": true,
+      "zh-CHS": "2.10. 输入位"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the INPUT-BITS instruction. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试输入位指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The INPUT-BITS instruction changes between any of the four possible bit orderings defined by the input_bit_order register.",
+      "zh-CHS": "1. 输入位指令在输入位顺序寄存器定义的四种可能位顺序中的任意一种之间变化。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The INPUT-BITS instruction inputs 0 bits.",
+      "zh-CHS": "2. 输入位指令输入0位。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The INPUT-BITS instruction requests data that lies beyond the end of the compressed message.",
+      "zh-CHS": "3. INPUT-BITS指令请求位于压缩消息结尾之外的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:input_bit_order                pad (2)\n:result                         pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BITS ($input_bit_order, result, end_of_message) ; reads in\n                              ; exactly as many bits as the 2-byte\n                              ; value written in the input_bit_order\n                              ; register, get out of the loop when\n                              ; no more bits are available at input.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (result, 2) ; outputs as a 2-byte integer ; the previously read bits",
+      "zh-CHS": "输出（结果2）；输出为2字节整数；先前读取的位"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($input_bit_order, 1)      ; if at the beginning of this loop the\n                               ; register input_bit_order is 0,\nREMAINDER ($input_bit_order, 7) ; then its value varies periodically\n                               ; like this: 2, 4, 6, 1, 3, 5, 7.\nADD ($input_bit_order, 1)      ; that gives for the FHP bits: 010,\n                               ; 100, 110, 001, 011, 101, 111",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "JUMP (start) ; run the loop once more",
+      "zh-CHS": "跳转（启动）；再次运行循环"
+    },
+    {
+      "indent": 3,
+      "text": ":end_of_message",
+      "zh-CHS": "：结束\\u消息的\\u"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "An example of a compressed message is 0x932e ac71, which decompresses to give the output 0x0000 0002 0002 0013 0000 0003 001a 0038. Executing the code costs 66 UDVM cycles.",
+      "zh-CHS": "压缩消息的一个示例是0x932e ac71，它进行解压缩以提供输出0x0000 0002 0002 0013 0000 0003 001a 0038。执行代码需要66个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "2.11. INPUT-HUFFMAN",
+      "section_title": true,
+      "zh-CHS": "2.11. 输入哈夫曼"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the INPUT-HUFFMAN instruction. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了测试INPUT-HUFFMAN指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The INPUT-HUFFMAN instruction changes between any of the four possible bit orderings defined by the input_bit_order register.",
+      "zh-CHS": "1. INPUT-HUFFMAN指令在INPUT_bit_order寄存器定义的四种可能位顺序中的任意一种之间进行更改。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The INPUT-HUFFMAN instruction inputs 0 bits.",
+      "zh-CHS": "2. INPUT-HUFFMAN指令输入0位。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The INPUT-HUFFMAN instruction requests data that lies beyond the end of the compressed message.",
+      "zh-CHS": "3. INPUT-HUFFMAN指令请求位于压缩消息结尾之外的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:input_bit_order                pad (2)\n:result                         pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-HUFFMAN (result, end_of_message, 2, $input_bit_order, 0, $input_bit_order, $input_bit_order, $input_bit_order, 0, 65535, 0) OUTPUT (result, 2)",
+      "zh-CHS": "INPUT-HUFFMAN（结果，消息结尾，2，$INPUT\\u bit\\u order，0，$INPUT\\u bit\\u order，$INPUT\\u bit\\u order，$INPUT\\u bit\\u order，0，65535，0）输出（结果，2）"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($input_bit_order, 1) REMAINDER ($input_bit_order, 7) ADD ($input_bit_order, 1)",
+      "zh-CHS": "添加（$input\\U bit\\U order，1）余数（$input\\U bit\\U order，7）添加（$input\\U bit\\U order，1）"
+    },
+    {
+      "indent": 3,
+      "text": "JUMP (start)",
+      "zh-CHS": "跳转（开始）"
+    },
+    {
+      "indent": 3,
+      "text": ":end_of_message",
+      "zh-CHS": "：结束\\u消息的\\u"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "An example of a compressed message is 0x932e ac71 66d8 6f, which decompresses to give the output 0x0000 0003 0008 04d7 0002 0003 0399 30fe. Executing the code costs 84 UDVM cycles.",
+      "zh-CHS": "压缩消息的一个示例是0x932e ac71 66d8 6f，它进行解压缩以给出输出0x0000 0003 0008 04d7 0002 0003 0399 30fe。执行代码需要84个UDVM周期。"
+    },
+    {
+      "indent": 3,
+      "text": "As the code is run, the input_bit_order changes through all possible values to check usage of the H and P bits. The number of bits to input each time is taken from the value of input_bit_order. The sequence is the following:",
+      "zh-CHS": "当代码运行时，输入位的顺序通过所有可能的值进行更改，以检查H和P位的使用情况。每次输入的位数取自input_bit_order的值。顺序如下："
+    },
+    {
+      "indent": 3,
+      "text": "Input_bit_order (bin) Total bits input by Huffman Value 000 0 0 010 2 3 100 4 8 110 12 1239 001 P-bit changed, throw away 6 bits 001 1 2 011 3 3 101 10 921 111 14 12542 010 P-bit changed, throw away 4 bits 010 0 - not enough bits so terminate",
+      "zh-CHS": "输入位顺序（bin）霍夫曼值000 0 010 2 3 100 4 8 110 12 1239 001 P位更改输入的总位，丢弃6位001 1 2 011 3 101 10 921 111 14 12542 010 P位更改，丢弃4位010 0-没有足够的位，因此终止"
+    },
+    {
+      "indent": 0,
+      "text": "2.12. INPUT-BYTES",
+      "section_title": true,
+      "zh-CHS": "2.12. 输入字节"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the INPUT-BYTES instruction. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试输入字节指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The INPUT-BYTES instruction inputs 0 bytes.",
+      "zh-CHS": "1. INPUT-BYTES指令输入0字节。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The INPUT-BYTES instruction requests data that lies beyond the end of the compressed message.",
+      "zh-CHS": "2. INPUT-BYTES指令请求位于压缩消息结尾之外的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The INPUT-BYTES instruction is used after part of a byte has been input (e.g., by the INPUT-BITS instruction).",
+      "zh-CHS": "3. 输入字节指令在字节的一部分被输入后使用（例如，由输入字节指令）。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:input_bit_order                pad (2)\n:result                         pad (2)\n:output_start                   pad (4)\n:output_end",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (byte_copy_left, output_start) LOAD (byte_copy_right, output_end)",
+      "zh-CHS": "加载（字节复制左，输出开始）加载（字节复制右，输出结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BITS ($input_bit_order, result, end_of_message) OUTPUT (result, 2)",
+      "zh-CHS": "输入位（$INPUT_bit_顺序、结果、消息结尾）输出（结果，2）"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($input_bit_order, 2) REMAINDER ($input_bit_order, 7)",
+      "zh-CHS": "添加（$input\\U bit\\U order，2）余数（$input\\U bit\\U order，7）"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES ($input_bit_order, output_start, end_of_message) OUTPUT (output_start, $input_bit_order)",
+      "zh-CHS": "输入字节（$INPUT\\U bit\\U order，output\\U start，end\\U消息）输出（$output\\U start，$INPUT\\U bit\\U order）"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($input_bit_order, 1) JUMP (start)",
+      "zh-CHS": "添加（$input\\U bit\\U order，1）跳转（start）"
+    },
+    {
+      "indent": 3,
+      "text": ":end_of_message",
+      "zh-CHS": "：结束\\u消息的\\u"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "An example of a compressed message is 0x932e ac71 66d8 6fb1 592b dc9a 9734 d847 a733 874e 1bcb cd51 b5dc 9659 9d6a, which decompresses to give the output 0x0000 932e 0001 b166 d86f b100 1a2b 0003 9a97 34d8 0007 0001 3387 4e00 08dc 9651 b5dc 9600 599d 6a. Executing the code costs 130 UDVM cycles.",
+      "zh-CHS": "压缩消息的一个示例是0x932e ac71 66d8 6fb1 592b dc9a 9734 d847 a733 874e 1bcb cd51 b5dc 9659 9d6a，它将解压缩以给出输出0x0000 932e 0001 b166 d86f b100 1a2b 0003 9a97 34d8 0007 0001 3387 4e00 08dc 9651 b5dc 9600 599d 6a。执行代码需要130个UDVM周期。"
+    },
+    {
+      "indent": 3,
+      "text": "As the code is run, the input_bit_order changes through all possible values to check usage of the F and P bits. The number of bits or bytes to input each time is taken from the value of input_bit_order. For each INPUT-BYTES instruction, the remaining bits of the byte are thrown away. The P-bit always changes on the byte boundary so no bits are thrown away. The sequence is the following:",
+      "zh-CHS": "当代码运行时，输入位的顺序会通过所有可能的值进行更改，以检查F位和P位的使用情况。每次输入的位数或字节数取自输入位顺序的值。对于每个输入字节指令，字节的剩余位被丢弃。P位总是在字节边界上更改，因此不会丢弃任何位。顺序如下："
+    },
+    {
+      "indent": 3,
+      "text": "Input_bit_order (bin) Input bits Input bytes Output 000 0 0x0000 010 2 0x932e 011 3 0x0001 101 5 0xb166 d866 b1 110 6 0x001a 001 1 0x2b 010 2 0x0003 100 4 0x9a97 34d8 101 5 0x0007 000 0 001 1 0x0001 011 3 0x3384 4e 100 4 0x0008 110 6 0xdc96 51b5 dc96 111 7 0x0059 010 2 0x9d6a 011 3 - no bits left so terminate",
+      "zh-CHS": "输入位顺序（bin）输入位输入位输入字节输出000 0 0x0000 010 2 0x932e 011 3 0x0001 101 5 0xb166 d866 b1 110 6 0x001a 001 1 0x2b 010 2 0x0003 100 4 0x9a97 34d8 101 5 0x0007 000 0 001 1 0x0001 011 3 0x3384 4e 100 4 0x0008 110 6 0xdc96 51b5 dc96 111 7 0x0059 010 2 0x9d6a 011 3-没有剩余位，因此终止"
+    },
+    {
+      "indent": 0,
+      "text": "2.13. Stack Manipulation",
+      "section_title": true,
+      "zh-CHS": "2.13. 堆栈操作"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the PUSH, POP, CALL, and RETURN instructions. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试推送、弹出、调用和返回指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The stack manipulation instructions overwrite the UDVM register stack_location.",
+      "zh-CHS": "1. 堆栈操作指令覆盖UDVM寄存器堆栈位置。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The CALL instruction specifies a reference operand rather than an absolute value.",
+      "zh-CHS": "2. CALL指令指定的是引用操作数而不是绝对值。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The PUSH instruction pushes the value contained in stack_fill onto the stack.",
+      "zh-CHS": "3. PUSH指令将stack_fill中包含的值推送到堆栈上。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The stack_location register contains an odd integer.",
+      "zh-CHS": "4. 堆栈位置寄存器包含一个奇数整数。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:input_bit_order                pad (2)\n:stack_location                 pad (2)\n:next_address                   pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (stack_location, 64) PUSH (2) PUSH ($64) PUSH (66) ; Stack now contains 2, 1, 66 ; so $stack_location = 66",
+      "zh-CHS": "加载（堆栈位置，64）推送（2）推送（$64）推送（66）；堆栈现在包含2,1,66；所以$stack_location=66"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (64, 8) ; Output 0x0003 0002 0001 0042",
+      "zh-CHS": "产出（64,8）；输出0x0003 0002 0001 0042"
+    },
+    {
+      "indent": 3,
+      "text": "POP (64) ; Pop value 66 from address 70 to address 64 POP ($stack_location) ; Pop value 1 from address 68 to address 66 ; so stack_fill is overwritten to be 1 POP (stack_location) ; Pop value 1 from address 68 to address 70",
+      "zh-CHS": "流行音乐（64）；从地址70到地址64的Pop值66（堆栈位置）；从地址68到地址66的Pop值1；因此堆栈填充被覆盖为1 POP（堆栈位置）；从地址68到地址70的Pop值1"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (64, 8) ; Output 0x0042 0000 0001 0001 JUMP (address_a)",
+      "zh-CHS": "产出（64,8）；输出0x0042 0000 0001 0001跳转（地址_a）"
+    },
+    {
+      "indent": 3,
+      "text": "at (192)",
+      "zh-CHS": "at（192）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_a",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (stack_location, 32) LOAD (next_address, address_c) SUBTRACT ($next_address, address_b) ; next_address = 64 CALL (address_b) ; push 204 on stack",
+      "zh-CHS": "加载（堆栈位置，32）加载（下一个地址，地址c）减去（$next地址，地址b）；下一个地址=64个呼叫（地址b）；将204推到堆栈上"
+    },
+    {
+      "indent": 3,
+      "text": "at (256)",
+      "zh-CHS": "at（256）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_b",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "CALL ($next_address) ; push 256 on stack",
+      "zh-CHS": "呼叫（下一个地址）；在堆栈上按256"
+    },
+    {
+      "indent": 3,
+      "text": "at (320)",
+      "zh-CHS": "at（320）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_c",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (stack_location, 383) LOAD (383, 26) ; overwrite $stack_location with 26 MULTILOAD (432, 3, 1, 49153, 32768)",
+      "zh-CHS": "荷载（烟囱位置，383）荷载（383，26）；用26个多重加载覆盖$stack_位置（432,3,149153,32768）"
+    },
+    {
+      "indent": 36,
+      "text": "; write bytes so that 433 and 434\n; contain 0x01c0 = 448 and\n; 435 and 436 contain 0x0180 = 384",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "RETURN                           ; pop 383 from the stack and jump\n                                 ; there = 384, which is lsb of\n                                 ; stack_fill, which now contains 25,\n                                 ; which is UDVM instruction RETURN\n                                 ; pop 448 from the stack and jump\n                                 ; there\nat (448)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is 0x0003 0002 0001 0042 0042 0000 0001 0001, and a total of 40 UDVM cycles are used.",
+      "zh-CHS": "代码的输出为0x0003 0002 0001 0042 0042 0000 0001 0001，总共使用了40个UDVM循环。"
+    },
+    {
+      "indent": 0,
+      "text": "2.14. Program Flow",
+      "section_title": true,
+      "zh-CHS": "2.14. 程序流程"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the JUMP, COMPARE, and SWITCH instructions. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试跳转、比较和切换指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The address operands are specified as references to memory addresses rather than as absolute values.",
+      "zh-CHS": "1. 地址操作数指定为对内存地址的引用，而不是绝对值。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":next_address                   pad (2)\n:counter                        pad (1)\n:counter_lsb                    pad (1)\n:switch_counter                 pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (switch_counter, 4)",
+      "zh-CHS": "负载（开关计数器，4）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_a",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (next_address, address_c) SUBTRACT ($next_address, address_b) ; address_c - address_b OUTPUT (counter_lsb, 1)",
+      "zh-CHS": "加载（下一个地址，地址c）减去（$next地址，地址b）；地址c-地址b输出（计数器lsb，1）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_b",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "JUMP ($next_address) ; Jump to address_c",
+      "zh-CHS": "跳转（下一个地址）；跳转到地址"
+    },
+    {
+      "indent": 3,
+      "text": ":address_c",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($counter, 1) LOAD (next_address, address_a) SUBTRACT ($next_address, address_d) ; address_a - address_d OUTPUT (counter_lsb, 1)",
+      "zh-CHS": "添加（$counter，1）加载（下一个地址，地址a）减去（$next地址，地址d）；地址a-地址d输出（计数器lsb，1）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_d",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($counter, 6, $next_address, address_c, address_e) ; counter < 6, $next_address gives ; jump to address_a",
+      "zh-CHS": "比较（$counter，6，$next\\u address，address\\u c，address\\u e）；计数器<6，$下一个地址给出；跳转到地址a"
+    },
+    {
+      "indent": 3,
+      "text": ":address_e",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "SUBTRACT ($switch_counter, 1) ; switch_counter = 3 LOAD (next_address, address_a) SUBTRACT ($next_address, address_f) ; address_a - address_f OUTPUT (counter_lsb, 1)",
+      "zh-CHS": "减去（$switch_counter，1）；开关计数器=3加载（下一个地址，地址a）减去（$next地址，地址f）；地址a-地址f输出（计数器lsb，1）"
+    },
+    {
+      "indent": 3,
+      "text": ":address_f",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "SWITCH (4, $switch_counter, address_g, $next_address, address_c,\naddress_e)\n                                ; when $switch_counter = 1,\n                                ; $next_address gives jump to\n                                ; address_a",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":address_g",
+      "zh-CHS": "：地址"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is 0x0001 0102 0203 0304 0405 0506 0707 0708 0808 0909, and a total of 131 UDVM cycles are used.",
+      "zh-CHS": "代码输出为0x0001 0102 0203 0304 0405 0506 0707 0708 0808 0909，总共使用了131个UDVM循环。"
+    },
+    {
+      "indent": 0,
+      "text": "2.15. State Creation",
+      "section_title": true,
+      "zh-CHS": "2.15. 国家创造"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the STATE-CREATE and STATE-FREE instructions. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节提供用于测试状态创建和无状态指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. An item of state is created that duplicates an existing state item.",
+      "zh-CHS": "1. 将创建与现有状态项重复的状态项。"
+    },
+    {
+      "indent": 3,
+      "text": "2. An item of state is freed when the state has not been created.",
+      "zh-CHS": "2. 状态项在尚未创建状态时被释放。"
+    },
+    {
+      "indent": 3,
+      "text": "3. An item of state is created and then freed by the same message.",
+      "zh-CHS": "3. 状态项被创建，然后由同一消息释放。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The STATE-FREE instruction frees a state item by sending fewer bytes of the state_identifier than the minimum_access_length.",
+      "zh-CHS": "4. STATE-FREE指令通过发送的STATE_标识符字节数少于最小_访问长度来释放状态项。"
+    },
+    {
+      "indent": 3,
+      "text": "5. The STATE-FREE instruction has partial_identifier_length operand shorter than 6 or longer than 20.",
+      "zh-CHS": "5. 无状态指令的部分\\u标识符\\u长度操作数小于6或大于20。"
+    },
+    {
+      "indent": 3,
+      "text": "6. The STATE-FREE instruction specifies a partial_identifier that matches with two state items in the compartment.",
+      "zh-CHS": "6. 无状态指令指定与隔室中的两个状态项匹配的部分_标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "7. The bytes of the identifier are written to the position specified in the STATE-FREE instruction after the STATE-FREE instruction has been run (and before END-MESSAGE).",
+      "zh-CHS": "7. 在运行无状态指令之后（在结束消息之前），标识符的字节将写入无状态指令中指定的位置。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:states                         pad (1)\n:states_lsb                     pad (1)\n:min_len                        pad (1)\n:min_len_lsb                    pad (1)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier pad (20)",
+      "zh-CHS": "：状态_标识符垫（20）"
+    },
+    {
+      "indent": 3,
+      "text": "set (state_length, 10)",
+      "zh-CHS": "设置（状态长度，10）"
+    },
+    {
+      "indent": 3,
+      "text": "at (127) :decompression_failure at (128)",
+      "zh-CHS": "at（127）：在（128）处减压失败"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, states_lsb, decompression_failure)",
+      "zh-CHS": "输入字节（1，状态\\u lsb，解压缩\\u失败）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_one LSHIFT ($states, 11) COMPARE ($states, 32768, test_two, create_state_a2, create_state_a2)",
+      "zh-CHS": "：test_one LSHIFT（$states，11）COMPARE（$states，32768，test_two，create_state_a2，create_state_a2）"
+    },
+    {
+      "indent": 3,
+      "text": ":create_state_a2 STATE-CREATE (state_length, state_address2, 0, 20, 0)",
+      "zh-CHS": "：create_state_a2 state-create（state_长度，state_地址2,0,20,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_two LSHIFT ($states, 1) COMPARE ($states, 32768, test_three, create_state_a, create_state_a)",
+      "zh-CHS": "：test_two LSHIFT（$states，1）COMPARE（$states，32768，test_two，create_state_a，create_state_a）"
+    },
+    {
+      "indent": 3,
+      "text": ":create_state_a STATE-CREATE (state_length, state_address, 0, 20, 0)",
+      "zh-CHS": "：create_state_a state-create（state_长度、state_地址、0、20、0）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_three LSHIFT ($states, 1) COMPARE ($states, 32768, test_four, free_state, free_state)",
+      "zh-CHS": "：test_三个LSHIFT（$states，1）COMPARE（$states，32768，test_四个，free_state，free_state）"
+    },
+    {
+      "indent": 3,
+      "text": ":free_state INPUT-BYTES (1, min_len_lsb, decompression_failure) STATE-FREE (state_identifier, $min_len) COPY (identifier1, $min_len, state_identifier)",
+      "zh-CHS": "：自由状态输入字节（1，最小长度lsb，解压缩失败）自由状态（状态标识符，$min长度）复制（标识符1，$min长度，状态标识符）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_four",
+      "zh-CHS": "：测试四"
+    },
+    {
+      "indent": 3,
+      "text": "LSHIFT ($states, 1) COMPARE ($states, 32768, test_five, free_state2, free_state2)",
+      "zh-CHS": "LSHIFT（$states，1）比较（$states，32768，test_-five，free_-state2，free_-state2）"
+    },
+    {
+      "indent": 3,
+      "text": ":free_state2 STATE-FREE (identifier1, 6)",
+      "zh-CHS": "：free_state2 STATE-free（标识符1、6）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_five LSHIFT ($states, 1) COMPARE ($states, 32768, end, create_state_b, create_state_b)",
+      "zh-CHS": "：test_five LSHIFT（$states，1）COMPARE（$states，32768，end，create_state，create_state）"
+    },
+    {
+      "indent": 3,
+      "text": ":create_state_b END-MESSAGE (0, 0, state_length, state_address, 0, 20, 0)",
+      "zh-CHS": "：创建状态结束消息（0，0，状态长度，状态地址，0，20，0）"
+    },
+    {
+      "indent": 3,
+      "text": ":end END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "：结束消息（0，0，0，0，0，0，0，0）"
+    },
+    {
+      "indent": 3,
+      "text": ":identifier1 byte (67, 122, 232, 10, 15, 220, 30, 106, 135, 193, 182, 42, 118, 118, 185, 115, 49, 140, 14, 245)",
+      "zh-CHS": "：标识符1字节（67、122、232、10、15、220、30、106、135、193、182、42、118、118、185、115、49、140、14、245）"
+    },
+    {
+      "indent": 3,
+      "text": "at (256) :state_address byte (192, 204, 63, 238, 121, 188, 252, 143, 209, 8)",
+      "zh-CHS": "at（256）：状态_地址字节（192、204、63、238、121、188、252、143、209、8）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_address2 byte (101, 232, 3, 82, 238, 41, 119, 23, 223, 87)",
+      "zh-CHS": "：状态_地址2字节（101、232、3、82、238、41、119、23、223、87）"
+    },
+    {
+      "indent": 3,
+      "text": "Upon reaching the END-MESSAGE instruction, the UDVM does not output any decompressed data, but instead may make one or more state creation or state free requests to the state handler. Assuming that the application does not veto the state creation request (and that sufficient state memory is available) the code results in 0, 1, or 2 state items being present in the compartment.",
+      "zh-CHS": "到达结束消息指令后，UDVM不会输出任何解压缩数据，而是可以向状态处理程序发出一个或多个状态创建或无状态请求。假设应用程序没有否决状态创建请求（并且有足够的状态内存可用），代码将导致0、1或2个状态项出现在分区中。"
+    },
+    {
+      "indent": 3,
+      "text": "The following table lists ten different compressed messages, the states created and freed by each, the number of states left after each message, and the number of UDVM cycles used. There are 3 state creation instructions:",
+      "zh-CHS": "下表列出了十种不同的压缩消息、每个消息创建和释放的状态、每条消息后剩余的状态数以及使用的UDVM周期数。有3个状态创建说明："
+    },
+    {
+      "indent": 6,
+      "text": "create state_a, which has hash identifier1 create state_b (in END-MESSAGE), which is identical to state_a",
+      "zh-CHS": "创建状态_a，它具有散列标识符1创建状态_b（在结束消息中），它与状态_a相同"
+    },
+    {
+      "indent": 6,
+      "text": "create state_a2, which has a different identifier, but the first 6 bytes are the same as those of identifier1.",
+      "zh-CHS": "创建状态_a2，它具有不同的标识符，但前6个字节与identifier1的相同。"
+    },
+    {
+      "indent": 3,
+      "text": "Message:   Effect:                           # state items:  #cycles:\n0x01       create state_b                             1           23\n0x02       free (id1, 6) = state_b                    0           14\n0x03       free (id1, 6) = state_b; create state_b    1           24",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "0x0405 free (id1, 5) Decompression failure 0x0415 free (id1, 21) Decompression failure",
+      "zh-CHS": "0x0405空闲（id1，5）解压缩失败0x0415空闲（id1，21）解压缩失败"
+    },
+    {
+      "indent": 3,
+      "text": "0x0406 free (id1, 6) = state_b 0 23",
+      "zh-CHS": "0x0406空闲（id1，6）=状态_b 0 23"
+    },
+    {
+      "indent": 3,
+      "text": "0x09 create state_a; create state_b 1 34",
+      "zh-CHS": "0x09创建状态_a；创建状态_b 1 34"
+    },
+    {
+      "indent": 3,
+      "text": "0x1e06     create state_a2; create state_a;\n           free (id1, 6) = matches both so no free;\n           free (id1, 6) = matches both so no free;   2           46",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "0x1e07     create state_a2; create state_a;\n           free (id1, 7) = state_a;\n           free (id1, 6) = state_a2                   0           47",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "0x1e14     create state_a2; create state_a;\n           free (id1, 20) = state_a;\n           free (id1, 6) = state_a2                   0           60",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.16. STATE-ACCESS",
+      "section_title": true,
+      "zh-CHS": "2.16. 国家准入"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the STATE-ACCESS instruction. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试状态访问指令的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. A subset of the bytes contained in a state item is copied to the UDVM memory.",
+      "zh-CHS": "1. 状态项中包含的字节子集被复制到UDVM内存中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Bytes are copied from beyond the end of the state value.",
+      "zh-CHS": "2. 字节是从状态值结尾以外的位置复制的。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The state_instruction operand is set to 0.",
+      "zh-CHS": "3. state_指令操作数设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The state cannot be accessed because the partial state identifier is too short.",
+      "zh-CHS": "4. 无法访问该状态，因为部分状态标识符太短。"
+    },
+    {
+      "indent": 3,
+      "text": "5. The state identifier is overwritten by the state item being accessed.",
+      "zh-CHS": "5. 状态标识符被正在访问的状态项覆盖。"
+    },
+    {
+      "indent": 3,
+      "text": "The following bytecode needs to be run first to set up the state for the rest of the test.",
+      "zh-CHS": "需要首先运行以下字节码来设置测试其余部分的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, state_length, state_start, 0, 20, 0)",
+      "zh-CHS": "结束消息（0，0，状态长度，状态开始，0，20，0）"
+    },
+    {
+      "indent": 3,
+      "text": "; The bytes between state_start and state_end are derived from\n; translation of the following mnemonic code:\n;\n; at (512)\n; OUTPUT (data, 4)\n; END-MESSAGE (0,0,0,0,0,0,0)\n; :data\n; byte (116, 101, 115, 116)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (512) :state_start byte (34, 162, 12,4, 35, 0, 0, 0, 0, 0, 0, 0, 116, 101, 115, 116) :state_end",
+      "zh-CHS": "at（512）：状态_开始字节（34、162、12、4、35、0、0、0、0、0、0、0、116、101、115、116）：状态_结束"
+    },
+    {
+      "indent": 3,
+      "text": "set (state_length, (state_end - state_start))",
+      "zh-CHS": "设置（状态长度，（状态结束-状态开始））"
+    },
+    {
+      "indent": 3,
+      "text": "This is the bytecode for the rest of the test.",
+      "zh-CHS": "这是测试其余部分的字节码。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:type                           pad (1)\n:type_lsb                       pad (1)\n:state_value                    pad (4)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (127) :decompression_failure at (128)",
+      "zh-CHS": "at（127）：在（128）处减压失败"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, type_lsb, decompression_failure) COMPARE ($type, 1, execute_state, extract_state, error_conditions)",
+      "zh-CHS": "输入字节（1，类型\\ lsb，解压缩\\失败）比较（$type，1，执行\\状态，提取\\状态，错误\\条件）"
+    },
+    {
+      "indent": 3,
+      "text": ":execute_state",
+      "zh-CHS": "：执行状态"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier, 20, 0, 0, 0, 512)",
+      "zh-CHS": "状态访问（状态标识符，20,0,0,0,512）"
+    },
+    {
+      "indent": 3,
+      "text": ":extract_state",
+      "zh-CHS": "：提取状态"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier, 20, 12, 4, state_value, 0) OUTPUT (state_value, 4) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符，20，12，4，状态值，0）输出（状态值，4）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":error_conditions",
+      "zh-CHS": "：错误\\u条件"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($type, 3, state_not_found, id_too_short, state_too_short)",
+      "zh-CHS": "比较（$type，3，state\\u not\\u found，id\\u太短，state\\u太短）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_not_found",
+      "zh-CHS": "：state\\u未找到"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (128, 20, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "状态访问（128,20,0,0,0,0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":id_too_short",
+      "zh-CHS": "：id\\u太短了"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier, 19, 6, 4, state_value, 0) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符，19，6，4，状态值，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_too_short",
+      "zh-CHS": "：表示太短"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier, 20, 12, 5, state_value, 0) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符，20，12，5，状态值，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": "at (484)",
+      "zh-CHS": "at（484）"
+    },
+    {
+      "indent": 3,
+      "text": ":end",
+      "zh-CHS": "：结束"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "at (512)",
+      "zh-CHS": "at（512）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier",
+      "zh-CHS": "：state\\u标识符"
+    },
+    {
+      "indent": 3,
+      "text": "byte (0x5d, 0xf8, 0xbc, 0x3e, 0x20, 0x93, 0xb5, 0xab, 0xe1, 0xf1, 0x70, 0x13, 0x42, 0x4c, 0xe7, 0xfe, 0x05, 0xe0, 0x69, 0x39)",
+      "zh-CHS": "字节（0x5d、0xf8、0xbc、0x3e、0x20、0x93、0xb5、0xab、0xe1、0xf1、0x70、0x13、0x42、0x4c、0xe7、0xfe、0x05、0xe0、0x69、0x39）"
+    },
+    {
+      "indent": 3,
+      "text": "If the compressed message is 0x00, then the output of the code is 0x7465 7374, and a total of 26 UDVM cycles are used. If the compressed message is 0x01, then the output of the code is also 0x7465 7374 but in this case using a total of 15 UDVM cycles. If the compressed message is 0x02, 0x03, or 0x04, then decompression failure occurs.",
+      "zh-CHS": "如果压缩消息为0x00，则代码输出为0x7465 7374，总共使用26个UDVM周期。如果压缩消息为0x01，则代码的输出也为0x7465 7374，但在这种情况下，总共使用15个UDVM周期。如果压缩消息为0x02、0x03或0x04，则会发生解压缩失败。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Torture Tests for Dispatcher",
+      "section_title": true,
+      "zh-CHS": "3. 调度员酷刑测试"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections give code to test the various functions of the SigComp dispatcher.",
+      "zh-CHS": "以下部分给出了测试SigComp dispatcher的各种功能的代码。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Useful Values",
+      "section_title": true,
+      "zh-CHS": "3.1. 有用价值"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test that the SigComp \"Useful Values\" are correctly initialized in the UDVM memory. It also tests that the UDVM is correctly terminated if the bytecode uses too many UDVM cycles or tries to write beyond the end of the available memory.",
+      "zh-CHS": "本节给出了测试SigComp“有用值”在UDVM内存中是否正确初始化的汇编代码。它还测试，如果字节码使用过多的UDVM周期或试图写入超出可用内存末尾的内容，UDVM是否正确终止。"
+    },
+    {
+      "indent": 3,
+      "text": "The code tests that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "代码测试以下边界情况是否已正确实现："
+    },
+    {
+      "indent": 3,
+      "text": "1. The bytecode uses exactly as many UDVM cycles as are available (in which case no problems should arise) or one cycle too many (in which case decompression failure should occur). A liberal implementation could allow more cycles to be used than are strictly available, in which case decompression failure will not occur. This is an implementation choice. If this choice is made, the implementer must be sure that the cycles are checked eventually and that decompression failure does occur when bytecode uses an excessive number of cycles. This is tested in Section 3.2.",
+      "zh-CHS": "1. 字节码使用尽可能多的UDVM周期（在这种情况下不会出现问题），或者使用过多的一个周期（在这种情况下，应发生解压缩失败）。一个自由的实现可以允许使用比严格可用的更多的周期，在这种情况下不会发生解压缩失败。这是一种实现选择。如果做出了这个选择，那么实现者必须确保最终检查了周期，并且当字节码使用过多的周期时，确实会发生解压缩失败。第3.2节对此进行了测试。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The bytecode writes to the highest memory address available (in which case no problems should arise) or to the memory address immediately following the highest available address (in which case decompression failure must occur).",
+      "zh-CHS": "2. 字节码写入最高可用内存地址（在这种情况下不会出现问题）或紧跟在最高可用地址之后的内存地址（在这种情况下，必须发生解压缩故障）。"
+    },
+    {
+      "indent": 3,
+      "text": ":udvm_memory_size               pad (2)\n:cycles_per_bit                 pad (2)\n:sigcomp_version                pad (2)\n:partial_state_id_length        pad (2)\n:state_length                   pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:remaining_cycles               pad (2)\n:check_memory                   pad (1)\n:check_memory_lsb               pad (1)\n:check_cycles                   pad (1)\n:check_cycles_lsb               pad (1)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (127) :decompression_failure at (128) ; Set up a 1-byte buffer LOAD (byte_copy_left, 32) LOAD (byte_copy_right, 33)",
+      "zh-CHS": "at（127）：在（128）处减压失败；设置1字节缓冲区加载（字节左，32）加载（字节右，33）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_version",
+      "zh-CHS": "：测试版"
+    },
+    {
+      "indent": 3,
+      "text": "; Input a byte containing the version of SigComp being run INPUT-BYTES (1, check_memory_lsb, decompression_failure) COMPARE ($sigcomp_version, $check_memory, decompression_failure, test_state_access, decompression_failure)",
+      "zh-CHS": "; 输入一个包含正在运行的SigComp版本的字节输入字节（1，检查内存，解压缩失败）比较（$SigComp版本，$check内存，解压缩失败，测试状态访问，解压缩失败）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_state_access",
+      "zh-CHS": "：测试\\状态\\访问"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($partial_state_id_length, 0, decompression_failure, test_length_equals_zero, test_state_length)",
+      "zh-CHS": "比较（$partial_state_id_length，0，解压缩失败，test_length_等于0，test_state_length）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_length_equals_zero ; No state was accessed so state_length ; should be zero (first message) COMPARE ($state_length, 0, decompression_failure, end, decompression_failure)",
+      "zh-CHS": "：测试长度等于零；未访问任何状态，因此状态长度；应为零（第一条消息）比较（$state\\u length，0，decompression\\u failure，end，decompression\\u failure）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_state_length ; State was accessed so state_length ; should be 960 COMPARE ($state_length, 960, decompression_failure, test_udvm_memory, decompression_failure)",
+      "zh-CHS": "：测试状态长度；状态被访问，因此状态长度；应为960比较（$state_length，960，解压缩失败，test_udvm_内存，解压缩失败）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_udvm_memory\n                            ; Copy one byte to\n                            ; udvm_memory_size + input - 1\n                            ; Succeed when input byte is 0x00\n                            ; Fail when input byte is 0x01",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, check_memory_lsb, decompression_failure) ADD ($check_memory, $udvm_memory_size) SUBTRACT ($check_memory, 1) COPY (32, 1, $check_memory)",
+      "zh-CHS": "输入字节（1，检查内存\\u lsb，解压缩\\u失败）加（$check\\u memory，$udvm\\u memory\\u size）减（$check\\u memory，1）拷贝（32，1，$check\\u memory）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_udvm_cycles",
+      "zh-CHS": "：测试\\u udvm\\u周期"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, check_cycles_lsb, decompression_failure)",
+      "zh-CHS": "输入字节（1，检查周期，解压失败）"
+    },
+    {
+      "indent": 3,
+      "text": "; Work out the total number of cycles available to the UDVM\n; total_UDVM_cycles = cycles_per_bit * (8 * message_size + 1000)\n;\n;       = cycles_per_bit * (8 * (partial_state_id_length + 3) + 1000)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (remaining_cycles, $partial_state_id_length) ADD ($remaining_cycles, 3) MULTIPLY ($remaining_cycles, 8) ADD ($remaining_cycles, 1000)",
+      "zh-CHS": "加载（剩余循环，$partial\\u state\\u id\\u length）加法（$剩余循环，3）乘法（$剩余循环，8）加法（$剩余循环，1000）"
+    },
+    {
+      "indent": 3,
+      "text": "MULTIPLY ($remaining_cycles, $cycles_per_bit)",
+      "zh-CHS": "乘法（$剩余的\\u个周期，$cycles\\u每\\u位）"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($remaining_cycles, $check_cycles)",
+      "zh-CHS": "添加（$剩余的\\u周期，$检查\\u周期）"
+    },
+    {
+      "indent": 3,
+      "text": "set (cycles_used_by_bytecode, 856)",
+      "zh-CHS": "设置（字节码使用的周期，856）"
+    },
+    {
+      "indent": 3,
+      "text": "SUBTRACT ($remaining_cycles, cycles_used_by_bytecode)\nCOPY (32, $remaining_cycles, 32)\n                ; Copy to use up all cycles available + input byte\n                ; Succeeds when input byte = 0x00\n                ; Fail when input byte = 0x01",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":end ; Create 960 bytes of state for future ; reference END-MESSAGE (0, 0, 960, 64, 128, 6, 0)",
+      "zh-CHS": "：结束；为将来创建960字节的状态；参考结束消息（0,0960,64128,6,0）"
+    },
+    {
+      "indent": 3,
+      "text": "The bytecode must be executed a total of four times in order to fully test the SigComp Useful Values. In the first case, the bytecode is uploaded as part of the SigComp message with a 1-byte compressed message corresponding to the version of SigComp being run. This causes the UDVM to request creation of a new state item and uses a total of 968 UDVM cycles.",
+      "zh-CHS": "为了完全测试SigComp有用值，字节码必须总共执行四次。在第一种情况下，字节码作为SigComp消息的一部分上传，并带有一个与正在运行的SigComp版本相对应的1字节压缩消息。这会导致UDVM请求创建一个新的状态项，并总共使用968个UDVM周期。"
+    },
+    {
+      "indent": 3,
+      "text": "Subsequent tests access this state by uploading the state identifier as part of the SigComp message. Note that the SigComp message should not contain a returned feedback item (as this would cause the bytecode to calculate the total number of available UDVM cycles incorrectly).",
+      "zh-CHS": "后续测试通过将状态标识符作为SigComp消息的一部分上载来访问此状态。请注意，SigComp消息不应包含返回的反馈项（因为这会导致字节码错误地计算可用UDVM周期的总数）。"
+    },
+    {
+      "indent": 3,
+      "text": "A 3-byte compressed message is required for the second and subsequent cases, the first byte of which is the version of SigComp in use, 0xnn. If the message is 0xnn0000, then the UDVM should successfully terminate using exactly the number of available UDVM cycles. However, if the message is 0xnn0001, then the UDVM should use too many cycles and hence terminate with decompression failure. Furthermore, if the message is 0xnn0100, then decompression failure must occur because the UDVM attempts to write beyond its available memory.",
+      "zh-CHS": "第二种和后续情况需要3字节的压缩消息，其第一个字节是正在使用的SigComp版本0xnn。如果消息为0xnn0000，则UDVM应使用准确的可用UDVM周期数成功终止。但是，如果消息为0xnn0001，则UDVM应使用过多的周期，因此以解压缩失败终止。此外，如果解压缩失败，则必须在内存之外写入消息。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Cycles Checking",
+      "section_title": true,
+      "zh-CHS": "3.2. 周期检查"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in Section 3.1, it is possible to write an implementation that takes a liberal approach to checking the cycles used and allows some extra cycles. The implementer must be sure that decompression failure does not occur too early and that in the case of excessive use of cycles, decompression failure does eventually occur. This test checks that:",
+      "zh-CHS": "如第3.1节所述，可以编写一个采用自由方法检查所用周期并允许一些额外周期的实现。实现者必须确保解压缩失败不会过早发生，并且在过度使用周期的情况下，最终会发生解压缩失败。此测试检查以下各项："
+    },
+    {
+      "indent": 3,
+      "text": "1. Decompression failure occurs eventually when there is an infinite loop.",
+      "zh-CHS": "1. 当存在无限循环时，最终会发生解压缩失败。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)\n:byte_copy_left           pad (2)\n:byte_copy_right          pad (2)\n:value                    pad (2)\n:copy_next                pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at(128) MULTILOAD (byte_copy_left, 4, 32, 41, 0, 34) ; Set up a 10-byte buffer",
+      "zh-CHS": "在（128）多加载（字节拷贝左，4，32，41，0，34）；设置一个10字节的缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "                                ; Set the value to copy\n                                ; Copy it 100 times,\n                                ; output the value,\n                                ; increment the counter\n:loop\nCOPY (value, 2, $byte_copy_left)\nCOPY-OFFSET (2, 100, $copy_next)\nOUTPUT (value, 2)\nADD ($value, 1)\nJUMP (loop)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the cycles are counted exactly and cycles per bit (cpb) = 16, then decompression failure will occur at COPY-OFFSET when value = 180 = 0xB4. If cpb = 32, then decompression failure will occur when value = 361 = 0x0169. If they are not counted exactly, then decompression failure MUST occur eventually.",
+      "zh-CHS": "如果周期被精确计数且每比特周期（cpb）=16，则当值=180=0xB4时，在复制偏移量处将发生解压缩失败。如果cpb=32，则当值=361=0x0169时，将发生解压缩失败。如果它们没有被精确计算，那么最终一定会发生解压缩失败。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Message-based Transport",
+      "section_title": true,
+      "zh-CHS": "3.3. 基于消息的传输"
+    },
+    {
+      "indent": 3,
+      "text": "This section provides a set of messages to test the SigComp header over a message-based transport such as UDP. The messages test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节提供一组消息，用于通过基于消息的传输（如UDP）测试SigComp头。这些消息测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The UDVM bytecode is copied to different areas of the UDVM memory.",
+      "zh-CHS": "1. UDVM字节码被复制到UDVM内存的不同区域。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The decompression memory size is set to an incorrect value.",
+      "zh-CHS": "2. 解压缩内存大小设置为不正确的值。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The SigComp message is too short.",
+      "zh-CHS": "3. SigComp消息太短。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The destination address is invalid.",
+      "zh-CHS": "4. 目标地址无效。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic version of the code used in the test is given below. Note that the code is designed to calculate the decompression memory size based on the Useful Values provided to the UDVM:",
+      "zh-CHS": "下面给出了测试中使用的代码的基本版本。请注意，该代码旨在根据提供给UDVM的有用值计算解压缩内存大小："
+    },
+    {
+      "indent": 3,
+      "text": ":udvm_memory_size               pad (2)\n:cycles_per_bit                 pad (2)\n:sigcomp_version                pad (2)\n:partial_state_id_length        pad (2)\n:state_length                   pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": ":code_start",
+      "zh-CHS": "：代码\\u开始"
+    },
+    {
+      "indent": 3,
+      "text": "; udvm_memory_size for message-based transport\n;    = DMS - total_message_size",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($udvm_memory_size, total_message_size) OUTPUT (udvm_memory_size, 2) END-MESSAGE (0, 0, 0, 0, 0, 0, 1)",
+      "zh-CHS": "添加（$udvm\\内存\\大小，总消息\\大小）输出（udvm\\内存\\大小，2）结束消息（0，0，0，0，0，1）"
+    },
+    {
+      "indent": 3,
+      "text": ":code_end",
+      "zh-CHS": "：代码(完)"
+    },
+    {
+      "indent": 3,
+      "text": "set (header_size, 3) set (code_size, (code_end - code_start)) set (total_message_size, (header_size + code_size))",
+      "zh-CHS": "集合（标题大小，3）集合（代码大小，（代码结束-代码开始））集合（总消息大小，（标题大小+代码大小））"
+    },
+    {
+      "indent": 3,
+      "text": "A number of complete SigComp messages are given below, each containing some or all of the above code. In each case, it is indicated whether the message will successfully output the decompression memory size or whether it will cause a decompression failure to occur (together with the reason for the failure):",
+      "zh-CHS": "下面给出了许多完整的SigComp消息，每个消息都包含上述部分或全部代码。在每种情况下，都会指示消息是否会成功输出解压缩内存大小，或者是否会导致解压缩失败（以及失败的原因）："
+    },
+    {
+      "indent": 3,
+      "text": "SigComp message: Effect:",
+      "zh-CHS": "SigComp消息：效果："
+    },
+    {
+      "indent": 3,
+      "text": "0xf8 Fails (message too short)",
+      "zh-CHS": "0xf8失败（消息太短）"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 Fails (message too short)",
+      "zh-CHS": "0xf800失败（消息太短）"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 e106 0011 2200 0223 Outputs the decompression_memory_size 0x0000 0000 0000 01",
+      "zh-CHS": "0xf800 e106 0011 2200 0223输出解压缩内存大小0x0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 f106 0011 2200 0223 Fails (message too short) 0x0000 0000 0000 01",
+      "zh-CHS": "0xf800 f106 0011 2200 0223失败（消息太短）0x0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 e006 0011 2200 0223 Fails (invalid destination address) 0x0000 0000 0000 01",
+      "zh-CHS": "0xf800 e006 0011 2200 0223失败（目标地址无效）0x0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 ee06 0011 2200 0223 Outputs the decompression_memory_size 0x0000 0000 0000 01",
+      "zh-CHS": "0xf800 ee06 0011 2200 0223输出解压缩内存大小0x0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "The messages should be decompressed in the order given to check that an error in one message does not interfere with the successful decompression of subsequent messages.",
+      "zh-CHS": "应按照给定的顺序对消息进行解压缩，以检查一条消息中的错误不会干扰后续消息的成功解压缩。"
+    },
+    {
+      "indent": 3,
+      "text": "The two messages that successfully decompress each use a total of 5 UDVM cycles.",
+      "zh-CHS": "成功解压缩的两条消息总共使用5个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Stream-based Transport",
+      "section_title": true,
+      "zh-CHS": "3.4. 基于流的传输"
+    },
+    {
+      "indent": 3,
+      "text": "This section provides a byte stream to test the SigComp header and delimiters over a stream-based transport such as TCP. The byte stream tests all of the boundary cases covered in Section 3.2, as well as the following cases specific to stream-based transports:",
+      "zh-CHS": "本节提供一个字节流，用于通过基于流的传输（如TCP）测试SigComp头和分隔符。字节流测试第3.2节中涵盖的所有边界情况，以及以下特定于基于流的传输的情况："
+    },
+    {
+      "indent": 3,
+      "text": "1. Quoted bytes are used by the record marking scheme.",
+      "zh-CHS": "1. 引用的字节由记录标记方案使用。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Multiple delimiters are used between the same pair of messages.",
+      "zh-CHS": "2. 在同一对消息之间使用多个分隔符。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Unnecessary delimiters are included at the start of the stream.",
+      "zh-CHS": "3. 流的开头包含不必要的分隔符。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic version of the code used in the test is given below. Note that the code is designed to calculate the decompression memory size based on the Useful Values provided to the UDVM:",
+      "zh-CHS": "下面给出了测试中使用的代码的基本版本。请注意，该代码旨在根据提供给UDVM的有用值计算解压缩内存大小："
+    },
+    {
+      "indent": 3,
+      "text": ":udvm_memory_size               pad (2)\n:cycles_per_bit                 pad (2)\n:sigcomp_version                pad (2)\n:partial_state_id_length        pad (2)\n:state_length                   pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "; udvm_memory_size for stream based transport = DMS / 2",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "MULTIPLY ($udvm_memory_size, 2) OUTPUT (udvm_memory_size, 2) OUTPUT (test_record_marking, 5) END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "乘法（$udvm\\内存\\大小，2）输出（udvm\\内存\\大小，2）输出（测试\\记录\\标记，5）结束消息（0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":test_record_marking",
+      "zh-CHS": "：测试\\记录\\标记"
+    },
+    {
+      "indent": 3,
+      "text": "byte (255, 255, 255, 255, 255)",
+      "zh-CHS": "字节（255，255，255，255，255）"
+    },
+    {
+      "indent": 3,
+      "text": "The above assembly code has been compiled and used to generate the following byte stream:",
+      "zh-CHS": "上述汇编代码已编译并用于生成以下字节流："
+    },
+    {
+      "indent": 3,
+      "text": "0xffff f801 7108 0002 2200 0222 a092 0523 0000 0000 0000 00ff 00ff 0x03ff ffff ffff ffff f801 7e08 0002 2200 0222 a3d2 0523 0000 0000 0x0000 00ff 04ff ffff ffff ffff ffff ff",
+      "zh-CHS": "0xffff f801 7108 0002 2200 0222 a092 0523 0000 0000 000 000 000 000 ff 00ff 0x03ff ffff ffff f801 7e08 0002 2200 0222 a3d2 0523 0000 0x0000 000 ff 04ff ffff ffff ffff ff ff"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this byte stream can be divided into five distinct portions (two SigComp messages and three sets of delimiters) as illustrated below:",
+      "zh-CHS": "请注意，此字节流可分为五个不同部分（两个SigComp消息和三组分隔符），如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "Portion of byte stream: Meaning:",
+      "zh-CHS": "字节流的一部分：意思是："
+    },
+    {
+      "indent": 3,
+      "text": "0xffff Delimiter",
+      "zh-CHS": "0xffff分隔符"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 7108 0002 2200 0222 a092 0523 First message 0x0000 0000 0000 00ff 00ff 03ff ffff",
+      "zh-CHS": "0xf801 7108 0002 2200 0222 a092 0523第一条消息0x0000 0000 00000FF 00ff 03ff ffff"
+    },
+    {
+      "indent": 3,
+      "text": "0xffff ffff Delimiter",
+      "zh-CHS": "0xffff ffff分隔符"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 7e08 0002 2200 0222 a3d2 0523 Second message 0x0000 0000 0000 00ff 04ff ffff ff",
+      "zh-CHS": "0xf801 7e08 0002 2200 0222 a3d2 0523第二条消息0x0000 0000 0000 00ff 04ff ff ff"
+    },
+    {
+      "indent": 3,
+      "text": "0xffff ffff ffff Delimiter",
+      "zh-CHS": "0xffff ffff定界符"
+    },
+    {
+      "indent": 3,
+      "text": "When the complete byte stream is supplied to the decompressor dispatcher, the record marking scheme must use the delimiters to partition the stream into two distinct SigComp messages. Both of these messages successfully output the decompression memory size (as a 2-byte value), followed by 5 consecutive 0xff bytes to test that the record marking scheme is working correctly. A total of 11 UDVM cycles are used in each case.",
+      "zh-CHS": "当完整的字节流提供给解压器调度程序时，记录标记方案必须使用分隔符将流划分为两个不同的SigComp消息。这两条消息都成功地输出了解压缩内存大小（作为2字节的值），后跟5个连续的0xff字节，以测试记录标记方案是否正常工作。每种情况下总共使用11个UDVM循环。"
+    },
+    {
+      "indent": 3,
+      "text": "It must also be checked that the dispatcher can handle the same error cases as covered in Section 3.2. Each of the following byte streams should cause a decompression failure to occur for the reason stated:",
+      "zh-CHS": "还必须检查调度员是否能够处理第3.2节所述的相同错误情况。由于所述原因，以下每个字节流都应导致解压缩失败："
+    },
+    {
+      "indent": 3,
+      "text": "Byte stream: Reason for failure:",
+      "zh-CHS": "字节流：失败原因："
+    },
+    {
+      "indent": 3,
+      "text": "0xf8ff ff Message too short",
+      "zh-CHS": "0xf8ff消息太短"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 ffff Message too short",
+      "zh-CHS": "0xf800 ffff消息太短"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 8108 0002 2200 0222 a092 0523 ffff Message too short 0x0000 0000 0000 00ff 00ff 03ff ffff",
+      "zh-CHS": "0xf801 8108 0002 2200 0222 a092 0523 ffff消息太短0x0000 0000 0000 000FF 00ff 03ff ffff"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 7008 0002 2200 0222 a092 0523 ffff Invalid destination 0x0000 0000 0000 00ff 04ff ffff ff",
+      "zh-CHS": "0xf801 7008 0002 2200 0222 a092 0523 ffff无效目标0x0000 0000 00000 ff 04ff ffff ff"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Input Past the End of a Message",
+      "section_title": true,
+      "zh-CHS": "3.5. 超过消息结尾的输入"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test that the implementation correctly handles input past the end of a SigComp message. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了用于测试实现是否正确处理SigComp消息末尾之后的输入的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. An INPUT instruction requests data that lies beyond the end of the message. In this case, the dispatcher should not return any data to the UDVM. Moreover, the message bytes held by the dispatcher should still be available for retrieval by subsequent INPUT instructions.",
+      "zh-CHS": "1. 输入指令请求超出消息结尾的数据。在这种情况下，调度器不应将任何数据返回到UDVM。此外，调度器持有的消息字节仍应可供后续输入指令检索。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The INPUT-BYTES instruction is used after part of a byte has been input (e.g., by the INPUT-BITS instruction). In this case, the remaining partial byte must be discarded, even if the INPUT-BYTES instruction requests data that lies beyond the end of the message.",
+      "zh-CHS": "2. 输入字节指令在字节的一部分被输入后使用（例如，由输入字节指令）。在这种情况下，必须丢弃剩余的部分字节，即使INPUT-BYTES指令请求的数据超出了消息的结尾。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:input_bit_order                pad (2)\n:result                         pad (1)\n:result_lsb                     pad (6)\n:right",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (byte_copy_left, result) LOAD (byte_copy_right, right)",
+      "zh-CHS": "加载（字节复制左，结果）加载（字节复制右，右）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "; Input bits to ensure that the remaining message is not byte aligned",
+      "zh-CHS": "; 输入位以确保剩余消息未按字节对齐"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BITS (9, result, decompression_failure1) ; Input 0x1FF (9 bits)",
+      "zh-CHS": "输入位（9，结果，解压失败1）；输入0x1FF（9位）"
+    },
+    {
+      "indent": 3,
+      "text": "; Attempt to read 7 bytes",
+      "zh-CHS": "; 尝试读取7个字节"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (7, result, next_bytes) ; This should fail, throw away ; 7 bits with value Ox7a and ; jump to next_bytes",
+      "zh-CHS": "输入字节（7，结果，下一个字节）；这应该失败，扔掉；值为Ox7a和Ox7a的7位；跳转到下一个字节"
+    },
+    {
+      "indent": 3,
+      "text": ":decompression_failure1\nDECOMPRESSION-FAILURE               ; This instruction is never\n                                    ; executed but is used to\n                                    ; separate success and failure\n                                    ; to input bytes.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":next_bytes",
+      "zh-CHS": "：下一个字节"
+    },
+    {
+      "indent": 3,
+      "text": "; Read 7 bits - this removes the byte alignment of the message",
+      "zh-CHS": "; 读取7位-这将删除消息的字节对齐"
+    },
+    {
+      "indent": 3,
+      "text": "; If the bits have not been thrown away where they should be, then\n; the message will be 1 byte longer than necessary and the output\n; will be incorrect.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BITS (7, result, decompression_failure1) ; Input 0x00 (7 bits)",
+      "zh-CHS": "输入位（7，结果，解压失败1）；输入0x00（7位）"
+    },
+    {
+      "indent": 3,
+      "text": "; Read 2 bytes",
+      "zh-CHS": "; 读取2个字节"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (2, result, decompression_failure1) ; Throw away 1 bit value 0 ; Input 0x6869 OUTPUT (result, 2) ; Output 0x6869",
+      "zh-CHS": "输入字节（2，结果，解压失败1）；丢弃1位值0；输入0x6869输出（结果，2）；输出0x6869"
+    },
+    {
+      "indent": 3,
+      "text": " ; Attempt to read more bits than INPUT-BITS (16, result, bits) ; there are to ensure they ; remain available",
+      "zh-CHS": "; 尝试读取比输入位更多的位（16，结果，位）；有必要确保它们；保持可用"
+    },
+    {
+      "indent": 3,
+      "text": ":decompression_failure2\nDECOMPRESSION-FAILURE               ; This instruction is never\n                                    ; executed but is used to\n                                    ; separate success and failure\n                                    ; to input bits.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":bits",
+      "zh-CHS": "：位"
+    },
+    {
+      "indent": 3,
+      "text": "; Read 8 bits",
+      "zh-CHS": "; 读取8位"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BITS (8, result, decompression_failure2) ; Input 0x21 or fail OUTPUT (result_lsb, 1) ; Output 0x21",
+      "zh-CHS": "输入位（8，结果，解压失败2）；输入0x21或输出失败（结果为1）；输出0x21"
+    },
+    {
+      "indent": 3,
+      "text": ":end_message",
+      "zh-CHS": "：结束消息"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "If the compressed message is 0xfffa 0068 6921, then the code terminates successfully with the output 0x6869 21, and a total of 23 UDVM cycles are used. However, if the compressed message is 0xfffa 0068 69, then decompression failure occurs (at the final INPUT-BITS).",
+      "zh-CHS": "如果压缩消息为0xfffa 0068 6921，则代码将以输出0x6869 21成功终止，并且总共使用23个UDVM周期。但是，如果压缩消息为0xfffa 0068 69，则会发生解压缩失败（在最终输入位）。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Torture Tests for State Handler",
+      "section_title": true,
+      "zh-CHS": "4. 国家处理人酷刑测试"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections give code to test the various functions of the SigComp state handler.",
+      "zh-CHS": "以下部分给出了测试SigComp状态处理程序的各种功能的代码。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. SigComp Feedback Mechanism",
+      "section_title": true,
+      "zh-CHS": "4.1. SigComp反馈机制"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the SigComp feedback mechanism. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出测试SigComp反馈机制的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. Both the short and the long versions of the SigComp feedback item are used.",
+      "zh-CHS": "1. 使用SigComp反馈项的短版本和长版本。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The chain of returned SigComp parameters is terminated by a non-zero value.",
+      "zh-CHS": "2. 返回的SigComp参数链由非零值终止。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":type pad (1) :type_lsb pad (1)",
+      "zh-CHS": "：类型焊盘（1）：类型焊盘（1）"
+    },
+    {
+      "indent": 3,
+      "text": ":requested_feedback_location    pad (1)\n:requested_feedback_length      pad (1)\n:requested_feedback_bytes       pad (127)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":returned_parameters_location   pad (2)\n:length_of_partial_state_id_a   pad (1)\n:partial_state_identifier_a     pad (6)\n:length_of_partial_state_id_b   pad (1)\n:partial_state_identifier_b     pad (12)\n:length_of_partial_state_id_c   pad (1)\n:partial_state_identifier_c     pad (20)\n:terminate_returned_parameters  pad (1)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "align (128)",
+      "zh-CHS": "对齐（128）"
+    },
+    {
+      "indent": 3,
+      "text": "set (q_bit, 1) set (s_bit, 0) set (i_bit, 0) set (flags, (((4 * q_bit) + (2 * s_bit)) + i_bit))",
+      "zh-CHS": "设置（q_位，1）设置（s_位，0）设置（i_位，0）设置（标志，（（4*q_位）+（2*s_位））+i_位））"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, type_lsb, decompression_failure)",
+      "zh-CHS": "输入字节（1，类型\\u lsb，解压缩\\u失败）"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($type, 1, short_feedback_item, long_feedback_item, decompression_failure)",
+      "zh-CHS": "比较（$type，1，短反馈项，长反馈项，解压缩失败）"
+    },
+    {
+      "indent": 3,
+      "text": ":short_feedback_item",
+      "zh-CHS": "：简短的反馈项目"
+    },
+    {
+      "indent": 3,
+      "text": "set (requested_feedback_data, 127) set (short_feedback_value, ((flags * 256) + requested_feedback_data))",
+      "zh-CHS": "设置（请求的反馈数据，127）设置（短反馈值，（（标志*256）+请求的反馈数据））"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (requested_feedback_location, short_feedback_value) JUMP (return_sigcomp_parameters)",
+      "zh-CHS": "加载（请求的反馈位置、短反馈值）跳转（返回sigcomp参数）"
+    },
+    {
+      "indent": 3,
+      "text": ":long_feedback_item",
+      "zh-CHS": "：长反馈项目"
+    },
+    {
+      "indent": 3,
+      "text": "set (requested_feedback_field, 255) set (long_feedback_value, ((flags * 256) + requested_feedback_field))",
+      "zh-CHS": "设置（请求的反馈字段，255）设置（长反馈值，（（标志*256）+请求的反馈字段））"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (requested_feedback_location, long_feedback_value) MEMSET (requested_feedback_bytes, 127, 1, 1)",
+      "zh-CHS": "加载（请求的\\u反馈\\u位置，长的\\u反馈\\u值）MEMSET（请求的\\u反馈\\u字节，127,1,1）"
+    },
+    {
+      "indent": 3,
+      "text": ":return_sigcomp_parameters",
+      "zh-CHS": "：返回\\u sigcomp\\u参数"
+    },
+    {
+      "indent": 3,
+      "text": "set (cpb, 0) set (dms, 1) set (sms, 0) set (sigcomp_version, 1)",
+      "zh-CHS": "设置（cpb，0）设置（dms，1）设置（sms，0）设置（sigcomp_版本，1）"
+    },
+    {
+      "indent": 3,
+      "text": "set (parameters_msb, (((64 * cpb) + (8 * dms)) + sms))\nset (sigcomp_parameters, ((256 * parameters_msb) + sigcomp_version))",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (returned_parameters_location, sigcomp_parameters)",
+      "zh-CHS": "加载（返回的参数位置、sigcomp参数）"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (length_of_partial_state_id_a, 1536) ; length 6 first byte 0 LOAD (length_of_partial_state_id_b, 3072) ; length 12 first byte 0 LOAD (length_of_partial_state_id_c, 5120) ; length 20 first byte 0 LOAD (terminate_returned_parameters, 5376) ; length 21 ; used to terminate the ; returned parameters MEMSET (partial_state_identifier_a, 6, 0, 1) MEMSET (partial_state_identifier_b, 12, 0, 1) MEMSET (partial_state_identifier_c, 20, 0, 1)",
+      "zh-CHS": "荷载（部分状态的长度，1536）；长度6第一字节0加载（部分状态的长度，3072）；长度12第一字节0加载（部分状态id c的长度，5120）；长度20第一字节0加载（terminate_返回_参数，5376）；长度21；用于终止协议；返回参数MEMSET（部分状态标识符a，6，0，1）MEMSET（部分状态标识符b，12，0，1）MEMSET（部分状态标识符c，20，0，1）"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (requested_feedback_location, returned_parameters_location, 0, 0, 0, 0, 0) :decompression_failure DECOMPRESSION-FAILURE",
+      "zh-CHS": "结束消息（请求的\\u反馈\\u位置，返回的\\u参数\\u位置，0,0,0,0）：解压缩\\u失败解压缩失败"
+    },
+    {
+      "indent": 3,
+      "text": "When the above code is executed, it supplies a requested feedback item to the state handler. If the compressed message is 0x00, then the short (1-byte) version of the feedback is used. Executing the bytecode in this case costs a total of 52 UDVM cycles. Assuming that the feedback request is successful, the feedback item should be returned in the first SigComp message to be sent in the reverse direction. The SigComp message returning the feedback should begin as follows:",
+      "zh-CHS": "当执行上述代码时，它向状态处理程序提供请求的反馈项。如果压缩消息为0x00，则使用短（1字节）版本的反馈。在这种情况下，执行字节码总共需要52个UDVM周期。假设反馈请求成功，反馈项应在第一条SigComp消息中返回，并以相反方向发送。返回反馈的SigComp消息应如下开始："
+    },
+    {
+      "indent": 3,
+      "text": "+---+---+---+---+---+---+---+---+\n| 1   1   1   1   1   1 |   X   |   first header byte\n+---+---+---+---+---+---+---+---+\n| 0 |            127            |   returned feedback field\n+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "So the first 2 bytes of the returning SigComp message should be 0xfn7f where n = c, d, e, or f (the choice of n is determined by the compressor generating the returning SigComp message, which is not under the control of the above code).",
+      "zh-CHS": "因此，返回的SigComp消息的前2个字节应为0xfn7f，其中n=c、d、e或f（n的选择由生成返回的SigComp消息的压缩器确定，该压缩器不受上述代码的控制）。"
+    },
+    {
+      "indent": 3,
+      "text": "If the compressed message is 0x01, then the long version of the feedback item is used. Executing the bytecode in this case costs a total of 179 UDVM cycles and the SigComp message returning the feedback should begin as follows:",
+      "zh-CHS": "如果压缩消息为0x01，则使用反馈项的长版本。在这种情况下，执行字节码总共需要179个UDVM周期，返回反馈的SigComp消息应如下开始："
+    },
+    {
+      "indent": 3,
+      "text": "+---+---+---+---+---+---+---+---+\n| 1   1   1   1   1   1 |   X   |   first header byte\n+---+---+---+---+---+---+---+---+\n| 1 |            127            |   returned feedback length\n+---+---+---+---+---+---+---+---+\n|               1               |              ^\n+---+---+---+---+---+---+---+---+              |\n|               2               |              |\n+---+---+---+---+---+---+---+---+\n|               3               |   returned feedback field\n+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "So the first 129 bytes of the SigComp message should be 0xfnff 0102 0304 ... 7e7f where n = c, d, e, or f as above.",
+      "zh-CHS": "所以SigComp消息的前129个字节应该是0xfnff 0102 0304。。。7e7f，其中n=如上所述的c、d、e或f。"
+    },
+    {
+      "indent": 3,
+      "text": "As well as testing the requested and returned feedback items, the above code also announces values for each of the SigComp parameters. The supplied version of the code announces only the minimum possible values for the cycles_per_bit, decompression_memory_size, state_memory_size, and SigComp_version (although this can easily be adjusted to test different values for these parameters).",
+      "zh-CHS": "除了测试请求和返回的反馈项外，上面的代码还宣布了每个SigComp参数的值。所提供的代码版本仅宣布每个位的循环数、解压内存大小、状态内存大小和SigComp版本的最小可能值（尽管可以轻松调整以测试这些参数的不同值）。"
+    },
+    {
+      "indent": 3,
+      "text": "The code should also announce the availability of state items with the following partial state identifiers:",
+      "zh-CHS": "代码还应宣布具有以下部分状态标识符的状态项的可用性："
+    },
+    {
+      "indent": 3,
+      "text": "0x0001 0203 0405 0x0001 0203 0405 0607 0809 0a0b 0x0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213",
+      "zh-CHS": "0x0001 0203 0405 0x0001 0203 0405 0607 0809 0a0b 0x0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213"
+    },
+    {
+      "indent": 3,
+      "text": "Note that different implementations may make use of the announcement information in different ways. It is a valid implementation choice to simply ignore all of the announcement data and use only the minimum resources that are guaranteed to be available to all endpoints. However, the above code is useful for checking that an endpoint interprets the announcement data correctly (in particular ensuring that it does not mistakenly use resources that have not in fact been announced).",
+      "zh-CHS": "注意，不同的实现可能以不同的方式使用公告信息。简单地忽略所有公告数据，只使用保证所有端点可用的最小资源，这是一种有效的实现选择。但是，上面的代码对于检查端点是否正确解释公告数据非常有用（特别是确保它不会错误地使用实际上尚未公告的资源）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. State Memory Management",
+      "section_title": true,
+      "zh-CHS": "4.2. 状态存储器管理"
+    },
+    {
+      "indent": 3,
+      "text": "The following section gives assembly code to test the memory management features of the state handler. The code checks that the correct states are retained by the state handler when insufficient memory is available to store all of the requested states.",
+      "zh-CHS": "以下部分给出了测试状态处理程序的内存管理功能的程序集代码。当内存不足以存储所有请求的状态时，代码检查状态处理程序是否保留了正确的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. A state item is created that exceeds the total state_memory_size for the compartment.",
+      "zh-CHS": "1. 创建的状态项超过了分区的总状态内存大小。"
+    },
+    {
+      "indent": 3,
+      "text": "2. States are created with a non-zero state_retention_priority.",
+      "zh-CHS": "2. 状态是以非零状态保留优先级创建的。"
+    },
+    {
+      "indent": 3,
+      "text": "3. A new state item is created that has a lower state_retention_priority than existing state items in the compartment.",
+      "zh-CHS": "3. 创建的新状态项的状态保留优先级低于分区中的现有状态项。"
+    },
+    {
+      "indent": 3,
+      "text": "For the duration of this test, it is assumed that all states will be saved in a single compartment with a state_memory_size of 2048 bytes.",
+      "zh-CHS": "在本测试期间，假设所有状态将保存在一个单独的隔间中，状态存储大小为2048字节。"
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:order                          pad (2)\n:type                           pad (1)\n:type_lsb                       pad (1)\n:state_length                   pad (2)\n:state_retention_priority       pad (2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at(127) :decompression_failure at (128)",
+      "zh-CHS": "at（127）：在（128）处减压失败"
+    },
+    {
+      "indent": 3,
+      "text": "MULTILOAD (byte_copy_left, 2, state_start, order_data)",
+      "zh-CHS": "多重加载（字节\\复制\\左，2，状态\\开始，顺序\\数据）"
+    },
+    {
+      "indent": 3,
+      "text": "INPUT-BYTES (1, type_lsb, decompression_failure) COMPARE ($type, 5, general_test, large_state, verify_state)",
+      "zh-CHS": "输入字节（1，类型\\u lsb，解压缩\\u失败）比较（$type，5，常规\\u测试，大\\u状态，验证\\u状态）"
+    },
+    {
+      "indent": 3,
+      "text": ":general_test",
+      "zh-CHS": "：一般测试"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($type, 3, start, state_present, state_not_present)",
+      "zh-CHS": "比较（$type，3，start，state\\u present，state\\u not\\u present）"
+    },
+    {
+      "indent": 3,
+      "text": ":start",
+      "zh-CHS": "：开始"
+    },
+    {
+      "indent": 3,
+      "text": "MULTIPLY ($type, 6) ADD ($type, order_data) LOAD (order, $type) ADD ($type, 6)",
+      "zh-CHS": "乘法（$type，6）加法（$type，order_数据）加载（$order，$type）加法（$type，6）"
+    },
+    {
+      "indent": 3,
+      "text": "; Finish with the value (order_data + 6*n) in order where\n; n is the input value 0x00, 0x01, or 0x02\n; type = order + 6\n; These values are used to index into the 'order_data'\n; that is used to work out state retention priorities and lengths",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":loop",
+      "zh-CHS": "：循环"
+    },
+    {
+      "indent": 3,
+      "text": "COPY ($order, 2, state_retention_priority) COMPARE ($order, $type, continue, end, decompression_failure)",
+      "zh-CHS": "复制（$order，2，state\\u retention\\u priority）比较（$order，$type，continue，end，decompression\\u failure）"
+    },
+    {
+      "indent": 3,
+      "text": ":continue",
+      "zh-CHS": "：继续"
+    },
+    {
+      "indent": 3,
+      "text": "; Set up a state creation each time through the loop",
+      "zh-CHS": "; 设置每次通过循环创建的状态"
+    },
+    {
+      "indent": 3,
+      "text": "LOAD (state_length, $state_retention_priority) MULTIPLY ($state_length, 256) STATE-CREATE ($state_length, state_start, 0, 6, $state_retention_priority)",
+      "zh-CHS": "加载（状态长度，$state\\u retention\\u priority）乘以（$state\\u length，256）状态创建（$state\\u length，state\\u start，0,6，$state\\u retention\\u priority）"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($order, 2) JUMP (loop)",
+      "zh-CHS": "添加（$order，2）跳转（loop）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_present",
+      "zh-CHS": "：陈述"
+    },
+    {
+      "indent": 3,
+      "text": "; Access the states that should be present STATE-ACCESS (state_identifier_a, 6, 0, 0, 0, 0) STATE-ACCESS (state_identifier_b, 6, 0, 0, 0, 0)",
+      "zh-CHS": "; 访问应该存在的状态访问（状态标识符a，6，0，0，0）状态访问（状态标识符b，6，0，0）"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier_c, 6, 0, 0, 0, 0) STATE-ACCESS (state_identifier_e, 6, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符c，6，0，0，0）状态访问（状态标识符e，6，0，0，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_not_present",
+      "zh-CHS": "：表示不存在"
+    },
+    {
+      "indent": 3,
+      "text": "; Check that the state that shouldn't be present is not present. STATE-ACCESS (state_identifier_d, 6, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "; 检查不应该存在的状态是否不存在。状态访问（状态标识符d，6，0，0，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":large_state",
+      "zh-CHS": "：大州"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-CREATE (2048, state_start, 0, 6, 0) JUMP (end)",
+      "zh-CHS": "状态创建（2048，状态开始，0，6，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":verify_state",
+      "zh-CHS": "：验证\\u状态"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (large_state_identifier, 6, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "状态访问（大的状态标识符，6，0，0，0，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":end",
+      "zh-CHS": "：结束"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": "at (512)",
+      "zh-CHS": "at（512）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_start",
+      "zh-CHS": "：state_start"
+    },
+    {
+      "indent": 3,
+      "text": "byte (116, 101, 115, 116)",
+      "zh-CHS": "字节（116、101、115、116）"
+    },
+    {
+      "indent": 3,
+      "text": ":order_data ; This data is used to generate the retention priority ; and state length of each state creation.",
+      "zh-CHS": "：订单数据；此数据用于生成保留优先级；以及每个状态创建的状态长度。"
+    },
+    {
+      "indent": 3,
+      "text": "word (0, 1, 2, 3, 4, 3, 2, 1, 0)",
+      "zh-CHS": "单词（0,1,2,3,4,3,2,1,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_a",
+      "zh-CHS": "：state_identifier_a"
+    },
+    {
+      "indent": 3,
+      "text": "byte (142, 234, 75, 67, 167, 135)",
+      "zh-CHS": "字节（142、234、75、67、167、135）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_b",
+      "zh-CHS": "：state_identifier_b"
+    },
+    {
+      "indent": 3,
+      "text": "byte (249, 1, 14, 239, 86, 123)",
+      "zh-CHS": "字节（249,1,14,239,86,123）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_c",
+      "zh-CHS": "：state_identifier_c"
+    },
+    {
+      "indent": 3,
+      "text": "byte (35, 154, 52, 107, 21, 166)",
+      "zh-CHS": "字节（3515452107 21166）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_d",
+      "zh-CHS": "：state\\u identifier\\u d"
+    },
+    {
+      "indent": 3,
+      "text": "byte (180, 15, 192, 228, 77, 44)",
+      "zh-CHS": "字节（180、15、192、228、77、44）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_e",
+      "zh-CHS": "：state_identifier_e"
+    },
+    {
+      "indent": 3,
+      "text": "byte (212, 162, 33, 71, 230, 10)",
+      "zh-CHS": "字节（212、162、33、71、230、10）"
+    },
+    {
+      "indent": 3,
+      "text": ":large_state_identifier",
+      "zh-CHS": "：大\\u状态\\u标识符"
+    },
+    {
+      "indent": 3,
+      "text": "byte (239, 242, 188, 15, 182, 175)",
+      "zh-CHS": "字节（23924218815182175）"
+    },
+    {
+      "indent": 3,
+      "text": "The above code must be executed a total of 7 times in order to complete the test. Each time the code is executed, a 1-byte compressed message should be provided as below. The effects of the messages are given below. States are described in the form (name, x, y) where name corresponds to the name of the identifier in the mnemonic code, x is the length of the state, and y is the retention priority of the state.",
+      "zh-CHS": "为了完成测试，上述代码必须总共执行7次。每次执行代码时，应提供1字节的压缩消息，如下所示。下面给出了这些消息的效果。状态以（name，x，y）的形式描述，其中name对应于助记码中标识符的名称，x是状态的长度，y是状态的保留优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "Message: Effect: #cycles: 0x00 create states: 811 (a,0,0), (b,256,1), (c,512,2) 0x01 create states: 2603 (d,768,3), (e,1024,4) - deleting a, b, c 0x02 create states: 811 (c,512,2), - deleting d (b,256,1), (a,0,0) 0x03 access states a,b,c,e 1805 0x04 access state d - not present so decompression failure 0x05 create states: 2057 (large, 2048,0) - deleting a, b, c, e 0x06 access large state 1993",
+      "zh-CHS": "消息：效果：#周期：0x00创建状态：811（a，0,0），（b，256,1），（c，512,2）0x01创建状态：2603（d，768,3），（e，1024,4）-删除a，b，c 0x02创建状态：811（c，512,2），-删除d（b，256,1），（a，0,0）0x03访问状态a，b，c，e 1805 0x04访问状态d-不存在，因此解压缩失败0x05创建状态：2057（大，2048,0）-删除a、b、c、e 0x06访问大状态1993"
+    },
+    {
+      "indent": 3,
+      "text": "Note that as new states are created, some of the existing states will be pushed out of the compartment due to lack of memory.",
+      "zh-CHS": "请注意，在创建新状态时，由于内存不足，一些现有状态将被推出隔室。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Multiple Compartments",
+      "section_title": true,
+      "zh-CHS": "4.3. 多隔间"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test the interaction between multiple SigComp compartments. The code is designed to test that the following boundary cases have been correctly implemented:",
+      "zh-CHS": "本节给出了测试多个SigComp隔室之间交互的汇编代码。该代码旨在测试以下边界情况是否已正确实施："
+    },
+    {
+      "indent": 3,
+      "text": "1. The same state item is saved in more than one compartment.",
+      "zh-CHS": "1. 同一状态项保存在多个分区中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. A state item stored in multiple compartments has the same state identifier but a different state_retention_priority in each case.",
+      "zh-CHS": "2. 存储在多个隔间中的状态项具有相同的状态标识符，但在每种情况下具有不同的状态保留优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "3. A state item is deleted from one compartment but still belongs to a different compartment.",
+      "zh-CHS": "3. 状态项已从一个分区中删除，但仍属于另一个分区。"
+    },
+    {
+      "indent": 3,
+      "text": "4. A state item belonging to multiple compartments is deleted from every compartment to which it belongs.",
+      "zh-CHS": "4. 属于多个隔间的状态项将从其所属的每个隔间中删除。"
+    },
+    {
+      "indent": 3,
+      "text": "The test requires a total of three compartments to be available, which will be referred to as Compartment 0, Compartment 1, and Compartment 2. Each of the three compartments should have a state_memory_size of 2048 bytes.",
+      "zh-CHS": "试验要求总共有三个隔间可用，分别称为隔间0、隔间1和隔间2。三个分区中的每个分区的状态内存大小应为2048字节。"
+    },
+    {
+      "indent": 3,
+      "text": "The assembly code for the test is given below:",
+      "zh-CHS": "测试的装配代码如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "at (64)",
+      "zh-CHS": "at（64）"
+    },
+    {
+      "indent": 3,
+      "text": ":byte_copy_left                 pad (2)\n:byte_copy_right                pad (2)\n:type                           pad (1)\n:type_lsb                       pad (1)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (127) :decompression_failure at (128)",
+      "zh-CHS": "at（127）：在（128）处减压失败"
+    },
+    {
+      "indent": 3,
+      "text": "MULTILOAD (byte_copy_left, 2, state_start, state_end) INPUT-BYTES (1, type_lsb, decompression_failure) COMPARE ($type, 3, create_state, overwrite_state, temp)",
+      "zh-CHS": "多加载（字节\\u复制\\u左，2，状态\\u开始，状态\\u结束）输入字节（1，类型\\u lsb，解压缩\\u失败）比较（$type，3，创建\\u状态，覆盖\\u状态，临时）"
+    },
+    {
+      "indent": 3,
+      "text": ":temp",
+      "zh-CHS": "：温度"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($type, 5, overwrite_state, access_state, error_conditions)",
+      "zh-CHS": "比较错误状态，覆盖状态（$u）"
+    },
+    {
+      "indent": 3,
+      "text": ":create_state\n; starting byte identified by $type according to input:\n; Input     0x00        0x01        0x02\n; $type      512         513         514",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($type, state_start) STATE-CREATE (448, $type, 0, 6, 0)",
+      "zh-CHS": "添加（$type，state_start）state-CREATE（448，$type，0,6,0）"
+    },
+    {
+      "indent": 3,
+      "text": "; create state again, beginning in different place in buffer\n; starting byte identified by $type according to input:\n; Input     0x00        0x01        0x02",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "; $type 515 516 517",
+      "zh-CHS": "; $515 516 517型"
+    },
+    {
+      "indent": 3,
+      "text": "ADD ($type, 3) STATE-CREATE (448, $type, 0, 6, 0)",
+      "zh-CHS": "添加（$type，3）状态创建（448，$type，0,6,0）"
+    },
+    {
+      "indent": 3,
+      "text": "; create a third time beginning in different place again\n; starting byte identified by $type according to input:\n; Input     0x00        0x01        0x02\n; $type      516         517         515",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "SUBTRACT ($type, temp_one) REMAINDER ($type, 3) ADD ($type, temp_two) STATE-CREATE (448, $type, 0, 6, 0)",
+      "zh-CHS": "减去（$type，temp_one）余数（$type，3）加（$type，temp_one）状态创建（448，$type，0，6，0）"
+    },
+    {
+      "indent": 3,
+      "text": ":common_state",
+      "zh-CHS": "：普通州"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-CREATE (448, temp_three, 0, 6, $type) JUMP (end)",
+      "zh-CHS": "状态创建（448，临时三，0，6，$type）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":overwrite_state",
+      "zh-CHS": "：覆盖状态"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-CREATE (1984, 32, 0, 6, 0) JUMP (end)",
+      "zh-CHS": "状态创建（1984,32,0,6,0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":access_state",
+      "zh-CHS": "：访问\\u状态"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier_c, 6, 0, 0, 0, 0) STATE-ACCESS (state_identifier_d, 6, 0, 0, 0, 0) STATE-ACCESS (state_identifier_f, 6, 0, 0, 0, 0) STATE-ACCESS (state_identifier_g, 6, 0, 0, 0, 0)",
+      "zh-CHS": "状态访问（状态标识符c，6，0，0，0）状态访问（状态标识符d，6，0，0，0）状态访问（状态标识符f，6，0，0，0）状态访问（状态标识符g，6，0，0，0）"
+    },
+    {
+      "indent": 3,
+      "text": ":end",
+      "zh-CHS": "：结束"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":error_conditions",
+      "zh-CHS": "：错误\\u条件"
+    },
+    {
+      "indent": 3,
+      "text": "COMPARE ($type, 7, access_a, access_b, access_e)",
+      "zh-CHS": "比较（$type，7，access\\u a，access\\u b，access\\u e）"
+    },
+    {
+      "indent": 3,
+      "text": ":access_a",
+      "zh-CHS": "：进入"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier_a, 6, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":access_b",
+      "zh-CHS": "：进入"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier_b, 6, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符b，6，0，0，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": ":access_e",
+      "zh-CHS": "：访问"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (state_identifier_e, 6, 0, 0, 0, 0) JUMP (end)",
+      "zh-CHS": "状态访问（状态标识符e，6，0，0，0）跳转（结束）"
+    },
+    {
+      "indent": 3,
+      "text": "at (512)",
+      "zh-CHS": "at（512）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_start",
+      "zh-CHS": "：state_start"
+    },
+    {
+      "indent": 3,
+      "text": "byte (0, 1, 2, 3, 4, 5, 6)",
+      "zh-CHS": "字节（0,1,2,3,4,5,6）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_end",
+      "zh-CHS": "：state_end"
+    },
+    {
+      "indent": 3,
+      "text": "set (temp_one, (state_start + 2))   ; = 514\nset (temp_two, (state_start + 3))   ; = 515\nset (temp_three, (state_end - 1))   ; = 518",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_a ; start state at 512",
+      "zh-CHS": "：state_identifier_a；开始状态为512"
+    },
+    {
+      "indent": 3,
+      "text": "byte (172, 166, 11, 142, 178, 131)",
+      "zh-CHS": "字节（172、166、11、142、178、131）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_b ; start state at 513",
+      "zh-CHS": "：state_identifier_b；开始状态为513"
+    },
+    {
+      "indent": 3,
+      "text": "byte (157, 191, 175, 198, 61, 210)",
+      "zh-CHS": "字节（15719117519861210）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_c ; start state at 514",
+      "zh-CHS": "：state_identifier_c；在514开始状态"
+    },
+    {
+      "indent": 3,
+      "text": "byte (52, 197, 217, 29, 83, 97)",
+      "zh-CHS": "字节（52197217,29,83,97）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_d ; start state at 515",
+      "zh-CHS": "：state_identifier_d；在515开始状态"
+    },
+    {
+      "indent": 3,
+      "text": "byte (189, 214, 186, 42, 198, 90)",
+      "zh-CHS": "字节（1892141864219890）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_e ; start state at 516",
+      "zh-CHS": "：state_identifier_e；在516开始状态"
+    },
+    {
+      "indent": 3,
+      "text": "byte (71, 194, 24, 20, 238, 7)",
+      "zh-CHS": "字节（711942420238,7）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_f ; start state at 517",
+      "zh-CHS": "：state_identifier_f；在517开始状态"
+    },
+    {
+      "indent": 3,
+      "text": "byte (194, 117, 148, 29, 215, 161)",
+      "zh-CHS": "字节（19411714829215161）"
+    },
+    {
+      "indent": 3,
+      "text": ":state_identifier_g ; start state at 518",
+      "zh-CHS": "：state_identifier_g；在518开始状态"
+    },
+    {
+      "indent": 3,
+      "text": "byte (72, 135, 156, 141, 233, 14)",
+      "zh-CHS": "字节（7213515614123314）"
+    },
+    {
+      "indent": 3,
+      "text": "The above code must be executed a total of 9 times in order to complete the test. Each time the code is executed, a 1-byte compressed message N should be provided, taking the values 0x00 to 0x08 in ascending order (so the compressed message should be 0x00 the first time the code is run, 0x01 the second, and so on).",
+      "zh-CHS": "为了完成测试，上述代码必须总共执行9次。每次执行代码时，应提供一个1字节的压缩消息N，按升序取值0x00到0x08（因此，第一次运行代码时压缩消息应为0x00，第二次运行代码时压缩消息应为0x01，依此类推）。"
+    },
+    {
+      "indent": 3,
+      "text": "If the code makes a state creation request, then the state must be saved in Compartment (N modulo 3).",
+      "zh-CHS": "如果代码发出状态创建请求，则状态必须保存在隔室中（N模3）。"
+    },
+    {
+      "indent": 3,
+      "text": "When the compressed message is 0x00, 0x01, or 0x02, the code makes four state creation requests in compartments 0, 1, and 2, respectively. This creates a total of seven distinct state items referred to as State a through State g. The states should be distributed among the three compartments as illustrated in Figure 1 (note that some states belong to more than one compartment).",
+      "zh-CHS": "当压缩消息为0x00、0x01或0x02时，代码分别在0、1和2区发出四个状态创建请求。这将创建总共七个不同的状态项，称为状态a到状态g。如图1所示，状态应分布在三个隔间中（注意，一些状态属于多个隔间）。"
+    },
+    {
+      "indent": 3,
+      "text": "When the compressed message is 0x03 or 0x04, the code overwrites all of the states in Compartments 0 and 1, respectively. This means that States a, b, and e will be unavailable because they are no longer present in any of the three compartments.",
+      "zh-CHS": "当压缩消息为0x03或0x04时，代码将分别覆盖0和1隔室中的所有状态。这意味着状态a、b和e将不可用，因为它们不再存在于三个隔室中的任何一个隔室中。"
+    },
+    {
+      "indent": 3,
+      "text": "When the compressed message is 0x05, the code checks that the States c, d, f, and g are still available. Decompression should terminate successfully in this case.",
+      "zh-CHS": "当压缩消息为0x05时，代码检查状态c、d、f和g是否仍然可用。在这种情况下，解压缩应成功终止。"
+    },
+    {
+      "indent": 3,
+      "text": "When the compressed message is 0x06, 0x07, or 0x08, the code attempts to access States a, b, and e, respectively. Decompression failure should occur in this case because the relevant states are no longer available.",
+      "zh-CHS": "当压缩消息为0x06、0x07或0x08时，代码将分别尝试访问状态a、b和e。在这种情况下，应发生解压缩失败，因为相关状态不再可用。"
+    },
+    {
+      "indent": 3,
+      "text": "The cost in UDVM cycles for each compressed message is given below (except for messages 0x06, 0x07, and 0x08 where decompression failure should to occur):",
+      "zh-CHS": "下面给出了每个压缩消息的UDVM周期成本（除应发生解压缩失败的消息0x06、0x07和0x08外）："
+    },
+    {
+      "indent": 3,
+      "text": "Compressed message: 0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08",
+      "zh-CHS": "压缩消息：0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08"
+    },
+    {
+      "indent": 3,
+      "text": "Cost in UDVM cycles: 1809 1809 1809 1993 1994 1804 N/A N/A N/A",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "          +-----------------------------+\n          |        Compartment 0        |\n          |                             |\n          |                             |\n          |           State a           |\n          |                             |\n          |         +-------------------+---------+\n          |         |                   |         |\n          |         |                   |         |\n          |         |           State d |         |\n          |         |                   |         |\n          |         |                   |         |\n+---------+---------+---------+         |         |\n|         |         |         |         |         |\n|         |         |         |         |         |\n|         | State e | State g |         | State c |\n|         |         |         |         |         |\n|         |         |         |         |         |\n|         +---------+---------+---------+         |\n|                   |         |                   |\n|                   |         |                   |\n|           State b | State f |                   |\n|                   |         |                   |\n|                   |         |   Compartment 2   |\n|                   +---------+-------------------+\n|                             |\n|                             |\n|                             |\n|                             |\n|        Compartment 1        |\n+-----------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Figure 1: States created in the three compartments",
+      "zh-CHS": "图1：在三个隔间中创建的状态"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Accessing RFC 3485 State",
+      "section_title": true,
+      "zh-CHS": "4.4. 访问RFC 3485状态"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test accessing SIP-SDP static dictionary state [3]. The code first accesses the state and then outputs the result.",
+      "zh-CHS": "本节给出测试访问SIP-SDP静态字典状态的汇编代码[3]。代码首先访问状态，然后输出结果。"
+    },
+    {
+      "indent": 3,
+      "text": "at (32)",
+      "zh-CHS": "at（32）"
+    },
+    {
+      "indent": 3,
+      "text": ":input      pad (1)\n:input2     pad (1)\n:input3     pad (1)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128)",
+      "zh-CHS": "at（128）"
+    },
+    {
+      "indent": 3,
+      "text": "STATE-ACCESS (sip_dictionary, 20, 0xcfe, 1, input, 0) STATE-ACCESS (sip_dictionary, 6, 0xcff, 1, input2, 0) STATE-ACCESS (sip_dictionary, 12, 0xd00, 1, input3, 0)",
+      "zh-CHS": "状态访问（sip_字典，20，0xcfe，1，输入，0）状态访问（sip_字典，6，0xcff，1，输入2，0）状态访问（sip_字典，12，0xd00，1，输入3，0）"
+    },
+    {
+      "indent": 3,
+      "text": "OUTPUT (input, 3)",
+      "zh-CHS": "输出（输入，3）"
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, 0, 0, 0, 0, 0)",
+      "zh-CHS": "结束消息（0,0,0,0,0,0,0,0）"
+    },
+    {
+      "indent": 3,
+      "text": ":sip_dictionary byte (0xfb, 0xe5, 0x07, 0xdf, 0xe5, 0xe6) byte (0xaa, 0x5a, 0xf2, 0xab, 0xb9, 0x14) byte (0xce, 0xaa, 0x05, 0xf9, 0x9c, 0xe6) byte (0x1b, 0xa5)",
+      "zh-CHS": "：sip_字典字节（0xfb，0xe5，0x07，0xdf，0xe5，0xe6）字节（0xaa，0x5a，0xf2，0xab，0xb9，0x14）字节（0xce，0xaa，0x05，0xf9，0x9c，0xe6）字节（0x1b，0xa5）"
+    },
+    {
+      "indent": 3,
+      "text": "The output of the code is 0x5349 50, and the cost is 11 UDVM cycles.",
+      "zh-CHS": "代码的输出为0x5349 50，成本为11个UDVM周期。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Bytecode State Creation",
+      "section_title": true,
+      "zh-CHS": "4.5. 字节码状态创建"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives assembly code to test storing bytecode using END-MESSAGE and later loading the bytecode using a partial state identifier within the SigComp header. The assembly code is designed to test the following cases:",
+      "zh-CHS": "本节给出了用于测试使用结束消息存储字节码，然后在SigComp头中使用部分状态标识符加载字节码的汇编代码。汇编代码旨在测试以下情况："
+    },
+    {
+      "indent": 3,
+      "text": "1. The bytes to be saved are changed after the state create request has been made.",
+      "zh-CHS": "1. 在发出状态创建请求后，将更改要保存的字节。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The uploaded bytecode is modified before execution.",
+      "zh-CHS": "2. 上传的字节码在执行前被修改。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The bytecode is loaded using the partial state identifier and is modified before execution.",
+      "zh-CHS": "3. 字节码使用部分状态标识符加载，并在执行前进行修改。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The bytecode is loaded to an address lower than 128, using the partial state identifier.",
+      "zh-CHS": "4. 字节码使用部分状态标识符加载到低于128的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "5. The bytecode is loaded using the partial state identifier. Part of the loaded memory is reserved area, which is overwritten after loading the bytecode.",
+      "zh-CHS": "5. 字节码使用部分状态标识符加载。加载的内存的一部分是保留区，在加载字节码后会被覆盖。"
+    },
+    {
+      "indent": 3,
+      "text": "6. The loading of the bytecode fails because the partial state identifier is too short.",
+      "zh-CHS": "6. 字节码加载失败，因为部分状态标识符太短。"
+    },
+    {
+      "indent": 3,
+      "text": "at (30)\n:save_area1\nset (saved_instr1, (save_area1 + (code_start2 - start_saved))) ; = 33",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (80)\n:save_area2\nset (saved_instr2, (save_area2 + (code_start2 - start_saved))) ; = 83",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "at (128) :code_start",
+      "zh-CHS": "at（128）：代码开始"
+    },
+    {
+      "indent": 3,
+      "text": "COPY (start_saved, saved_len, save_area1) ; copy 'ok2', OUTPUT (save_area2,3) END-MESSAGE ; to position 30 and create as state STATE-CREATE (saved_len, save_area1, saved_instr1, 6, 10)",
+      "zh-CHS": "复制（开始保存、保存、保存区域1）；复制“ok2”，输出（保存区域2,3）结束消息；定位30并创建为状态状态创建（保存的列、保存的区域1、保存的仪器1、6、10）"
+    },
+    {
+      "indent": 3,
+      "text": "set (modify1, (save_area1 + 5)) ; = 35 LOAD (modify1, 0x1e03) ; modify save_area2 to be save_area1 in the ; created state",
+      "zh-CHS": "设置（修改1，（保存区域1+5））；=35负载（修改1，0x1e03）；将中的保存区域2修改为保存区域1；创建状态"
+    },
+    {
+      "indent": 3,
+      "text": "COPY (start_saved, saved_len, save_area2)\nSTATE-CREATE (saved_len, save_area2, saved_instr2, 20, 10)\nSTATE-CREATE (saved_len, save_area2, saved_instr2, 12, 10)\n                    ; copy 'ok2', OUTPUT (save_area2,3) END-MESSAGE\n                    ; to position 80 and create as state twice with\n                    ; min access len 20 and 12",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "JUMP (modify)",
+      "zh-CHS": "跳转（修改）"
+    },
+    {
+      "indent": 3,
+      "text": ":ok1 byte (0x4f, 0x4b, 0x31)",
+      "zh-CHS": "：ok1字节（0x4f、0x4b、0x31）"
+    },
+    {
+      "indent": 3,
+      "text": "set (after_output_minus1, (after_output - 1))",
+      "zh-CHS": "设置（在输出后减去1，（输出后-1））"
+    },
+    {
+      "indent": 3,
+      "text": ":modify INPUT-BYTES (1, after_output_minus1, decompression_failure) ; Input overwrites the next instruction OUTPUT (ok1, 3) ; Now is OUTPUT (ok1, 2) so output is 0x4f4b",
+      "zh-CHS": "：修改输入字节（1，在输出后\\u减1，解压缩\\u失败）；输入覆盖下一个指令输出（ok1，3）；现在是输出（ok1，2），所以输出是0x4f4b"
+    },
+    {
+      "indent": 3,
+      "text": ":after_output",
+      "zh-CHS": "：在输出之后"
+    },
+    {
+      "indent": 3,
+      "text": "; Save from ok1 to the opcode of END-MESSAGE",
+      "zh-CHS": "; 从ok1保存到结束消息的操作码"
+    },
+    {
+      "indent": 3,
+      "text": "set (modify_len, ((after_output + 1) - ok1)) ; = 13",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "END-MESSAGE (0, 0, modify_len, ok1, modify, 6, 10) ; Save 'ok1', INPUT-BYTES, OUTPUT as state",
+      "zh-CHS": "结束消息（0，0，修改，ok1，修改，6，10）；保存“ok1”，输入字节，输出为状态"
+    },
+    {
+      "indent": 3,
+      "text": "set (saved_len, (end_saved - start_saved)) ; = 8",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ":start_saved byte (0x4f, 0x4b, 0x32)",
+      "zh-CHS": "：开始\\保存的字节（0x4f、0x4b、0x32）"
+    },
+    {
+      "indent": 3,
+      "text": ":code_start2",
+      "zh-CHS": "：code_start2"
+    },
+    {
+      "indent": 3,
+      "text": "; Translated bytecode for OUTPUT (save_area2, 3) byte (0x22, 0xa0, 0x50, 0x03)",
+      "zh-CHS": "; 输出（保存区域2、3）字节（0x22、0xa0、0x50、0x03）的翻译字节码"
+    },
+    {
+      "indent": 3,
+      "text": "; Translated bytecode for END-MESSAGE (0, 0, 0, 0, 0, 0, 0) ; The zeros do not need to be sent because UDVM is initialised to 0 byte (0x23)",
+      "zh-CHS": "; 用于结束消息的翻译字节码（0,0,0,0,0,0,0）；不需要发送零，因为UDVM已初始化为0字节（0x23）"
+    },
+    {
+      "indent": 3,
+      "text": ":end_saved :decompression_failure",
+      "zh-CHS": "：结束\\u保存：解压缩\\u失败"
+    },
+    {
+      "indent": 3,
+      "text": "The outputs and cycle usages are:",
+      "zh-CHS": "输出和循环使用为："
+    },
+    {
+      "indent": 3,
+      "text": "Message Output Cycles 1 0x4f4b 66 2 0x4f4b 31 7 3 0x4f4b 32 5 4 0x0000 32 5 5 None Decompression failure",
+      "zh-CHS": "消息输出周期1 0x4f4b 66 2 0x4f4b 31 7 3 0x4f4b 32 5 4 0x0000 32 5 5无解压缩故障"
+    },
+    {
+      "indent": 3,
+      "text": "First message: mnemonic code annotated above",
+      "zh-CHS": "第一条消息：上面注释的助记符代码"
+    },
+    {
+      "indent": 3,
+      "text": "0xf804 6112 a0be 081e 2008 1e21 060a 0e23 be03 12a0 be08 a050 2008 0xa050 a053 140a 2008 a050 a053 0c0a 1606 004f 4b31 1c01 a0b3 fc22 0xa0a8 0323 0000 0da0 a8a0 ab06 0a4f 4b32 22a0 5003 2302",
+      "zh-CHS": "0xf804 6112 a0be 081e 2008 1e21 060a 0e23 be03 12a0 be08 a050 2008 0xa050 a053 140a 2008 a050 a053 0c0a 1606 004f 4b31 1c01 a0b3 fc22 0xa0a8 0323 0000 0da0 a8a0 ab06 0a4f 4b32 22a0 5003 2302"
+    },
+    {
+      "indent": 3,
+      "text": "Second message: access and run last state saved by previous message - 'ok1', INPUT-BYTES, OUTPUT, END-MESSAGE.",
+      "zh-CHS": "第二条消息：访问并运行上一条消息保存的最后状态-“ok1”，输入字节，输出，结束消息。"
+    },
+    {
+      "indent": 3,
+      "text": "0xf905 b88c e72c 9103",
+      "zh-CHS": "0xf905 b88c e72c 9103"
+    },
+    {
+      "indent": 3,
+      "text": "Third message: access and run state from save_area2 with 12 bytes of state identifier - 'ok2', INPUT-BYTES, OUTPUT, END-MESSAGE.",
+      "zh-CHS": "第三条消息：使用12字节的状态标识符“ok2”、输入字节、输出字节、结束消息从保存区域2访问和运行状态。"
+    },
+    {
+      "indent": 3,
+      "text": "0xfb24 63cd ff5c f8c7 6df6 a289 ff",
+      "zh-CHS": "0xfb24 63cd ff5c f8c7 6df6 a289 ff"
+    },
+    {
+      "indent": 3,
+      "text": "Fourth message: access and run state from save_area1. The state is 'ok2', INPUT-BYTES, OUTPUT, END-MESSAGE but the first two bytes should be overwritten when initialising UDVM memory.",
+      "zh-CHS": "第四条消息：从保存区域1访问和运行状态。状态为“ok2”，输入字节，输出字节，结束消息，但初始化UDVM内存时应覆盖前两个字节。"
+    },
+    {
+      "indent": 3,
+      "text": "0xf95b 4b43 d567 83",
+      "zh-CHS": "0xf95b 4b43 d567 83"
+    },
+    {
+      "indent": 3,
+      "text": "Fifth message: attempt to access state from save_area2 with fewer than 20 bytes of state identifier.",
+      "zh-CHS": "第五条消息：尝试使用少于20字节的状态标识符从保存区域2访问状态。"
+    },
+    {
+      "indent": 3,
+      "text": "0xf9de 8126 1199 1f",
+      "zh-CHS": "0xf9de 8126 1199 1f"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes torture tests for the SigComp protocol RFC 3320 [2]. Consequently, the security considerations for this document match those of SigComp.",
+      "zh-CHS": "本文件描述了SigComp协议RFC 3320[2]的酷刑测试。因此，本文件的安全注意事项与SigComp的安全注意事项一致。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, the torture tests include tests for a significant number of \"boundary and error cases\" for execution of the UDVM bytecode. Boundary and error problems are common vectors for security attacks, so ensuring that a UDVM implementation executes this set of torture tests correctly should contribute to the security of the implementation.",
+      "zh-CHS": "此外，酷刑测试还包括大量执行UDVM字节码的“边界和错误情况”测试。边界和错误问题是安全攻击的常见向量，因此确保UDVM实现正确执行这组测试应该有助于实现的安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "6. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Richard Price and Pekka Pessi for test contributions and to Pekka Pessi and Cristian Constantin, who served as committed working group document reviewers.",
+      "zh-CHS": "感谢Richard Price和Pekka Pessi对测试的贡献，感谢Pekka Pessi和Cristian Constantin，他们是工作组文件审查员。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Normative References",
+      "section_title": true,
+      "zh-CHS": "7. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Surtees, A. and M. West, \"Signaling Compression (SigComp) Users' Guide\", RFC 4464, May 2006.",
+      "zh-CHS": "[1] Surtees，A.和M.West，“信令压缩（SigComp）用户指南”，RFC4464，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Price, R., Bormann, C., Christoffersson, J., Hannu, H., Liu, Z., and J. Rosenberg, \"Signaling Compression (SigComp)\", RFC 3320, January 2003.",
+      "zh-CHS": "[2] Price，R.，Bormann，C.，Christofferson，J.，Hannu，H.，Liu，Z.，和J.Rosenberg，“信号压缩（SigComp）”，RFC3320，2003年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Garcia-Martin, M., Bormann, C., Ott, J., Price, R., and A.B. Roach, \"The Session Initiation Protocol (SIP) and Session Description Protocol (SDP) Static Dictionary for Signaling Compression (SigComp)\", RFC 3485, February 2003.",
+      "zh-CHS": "[3] Garcia Martin，M.，Bormann，C.，Ott，J.，Price，R.，和A.B.Roach，“会话启动协议（SIP）和会话描述协议（SDP）信令压缩静态字典（SigComp）”，RFC 3485，2003年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Roach, A.B., \"A Negative Acknowledgement Mechanism for Signaling Compression\", RFC 4077, May 2005.",
+      "zh-CHS": "[4] Roach，A.B.，“信号压缩的否定确认机制”，RFC4077，2005年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. UDVM Bytecode for the Torture Tests",
+      "section_title": true,
+      "zh-CHS": "附录A.酷刑测试的UDVM字节码"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections list the raw UDVM bytecode generated for each test. The bytecode is presented in the form of a complete SigComp message, including the appropriate header. It is followed by input messages, the output they produce, and where the decompression succeeds the number of cycles used.",
+      "zh-CHS": "以下部分列出了为每个测试生成的原始UDVM字节码。字节码以完整的SigComp消息的形式呈现，包括适当的头。然后是输入消息、它们产生的输出以及解压缩成功的位置和使用的周期数。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, the test is designed to be run several times with different compressed messages appended to the code. In the cases where multiple whole messages are used for a test, e.g., Appendix A.2.3, these are supplied. In the case where decompression failure occurs, the high-level reason for it is given as a reason code defined in NACK [4].",
+      "zh-CHS": "在某些情况下，测试被设计为在代码中附加不同的压缩消息的情况下运行几次。如果测试使用多个完整消息，例如附录a.2.3，则提供这些消息。在发生解压缩失败的情况下，其高级原因作为NACK[4]中定义的原因代码给出。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the different assemblers can output different bytecode for the same piece of assembly code, so a valid assembler can produce results different from those presented below. However, the following bytecode should always generate the same results on any UDVM.",
+      "zh-CHS": "请注意，不同的汇编程序可以为同一段汇编代码输出不同的字节码，因此一个有效的汇编程序可以产生不同于下面给出的结果。但是，以下字节码应始终在任何UDVM上生成相同的结果。"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. Instructions",
+      "section_title": true,
+      "zh-CHS": "A.1. 说明书"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.1. Bit Manipulation",
+      "section_title": true,
+      "zh-CHS": "A.1.1. 位操纵"
+    },
+    {
+      "indent": 3,
+      "text": "0xf80a 7116 a07f 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x01c0 00ff 8055 5502 202a 0321 0420 0305 21ff 2286 0401 20c0 ff02 0x2060 0320 0421 6005 2061 2286 0423",
+      "zh-CHS": "0xf80a 7116 a07f 0000 0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0x00008055 5502 202a 0321 0420 0305 21ff 2286 0401 20c0 ff02 0x2060 0320 0421 6005 2061 2286 0423"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x0150 0000 febf 0000 Cycles: 22",
+      "zh-CHS": "输入：无输出：0x0150 0000 febf 0000周期：22"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.2. Arithmetic",
+      "section_title": true,
+      "zh-CHS": "A.1.2. 算术"
+    },
+    {
+      "indent": 3,
+      "text": "0xf80a a11c 01a0 450b 0722 0116 a077 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x06c0 00ff 9941 0720 0108 20a3 e909 20a0 650a 200b 2286 0406 21c0 0xff07 2162 0821 6109 2061 0a21 6222 8604 23",
+      "zh-CHS": "0xf80a a11c 01a0 450b 0722 0116 a077 0000 0x0000 0x00009941 0720 0108 20a3 e909 20a0 650a 200b 2286 0406 21c0 0xff07 2162 0821 6109 2061 0a21 6222 8604 23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x00 Output: 0x0000 0000 0000 0004 Cycles: 25",
+      "zh-CHS": "输入：0x00输出：0x0000 0004周期：25"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 DECOMPRESSION-FAILURE DIV_BY_ZERO",
+      "zh-CHS": "输入：0x01解压失败按0分区"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x02 DECOMPRESSION-FAILURE DIV_BY_ZERO",
+      "zh-CHS": "输入：0x02解压失败除以零"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.3. Sorting",
+      "section_title": true,
+      "zh-CHS": "A.1.3. 分类"
+    },
+    {
+      "indent": 3,
+      "text": "0xf80d c10c 8802 170b 8802 1722 a12e 2d23 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0a00 0a00 1100 0700 1600 0300 0300 0300 1300 0100 1000 0e00 0x0800 0200 0d00 1400 1200 1700 0f00 1500 0c00 0600 096e 6720 6975 0x6920 7469 742c 2079 6f75 2720 5346 6f6e 6761 2075 7272 646f 2074 0x6f6e 2e2e 0070 6570 206e 7472 656e 69",
+      "zh-CHS": "0xf80d c10c 8802 170b 8802 1722 a12e 2d23 0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0a000a00 1100 0700 1600 0300 0300 0300 1300 0100 1000 0e00 0x0800 0200 0d00 1400 1700 0f00 1500 0C000 0600 096e 6720 6975 0x6920 7469 742c 2079 6f75 2720 5346 6f6e 6761 2075 7272 646f 2074 0x6f6e 2E 0070 6570 206e 7472 656e 69"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x466f 7264 2c20 796f 7527 7265 2074 7572 6e69 6e67 0x2069 6e74 6f20 6120 7065 6e67 7569 6e2e 2053 746f 0x7020 6974 2e Cycles: 371",
+      "zh-CHS": "输入：无输出：0x466f 7264 2c20 796f 7527 7265 2074 7572 6e69 6e67 0x2069 6e74 6f20 6120 7065 6e67 7569 6e2e 2053 746f 0x7020 6974 2e循环：371"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.4. SHA-1",
+      "section_title": true,
+      "zh-CHS": "A.1.4. SHA-1"
+    },
+    {
+      "indent": 3,
+      "text": "0xf808 710d a0c3 03a0 4422 a044 140d a0c6 38a0 4422 a044 140e 86a0 0xfe0e a042 a0ff 0da0 fe8e a044 22a0 4414 0e86 a0ff 0ea0 42a1 070d 0xa0ff a280 a0ff 22a0 ff14 2300 0000 0000 0000 6162 6361 6263 6462 0x6364 6563 6465 6664 6566 6765 6667 6866 6768 6967 6869 6a68 696a 0x6b69 6a6b 6c6a 6b6c 6d6b 6c6d 6e6c 6d6e 6f6d 6e6f 706e 6f70 7161 0x3031 3233 3435 3637",
+      "zh-CHS": "0xf808 710d a0c3 03a0 4422 a044 140d a0c6 38a0 4422 a044 140e 86a0 0xfe0e a042 a0ff 0da0 fe8e a044 22a0 4414 0e86 a0ff 0ea0 42a1 070d 0xa0ff a280 a0ff 22a0 ff14 2300 0000 0000 6162 6361 6263 6462 0x6364 656 666 666 666 666 676 676 676 676 676 686 696 6A 0x6B6C66 6A 6B C6D 6E6E6C 6F6 706F 3036 6E3435 3637"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0xa999 3e36 4706 816a ba3e 2571 7850 c26c 9cd0 d89d 0x8498 3e44 1c3b d26e baae 4aa1 f951 29e5 e546 70f1 0x12ff 347b 4f27 d69e 1f32 8e6f 4b55 73e3 666e 122f 0x4f46 0452 ebb5 6393 4f46 0452 ebb5 6393 4f46 0452 Cycles: 17176",
+      "zh-CHS": "输入：无输出：0xa999 3e36 4706 816a ba3e 2571 7850 c26c 9cd0 d89d 0x8498 3e44 1c3b d26e baae 4aa1 f951 29e5 e546 70f1 0x12ff 347b 4f27 d69e 1f32 8e6f 4b55 73e3 666e 122f 0x4f46 0452 ebb5 6393 4f46 0452 ebb5 6393 4f46 0452循环：17176"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.5. LOAD and MULTILOAD",
+      "section_title": true,
+      "zh-CHS": "A.1.5. 负载和多负载"
+    },
+    {
+      "indent": 3,
+      "text": "0xf803 610e 87a0 840e a082 c080 0ec0 80a0 860e c084 c084 2287 081c 0x01a0 4127 0820 0206 203c 0f60 03a0 a2a0 b187 0f60 042a 87c0 80c0 0x8422 8708 23",
+      "zh-CHS": "0xf803 610e 87a0 840e a082 c080 0ec0 80a0 860e c084 c084 2287 081c 0x01a0 4127 0820 0206 203c 0f60 03a0 a2a0 b187 0f60 042a 87c0 80c0 0x8422 8708 23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x00 Output: 0x0084 0084 0086 0086 002a 0080 002a 002a Cycles: 36",
+      "zh-CHS": "输入：0x00输出：0x0084 0084 0086 0086 002a 0080 002a 002a循环：36"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 DECOMPRESSION-FAILURE MULTILOAD_OVERWRITTEN",
+      "zh-CHS": "输入：0x01解压失败多重加载被覆盖"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x02 DECOMPRESSION-FAILURE MULTILOAD_OVERWRITTEN",
+      "zh-CHS": "输入：0x02解压失败多重加载被覆盖"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.6. COPY",
+      "section_title": true,
+      "zh-CHS": "A.1.6. 复制"
+    },
+    {
+      "indent": 3,
+      "text": "0xf803 910e 208e 0e86 860e a042 8712 2087 210e 8680 4100 1286 a055 0xa041 2220 a077 0e86 200e a042 3015 2004 a041 0112 2004 3022 3004 0x1230 042e 2220 0223",
+      "zh-CHS": "0xf803 910e 208e 0e86 860e a042 8712 2087 210e 8680 4100 1286 a055 0xa041 2220 a077 0e86 200e a042 3015 2004 a041 0112 2004 3022 3004 0x1230 042e 2220 0223"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x4040 4040 4040 4040 4040 4040 4040 4040 4040 4040 0x4040 4040 4040 4040 4040 4040 4141 4141 4141 4141 0x4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 0x4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 0x4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 0x4141 4141 4141 4141 4141 4141 4141 4141 4141 5541 0x4243 4443 44 Cycles: 365",
+      "zh-CHS": "输入：无输出：0x4040404040404040404040404040404040404040404000x4040404040404040404040404040404040404040404040404040404040404040404040404040404040404041410404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404周期：365"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.7. COPY-LITERAL and COPY-OFFSET",
+      "section_title": true,
+      "zh-CHS": "A.1.7. 复制文字和复制偏移量"
+    },
+    {
+      "indent": 3,
+      "text": "0xf806 110e 2080 4100 0e86 860e a042 870e a044 2113 2087 2222 8608 0x0ea0 44a0 9c13 2002 2222 a09c 020e 86a0 480e a042 a052 0ea0 44a0 0x5215 a048 0aa0 4101 1402 0622 0ea0 4606 1463 0422 2261 0a0e a044 0xa050 1404 0422 22a0 4402 1405 0422 22a0 4402 2260 0a23",
+      "zh-CHS": "0xf806 110e 2080 4100 0e86 860e a042 870e a044 2113 2087 2222 8608 0x0ea0 44a0 9c13 2002 2222 a09c 020e 86a0 480e a042 a052 0ea0 44a0 0x5215 a048 0aa0 4101 1402 0622 0ea0 4606 1463 0422 2261 0a0e a044 0xa050 1404 0422 22a0 4402 1405 0422 22A02 2260 A23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x4141 4141 0061 4141 4141 494A 4142 4344 494A 4142 0x004A 004E 4748 4845 4647 4748 4546 Cycles: 216",
+      "zh-CHS": "输入：无输出：0x4141 4141 494A 4142 4344 494A 4142 0x004A 004E 4748 4845 4647 4748 4546周期：216"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.8. MEMSET",
+      "section_title": true,
+      "zh-CHS": "A.1.8. 记忆集"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 810e 8687 0ea0 42a0 8115 86a0 8100 0115 a081 0f86 0f22 8710 0x23",
+      "zh-CHS": "0xf801 810e 8687 0ea0 42a0 8115 86a0 8100 0115 a081 0f86 0f22 8710 0x23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x8040 4f5e 6d7c 8b9a a9b8 c7d6 e5f4 0312 Cycles: 166",
+      "zh-CHS": "输入：无输出：0x8040 4f5e 6d7c 8b9a a9b8 c7d6 e5f4 0312周期：166"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.9. CRC",
+      "section_title": true,
+      "zh-CHS": "A.1.9. 华润"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 8115 a046 1801 0115 a05e 1487 011c 02a0 4413 1b62 a046 2c0e 0x23",
+      "zh-CHS": "0xf801 8115 a046 1801 0115 a05e 1487 011c 02a0 4413 1b62 a046 2c0e 0x23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x62cb Output: None Cycles: 95",
+      "zh-CHS": "输入：0x62cb输出：无周期：95"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0xabcd DECOMPRESSION FAILURE USER_REQUESTED (CRC mismatch)",
+      "zh-CHS": "输入：0xabcd解压失败用户请求（CRC不匹配）"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.10. INPUT-BITS",
+      "section_title": true,
+      "zh-CHS": "A.1.10. 输入位"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 511d 62a0 4614 22a0 4602 0622 010a 2207 0622 0116 ee23",
+      "zh-CHS": "0xf801 511d 62a0 4614 22a0 4602 0622 010a 2207 0622 0116 ee23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x932e ac71 Output: 0x0000 0002 0002 0013 0000 0003 001a 0038 Cycles: 66",
+      "zh-CHS": "输入：0x932e ac71输出：0x0000 0002 0002 0013 0000 0003 001a 0038周期：66"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.11. INPUT-HUFFMAN",
+      "section_title": true,
+      "zh-CHS": "A.1.11. 输入哈夫曼"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 d11e a046 1c02 6200 6262 6200 ff00 22a0 4602 0622 010a 2207 0x0622 0116 e623",
+      "zh-CHS": "0xf801 d11e a046 1c02 6200 6200 ff00 22a0 4602 0622 010a 2207 0x0622 0116 e623"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x932e ac71 66d8 6f Output: 0x0000 0003 0008 04d7 0002 0003 0399 30fe Cycles: 84",
+      "zh-CHS": "输入：0x932e ac71 66d8 6f输出：0x0000 0003 0008 04d7 0002 0003 0399 30fe循环：84"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.12. INPUT-BYTES",
+      "section_title": true,
+      "zh-CHS": "A.1.12. 输入字节"
+    },
+    {
+      "indent": 3,
+      "text": "0xf802 710e 86a0 480e a042 a04c 1d62 a046 1d22 a046 0206 2202 0a22 0x071c 62a0 480e 22a0 4862 0622 0116 e523",
+      "zh-CHS": "0xf802 710e 86a0 480e a042 a04c 1d62 a046 1d22 a046 0206 2202 0a22 0x071c 62a0 480e 22a0 4862 0622 0116 e523"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x932e ac71 66d8 6fb1 592b dc9a 9734 d847 a733 874e 0x1bcb cd51 b5dc 9659 9d6a Output: 0x0000 932e 0001 b166 d86f b100 1a2b 0003 9a97 34d8 0x0007 0001 3387 4e00 08dc 9651 b5dc 9600 599d 6a Cycles: 130",
+      "zh-CHS": "输入：0x932e ac71 66d8 6fb1 592b dc9a 9734 d847 a733 874e 0x1BBB cd51 b5dc 9659 9d6a输出：0x0000 932e 0001 b166 d86f b100 1a2b 0003 9a97 34d8 0x0007 0001 3387 4e00 08dc 9651 b5dc 9600 599d 6a周期：130"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.13. Stack Manipulation",
+      "section_title": true,
+      "zh-CHS": "A.1.13. 堆栈操作"
+    },
+    {
+      "indent": 3,
+      "text": "0xf814 110e a046 8610 0210 6010 a042 2286 0811 8611 6311 a046 2286 0x0816 2800 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 000e a046 200e a048 a140 0724 0x8818 3400 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0018 6400 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 000e a046 a17f 0ea1 7f1a 0fa1 b003 0x0180 c001 8f19 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0023",
+      "zh-CHS": "0xf814 110e a046 8610 0210 6010 a042 2286 0811 8611 6311 a046 2286 0x0816 2800 0000 0x0000 0000E a046 200e a048 a140 0724 0x8818 3400 0000 0x0000 0000 0x0018 64000000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0000E a046 a17f 0ea1 7f1a 0fa1 b003 0x0180 c001 8f19 0000 0x0000 0000 0x0000 00000000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0023"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x0003 0002 0001 0042 0042 0000 0001 0001 Cycles: 40",
+      "zh-CHS": "输入：无输出：0x0003 0002 0001 0042 0042 0000 0001 0001 0001周期：40"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.14. Program Flow",
+      "section_title": true,
+      "zh-CHS": "A.1.14. 程序流程"
+    },
+    {
+      "indent": 3,
+      "text": "0xf803 f10e a044 040e 86a0 9207 20a0 9022 a043 0116 6006 2101 0e86 0xa084 0720 a0a1 22a0 4301 1761 0660 f106 0722 010e 86a0 8407 20a0 0xb622 a043 011a 0462 0860 9fdc f123",
+      "zh-CHS": "0xf803 f10e a044 040e 86a0 9207 20a0 9022 a043 0116 6006 2101 0e86 0xa084 0720 a0a1 22a0 4301 1761 0660 f106 0722 010e 86a0 8407 20a0 0xb622 a043 011a 0462 0860 9fdc f123"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x0001 0102 0203 0304 0405 0506 0707 0708 0808 0909 Cycles: 131",
+      "zh-CHS": "输入：无输出：0x0001 0102 0203 0304 0405 0506 0707 0708 0808 0908循环：131"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.15. State Creation",
+      "section_title": true,
+      "zh-CHS": "A.1.15. 国家创造"
+    },
+    {
+      "indent": 3,
+      "text": "0xf809 411c 01a0 45ff 0422 0b17 628f 0d06 0620 0aa1 0a00 1400 0422 0x0117 628f 0c06 0620 0a88 0014 0004 2201 1762 8f16 0606 1c01 a047 0x9fd2 21a0 4863 12a0 e363 a048 0422 0117 628f 0a06 0621 a0e3 0604 0x2201 1762 8f0e 0606 2300 000a 8800 1400 2300 0000 0000 0000 437a 0xe80a 0fdc 1e6a 87c1 b62a 7676 b973 318c 0ef5 0000 0000 0000 0000 0x00c0 cc3f ee79 bcfc 8fd1 0865 e803 52ee 2977 17df 57",
+      "zh-CHS": "0xf809 411c 01a0 45ff 0422 0b17 628f 0d06 0620 0aa1 0a00 1400 0422 0x0117 628f 0c06 0620 0a88 0014 0004 2201 1762 8f16 0606 1c01 a047 0x9fd2 21a0 4863 12a0 e363 a048 0422 0117 628f 0a06 0621 a0e3 0604 0x2201 1762 8f0e 0606 2300 000a 8800 1400 2300 0000 437a 0xe80a 0fdc 1EC1 b62a 7676 b973 C 3180C0000F 0CC3Fee79 bcfc 8fd1 0865 e803 52ee 2977 17df 57"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 Output: None Cycles: 23",
+      "zh-CHS": "输入：0x01输出：无周期：23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x02 Output: None Cycles: 14",
+      "zh-CHS": "输入：0x02输出：无周期：14"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x03 Output: None Cycles: 24",
+      "zh-CHS": "输入：0x03输出：无周期：24"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x0405 DECOMPRESSION-FAILURE INVALID_STATE_ID_LENGTH",
+      "zh-CHS": "输入：0x0405解压失败无效\\u状态\\u ID\\u长度"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x0415 DECOMPRESSION-FAILURE INVALID_STATE_ID_LENGTH",
+      "zh-CHS": "输入：0x0415解压失败无效\\u状态\\u ID\\u长度"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x0406 Output: None Cycles: 23",
+      "zh-CHS": "输入：0x0406输出：无周期：23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x09 Output: None Cycles: 34",
+      "zh-CHS": "输入：0x09输出：无周期：34"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x1e06 Output: None Cycles: 46",
+      "zh-CHS": "输入：0x1e06输出：无周期：46"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x1e07 Output: None Cycles: 47",
+      "zh-CHS": "输入：0x1e07输出：无周期：47"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x1e14 Output: None Cycles: 60",
+      "zh-CHS": "输入：0x1e14输出：无周期：60"
+    },
+    {
+      "indent": 0,
+      "text": "A.1.16. STATE-ACCESS",
+      "section_title": true,
+      "zh-CHS": "A.1.16. 国家准入"
+    },
+    {
+      "indent": 3,
+      "text": "Set up bytecode: 0xf819 0123 0000 1089 0014 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0022 a20c 0x0423 0000 0000 0000 0074 6573 74",
+      "zh-CHS": "设置字节码：0xf819 0123 0000 1089 0014 0000 0x0000 0000 0x0000 0000 0000 0x0000 0000 00000000 0x0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 00000000 0000 0000 0x0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0x0000 0000 0x0000 0022 a20c 0x0423 0000 00000074 6573 74"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None",
+      "zh-CHS": "输入：无"
+    },
+    {
+      "indent": 3,
+      "text": "0xf819 411c 01a0 45ff 1762 0106 0d1c 1f89 1400 0000 891f 8914 0c04 0xa046 0022 a046 0416 a146 1762 0306 101b 1f87 1400 0000 0016 a136 0x1f89 1306 04a0 4600 16a1 2b1f 8914 0c05 a046 0016 a120 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0023 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 005d f8bc 0x3e20 93b5 abe1 f170 1342 4ce7 fe05 e069 39",
+      "zh-CHS": "0xf819 411c 01a0 45ff 1762 0106 0d1c 1f89 1400 0000 891f 8914 0c04 0xa046 0022 a046 0416 a146 1762 0306 101b 1f87 1400 0000 0016 a136 0x1f89 1306 04a0 4600 16a1 2b1f 8914 0c05 a046 0016 a120 0000 0x0000 0x0000 0x00000000 0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 00000000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0023 0000 0x0000 0000 0000 0000 00000005D f8bc 0x3e20 93b5 abe1 f170 1342 4ce7 fe05 e06939"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x00 Output: 0x7465 7374 Cycles: 26",
+      "zh-CHS": "输入：0x00输出：0x7465 7374周期：26"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 Output: 0x7465 7374 Cycles: 15",
+      "zh-CHS": "输入：0x01输出：0x7465 7374周期：15"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x02 DECOMPRESSION-FAILURE STATE_NOT_FOUND",
+      "zh-CHS": "输入：0x02未找到解压缩失败状态"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x03 DECOMPRESSION-FAILURE STATE_NOT_FOUND (len < min_acc_len)",
+      "zh-CHS": "输入：0x03未找到解压缩失败状态（len<min\\u acc\\u len）"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x04 DECOMPRESSION-FAILURE STATE_TOO_SHORT",
+      "zh-CHS": "输入：0x04解压失败状态\\u太短\\u"
+    },
+    {
+      "indent": 0,
+      "text": "A.2. Dispatcher Tests",
+      "section_title": true,
+      "zh-CHS": "A.2. 调度员测试"
+    },
+    {
+      "indent": 0,
+      "text": "A.2.1. Useful Values",
+      "section_title": true,
+      "zh-CHS": "A.2.1. 有用价值"
+    },
+    {
+      "indent": 3,
+      "text": "0xf805 f10e 8620 0ea0 4221 1c01 a047 f817 4263 f306 f317 4300 ed06 0x0c17 4400 e73f e717 44a3 c0e1 07e1 1c01 a047 9fda 0623 4007 2301 0x1220 0163 1c01 a049 9fca 0ea0 4443 0622 0308 2208 0622 a3e8 0822 0x4106 2264 0722 a358 1220 6220 2300 00a3 c086 8706",
+      "zh-CHS": "0xf805 f10e 8620 0ea0 4221 1c01 a047 f817 4263 f306 f317 4300 ed06 0x0c17 4400 e73f e717 44a3 c0e1 07e1 1c01 a047 9fda 0623 4007 2301 0x1220 0163 1c01 a049 9fca 0ea0 4443 0622 0308 2208 0622 a3e8 0822 0x4106 2264 0722 a358 1220 6220 2300 00a3 c086 8706"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 1 byte of SigComp version Output: None Cycles: 968",
+      "zh-CHS": "输入：SigComp版本的1字节输出：无周期：968"
+    },
+    {
+      "indent": 3,
+      "text": "0xf93a db1d 3d20 aa",
+      "zh-CHS": "0xf93a db1d 3d20 aa"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 1 byte of SigComp version then 0x0000 Output: None Cycles: cycles_per_bit * 1080",
+      "zh-CHS": "输入：SigComp版本的1字节，然后0x0000输出：无周期：每字节周期*1080"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 1 byte of SigComp version then 0x0001 DECOMPRESSION-FAILURE CYCLES_EXHAUSTED",
+      "zh-CHS": "输入：SigComp版本的1字节，然后0x0001解压失败循环\\u耗尽"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 1 byte of SigComp version then 0x0100 DECOMPRESSION-FAILURE SEGFAULT",
+      "zh-CHS": "输入：SigComp版本的1字节，然后0x0100解压失败SEGFULT"
+    },
+    {
+      "indent": 0,
+      "text": "A.2.2. Cycles Checking",
+      "section_title": true,
+      "zh-CHS": "A.2.2. 周期检查"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 a10f 8604 2029 0022 12a0 4402 6014 02a0 6423 22a0 4402 0622 0x0116 ef",
+      "zh-CHS": "0xf801 a10f 8604 2029 0022 12a0 4402 6014 02a0 6423 22a0 4402 0622 0x0116 ef"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE CYCLES_EXHAUSTED",
+      "zh-CHS": "输入：无减压-失效循环\\u耗尽"
+    },
+    {
+      "indent": 0,
+      "text": "A.2.3. Message-based Transport",
+      "section_title": true,
+      "zh-CHS": "A.2.3. 基于消息的传输"
+    },
+    {
+      "indent": 3,
+      "text": "0xf8",
+      "zh-CHS": "0xf8"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE MESSAGE_TOO_SHORT",
+      "zh-CHS": "输入：无解压缩失败消息\\u太短\\u"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800",
+      "zh-CHS": "0xf800"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE MESSAGE_TOO_SHORT",
+      "zh-CHS": "输入：无解压缩失败消息\\u太短\\u"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 e106 0011 2200 0223 0000 0000 0000 01",
+      "zh-CHS": "0xf800 e106 0011 2200 0223 0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: decompression_memory_size Cycles: 5",
+      "zh-CHS": "输入：无输出：解压缩\\内存\\大小周期：5"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 f106 0011 2200 0223 0000 0000 0000 01",
+      "zh-CHS": "0xf800 f106 0011 2200 0223 0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE MESSAGE_TOO_SHORT",
+      "zh-CHS": "输入：无解压缩失败消息\\u太短\\u"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 e006 0011 2200 0223 0000 0000 0000 01",
+      "zh-CHS": "0xf800 e006 0011 2200 0223 0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE INVALID_CODE_LOCATION",
+      "zh-CHS": "输入：无解压缩失败无效\\u代码\\u位置"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 ee06 0011 2200 0223 0000 0000 0000 01",
+      "zh-CHS": "0xf800 ee06 0011 2200 0223 0000 0000 01"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: decompression_memory_size Cycles: 5",
+      "zh-CHS": "输入：无输出：解压缩\\内存\\大小周期：5"
+    },
+    {
+      "indent": 0,
+      "text": "A.2.4. Stream-based Transport",
+      "section_title": true,
+      "zh-CHS": "A.2.4. 基于流的传输"
+    },
+    {
+      "indent": 3,
+      "text": "0xffff f801 7108 0002 2200 0222 a092 0523 0000 0000 0000 00ff 00ff 0x03ff ffff ffff ffff f801 7e08 0002 2200 0222 a3d2 0523 0000 0000 0x0000 00ff 04ff ffff ffff ffff ffff ff",
+      "zh-CHS": "0xffff f801 7108 0002 2200 0222 a092 0523 0000 0000 000 000 000 000 ff 00ff 0x03ff ffff ffff f801 7e08 0002 2200 0222 a3d2 0523 0000 0x0000 000 ff 04ff ffff ffff ffff ff ff"
+    },
+    {
+      "indent": 3,
+      "text": "The above stream contains two messages:",
+      "zh-CHS": "上述流包含两条消息："
+    },
+    {
+      "indent": 3,
+      "text": "Output: decompression_memory_size Cycles: 11",
+      "zh-CHS": "输出：解压\\内存\\大小周期：11"
+    },
+    {
+      "indent": 3,
+      "text": "Output: decompression_memory_size Cycles: 11",
+      "zh-CHS": "输出：解压\\内存\\大小周期：11"
+    },
+    {
+      "indent": 3,
+      "text": "0xf8ff ff",
+      "zh-CHS": "0xf8ff"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE MESSAGE_TOO_SHORT",
+      "zh-CHS": "输入：无解压缩失败消息\\u太短\\u"
+    },
+    {
+      "indent": 3,
+      "text": "0xf800 ffff",
+      "zh-CHS": "0xf800 ffff"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE MESSAGE_TOO_SHORT",
+      "zh-CHS": "输入：无解压缩失败消息\\u太短\\u"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 8108 0002 2200 0222 a092 0523 ffff 0000 0000 0000 00ff 00ff 0x03ff ffff",
+      "zh-CHS": "0xf801 8108 0002 2200 0222 a092 0523 ffff 0000 0000 00000FF 00ff 0x03ff ffff"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE MESSAGE_TOO_SHORT",
+      "zh-CHS": "输入：无解压缩失败消息\\u太短\\u"
+    },
+    {
+      "indent": 3,
+      "text": "0xf801 7008 0002 2200 0222 a092 0523 ffff 0000 0000 0000 00ff 04ff 0xffff ff",
+      "zh-CHS": "0xf801 7008 0002 2200 0222 a092 0523 ffff 0000 0000 00000FF 04ff 0xffff ff"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE INVALID_CODE_LOCATION",
+      "zh-CHS": "输入：无解压缩失败无效\\u代码\\u位置"
+    },
+    {
+      "indent": 0,
+      "text": "A.2.5. Input Past the End of a Message",
+      "section_title": true,
+      "zh-CHS": "A.2.5. 超过消息结尾的输入"
+    },
+    {
+      "indent": 3,
+      "text": "0xf803 210e 86a0 460e a042 a04d 1d09 a046 0a1c 07a0 4606 001d 07a0 0x46ff 1c02 a046 fa22 a046 021d 10a0 4606 001d 08a0 46ff 22a0 4701 0x23",
+      "zh-CHS": "0xf803 210e 86a0 460e a042 a04d 1d09 a046 0a1c 07a0 4606 001d 07a0 0x46ff 1c02 a046 fa22 a046 021d 10a0 4606 001d 08a0 46ff 22a0 4701 0x23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0xfffa 0068 6921 Output: 0x6869 21 Cycles: 23",
+      "zh-CHS": "输入：0xfffa 0068 6921输出：0x6869 21周期：23"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0xfffa 0068 69 DECOMPRESSION-FAILURE USER_REQUESTED (not enough bits)",
+      "zh-CHS": "输入：0xfffa 0068 69请求的解压缩失败用户_（位不足）"
+    },
+    {
+      "indent": 0,
+      "text": "A.3. State Handler Tests",
+      "section_title": true,
+      "zh-CHS": "A.3. 状态处理程序测试"
+    },
+    {
+      "indent": 0,
+      "text": "A.3.1. SigComp Feedback Mechanism",
+      "section_title": true,
+      "zh-CHS": "A.3.1. SigComp反馈机制"
+    },
+    {
+      "indent": 3,
+      "text": "0xf805 031c 01a0 41a0 5517 6001 070e a04f 0ea0 42a4 7f16 0e0e a042 0xa4ff 15a0 44a0 7f01 010e a0c3 a801 0ea0 c5a6 000e a0cc ac00 0ea0 0xd9b4 000e a0ee b500 15a0 c606 0001 15a0 cd0c 0001 15a0 da14 0001 0x23a0 42a0 c3",
+      "zh-CHS": "0xf805 031c 01a0 41a0 5517 6001 070e a04f 0ea0 42a4 7f16 0e0e a042 0xa4ff 15a0 44a0 7f01 010e a0c3 a801 0ea0 C5A6000E a0cc ac00 0ea0 0xd9b4 000e a0ee b500 15a0 c606 0001 15a0 cd0c 0001 15a0 da14 0001 0x23a0 42a0 c3"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x00 Output: None Cycles: 52",
+      "zh-CHS": "输入：0x00输出：无周期：52"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 Output: None Cycles: 179",
+      "zh-CHS": "输入：0x01输出：无周期：179"
+    },
+    {
+      "indent": 0,
+      "text": "A.3.2. State Memory Management",
+      "section_title": true,
+      "zh-CHS": "A.3.2. 状态存储器管理"
+    },
+    {
+      "indent": 3,
+      "text": "0xf81b a10f 8602 89a2 041c 01a0 47f9 1763 0508 a068 a070 1763 0307 0x34a0 5608 2306 0623 a204 0ea0 4463 0623 0612 6202 a04a 1762 6308 0xa058 9fd2 0ea0 4865 0824 8820 6489 0006 6506 2202 16e3 1fa2 1606 0x0000 0000 1fa2 1c06 0000 0000 1fa2 2206 0000 0000 1fa2 2e06 0000 0x0000 161e 1fa2 2806 0000 0000 1614 208b 8900 0600 160c 1fa2 3406 0x0000 0000 1602 2300 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0074 6573 0x7400 0000 0100 0200 0300 0400 0300 0200 0100 008e ea4b 43a7 87f9 0x010e ef56 7b23 9a34 6b15 a6b4 0fc0 e44d 2cd4 a221 47e6 0aef f2bc 0x0fb6 af",
+      "zh-CHS": "0xf81b a10f 8602 89a2 041c 01a0 47f9 1763 0508 a068 a070 1763 0307 0x34a0 5608 2306 0623 a204 0ea0 4463 0623 0612 6202 a04a 1762 6308 0xa058 9fd2 0ea0 4865 0824 8820 6489 0006 6506 2202 16e3 1fa2 1606 0x0000 1fa2 1006 0000 1fa2 0x0000 161e 1fa2 2806 0000 1614 208b 8900 0600 160c 1fa2 340 00001602 2300 0000 0000 0x0000 0000 0000 0x0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 00000000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0074 6573 0x7400 0000 0100 0200 0300 0400 0300 02000100 008e ea4b 43a7 87f9 0x010e ef56 7b23 9a34 6b15 a6b4 0fc0 e44d 2cd4 a221 47e6 0aef f2bc 0x0fb6 af"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x00 Output: None Cycles: 811",
+      "zh-CHS": "输入：0x00输出：无周期：811"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 Output: None Cycles: 2603",
+      "zh-CHS": "输入：0x01输出：无周期：2603"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x02 Output: None Cycles: 811",
+      "zh-CHS": "输入：0x02输出：无周期：811"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x03 Output: None Cycles: 1805",
+      "zh-CHS": "输入：0x03输出：无周期：1805"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x04 DECOMPRESSION-FAILURE STATE_NOT_FOUND",
+      "zh-CHS": "输入：0x04未找到解压缩失败状态"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x05 Output: None Cycles: 2057",
+      "zh-CHS": "输入：0x05输出：无周期：2057"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x06 Output: None Cycles: 1993",
+      "zh-CHS": "输入：0x06输出：无周期：1993"
+    },
+    {
+      "indent": 0,
+      "text": "A.3.3. Multiple Compartments",
+      "section_title": true,
+      "zh-CHS": "A.3.3. 多隔间"
+    },
+    {
+      "indent": 3,
+      "text": "0xf81b 110f 8602 89a2 071c 01a0 45f9 1762 030d 3d06 1762 0537 86a0 0x6806 2289 20a1 c062 0006 0006 2203 20a1 c062 0006 0007 22a2 020a 0x2203 0622 a203 20a1 c062 0006 0020 a1c0 a206 0006 6216 2b20 a7c0 0x2000 0600 1622 1fa2 1306 0000 0000 1fa2 1906 0000 0000 1fa2 2506 0x0000 0000 1fa2 2b06 0000 0000 2300 0000 0000 0000 1762 0706 101a 0x1fa2 0706 0000 0000 16ea 1fa2 0d06 0000 0000 16e0 1fa2 1f06 0000 0x0000 169f d600 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0102 0x0304 0506 aca6 0b8e b283 9dbf afc6 3dd2 34c5 d91d 5361 bdd6 ba2a 0xc65a 47c2 1814 ee07 c275 941d d7a1 4887 9c8d e90e",
+      "zh-CHS": "0xf81b 110f 8602 89a2 071c 01a0 45f9 1762 030d 3d06 1762 0537 86a0 0x6806 2289 20a1 c062 0006 0006 2203 20a1 c062 0006 0007 22a2 020a 0x2203 0622 a203 20a1 c062 0006 0020 a1c0 a206 0006 6216 2b20 A7200 0x2000 0600 1622 1fa2 1306 0000 1fa2 1906 0000 1fa2 0000 1fa2 2506 0x0000 1fa2 0000 0A2 2506 0x0000 1fa2 0000 2300 0000 1762 0706 101a 0x1fa2 07060000 0000 16ea 1fa2 0d06 0000 16e0 1fa2 1f06 0000 0x0000 169f d600 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 00000000 0000 0000 0x0000 0000 0000 0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0x0000 0000 0000 0000 0x0000 0000 0000 0000 0000 0000 0x0000 0000 0000 0102 0x0304 0506 aca6 0b8e b283 9dbf afc6 3dd234c5 d91d 5361 bdd6 ba2a 0xc65a 47c2 1814 ee07 c275 941d d7a1 4887 9c8d e90e"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x00 Output: None Cycles: 1809",
+      "zh-CHS": "输入：0x00输出：无周期：1809"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x01 Output: None Cycles: 1809",
+      "zh-CHS": "输入：0x01输出：无周期：1809"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x02 Output: None Cycles: 1809",
+      "zh-CHS": "输入：0x02输出：无周期：1809"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x03 Output: None Cycles: 1993",
+      "zh-CHS": "输入：0x03输出：无周期：1993"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x04 Output: None Cycles: 1994",
+      "zh-CHS": "输入：0x04输出：无周期：1994"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x05 Output: None Cycles: 1804",
+      "zh-CHS": "输入：0x05输出：无周期：1804"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x06 DECOMPRESSION-FAILURE STATE_NOT_FOUND",
+      "zh-CHS": "输入：0x06未找到解压缩失败状态"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x07 DECOMPRESSION-FAILURE STATE_NOT_FOUND",
+      "zh-CHS": "输入：未找到0x07解压失败状态"
+    },
+    {
+      "indent": 3,
+      "text": "Input: 0x08 DECOMPRESSION-FAILURE STATE_NOT_FOUND",
+      "zh-CHS": "输入：0x08未找到解压缩失败状态"
+    },
+    {
+      "indent": 0,
+      "text": "A.3.4. Accessing RFC 3485 State",
+      "section_title": true,
+      "zh-CHS": "A.3.4. 访问RFC 3485状态"
+    },
+    {
+      "indent": 3,
+      "text": "0xf803 a11f a0a6 14ac fe01 2000 1fa0 a606 acff 0121 001f a0a6 0cad 0x0001 2200 2220 0323 0000 0000 0000 00fb e507 dfe5 e6aa 5af2 abb9 0x14ce aa05 f99c e61b a5",
+      "zh-CHS": "0xf803 a11f a0a6 14ac fe01 2000 1fa0 a606 acff 0121 001f a0a6 0cad 0x0001 2200 2220 0323 0000 00000FB e507 dfe5 e6aa 5af2 abb9 0x14ce aa05 f99c e61b a5"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x5349 50 Cycles: 11",
+      "zh-CHS": "输入：无输出：0x5349 50周期：11"
+    },
+    {
+      "indent": 0,
+      "text": "A.3.5. Bytecode State Creation",
+      "section_title": true,
+      "zh-CHS": "A.3.5. 字节码状态创建"
+    },
+    {
+      "indent": 3,
+      "text": "0xf804 6112 a0be 081e 2008 1e21 060a 0e23 be03 12a0 be08 a050 2008 0xa050 a053 140a 2008 a050 a053 0c0a 1606 004f 4b31 1c01 a0b3 fc22 0xa0a8 0323 0000 0da0 a8a0 ab06 0a4f 4b32 22a0 5003 2302",
+      "zh-CHS": "0xf804 6112 a0be 081e 2008 1e21 060a 0e23 be03 12a0 be08 a050 2008 0xa050 a053 140a 2008 a050 a053 0c0a 1606 004f 4b31 1c01 a0b3 fc22 0xa0a8 0323 0000 0da0 a8a0 ab06 0a4f 4b32 22a0 5003 2302"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x4f4b Cycles: 66",
+      "zh-CHS": "输入：无输出：0x4f4b周期：66"
+    },
+    {
+      "indent": 3,
+      "text": "0xf905 b88c e72c 9103",
+      "zh-CHS": "0xf905 b88c e72c 9103"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x4f4b 31 Cycles: 7",
+      "zh-CHS": "输入：无输出：0x4f4b 31周期：7"
+    },
+    {
+      "indent": 3,
+      "text": "0xfb24 63cd ff5c f8c7 6df6 a289 ff",
+      "zh-CHS": "0xfb24 63cd ff5c f8c7 6df6 a289 ff"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x4f4b 32 Cycles: 5",
+      "zh-CHS": "输入：无输出：0x4f4b 32周期：5"
+    },
+    {
+      "indent": 3,
+      "text": "0xf95b 4b43 d567 83",
+      "zh-CHS": "0xf95b 4b43 d567 83"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None Output: 0x0000 32 Cycles: 5",
+      "zh-CHS": "输入：无输出：0x0000 32周期：5"
+    },
+    {
+      "indent": 3,
+      "text": "0xf9de 8126 1199 1f",
+      "zh-CHS": "0xf9de 8126 1199 1f"
+    },
+    {
+      "indent": 3,
+      "text": "Input: None DECOMPRESSION-FAILURE STATE_NOT_FOUND",
+      "zh-CHS": "输入：无解压缩失败状态\\u未找到"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Abigail Surtees Siemens/Roke Manor Research Roke Manor Research Ltd. Romsey, Hants SO51 0ZN UK",
+      "zh-CHS": "Abigail Surtees西门子/Roke Manor Research Roke Manor Research Ltd.Romsey，Hants SO51 0ZN英国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +44 (0)1794 833131\nEMail: abigail.surtees@roke.co.uk\nURI:   http://www.roke.co.uk",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Mark A. West Siemens/Roke Manor Research Roke Manor Research Ltd. Romsey, Hants SO51 0ZN UK",
+      "zh-CHS": "Mark A.West Siemens/Roke Manor Research Roke Manor Research Ltd.Romsey，Hants SO51 0ZN英国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +44 (0)1794 833311\nEMail: mark.a.west@roke.co.uk\nURI:   http://www.roke.co.uk",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

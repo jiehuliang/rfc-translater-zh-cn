@@ -1,0 +1,811 @@
+{
+  "title": {
+    "text": "RFC 2930:  Secret Key Establishment for DNS (TKEY RR) ",
+    "zh-CHS": "RFC 2930"
+  },
+  "number": 2930,
+  "created_at": "2021-10-25 02:42:10.705495+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                   D. Eastlake, 3rd\nRequest for Comments: 2930                                      Motorola\nCategory: Standards Track                                 September 2000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "Secret Key Establishment for DNS (TKEY RR)",
+      "zh-CHS": "DNS的密钥建立（TKEY RR）"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2000). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2000年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2845] provides a means of authenticating Domain Name System (DNS) queries and responses using shared secret keys via the Transaction Signature (TSIG) resource record (RR). However, it provides no mechanism for setting up such keys other than manual exchange. This document describes a Transaction Key (TKEY) RR that can be used in a number of different modes to establish shared secret keys between a DNS resolver and server.",
+      "zh-CHS": "[RFC 2845]提供了一种通过事务签名（TSIG）资源记录（RR）使用共享密钥验证域名系统（DNS）查询和响应的方法。但是，除了手动交换外，它没有提供设置此类密钥的机制。本文档描述了一种事务密钥（TKEY）RR，可在多种不同模式下使用，以在DNS解析程序和服务器之间建立共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The comments and ideas of the following persons (listed in alphabetic order) have been incorporated herein and are gratefully acknowledged:",
+      "zh-CHS": "以下人士（按字母顺序列出）的意见和想法已纳入本文件，特此致谢："
+    },
+    {
+      "indent": 9,
+      "text": "Olafur Gudmundsson (TIS)",
+      "zh-CHS": "Olafur Gudmundsson（TIS）"
+    },
+    {
+      "indent": 9,
+      "text": "Stuart Kwan (Microsoft)",
+      "zh-CHS": "关永华（微软）"
+    },
+    {
+      "indent": 9,
+      "text": "Ed Lewis (TIS)",
+      "zh-CHS": "埃德·刘易斯（TIS）"
+    },
+    {
+      "indent": 9,
+      "text": "Erik Nordmark (SUN)",
+      "zh-CHS": "埃里克·诺德马克（太阳报）"
+    },
+    {
+      "indent": 9,
+      "text": "Brian Wellington (Nominum)",
+      "zh-CHS": "布莱恩·惠灵顿（诺明姆）"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction...............................................  2\n1.1 Overview of Contents......................................  3\n2. The TKEY Resource Record...................................  4\n2.1 The Name Field............................................  4\n2.2 The TTL Field.............................................  5\n2.3 The Algorithm Field.......................................  5\n2.4 The Inception and Expiration Fields.......................  5\n2.5 The Mode Field............................................  5\n2.6 The Error Field...........................................  6\n2.7 The Key Size and Data Fields..............................  6\n2.8 The Other Size and Data Fields............................  6\n3. General TKEY Considerations................................  7\n4. Exchange via Resolver Query................................  8\n4.1 Query for Diffie-Hellman Exchanged Keying.................  8\n4.2 Query for TKEY Deletion...................................  9\n4.3 Query for GSS-API Establishment........................... 10\n4.4 Query for Server Assigned Keying.......................... 10\n4.5 Query for Resolver Assigned Keying........................ 11\n5. Spontaneous Server Inclusion............................... 12\n5.1 Spontaneous Server Key Deletion........................... 12\n6. Methods of Encryption...................................... 12\n7. IANA Considerations........................................ 13\n8. Security Considerations.................................... 13\nReferences.................................................... 14\nAuthor's Address.............................................. 15\nFull Copyright Statement...................................... 16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Domain Name System (DNS) is a hierarchical, distributed, highly available database used for bi-directional mapping between domain names and addresses, for email routing, and for other information [RFC 1034, 1035]. It has been extended to provide for public key security and dynamic update [RFC 2535, RFC 2136]. Familiarity with these RFCs is assumed.",
+      "zh-CHS": "域名系统（DNS）是一个分层、分布式、高可用的数据库，用于域名和地址之间的双向映射、电子邮件路由和其他信息[RFC 1034、1035]。它已被扩展以提供公钥安全性和动态更新[RFC 2535，RFC 2136]。假设熟悉这些RFC。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2845] provides a means of efficiently authenticating DNS messages using shared secret keys via the TSIG resource record (RR) but provides no mechanism for setting up such keys other than manual exchange. This document specifies a TKEY RR that can be used in a number of different modes to establish and delete such shared secret keys between a DNS resolver and server.",
+      "zh-CHS": "[RFC 2845]提供了一种通过TSIG资源记录（RR）使用共享密钥有效验证DNS消息的方法，但除了手动交换之外，没有提供设置此类密钥的机制。本文档指定了一个TKEY RR，可在多种不同模式下使用该TKEY RR在DNS解析程序和服务器之间建立和删除此类共享密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that TKEY established keying material and TSIGs that use it are associated with DNS servers or resolvers. They are not associated with zones. They may be used to authenticate queries and responses but they do not provide zone based DNS data origin or denial authentication [RFC 2535].",
+      "zh-CHS": "请注意，TKEY建立的密钥材料和使用它的TSIGs与DNS服务器或解析程序关联。它们与分区没有关联。它们可用于验证查询和响应，但不提供基于区域的DNS数据源或拒绝验证[RFC 2535]。"
+    },
+    {
+      "indent": 3,
+      "text": "Certain modes of TKEY perform encryption which may affect their export or import status for some countries. The affected modes specified in this document are the server assigned mode and the resolver assigned mode.",
+      "zh-CHS": "TKEY的某些模式执行加密，这可能会影响某些国家/地区的出口或进口状态。本文档中指定的受影响模式为服务器分配模式和冲突解决程序分配模式。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC 2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC 2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "In all cases herein, the term \"resolver\" includes that part of a server which may make full and incremental [RFC 1995] zone transfer queries, forwards recursive queries, etc.",
+      "zh-CHS": "在本文的所有情况下，术语“解析器”包括可进行完整和增量[RFC 1995]区域传输查询、转发递归查询等的服务器部分。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1 Overview of Contents",
+      "section_title": true,
+      "zh-CHS": "1.1 内容概述"
+    },
+    {
+      "indent": 3,
+      "text": "Section 2 below specifies the TKEY RR and provides a description of and considerations for its constituent fields.",
+      "zh-CHS": "下文第2节规定了TKEY RR，并提供了其组成字段的说明和注意事项。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 3 describes general principles of operations with TKEY.",
+      "zh-CHS": "第3节描述了TKEY操作的一般原则。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 4 discusses key agreement and deletion via DNS requests with the Query opcode for RR type TKEY. This method is applicable to all currently defined TKEY modes, although in some cases it is not what would intuitively be called a \"query\".",
+      "zh-CHS": "第4节讨论了使用RR类型TKEY的查询操作码通过DNS请求进行密钥协商和删除。此方法适用于当前定义的所有TKEY模式，尽管在某些情况下，它不是直观上称为“查询”的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 5 discusses spontaneous inclusion of TKEY RRs in responses by servers which is currently used only for key deletion.",
+      "zh-CHS": "第5节讨论了服务器响应中TKEY RRs的自发包含，该响应目前仅用于密钥删除。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 6 describes encryption methods for transmitting secret key information. In this document these are used only for the server assigned mode and the resolver assigned mode.",
+      "zh-CHS": "第6节描述了用于传输密钥信息的加密方法。在本文档中，这些仅用于服务器分配模式和冲突解决程序分配模式。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 7 covers IANA considerations in assignment of TKEY modes.",
+      "zh-CHS": "第7节介绍了分配TKEY模式时IANA的注意事项。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, Section 8 provides the required security considerations section.",
+      "zh-CHS": "最后，第8节提供了本节所需的安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "2. The TKEY Resource Record",
+      "section_title": true,
+      "zh-CHS": "2. TKEY资源记录"
+    },
+    {
+      "indent": 3,
+      "text": "The TKEY resource record (RR) has the structure given below. Its RR type code is 249.",
+      "zh-CHS": "TKEY资源记录（RR）的结构如下所示。其RR类型代码为249。"
+    },
+    {
+      "indent": 6,
+      "text": "Field       Type         Comment\n-----       ----         -------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "NAME domain see description below TTYPE u_int16_t TKEY = 249 CLASS u_int16_t ignored, SHOULD be 255 (ANY) TTL u_int32_t ignored, SHOULD be zero RDLEN u_int16_t size of RDATA RDATA: Algorithm: domain Inception: u_int32_t Expiration: u_int32_t Mode: u_int16_t Error: u_int16_t Key Size: u_int16_t Key Data: octet-stream Other Size: u_int16_t Other Data: octet-stream undefined by this specification",
+      "zh-CHS": "名称域请参见下面的描述t类型u_int16_t TKEY=249类u_int16_t被忽略，应为255（任意）个TTL u int32_t被忽略，应为零RDLEN u_int16_t RDATA大小：算法：域起始：u_int32_t过期：u_int32_t模式：u_int16_t错误：u_int16_t密钥大小：u_int16_t密钥数据：八位字节流其他大小：u_int16_t其他数据：八位字节流未被此规范定义"
+    },
+    {
+      "indent": 0,
+      "text": "2.1 The Name Field",
+      "section_title": true,
+      "zh-CHS": "2.1 名称字段"
+    },
+    {
+      "indent": 3,
+      "text": "The Name field relates to naming keys. Its meaning differs somewhat with mode and context as explained in subsequent sections.",
+      "zh-CHS": "名称字段与命名键相关。其含义因模式和上下文的不同而有所不同，如后续章节所述。"
+    },
+    {
+      "indent": 3,
+      "text": "At any DNS server or resolver only one octet string of keying material may be in place for any particular key name. An attempt to establish another set of keying material at a server for an existing name returns a BADNAME error.",
+      "zh-CHS": "在任何DNS服务器或解析器上，对于任何特定的密钥名称，只能有一个八位字节的密钥材料字符串。尝试在服务器上为现有名称建立另一组键控材料将返回一个坏名称错误。"
+    },
+    {
+      "indent": 3,
+      "text": "For a TKEY with a non-root name appearing in a query, the TKEY RR name SHOULD be a domain locally unique at the resolver, less than 128 octets long in wire encoding, and meaningful to the resolver to assist in distinguishing keys and/or key agreement sessions. For TKEY(s) appearing in a response to a query, the TKEY RR name SHOULD be a globally unique server assigned domain.",
+      "zh-CHS": "对于查询中出现非根名称的TKEY，TKEY RR名称应该是冲突解决程序本地唯一的域，在有线编码中长度小于128个八位字节，并且对冲突解决程序有意义，以帮助区分密钥和/或密钥协议会话。对于出现在查询响应中的TKEY，TKEY RR名称应为全局唯一的服务器分配域。"
+    },
+    {
+      "indent": 3,
+      "text": "A reasonable key naming strategy is as follows:",
+      "zh-CHS": "合理的密钥命名策略如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "If the key is generated as the result of a query with root as its owner name, then the server SHOULD create a globally unique domain name, to be the key name, by suffixing a pseudo-random [RFC 1750] label with a domain name of the server. For example 89n3mDgX072pp.server1.example.com. If generation of a new",
+      "zh-CHS": "如果密钥是由root作为其所有者名称的查询结果生成的，则服务器应通过在伪随机[RFC 1750]标签后面加上服务器域名的后缀，创建一个全局唯一的域名作为密钥名称。例如89n3mDgX072pp.server1.example.com。如果新的一代"
+    },
+    {
+      "indent": 6,
+      "text": "pseudo-random name in each case is an excessive computation load or entropy drain, a serial number prefix can be added to a fixed pseudo-random name generated an DNS server start time, such as 1001.89n3mDgX072pp.server1.example.com.",
+      "zh-CHS": "伪随机名称在每种情况下都会导致计算负载过大或熵损耗，可以在DNS服务器启动时生成的固定伪随机名称中添加一个序列号前缀，例如1001.89n3mDgX072pp.server1.example.com。"
+    },
+    {
+      "indent": 6,
+      "text": "If the key is generated as the result of a query with a non-root name, say 789.resolver.example.net, then use the concatenation of that with a name of the server. For example 789.resolver.example.net.server1.example.com.",
+      "zh-CHS": "如果密钥是由具有非根名称（例如789.resolver.example.net）的查询生成的，则使用该名称与服务器名称的连接。例如789.resolver.example.net.server1.example.com。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2 The TTL Field",
+      "section_title": true,
+      "zh-CHS": "2.2 TTL字段"
+    },
+    {
+      "indent": 3,
+      "text": "The TTL field is meaningless in TKEY RRs. It SHOULD always be zero to be sure that older DNS implementations do not cache TKEY RRs.",
+      "zh-CHS": "TTL字段在TKEY RRs中没有意义。它应该始终为零，以确保较旧的DNS实现不会缓存TKEY RRs。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3 The Algorithm Field",
+      "section_title": true,
+      "zh-CHS": "2.3 算法域"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm name is in the form of a domain name with the same meaning as in [RFC 2845]. The algorithm determines how the secret keying material agreed to using the TKEY RR is actually used to derive the algorithm specific key.",
+      "zh-CHS": "算法名称采用与[RFC 2845]中含义相同的域名形式。该算法确定同意使用TKEY RR的密钥材料实际如何用于导出特定于算法的密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4 The Inception and Expiration Fields",
+      "section_title": true,
+      "zh-CHS": "2.4 “起始”和“到期”字段"
+    },
+    {
+      "indent": 3,
+      "text": "The inception time and expiration times are in number of seconds since the beginning of 1 January 1970 GMT ignoring leap seconds treated as modulo 2**32 using ring arithmetic [RFC 1982]. In messages between a DNS resolver and a DNS server where these fields are meaningful, they are either the requested validity interval for the keying material asked for or specify the validity interval of keying material provided.",
+      "zh-CHS": "起始时间和到期时间以秒为单位，从1970年1月1日开始计算，GMT忽略使用环算法处理为模2**32的闰秒[RFC 1982]。在DNS解析程序和DNS服务器之间的消息中，如果这些字段有意义，则它们要么是请求的密钥材料的请求有效期间隔，要么指定提供的密钥材料的有效期间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid different interpretations of the inception and expiration times in TKEY RRs, resolvers and servers exchanging them must have the same idea of what time it is. One way of doing this is with the NTP protocol [RFC 2030] but that or any other time synchronization used for this purpose MUST be done securely.",
+      "zh-CHS": "为了避免对TKEY RRs中的起始时间和到期时间有不同的解释，解析程序和交换它们的服务器必须具有相同的时间概念。实现这一点的一种方法是使用NTP协议[RFC 2030]，但用于此目的的时间同步或任何其他时间同步必须安全完成。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5 The Mode Field",
+      "section_title": true,
+      "zh-CHS": "2.5 模式场"
+    },
+    {
+      "indent": 3,
+      "text": "The mode field specifies the general scheme for key agreement or the purpose of the TKEY DNS message. Servers and resolvers supporting this specification MUST implement the Diffie-Hellman key agreement mode and the key deletion mode for queries. All other modes are OPTIONAL. A server supporting TKEY that receives a TKEY request with a mode it does not support returns the BADMODE error. The following values of the Mode octet are defined, available, or reserved:",
+      "zh-CHS": "模式字段指定密钥协议的一般方案或TKEY DNS消息的用途。支持此规范的服务器和解析器必须为查询实现Diffie-Hellman密钥协议模式和密钥删除模式。所有其他模式都是可选的。支持TKEY的服务器在接收TKEY请求时使用其不支持的模式，返回BADMODE错误。定义、可用或保留模式八位字节的以下值："
+    },
+    {
+      "indent": 9,
+      "text": "Value    Description\n-----    -----------\n 0        - reserved, see section 7\n 1       server assignment\n 2       Diffie-Hellman exchange\n 3       GSS-API negotiation\n 4       resolver assignment\n 5       key deletion\n6-65534   - available, see section 7\n65535     - reserved, see section 7",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "2.6 The Error Field",
+      "section_title": true,
+      "zh-CHS": "2.6 错误字段"
+    },
+    {
+      "indent": 3,
+      "text": "The error code field is an extended RCODE. The following values are defined:",
+      "zh-CHS": "错误代码字段是一个扩展RCODE。定义了以下值："
+    },
+    {
+      "indent": 9,
+      "text": "Value   Description\n-----   -----------\n 0       - no error\n 1-15   a non-extended RCODE\n 16     BADSIG   (TSIG)\n 17     BADKEY   (TSIG)\n 18     BADTIME  (TSIG)\n 19     BADMODE\n 20     BADNAME\n 21     BADALG",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When the TKEY Error Field is non-zero in a response to a TKEY query, the DNS header RCODE field indicates no error. However, it is possible if a TKEY is spontaneously included in a response the TKEY RR and DNS header error field could have unrelated non-zero error codes.",
+      "zh-CHS": "在对TKEY查询的响应中，TKEY Error字段为非零时，DNS标头RCODE字段表示无错误。但是，如果TKEY自发地包含在响应中，则TKEY RR和DNS标头错误字段可能具有不相关的非零错误代码。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7 The Key Size and Data Fields",
+      "section_title": true,
+      "zh-CHS": "2.7 密钥大小和数据字段"
+    },
+    {
+      "indent": 3,
+      "text": "The key data size field is an unsigned 16 bit integer in network order which specifies the size of the key exchange data field in octets. The meaning of this data depends on the mode.",
+      "zh-CHS": "密钥数据大小字段是按网络顺序排列的无符号16位整数，它以八位字节为单位指定密钥交换数据字段的大小。此数据的含义取决于模式。"
+    },
+    {
+      "indent": 0,
+      "text": "2.8 The Other Size and Data Fields",
+      "section_title": true,
+      "zh-CHS": "2.8 其他大小和数据字段"
+    },
+    {
+      "indent": 3,
+      "text": "The Other Size and Other Data fields are not used in this specification but may be used in future extensions. The RDLEN field MUST equal the length of the RDATA section through the end of Other Data or the RR is to be considered malformed and rejected.",
+      "zh-CHS": "其他大小和其他数据字段不在本规范中使用，但可能在将来的扩展中使用。RDLEN字段必须等于RDATA节到其他数据结尾的长度，否则RR将被视为格式错误并被拒绝。"
+    },
+    {
+      "indent": 0,
+      "text": "3. General TKEY Considerations",
+      "section_title": true,
+      "zh-CHS": "3. 一般考虑事项"
+    },
+    {
+      "indent": 3,
+      "text": "TKEY is a meta-RR that is not stored or cached in the DNS and does not appear in zone files. It supports a variety of modes for the establishment and deletion of shared secret keys information between DNS resolvers and servers. The establishment of such a shared key requires that state be maintained at both ends and the allocation of the resources to maintain such state may require mutual agreement. In the absence of willingness to provide such state, servers MUST return errors such as NOTIMP or REFUSED for an attempt to use TKEY and resolvers are free to ignore any TKEY RRs they receive.",
+      "zh-CHS": "TKEY是一个元RR，它不存储或缓存在DNS中，也不出现在区域文件中。它支持在DNS解析程序和服务器之间建立和删除共享密钥信息的各种模式。建立这样一个共享密钥需要在两端保持状态，并且为保持这种状态而分配资源可能需要双方同意。在不愿意提供此类状态的情况下，服务器必须返回错误，如NOTIMP或REQUIRED，以尝试使用TKEY，并且解析程序可以自由忽略其收到的任何TKEY RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "The shared secret keying material developed by using TKEY is a plain octet sequence. The means by which this shared secret keying material, exchanged via TKEY, is actually used in any particular TSIG algorithm is algorithm dependent and is defined in connection with that algorithm. For example, see [RFC 2104] for how TKEY agreed shared secret keying material is used in the HMAC-MD5 algorithm or other HMAC algorithms.",
+      "zh-CHS": "使用TKEY开发的共享密钥材料是一个普通的八位组序列。通过TKEY交换的共享密钥材料实际用于任何特定TSIG算法的方式取决于算法，并结合该算法定义。例如，参见[RFC 2104]了解如何在HMAC-MD5算法或其他HMAC算法中使用TKEY约定的共享密钥材料。"
+    },
+    {
+      "indent": 3,
+      "text": "There MUST NOT be more than one TKEY RR in a DNS query or response.",
+      "zh-CHS": "DNS查询或响应中不得有多个TKEY RR。"
+    },
+    {
+      "indent": 3,
+      "text": "Except for GSS-API mode, TKEY responses MUST always have DNS transaction authentication to protect the integrity of any keying data, error codes, etc. This authentication MUST use a previously established secret (TSIG) or public (SIG(0) [RFC 2931]) key and MUST NOT use any key that the response to be verified is itself providing.",
+      "zh-CHS": "除GSS-API模式外，TKEY响应必须始终具有DNS事务身份验证，以保护任何密钥数据、错误代码等的完整性。此身份验证必须使用先前建立的机密（TSIG）或公共（SIG（0）[RFC 2931]）密钥，并且不得使用待验证响应本身提供的任何密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "TKEY queries MUST be authenticated for all modes except GSS-API and, under some circumstances, server assignment mode. In particular, if the query for a server assigned key is for a key to assert some privilege, such as update authority, then the query must be authenticated to avoid spoofing. However, if the key is just to be used for transaction security, then spoofing will lead at worst to denial of service. Query authentication SHOULD use an established secret (TSIG) key authenticator if available. Otherwise, it must use a public (SIG(0)) key signature. It MUST NOT use any key that the query is itself providing.",
+      "zh-CHS": "TKEY查询必须针对除GSS-API之外的所有模式进行身份验证，在某些情况下，还必须针对服务器分配模式进行身份验证。特别是，如果对服务器分配的密钥的查询是为了某个密钥断言某种特权，例如更新权限，那么必须对查询进行身份验证以避免欺骗。但是，如果密钥只是用于事务安全，那么欺骗最坏情况下会导致拒绝服务。查询身份验证应使用已建立的机密（TSIG）密钥身份验证程序（如果可用）。否则，它必须使用公共（SIG（0））密钥签名。它不能使用查询本身提供的任何键。"
+    },
+    {
+      "indent": 3,
+      "text": "In the absence of required TKEY authentication, a NOTAUTH error MUST be returned.",
+      "zh-CHS": "如果没有所需的TKEY身份验证，则必须返回NOTAUTH错误。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid replay attacks, it is necessary that a TKEY response or query not be valid if replayed on the order of 2**32 second (about 136 years), or a multiple thereof, later. To accomplish this, the keying material used in any TSIG or SIG(0) RR that authenticates a TKEY message MUST NOT have a lifetime of more then 2**31 - 1 seconds",
+      "zh-CHS": "为了避免重播攻击，如果在2**32秒（约136年）或其倍数之后重播，则TKEY响应或查询必须无效。为了实现这一点，任何TSIG或SIG（0）RR中用于验证TKEY消息的密钥材料的生存期不得超过2**31-1秒"
+    },
+    {
+      "indent": 3,
+      "text": "(about 68 years). Thus, on attempted replay, the authenticating TSIG or SIG(0) RR will not be verifiable due to key expiration and the replay will fail.",
+      "zh-CHS": "（大约68年）。因此，在尝试重播时，由于密钥过期，验证TSIG或SIG（0）RR将无法验证，重播将失败。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Exchange via Resolver Query",
+      "section_title": true,
+      "zh-CHS": "4. 通过解析器查询进行交换"
+    },
+    {
+      "indent": 3,
+      "text": "One method for a resolver and a server to agree about shared secret keying material for use in TSIG is through DNS requests from the resolver which are syntactically DNS queries for type TKEY. Such queries MUST be accompanied by a TKEY RR in the additional information section to indicate the mode in use and accompanied by other information where required.",
+      "zh-CHS": "解析程序和服务器就TSIG中使用的共享密钥材料达成一致的一种方法是通过解析程序的DNS请求，该请求在语法上是TKEY类型的DNS查询。此类查询必须在附加信息部分随附TKEY RR，以指示使用模式，并在需要时随附其他信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Type TKEY queries SHOULD NOT be flagged as recursive and servers MAY ignore the recursive header bit in TKEY queries they receive.",
+      "zh-CHS": "类型TKEY查询不应标记为递归，服务器可能会忽略它们接收的TKEY查询中的递归头位。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1 Query for Diffie-Hellman Exchanged Keying",
+      "section_title": true,
+      "zh-CHS": "4.1 Diffie-Hellman交换键控查询"
+    },
+    {
+      "indent": 3,
+      "text": "Diffie-Hellman (DH) key exchange is a means whereby two parties can derive some shared secret information without requiring any secrecy of the messages they exchange [Schneier]. Provisions have been made for the storage of DH public keys in the DNS [RFC 2539].",
+      "zh-CHS": "Diffie-Hellman（DH）密钥交换是一种手段，通过这种方式，双方可以获得一些共享的秘密信息，而无需对其交换的消息进行任何保密[Schneier]。已经制定了在DNS中存储DH公钥的规定[RFC 2539]。"
+    },
+    {
+      "indent": 3,
+      "text": "A resolver sends a query for type TKEY accompanied by a TKEY RR in the additional information section specifying the Diffie-Hellman mode and accompanied by a KEY RR also in the additional information section specifying a resolver Diffie-Hellman key. The TKEY RR algorithm field is set to the authentication algorithm the resolver plans to use. The \"key data\" provided in the TKEY is used as a random [RFC 1750] nonce to avoid always deriving the same keying material for the same pair of DH KEYs.",
+      "zh-CHS": "冲突解决程序在指定Diffie-Hellman模式的附加信息部分发送对类型TKEY的查询，并在指定冲突解决程序Diffie-Hellman密钥的附加信息部分发送一个伴随TKEY RR的查询。TKEY RR algorithm（TKEY RR算法）字段设置为解析器计划使用的身份验证算法。TKEY中提供的“密钥数据”用作随机[RFC 1750]时值，以避免总是为同一对DH密钥导出相同的密钥材料。"
+    },
+    {
+      "indent": 3,
+      "text": "The server response contains a TKEY in its answer section with the Diffie-Hellman mode. The \"key data\" provided in this TKEY is used as an additional nonce to avoid always deriving the same keying material for the same pair of DH KEYs. If the TKEY error field is non-zero, the query failed for the reason given. FORMERR is given if the query included no DH KEY and BADKEY is given if the query included an incompatible DH KEY.",
+      "zh-CHS": "服务器响应在其应答部分包含一个TKEY，采用Diffie-Hellman模式。此TKEY中提供的“密钥数据”用作额外的nonce，以避免总是为同一对DH密钥导出相同的密钥材料。如果TKEY错误字段为非零，则查询因给出的原因而失败。如果查询不包含DH键，则给出FORMERR；如果查询包含不兼容的DH键，则给出BADKEY。"
+    },
+    {
+      "indent": 3,
+      "text": "If the TKEY error field is zero, the resolver supplied Diffie-Hellman KEY RR SHOULD be echoed in the additional information section and a server Diffie-Hellman KEY RR will also be present in the answer section of the response. Both parties can then calculate the same shared secret quantity from the pair of Diffie-Hellman (DH) keys used [Schneier] (provided these DH keys use the same generator and modulus) and the data in the TKEY RRs. The TKEY RR data is mixed with the DH result as follows:",
+      "zh-CHS": "如果TKEY error字段为零，解析程序提供的Diffie-Hellman密钥RR应在附加信息部分中回显，服务器Diffie-Hellman密钥RR也将出现在响应的应答部分。然后，双方可以从[Schneier]使用的Diffie-Hellman（DH）密钥对（前提是这些DH密钥使用相同的生成器和模数）和TKEY RRs中的数据计算相同的共享秘密量。TKEY RR数据与DH结果混合如下："
+    },
+    {
+      "indent": 6,
+      "text": "keying material = XOR ( DH value, MD5 ( query data | DH value ) | MD5 ( server data | DH value ) )",
+      "zh-CHS": "键控材质=XOR（DH值，MD5（查询数据| DH值）| MD5（服务器数据| DH值））"
+    },
+    {
+      "indent": 3,
+      "text": "Where XOR is an exclusive-OR operation and \"|\" is byte-stream concatenation. The shorter of the two operands to XOR is byte-wise left justified and padded with zero-valued bytes to match the length of the other operand. \"DH value\" is the Diffie-Hellman value derived from the KEY RRs. Query data and server data are the values sent in the TKEY RR data fields. These \"query data\" and \"server data\" nonces are suffixed by the DH value, digested by MD5, the results concatenated, and then XORed with the DH value.",
+      "zh-CHS": "其中，XOR是异或运算，“|”是字节流串联。两个操作数中较短的一个为异或，按字节左对齐，并用零值字节填充，以匹配另一个操作数的长度。“DH值”是从密钥RRs导出的Diffie-Hellman值。查询数据和服务器数据是在TKEY RR数据字段中发送的值。这些“查询数据”和“服务器数据”nonce以DH值作为后缀，由MD5进行分解，将结果连接起来，然后与DH值进行XORD。"
+    },
+    {
+      "indent": 3,
+      "text": "The inception and expiry times in the query TKEY RR are those requested for the keying material. The inception and expiry times in the response TKEY RR are the maximum period the server will consider the keying material valid. Servers may pre-expire keys so this is not a guarantee.",
+      "zh-CHS": "查询TKEY RR中的起始时间和到期时间是为键控材料请求的时间。响应TKEY RR中的起始和到期时间是服务器将考虑密钥材料有效的最大周期。服务器可能会使密钥提前过期，因此这不是保证。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2 Query for TKEY Deletion",
+      "section_title": true,
+      "zh-CHS": "4.2 TKEY删除查询"
+    },
+    {
+      "indent": 3,
+      "text": "Keys established via TKEY can be treated as soft state. Since DNS transactions are originated by the resolver, the resolver can simply toss keys, although it may have to go through another key exchange if it later needs one. Similarly, the server can discard keys although that will result in an error on receiving a query with a TSIG using the discarded key.",
+      "zh-CHS": "通过TKEY建立的密钥可被视为软状态。由于DNS事务是由解析程序发起的，所以解析程序可以简单地抛出密钥，尽管如果以后需要，它可能必须进行另一次密钥交换。类似地，服务器可以丢弃密钥，尽管这将导致在使用丢弃的密钥接收带有TSIG的查询时出错。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid attempted reliance in requests on keys no longer in effect, servers MUST implement key deletion whereby the server \"discards\" a key on receipt from a resolver of an authenticated delete request for a TKEY RR with the key's name. If the server has no record of a key with that name, it returns BADNAME.",
+      "zh-CHS": "为了避免试图依赖密钥的请求不再有效，服务器必须实现密钥删除，从而服务器在从解析程序收到具有密钥名称的TKEY RR的经过身份验证的删除请求时“丢弃”密钥。如果服务器没有具有该名称的密钥记录，则返回BADNAME。"
+    },
+    {
+      "indent": 3,
+      "text": "Key deletion TKEY queries MUST be authenticated. This authentication MAY be a TSIG RR using the key to be deleted.",
+      "zh-CHS": "密钥删除TKEY查询必须经过身份验证。此身份验证可以是使用要删除的密钥的TSIG RR。"
+    },
+    {
+      "indent": 3,
+      "text": "For querier assigned and Diffie-Hellman keys, the server MUST truly \"discard\" all active state associated with the key. For server assigned keys, the server MAY simply mark the key as no longer retained by the client and may re-send it in response to a future query for server assigned keying material.",
+      "zh-CHS": "对于querier分配的和Diffie Hellman密钥，服务器必须真正“放弃”与该密钥关联的所有活动状态。对于服务器分配的密钥，服务器可以简单地将密钥标记为不再由客户端保留，并可以重新发送该密钥以响应将来对服务器分配的密钥材料的查询。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3 Query for GSS-API Establishment",
+      "section_title": true,
+      "zh-CHS": "4.3 GSS-API建立查询"
+    },
+    {
+      "indent": 3,
+      "text": "This mode is described in a separate document under preparation which should be seen for the full description. Basically the resolver and server can exchange queries and responses for type TKEY with a TKEY RR specifying the GSS-API mode in the additional information section and a GSS-API token in the key data portion of the TKEY RR.",
+      "zh-CHS": "该模式在正在编制的单独文件中进行了说明，完整说明见该文件。基本上，解析器和服务器可以使用TKEY RR交换TKEY类型的查询和响应，TKEY RR在附加信息部分指定GSS-API模式，在TKEY RR的密钥数据部分指定GSS-API令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "Any issues of possible encryption of parts the GSS-API token data being transmitted are handled by the GSS-API level. In addition, the GSS-API level provides its own authentication so that this mode of TKEY query and response MAY be, but do not need to be, authenticated with TSIG RR or SIG(0) RR [RFC 2931].",
+      "zh-CHS": "GSS-API级别处理正在传输的GSS-API令牌数据部分的任何可能加密问题。此外，GSS-API级别提供了自己的身份验证，因此这种TKEY查询和响应模式可以但不需要通过TSIG RR或SIG（0）RR[RFC 2931]进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "The inception and expiry times in a GSS-API mode TKEY RR are ignored.",
+      "zh-CHS": "GSS-API模式TKEY RR中的起始时间和到期时间被忽略。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4 Query for Server Assigned Keying",
+      "section_title": true,
+      "zh-CHS": "4.4 查询服务器分配的密钥"
+    },
+    {
+      "indent": 3,
+      "text": "Optionally, the server can assign keying for the resolver. It is sent to the resolver encrypted under a resolver public key. See section 6 for description of encryption methods.",
+      "zh-CHS": "或者，服务器可以为解析器分配密钥。它被发送到使用解析程序公钥加密的解析程序。有关加密方法的说明，请参见第6节。"
+    },
+    {
+      "indent": 3,
+      "text": "A resolver sends a query for type TKEY accompanied by a TKEY RR specifying the \"server assignment\" mode and a resolver KEY RR to be used in encrypting the response, both in the additional information section. The TKEY algorithm field is set to the authentication algorithm the resolver plans to use. It is RECOMMENDED that any \"key data\" provided in the query TKEY RR by the resolver be strongly mixed by the server with server generated randomness [RFC 1750] to derive the keying material to be used. The KEY RR that appears in the query need not be accompanied by a SIG(KEY) RR. If the query is authenticated by the resolver with a TSIG RR [RFC 2845] or SIG(0) RR and that authentication is verified, then any SIG(KEY) provided in the query SHOULD be ignored. The KEY RR in such a query SHOULD have a name that corresponds to the resolver but it is only essential that it be a public key for which the resolver has the corresponding private key so it can decrypt the response data.",
+      "zh-CHS": "解析程序发送对类型TKEY的查询，同时在附加信息部分发送指定“服务器分配”模式的TKEY RR和用于加密响应的解析程序密钥RR。TKEY algorithm字段设置为解析器计划使用的身份验证算法。建议服务器将解析程序在查询TKEY RR中提供的任何“密钥数据”与服务器生成的随机性[RFC 1750]强烈混合，以导出要使用的密钥材料。查询中出现的键RR不需要伴有SIG（键）RR。如果解析程序使用TSIG RR[RFC 2845]或SIG（0）RR对查询进行身份验证，并且验证了该身份验证，则应忽略查询中提供的任何SIG（密钥）。此类查询中的密钥RR应具有与冲突解决程序相对应的名称，但关键是它必须是一个公钥，冲突解决程序具有相应的私钥，以便能够解密响应数据。"
+    },
+    {
+      "indent": 3,
+      "text": "The server response contains a TKEY RR in its answer section with the server assigned mode and echoes the KEY RR provided in the query in its additional information section.",
+      "zh-CHS": "服务器响应在其应答部分包含一个带有服务器分配模式的TKEY RR，并在其附加信息部分回显查询中提供的KEY RR。"
+    },
+    {
+      "indent": 3,
+      "text": "If the response TKEY error field is zero, the key data portion of the response TKEY RR will be the server assigned keying data encrypted under the public key in the resolver provided KEY RR. In this case, the owner name of the answer TKEY RR will be the server assigned name of the key.",
+      "zh-CHS": "如果response TKEY error字段为零，则response TKEY RR的密钥数据部分将是服务器分配的密钥数据，该数据根据解析器提供的密钥RR中的公钥进行加密。在这种情况下，应答TKEY RR的所有者名称将是服务器分配的密钥名称。"
+    },
+    {
+      "indent": 3,
+      "text": "If the error field of the response TKEY is non-zero, the query failed for the reason given. FORMERR is given if the query specified no encryption key.",
+      "zh-CHS": "如果响应TKEY的错误字段为非零，则查询因给出的原因而失败。如果查询未指定加密密钥，则会给出FORMERR。"
+    },
+    {
+      "indent": 3,
+      "text": "The inception and expiry times in the query TKEY RR are those requested for the keying material. The inception and expiry times in the response TKEY are the maximum period the server will consider the keying material valid. Servers may pre-expire keys so this is not a guarantee.",
+      "zh-CHS": "查询TKEY RR中的起始时间和到期时间是为键控材料请求的时间。响应TKEY中的起始和到期时间是服务器将考虑密钥材料有效的最大周期。服务器可能会使密钥提前过期，因此这不是保证。"
+    },
+    {
+      "indent": 3,
+      "text": "The resolver KEY RR MUST be authenticated, through the authentication of this query with a TSIG or SIG(0) or the signing of the resolver KEY with a SIG(KEY). Otherwise, an attacker can forge a resolver KEY for which they know the private key, and thereby the attacker could obtain a valid shared secret key from the server.",
+      "zh-CHS": "必须通过使用TSIG或SIG（0）对此查询进行身份验证，或使用SIG（密钥）对冲突解决程序密钥进行签名，从而对冲突解决程序密钥RR进行身份验证。否则，攻击者可以伪造他们知道其私钥的解析程序密钥，从而攻击者可以从服务器获得有效的共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5 Query for Resolver Assigned Keying",
+      "section_title": true,
+      "zh-CHS": "4.5 解析程序指定的键控查询"
+    },
+    {
+      "indent": 3,
+      "text": "Optionally, a server can accept resolver assigned keys. The keying material MUST be encrypted under a server key for protection in transmission as described in Section 6.",
+      "zh-CHS": "或者，服务器可以接受解析器分配的密钥。密钥材料必须在服务器密钥下加密，以保护传输，如第6节所述。"
+    },
+    {
+      "indent": 3,
+      "text": "The resolver sends a TKEY query with a TKEY RR that specifies the encrypted keying material and a KEY RR specifying the server public key used to encrypt the data, both in the additional information section. The name of the key and the keying data are completely controlled by the sending resolver so a globally unique key name SHOULD be used. The KEY RR used MUST be one for which the server has the corresponding private key, or it will not be able to decrypt the keying material and will return a FORMERR. It is also important that no untrusted party (preferably no other party than the server) has the private key corresponding to the KEY RR because, if they do, they can capture the messages to the server, learn the shared secret, and spoof valid TSIGs.",
+      "zh-CHS": "冲突解决程序在附加信息部分发送一个TKEY查询，TKEY RR指定加密的密钥材料，KEY RR指定用于加密数据的服务器公钥。密钥的名称和密钥数据完全由发送解析程序控制，因此应使用全局唯一的密钥名称。使用的密钥RR必须是服务器具有相应私钥的密钥，否则它将无法解密密钥材料并返回FORMERR。同样重要的是，没有不受信任的一方（最好是服务器以外的另一方）拥有与密钥RR相对应的私钥，因为如果他们拥有私钥，他们可以将消息捕获到服务器，了解共享密钥，并欺骗有效的TSIGs。"
+    },
+    {
+      "indent": 3,
+      "text": "The query TKEY RR inception and expiry give the time period the querier intends to consider the keying material valid. The server can return a lesser time interval to advise that it will not maintain state for that long and can pre-expire keys in any case.",
+      "zh-CHS": "查询TKEY RR起始和期满给出查询者打算考虑密钥材料有效的时间段。服务器可以返回一个较短的时间间隔，以通知它将不会在那么长的时间内保持状态，并且在任何情况下都可以使密钥提前过期。"
+    },
+    {
+      "indent": 3,
+      "text": "This mode of query MUST be authenticated with a TSIG or SIG(0). Otherwise, an attacker can forge a resolver assigned TKEY query, and thereby the attacker could specify a shared secret key that would be accepted, used, and honored by the server.",
+      "zh-CHS": "此查询模式必须使用TSIG或SIG（0）进行身份验证。否则，攻击者可以伪造解析程序分配的TKEY查询，从而攻击者可以指定服务器将接受、使用和遵守的共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Spontaneous Server Inclusion",
+      "section_title": true,
+      "zh-CHS": "5. 自发服务器包含"
+    },
+    {
+      "indent": 3,
+      "text": "A DNS server may include a TKEY RR spontaneously as additional information in responses. This SHOULD only be done if the server knows the querier understands TKEY and has this option implemented. This technique can be used to delete a key and may be specified for modes defined in the future. A disadvantage of this technique is that there is no way for the server to get any error or success indication back and, in the case of UDP, no way to even know if the DNS response reached the resolver.",
+      "zh-CHS": "DNS服务器可以自发地包括TKEY RR作为响应中的附加信息。只有当服务器知道查询者理解TKEY并实现了此选项时，才应执行此操作。此技术可用于删除密钥，并可为将来定义的模式指定。这种技术的一个缺点是，服务器无法返回任何错误或成功指示，对于UDP，甚至无法知道DNS响应是否到达解析程序。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1 Spontaneous Server Key Deletion",
+      "section_title": true,
+      "zh-CHS": "5.1 自动删除服务器密钥"
+    },
+    {
+      "indent": 3,
+      "text": "A server can optionally tell a client that it has deleted a secret key by spontaneously including a TKEY RR in the additional information section of a response with the key's name and specifying the key deletion mode. Such a response SHOULD be authenticated. If authenticated, it \"deletes\" the key with the given name. The inception and expiry times of the delete TKEY RR are ignored. Failure by a client to receive or properly process such additional information in a response would mean that the client might use a key that the server had discarded and would then get an error indication.",
+      "zh-CHS": "服务器可以选择性地告诉客户机它已经删除了一个密钥，方法是在响应的附加信息部分自发地包含一个带有密钥名称的TKEY RR，并指定密钥删除模式。这样的响应应该经过身份验证。如果经过身份验证，它将“删除”具有给定名称的密钥。删除TKEY RR的起始时间和到期时间将被忽略。如果客户端未能在响应中接收或正确处理此类附加信息，则意味着客户端可能会使用服务器丢弃的密钥，然后会得到错误指示。"
+    },
+    {
+      "indent": 3,
+      "text": "For server assigned and Diffie-Hellman keys, the client MUST \"discard\" active state associated with the key. For querier assigned keys, the querier MAY simply mark the key as no longer retained by the server and may re-send it in a future query specifying querier assigned keying material.",
+      "zh-CHS": "对于服务器分配的和Diffie-Hellman密钥，客户端必须“放弃”与密钥关联的活动状态。对于查询者分配的密钥，查询者可以简单地将密钥标记为不再由服务器保留，并可以在将来的查询中重新发送该密钥，指定查询者分配的密钥材料。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Methods of Encryption",
+      "section_title": true,
+      "zh-CHS": "6. 加密方法"
+    },
+    {
+      "indent": 3,
+      "text": "For the server assigned and resolver assigned key agreement modes, the keying material is sent within the key data field of a TKEY RR encrypted under the public key in an accompanying KEY RR [RFC 2535]. This KEY RR MUST be for a public key algorithm where the public and private keys can be used for encryption and the corresponding decryption which recovers the originally encrypted data. The KEY RR SHOULD correspond to a name for the decrypting resolver/server such that the decrypting process has access to the corresponding private key to decrypt the data. The secret keying material being sent will generally be fairly short, usually less than 256 bits, because that is adequate for very strong protection with modern keyed hash or symmetric algorithms.",
+      "zh-CHS": "对于服务器分配和解析器分配的密钥协议模式，密钥材料在随附密钥RR中的公钥下加密的TKEY RR的密钥数据字段内发送[RFC 2535]。此密钥RR必须用于公钥算法，其中公钥和私钥可用于加密和相应的解密，从而恢复最初加密的数据。密钥RR应该对应于解密解析程序/服务器的名称，以便解密进程可以访问相应的私钥来解密数据。发送的密钥材料通常相当短，通常小于256位，因为这足以使用现代密钥散列或对称算法进行非常强的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "If the KEY RR specifies the RSA algorithm, then the keying material is encrypted as per the description of RSAES-PKCS1-v1_5 encryption in PKCS#1 [RFC 2437]. (Note, the secret keying material being sent is directly RSA encrypted in PKCS#1 format. It is not \"enveloped\" under",
+      "zh-CHS": "如果密钥RR指定RSA算法，则按照PKCS#1[RFC 2437]中RSAES-PKCS1-v1#5加密的描述对密钥材料进行加密。（注意，发送的密钥材料是直接以PKCS#1格式进行RSA加密的。它不是在"
+    },
+    {
+      "indent": 3,
+      "text": "some other symmetric algorithm.) In the unlikely event that the keying material will not fit within one RSA modulus of the chosen public key, additional RSA encryption blocks are included. The length of each block is clear from the public RSA key specified and the RSAES-PKCS1-v1_5 padding makes it clear what part of the encrypted data is actually keying material and what part is formatting or the required at least eight bytes of random [RFC 1750] padding.",
+      "zh-CHS": "一些其他对称算法。）在密钥材料不适合所选公钥的一个RSA模的情况下，会包括其他RSA加密块。每个块的长度都可以从指定的RSA公钥中清除，并且RSAES-PKCS1-v1_5填充可以明确加密数据的哪一部分实际上是密钥材料，哪一部分是格式化，或者至少需要八个字节的随机[RFC 1750]填充。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This section is to be interpreted as provided in [RFC 2434].",
+      "zh-CHS": "本节将按照[RFC 2434]的规定进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Mode field values 0x0000 and 0xFFFF are reserved.",
+      "zh-CHS": "模式字段值0x0000和0xFFFF保留。"
+    },
+    {
+      "indent": 3,
+      "text": "Mode field values 0x0001 through 0x00FF, and 0XFF00 through 0XFFFE can only be assigned by an IETF Standards Action.",
+      "zh-CHS": "模式字段值0x0001到0x00FF以及0XFF00到0XFFFE只能由IETF标准操作分配。"
+    },
+    {
+      "indent": 3,
+      "text": "Mode field values 0x0100 through 0x0FFF and 0xF0000 through 0xFEFF are allocated by IESG approval or IETF consensus.",
+      "zh-CHS": "模式字段值0x0100到0x0FFF和0xF0000到0xFEFF由IESG批准或IETF协商一致分配。"
+    },
+    {
+      "indent": 3,
+      "text": "Mode field values 0x1000 through 0xEFFF are allocated based on Specification Required as defined in [RFC 2434].",
+      "zh-CHS": "模式字段值0x1000到0xEFFF根据[RFC 2434]中定义的所需规范进行分配。"
+    },
+    {
+      "indent": 3,
+      "text": "Mode values should not be changed when the status of their use changes. For example, a mode value assigned based just on providing a specification should not be changed later just because that use's status is changed to standards track.",
+      "zh-CHS": "当模式值的使用状态更改时，不应更改模式值。例如，仅基于提供规范而分配的模式值不应在以后更改，因为该使用的状态更改为标准跟踪。"
+    },
+    {
+      "indent": 3,
+      "text": "The following assignments are documented herein:",
+      "zh-CHS": "本文记录了以下任务："
+    },
+    {
+      "indent": 6,
+      "text": "RR Type 249 for TKEY.",
+      "zh-CHS": "TKEY的RR类型249。"
+    },
+    {
+      "indent": 6,
+      "text": "TKEY Modes 1 through 5 as listed in section 2.5.",
+      "zh-CHS": "t第2.5节中列出的钥匙模式1至5。"
+    },
+    {
+      "indent": 6,
+      "text": "Extended RCODE Error values of 19, 20, and 21 as listed in section 2.6.",
+      "zh-CHS": "第2.6节中列出的扩展RCODE错误值19、20和21。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The entirety of this specification is concerned with the secure establishment of a shared secret between DNS clients and servers in support of TSIG [RFC 2845].",
+      "zh-CHS": "本规范的全部内容涉及在DNS客户端和服务器之间安全建立共享秘密，以支持TSIG[RFC 2845]。"
+    },
+    {
+      "indent": 3,
+      "text": "Protection against denial of service via the use of TKEY is not provided.",
+      "zh-CHS": "未提供通过使用TKEY防止拒绝服务的保护。"
+    },
+    {
+      "indent": 0,
+      "text": "References",
+      "zh-CHS": "工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[Schneier] Bruce Schneier, \"Applied Cryptography: Protocols, Algorithms, and Source Code in C\", 1996, John Wiley and Sons",
+      "zh-CHS": "Bruce Schneier，“应用密码学：C语言中的协议、算法和源代码”，1996年，John Wiley和Sons"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1034] Mockapetris, P., \"Domain Names - Concepts and Facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[RFC 1034]Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1035] Mockapetris, P., \"Domain Names - Implementation and Specifications\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[RFC 1035]Mockapetris，P.，“域名-实施和规范”，STD 13，RFC 1035，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1750] Eastlake, D., Crocker, S. and J. Schiller, \"Randomness Recommendations for Security\", RFC 1750, December 1994.",
+      "zh-CHS": "[RFC 1750]Eastlake，D.，Crocker，S.和J.Schiller，“安全性的随机性建议”，RFC 1750，1994年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1982] Elz, R. and R. Bush, \"Serial Number Arithmetic\", RFC 1982, September 1996.",
+      "zh-CHS": "[RFC 1982]Elz，R.和R.Bush，“序列号算术”，RFC 1982，1996年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1995] Ohta, M., \"Incremental Zone Transfer in DNS\", RFC 1995, August 1996.",
+      "zh-CHS": "[RFC 1995]Ohta，M.“DNS中的增量区域转移”，RFC 1995，1996年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2030] Mills, D., \"Simple Network Time Protocol (SNTP) Version 4 for IPv4, IPv6 and OSI\", RFC 2030, October 1996.",
+      "zh-CHS": "[RFC 2030]Mills，D.“IPv4、IPv6和OSI的简单网络时间协议（SNTP）第4版”，RFC 2030，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2104] Krawczyk, H., Bellare, M. and R. Canetti, \"HMAC: Keyed-Hashing for Message Authentication\", RFC 2104, February 1997.",
+      "zh-CHS": "[RFC 2104]Krawczyk，H.，Bellare，M.和R.Canetti，“HMAC：用于消息认证的键控哈希”，RFC 2104，1997年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC 2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2136] Vixie, P., Thomson, S., Rekhter, Y. and J. Bound, \"Dynamic Updates in the Domain Name System (DNS UPDATE)\", RFC 2136, April 1997.",
+      "zh-CHS": "[RFC 2136]Vixie，P.，Thomson，S.，Rekhter，Y.和J.Bound，“域名系统中的动态更新（DNS更新）”，RFC 2136，1997年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2434] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[RFC 2434]Narten，T.和H.Alvestrand，“在RFC中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2437] Kaliski, B. and J. Staddon, \"PKCS #1: RSA Cryptography Specifications Version 2.0\", RFC 2437, October 1998.",
+      "zh-CHS": "[RFC 2437]Kaliski，B.和J.Staddon，“PKCS#1:RSA加密规范2.0版”，RFC 2437，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2535] Eastlake, D., \"Domain Name System Security Extensions\", RFC 2535, March 1999.",
+      "zh-CHS": "[RFC 2535]Eastlake，D.，“域名系统安全扩展”，RFC 25351999年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2539] Eastlake, D., \"Storage of Diffie-Hellman Keys in the Domain Name System (DNS)\", RFC 2539, March 1999.",
+      "zh-CHS": "[RFC 2539]伊斯特莱克，D.，“域名系统（DNS）中Diffie-Hellman密钥的存储”，RFC 2539，1999年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2845] Vixie, P., Gudmundsson, O., Eastlake, D. and B. Wellington, \"Secret Key Transaction Authentication for DNS (TSIG)\", RFC 2845, May 2000.",
+      "zh-CHS": "[RFC 2845]Vixie，P.，Gudmundsson，O.，Eastlake，D.和B.Wellington，“DNS秘密密钥交易认证（TSIG）”，RFC 28452000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2931] Eastlake, D., \"DNS Request and Transaction Signatures (SIG(0)s )\", RFC 2931, September 2000.",
+      "zh-CHS": "[RFC 2931]Eastlake，D.，“DNS请求和事务签名（SIG（0）s）”，RFC 29312000年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Donald E. Eastlake 3rd Motorola 140 Forest Avenue Hudson, MA 01749 USA",
+      "zh-CHS": "美国马萨诸塞州哈德逊森林大道140号唐纳德E东湖第三摩托罗拉01749"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 978-562-2827 (h)\n       +1 508-261-5434 (w)\nFax:   +1 508-261-4447 (w)\nEMail: Donald.Eastlake@motorola.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2000). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2000年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

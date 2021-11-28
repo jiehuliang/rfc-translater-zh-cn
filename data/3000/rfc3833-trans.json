@@ -1,0 +1,749 @@
+{
+  "title": {
+    "text": "RFC 3833:  Threat Analysis of the Domain Name System (DNS) ",
+    "zh-CHS": "RFC 3833"
+  },
+  "number": 3833,
+  "created_at": "2021-11-18 05:46:53.067270+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          D. Atkins\nRequest for Comments: 3833                              IHTFP Consulting\nCategory: Informational                                       R. Austein\n                                                                     ISC\n                                                             August 2004",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Threat Analysis of the Domain Name System (DNS)",
+      "zh-CHS": "域名系统（DNS）的威胁分析"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2004).",
+      "zh-CHS": "版权所有（C）互联网协会（2004年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "Although the DNS Security Extensions (DNSSEC) have been under development for most of the last decade, the IETF has never written down the specific set of threats against which DNSSEC is designed to protect. Among other drawbacks, this cart-before-the-horse situation has made it difficult to determine whether DNSSEC meets its design goals, since its design goals are not well specified. This note attempts to document some of the known threats to the DNS, and, in doing so, attempts to measure to what extent (if any) DNSSEC is a useful tool in defending against these threats.",
+      "zh-CHS": "尽管DNS安全扩展（DNSSEC）在过去十年的大部分时间里都在开发中，但IETF从未记录过DNSSEC旨在保护的特定威胁集。在其他缺点中，这种先车后马的情况使得很难确定DNSSEC是否满足其设计目标，因为其设计目标没有得到很好的规定。本说明试图记录DNS的一些已知威胁，并在这样做的过程中，试图衡量DNSSEC在防御这些威胁方面的有用工具的程度（如果有）。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The earliest organized work on DNSSEC within the IETF was an open design team meeting organized by members of the DNS working group in November 1993 at the 28th IETF meeting in Houston. The broad outlines of DNSSEC as we know it today are already clear in Jim Galvin's summary of the results of that meeting [Galvin93]:",
+      "zh-CHS": "IETF内最早组织的DNSSEC工作是由DNS工作组成员于1993年11月在休斯敦举行的第28次IETF会议上组织的开放式设计团队会议。我们今天所知道的DNSSEC的大致轮廓在Jim Galvin对会议结果的总结中已经很清楚了[Galvin93]："
+    },
+    {
+      "indent": 3,
+      "text": "- While some participants in the meeting were interested in protecting against disclosure of DNS data to unauthorized parties, the design team made an explicit decision that \"DNS data is `public'\", and ruled all threats of data disclosure explicitly out of scope for DNSSEC.",
+      "zh-CHS": "- 虽然一些与会者对防止向未经授权方披露DNS数据感兴趣，但设计团队明确决定“DNS数据为`公开'”，并明确排除了DNSSEC的范围之外的所有数据披露威胁。"
+    },
+    {
+      "indent": 3,
+      "text": "- While some participants in the meeting were interested in authentication of DNS clients and servers as a basis for access control, this work was also ruled out of scope for DNSSEC per se.",
+      "zh-CHS": "- 虽然一些与会者对DNS客户端和服务器的身份验证感兴趣，将其作为访问控制的基础，但这项工作也被排除在DNSSEC本身的范围之外。"
+    },
+    {
+      "indent": 3,
+      "text": "- Backwards compatibility and co-existence with \"insecure DNS\" was listed as an explicit requirement.",
+      "zh-CHS": "- 向后兼容和与“不安全DNS”共存被列为明确要求。"
+    },
+    {
+      "indent": 3,
+      "text": "- The resulting list of desired security services was 1) data integrity, and 2) data origin authentication.",
+      "zh-CHS": "- 所需安全服务的结果列表是1）数据完整性和2）数据源身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "- The design team noted that a digital signature mechanism would support the desired services.",
+      "zh-CHS": "- 设计团队指出，数字签名机制将支持所需的服务。"
+    },
+    {
+      "indent": 3,
+      "text": "While a number of detail decisions were yet to be made (and in some cases remade after implementation experience) over the subsequent decade, the basic model and design goals have remained fixed.",
+      "zh-CHS": "尽管在随后的十年中，仍有许多细节决策有待做出（在某些情况下，在实施经验之后重新制定），但基本模型和设计目标仍然是固定的。"
+    },
+    {
+      "indent": 3,
+      "text": "Nowhere, however, does any of the DNSSEC work attempt to specify in any detail the sorts of attacks against which DNSSEC is intended to protect, or the reasons behind the list of desired security services that came out of the Houston meeting. For that, we have to go back to a paper originally written by Steve Bellovin in 1990 but not published until 1995, for reasons that Bellovin explained in the paper's epilogue [Bellovin95].",
+      "zh-CHS": "然而，DNSSEC的任何工作都没有试图详细说明DNSSEC打算保护的攻击类型，或休斯顿会议所需安全服务清单背后的原因。为此，我们必须回到史蒂夫·贝洛文（Steve Bellovin）在1990年写的一篇论文，但直到1995年才发表，原因是贝洛文在论文的结语中解释了[Bellovin 95]。"
+    },
+    {
+      "indent": 3,
+      "text": "While it may seem a bit strange to publish the threat analysis a decade after starting work on the protocol designed to defend against it, that is, nevertheless, what this note attempts to do. Better late than never.",
+      "zh-CHS": "虽然在开始研究旨在防御威胁的协议十年后发表威胁分析似乎有点奇怪，但这正是本文试图做到的。迟到总比不做好"
+    },
+    {
+      "indent": 3,
+      "text": "This note assumes that the reader is familiar with both the DNS and with DNSSEC, and does not attempt to provide a tutorial on either. The DNS documents most relevant to the subject of this note are: [RFC1034], [RFC1035], section 6.1 of [RFC1123], [RFC2181], [RFC2308], [RFC2671], [RFC2845], [RFC2930], [RFC3007], and [RFC2535].",
+      "zh-CHS": "本说明假设读者对DNS和DNSSEC都很熟悉，并且不尝试提供关于这两个方面的教程。与本注释主题最相关的DNS文件有：[RFC1034]、[RFC1035]、[RFC1123]第6.1节、[RFC2181]、[RFC2308]、[RFC2671]、[RFC2845]、[RFC2930]、[RFC3007]和[RFC2535]。"
+    },
+    {
+      "indent": 3,
+      "text": "For purposes of discussion, this note uses the term \"DNSSEC\" to refer to the core hierarchical public key and signature mechanism specified in the DNSSEC documents, and refers to TKEY and TSIG as separate mechanisms, even though channel security mechanisms such as TKEY and TSIG are also part of the larger problem of \"securing DNS\" and thus are often considered part of the overall set of \"DNS security extensions\". This is an arbitrary distinction that in part reflects the way in which the protocol has evolved (introduction of a putatively simpler channel security model for certain operations such as zone transfers and dynamic update requests), and perhaps should be changed in a future revision of this note.",
+      "zh-CHS": "出于讨论目的，本说明使用术语“DNSSEC”来指代DNSSEC文件中规定的核心分层公钥和签名机制，并将TKEY和TSIG称为单独的机制，即使TKEY和TSIG等通道安全机制也是“保护DNS”这一更大问题的一部分因此，通常被认为是整个“DNS安全扩展”集合的一部分。这是一种任意的区别，部分反映了协议的演变方式（为某些操作（如区域传输和动态更新请求）引入了假定更简单的通道安全模型），可能应该在本说明的未来版本中进行更改。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Known Threats",
+      "section_title": true,
+      "zh-CHS": "2. 已知威胁"
+    },
+    {
+      "indent": 3,
+      "text": "There are several distinct classes of threats to the DNS, most of which are DNS-related instances of more general problems, but a few of which are specific to peculiarities of the DNS protocol.",
+      "zh-CHS": "DNS有几种不同类型的威胁，其中大多数是与DNS相关的更一般问题的实例，但其中一些特定于DNS协议的特性。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Packet Interception",
+      "section_title": true,
+      "zh-CHS": "2.1. 包截获"
+    },
+    {
+      "indent": 3,
+      "text": "Some of the simplest threats against DNS are various forms of packet interception: monkey-in-the-middle attacks, eavesdropping on requests combined with spoofed responses that beat the real response back to the resolver, and so forth. In any of these scenarios, the attacker can simply tell either party (usually the resolver) whatever it wants that party to believe. While packet interception attacks are far from unique to DNS, DNS's usual behavior of sending an entire query or response in a single unsigned, unencrypted UDP packet makes these attacks particularly easy for any bad guy with the ability to intercept packets on a shared or transit network.",
+      "zh-CHS": "针对DNS的一些最简单的威胁是各种形式的数据包拦截：中间猴子攻击、对请求的窃听以及将真实响应打回到解析器的欺骗响应，等等。在任何一种情况下，攻击者都可以简单地告诉任何一方（通常是解析器）它希望该方相信的任何东西。虽然数据包截获攻击远不是DNS独有的，但DNS通常在一个未签名、未加密的UDP数据包中发送整个查询或响应，这使得这些攻击对于任何有能力在共享或传输网络上截获数据包的坏人来说尤其容易。"
+    },
+    {
+      "indent": 3,
+      "text": "To further complicate things, the DNS query the attacker intercepts may just be a means to an end for the attacker: the attacker might even choose to return the correct result in the answer section of a reply message while using other parts of the message to set the stage for something more complicated, for example, a name chaining attack (see section 2.3).",
+      "zh-CHS": "更复杂的是，攻击者截获的DNS查询可能只是攻击者达到目的的一种手段：攻击者甚至可能选择在回复消息的应答部分返回正确的结果，同时使用消息的其他部分为更复杂的行为（例如，名称链攻击）设置阶段（见第2.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "While it certainly would be possible to sign DNS messages using a channel security mechanism such as TSIG or IPsec, or even to encrypt them using IPsec, this would not be a very good solution for interception attacks. First, this approach would impose a fairly high processing cost per DNS message, as well as a very high cost associated with establishing and maintaining bilateral trust relationships between all the parties that might be involved in resolving any particular query. For heavily used name servers (such as the servers for the root zone), this cost would almost certainly be prohibitively high. Even more important, however, is that the underlying trust model in such a design would be wrong, since at best it would only provide a hop-by-hop integrity check on DNS messages and would not provide any sort of end-to-end integrity check between the producer of DNS data (the zone administrator) and the consumer of DNS data (the application that triggered the query).",
+      "zh-CHS": "虽然可以使用通道安全机制（如TSIG或IPsec）对DNS消息进行签名，甚至可以使用IPsec对其进行加密，但这并不是拦截攻击的很好解决方案。首先，这种方法将对每个DNS消息施加相当高的处理成本，以及与在可能涉及解决任何特定查询的所有各方之间建立和维护双边信任关系相关的非常高的成本。对于大量使用的名称服务器（例如根区域的服务器），这种成本几乎肯定会高得令人望而却步。然而，更重要的是，这种设计中的基础信任模型是错误的，因为它最多只能对DNS消息提供逐跳完整性检查，并且不会在DNS数据的生产者（区域管理员）和DNS数据的消费者之间提供任何类型的端到端完整性检查（触发查询的应用程序）。"
+    },
+    {
+      "indent": 3,
+      "text": "By contrast, DNSSEC (when used properly) does provide an end-to-end data integrity check, and is thus a much better solution for this class of problems during basic DNS lookup operations.",
+      "zh-CHS": "相比之下，DNSSEC（正确使用时）确实提供了端到端的数据完整性检查，因此对于基本DNS查找操作期间的此类问题，它是一个更好的解决方案。"
+    },
+    {
+      "indent": 3,
+      "text": "TSIG does have its place in corners of the DNS protocol where there's a specific trust relationship between a particular client and a particular server, such as zone transfer, dynamic update, or a resolver (stub or otherwise) that is not going to check all the DNSSEC signatures itself.",
+      "zh-CHS": "TSIG确实在DNS协议中占有一席之地，在DNS协议中，特定客户机和特定服务器之间存在特定的信任关系，例如区域传输、动态更新或解析程序（存根或其他），该解析程序本身不会检查所有DNSSEC签名。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that DNSSEC does not provide any protection against modification of the DNS message header, so any properly paranoid resolver must:",
+      "zh-CHS": "请注意，DNSSEC不提供任何防止修改DNS消息头的保护，因此任何正确的偏执狂解析器必须："
+    },
+    {
+      "indent": 3,
+      "text": "- Perform all of the DNSSEC signature checking on its own,",
+      "zh-CHS": "- 自行执行所有DNSSEC签名检查，"
+    },
+    {
+      "indent": 3,
+      "text": "- Use TSIG (or some equivalent mechanism) to ensure the integrity of its communication with whatever name servers it chooses to trust, or",
+      "zh-CHS": "- 使用TSIG（或某些等效机制）确保其与选择信任的任何名称服务器的通信的完整性，或"
+    },
+    {
+      "indent": 3,
+      "text": "- Resign itself to the possibility of being attacked via packet interception (and via other techniques discussed below).",
+      "zh-CHS": "- 让自己屈服于通过数据包截获（以及下面讨论的其他技术）受到攻击的可能性。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. ID Guessing and Query Prediction",
+      "section_title": true,
+      "zh-CHS": "2.2. 身份猜测与查询预测"
+    },
+    {
+      "indent": 3,
+      "text": "Since DNS is for the most part used over UDP/IP, it is relatively easy for an attacker to generate packets which will match the transport protocol parameters. The ID field in the DNS header is only a 16-bit field and the server UDP port associated with DNS is a well-known value, so there are only 2**32 possible combinations of ID and client UDP port for a given client and server. This is not a particularly large range, and is not sufficient to protect against a brute force search; furthermore, in practice both the client UDP port and the ID can often be predicted from previous traffic, and it is not uncommon for the client port to be a known fixed value as well (due to firewalls or other restrictions), thus frequently reducing the search space to a range smaller than 2**16.",
+      "zh-CHS": "由于DNS大部分是通过UDP/IP使用的，因此攻击者相对容易生成与传输协议参数匹配的数据包。DNS标头中的ID字段仅为16位字段，与DNS关联的服务器UDP端口为已知值，因此对于给定的客户端和服务器，只有2**32个可能的ID和客户端UDP端口组合。这不是一个特别大的范围，不足以防止暴力搜索；此外，在实践中，客户机UDP端口和ID通常都可以从以前的流量中预测，并且客户机端口也是已知的固定值（由于防火墙或其他限制），因此通常会将搜索空间减少到小于2**16的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "By itself, ID guessing is not enough to allow an attacker to inject bogus data, but combined with knowledge (or guesses) about QNAMEs and QTYPEs for which a resolver might be querying, this leaves the resolver only weakly defended against injection of bogus responses.",
+      "zh-CHS": "就其本身而言，ID猜测不足以允许攻击者注入虚假数据，但结合解析程序可能查询的QName和QType的相关知识（或猜测），这使得解析程序对注入虚假响应的防御能力较弱。"
+    },
+    {
+      "indent": 3,
+      "text": "Since this attack relies on predicting a resolver's behavior, it's most likely to be successful when the victim is in a known state, whether because the victim rebooted recently, or because the victim's behavior has been influenced by some other action by the attacker, or because the victim is responding (in a predictable way) to some third party action known to the attacker.",
+      "zh-CHS": "由于此攻击依赖于预测冲突解决程序的行为，因此当受害者处于已知状态时，它最有可能成功，无论是因为受害者最近重新启动，还是因为受害者的行为受到攻击者其他操作的影响，或者是因为受害者正在响应（以可预测的方式）攻击者已知的某些第三方操作。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack is both more and less difficult for the attacker than the simple interception attack described above: more difficult, because the attack only works when the attacker guesses correctly; less difficult, because the attacker doesn't need to be on a transit or shared network.",
+      "zh-CHS": "与上述简单的拦截攻击相比，这种攻击对攻击者来说难度越来越小：难度越来越大，因为只有在攻击者正确猜测的情况下，攻击才会起作用；难度较小，因为攻击者不需要位于传输或共享网络上。"
+    },
+    {
+      "indent": 3,
+      "text": "In most other respects, this attack is similar to a packet interception attack. A resolver that checks DNSSEC signatures will be able to detect the forged response; resolvers that do not perform DNSSEC signature checking themselves should use TSIG or some equivalent mechanism to ensure the integrity of their communication with a recursive name server that does perform DNSSEC signature checking.",
+      "zh-CHS": "在大多数其他方面，此攻击类似于数据包拦截攻击。检查DNSSEC签名的解析器将能够检测伪造响应；自行不执行DNSSEC签名检查的解析程序应使用TSIG或某些等效机制，以确保其与执行DNSSEC签名检查的递归名称服务器通信的完整性。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Name Chaining",
+      "section_title": true,
+      "zh-CHS": "2.3. 名称链接"
+    },
+    {
+      "indent": 3,
+      "text": "Perhaps the most interesting class of DNS-specific threats are the name chaining attacks. These are a subset of a larger class of name-based attacks, sometimes called \"cache poisoning\" attacks. Most name-based attacks can be partially mitigated by the long-standing defense of checking RRs in response messages for relevance to the original query, but such defenses do not catch name chaining attacks. There are several variations on the basic attack, but what they all have in common is that they all involve DNS RRs whose RDATA portion (right hand side) includes a DNS name (or, in a few cases, something that is not a DNS name but which directly maps to a DNS name). Any such RR is, at least in principle, a hook that lets an attacker feed bad data into a victim's cache, thus potentially subverting subsequent decisions based on DNS names.",
+      "zh-CHS": "可能最有趣的DNS特定威胁是名称链攻击。这些是一类更大的基于名称的攻击的子集，有时称为“缓存中毒”攻击。大多数基于名称的攻击都可以通过检查响应消息中的RRs与原始查询的相关性这一长期防御措施得到部分缓解，但这种防御措施无法捕获名称链接攻击。基本攻击有几种变体，但它们的共同点是它们都涉及DNS RRs，其RDATA部分（右侧）包括DNS名称（或在少数情况下，不是DNS名称但直接映射到DNS名称的内容）。至少在原则上，任何这样的RR都是一个钩子，让攻击者将坏数据馈送到受害者的缓存中，从而有可能破坏基于DNS名称的后续决策。"
+    },
+    {
+      "indent": 3,
+      "text": "The worst examples in this class of RRs are CNAME, NS, and DNAME RRs because they can redirect a victim's query to a location of the attacker's choosing. RRs like MX and SRV are somewhat less dangerous, but in principle they can also be used to trigger further lookups at a location of the attacker's choosing. Address RR types such as A or AAAA don't have DNS names in their RDATA, but since the IN-ADDR.ARPA and IP6.ARPA trees are indexed using a DNS encoding of IPv4 and IPv6 addresses, these record types can also be used in a name chaining attack.",
+      "zh-CHS": "这类RRs中最糟糕的例子是CNAME、NS和DNAME RRs，因为它们可以将受害者的查询重定向到攻击者选择的位置。MX和SRV等RRs的危险性稍低，但原则上它们也可用于触发攻击者选择的位置的进一步查找。地址RR类型（如A或AAAA）在其RDATA中没有DNS名称，但由于in-ADDR.ARPA和IP6.ARPA树使用IPv4和IPv6地址的DNS编码进行索引，因此这些记录类型也可用于名称链接攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The general form of a name chaining attack is something like this:",
+      "zh-CHS": "名称链接攻击的一般形式如下："
+    },
+    {
+      "indent": 3,
+      "text": "- Victim issues a query, perhaps at the instigation of the attacker or some third party; in some cases the query itself may be unrelated to the name under attack (that is, the attacker is just using this query as a means to inject false information about some other name).",
+      "zh-CHS": "- 受害者可能在攻击者或某第三方的煽动下发出询问；在某些情况下，查询本身可能与受攻击的名称无关（也就是说，攻击者只是使用此查询作为一种手段来注入有关其他名称的错误信息）。"
+    },
+    {
+      "indent": 3,
+      "text": "- Attacker injects response, whether via packet interception, query guessing, or by being a legitimate name server that's involved at some point in the process of answering the query that the victim issued.",
+      "zh-CHS": "- 攻击者注入响应，无论是通过数据包截获、查询猜测，还是作为一个合法的名称服务器，在回答受害者发出的查询过程中的某个时刻参与进来。"
+    },
+    {
+      "indent": 3,
+      "text": "- Attacker's response includes one or more RRs with DNS names in their RDATA; depending on which particular form this attack takes, the object may be to inject false data associated with those names into the victim's cache via the Additional section of this response, or may be to redirect the next stage of the query to a server of the attacker's choosing (in order to inject more complex lies into the victim's cache than will fit easily into a single response, or in order to place the lies in the Authority or Answer section of a response where they will have a better chance of sneaking past a resolver's defenses).",
+      "zh-CHS": "- 攻击者的响应包括一个或多个RRs，其RDATA中包含DNS名称；根据此攻击采取的特定形式，目标可能是通过此响应的附加部分将与这些名称相关联的虚假数据注入受害者的缓存，也可能是将查询的下一阶段重定向到攻击者选择的服务器（为了向受害者的缓存中注入比单个响应更复杂的谎言，或者为了将谎言放置在响应的授权或回答部分，以便他们有更好的机会潜入解析器的防御）。"
+    },
+    {
+      "indent": 3,
+      "text": "Any attacker who can insert resource records into a victim's cache can almost certainly do some kind of damage, so there are cache poisoning attacks which are not name chaining attacks in the sense discussed here. However, in the case of name chaining attacks, the cause and effect relationship between the initial attack and the eventual result may be significantly more complex than in the other forms of cache poisoning, so name chaining attacks merit special attention.",
+      "zh-CHS": "任何能够将资源记录插入受害者缓存的攻击者几乎肯定会造成某种损害，因此存在缓存中毒攻击，而不是本文讨论的名称链接攻击。但是，在名称链接攻击的情况下，初始攻击与最终结果之间的因果关系可能比其他形式的缓存中毒要复杂得多，因此名称链接攻击值得特别注意。"
+    },
+    {
+      "indent": 3,
+      "text": "The common thread in all of the name chaining attacks is that response messages allow the attacker to introduce arbitrary DNS names of the attacker's choosing and provide further information that the attacker claims is associated with those names; unless the victim has better knowledge of the data associated with those names, the victim is going to have a hard time defending against this class of attacks.",
+      "zh-CHS": "所有名称链接攻击的共同点是，响应消息允许攻击者引入攻击者选择的任意DNS名称，并提供攻击者声称与这些名称相关的进一步信息；除非受害者更好地了解与这些姓名相关的数据，否则受害者将很难抵御此类攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "This class of attack is particularly insidious given that it's quite easy for an attacker to provoke a victim into querying for a particular name of the attacker's choosing, for example, by embedding a link to a 1x1-pixel \"web bug\" graphic in a piece of Text/HTML mail to the victim. If the victim's mail reading program attempts to follow such a link, the result will be a DNS query for a name chosen by the attacker.",
+      "zh-CHS": "这类攻击特别隐蔽，因为攻击者很容易激发受害者查询攻击者选择的特定名称，例如，通过在发送给受害者的文本/HTML邮件中嵌入指向1x1像素“web bug”图形的链接。如果受害者的邮件读取程序试图跟踪此类链接，则结果将是对攻击者选择的名称进行DNS查询。"
+    },
+    {
+      "indent": 3,
+      "text": "DNSSEC should provide a good defense against most (all?) variations on this class of attack. By checking signatures, a resolver can determine whether the data associated with a name really was inserted by the delegated authority for that portion of the DNS name space. More precisely, a resolver can determine whether the entity that injected the data had access to an allegedly secret key whose",
+      "zh-CHS": "DNSSEC应针对此类攻击的大多数（所有？）变体提供良好的防御。通过检查签名，解析程序可以确定与某个名称关联的数据是否真的由该DNS名称空间的该部分的授权插入。更准确地说，冲突解决程序可以确定注入数据的实体是否可以访问其"
+    },
+    {
+      "indent": 3,
+      "text": "corresponding public key appears at an expected location in the DNS name space with an expected chain of parental signatures that start with a public key of which the resolver has prior knowledge.",
+      "zh-CHS": "相应的公钥出现在DNS名称空间中的预期位置，其预期的父签名链以解析程序事先知道的公钥开头。"
+    },
+    {
+      "indent": 3,
+      "text": "DNSSEC signatures do not cover glue records, so there's still a possibility of a name chaining attack involving glue, but with DNSSEC it is possible to detect the attack by temporarily accepting the glue in order to fetch the signed authoritative version of the same data, then checking the signatures on the authoritative version.",
+      "zh-CHS": "DNSSEC签名不包括glue记录，因此仍然存在涉及glue的名称链接攻击的可能性，但使用DNSSEC，可以通过临时接受glue来检测攻击，以便获取相同数据的签名权威版本，然后检查权威版本上的签名。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Betrayal By Trusted Server",
+      "section_title": true,
+      "zh-CHS": "2.4. 受信任服务器的背叛"
+    },
+    {
+      "indent": 3,
+      "text": "Another variation on the packet interception attack is the trusted server that turns out not to be so trustworthy, whether by accident or by intent. Many client machines are only configured with stub resolvers, and use trusted servers to perform all of their DNS queries on their behalf. In many cases the trusted server is furnished by the user's ISP and advertised to the client via DHCP or PPP options. Besides accidental betrayal of this trust relationship (via server bugs, successful server break-ins, etc), the server itself may be configured to give back answers that are not what the user would expect, whether in an honest attempt to help the user or to promote some other goal such as furthering a business partnership between the ISP and some third party.",
+      "zh-CHS": "包拦截攻击的另一个变体是可信服务器，不管是出于偶然还是出于故意，它都不那么可信。许多客户端计算机仅配置了存根解析程序，并使用受信任的服务器代表它们执行所有DNS查询。在许多情况下，受信任的服务器由用户的ISP提供，并通过DHCP或PPP选项向客户端公布。除了意外背叛这种信任关系（通过服务器漏洞、成功的服务器入侵等），服务器本身可能会被配置为返回用户预期不到的答案，无论是为了帮助用户，还是为了促进其他目标，如促进ISP与第三方之间的业务合作关系。"
+    },
+    {
+      "indent": 3,
+      "text": "This problem is particularly acute for frequent travelers who carry their own equipment and expect it to work in much the same way wherever they go. Such travelers need trustworthy DNS service without regard to who operates the network into which their equipment is currently plugged or what brand of middle boxes the local infrastructure might use.",
+      "zh-CHS": "这一问题对于经常携带设备的旅行者来说尤为严重，他们希望无论走到哪里，设备都能以大致相同的方式工作。这些旅行者需要可靠的DNS服务，而不考虑谁操作他们的设备当前插入的网络，也不考虑本地基础设施可能使用的中间盒品牌。"
+    },
+    {
+      "indent": 3,
+      "text": "While the obvious solution to this problem would be for the client to choose a more trustworthy server, in practice this may not be an option for the client. In many network environments a client machine has only a limited set of recursive name servers from which to choose, and none of them may be particularly trustworthy. In extreme cases, port filtering or other forms of packet interception may prevent the client host from being able to run an iterative resolver even if the owner of the client machine is willing and able to do so. Thus, while the initial source of this problem is not a DNS protocol attack per se, this sort of betrayal is a threat to DNS clients, and simply switching to a different recursive name server is not an adequate defense.",
+      "zh-CHS": "虽然这个问题的明显解决方案是让客户机选择一个更值得信任的服务器，但实际上这可能不是客户机的选择。在许多网络环境中，客户机只有一组有限的可供选择的递归名称服务器，而且这些服务器可能都不是特别值得信任的。在极端情况下，端口过滤或其他形式的数据包拦截可能会阻止客户端主机运行迭代解析器，即使客户端计算机的所有者愿意并且能够这样做。因此，虽然这个问题的最初根源不是DNS协议攻击本身，但这种背叛对DNS客户端是一种威胁，简单地切换到不同的递归名称服务器并不是一种充分的防御。"
+    },
+    {
+      "indent": 3,
+      "text": "Viewed strictly from the DNS protocol standpoint, the only difference between this sort of betrayal and a packet interception attack is that in this case the client has voluntarily sent its request to the",
+      "zh-CHS": "严格地从DNS协议的角度来看，这种背叛和数据包截获攻击之间的唯一区别在于，在这种情况下，客户端自愿将其请求发送给"
+    },
+    {
+      "indent": 3,
+      "text": "attacker. The defense against this is the same as with a packet interception attack: the resolver must either check DNSSEC signatures itself or use TSIG (or equivalent) to authenticate the server that it has chosen to trust. Note that use of TSIG does not by itself guarantee that a name server is at all trustworthy: all TSIG can do is help a resolver protect its communication with a name server that it has already decided to trust for other reasons. Protecting a resolver's communication with a server that's giving out bogus answers is not particularly useful.",
+      "zh-CHS": "攻击者。对此的防御与数据包拦截攻击相同：解析程序必须检查DNSSEC签名本身，或使用TSIG（或等效工具）对其选择信任的服务器进行身份验证。请注意，使用TSIG本身并不能保证名称服务器是可信的：TSIG所能做的只是帮助解析程序保护其与名称服务器的通信，该名称服务器由于其他原因已决定信任该名称服务器。保护解析程序与发出虚假答案的服务器的通信不是特别有用。"
+    },
+    {
+      "indent": 3,
+      "text": "Also note that if the stub resolver does not trust the name server that is doing work on its behalf and wants to check the DNSSEC signatures itself, the resolver really does need to have independent knowledge of the DNSSEC public key(s) it needs in order to perform the check. Usually the public key for the root zone is enough, but in some cases knowledge of additional keys may also be appropriate.",
+      "zh-CHS": "还请注意，如果存根解析程序不信任代表其工作的名称服务器，并且希望检查DNSSEC签名本身，则解析程序确实需要独立了解执行检查所需的DNSSEC公钥。通常根区域的公钥就足够了，但在某些情况下，了解其他密钥也可能是合适的。"
+    },
+    {
+      "indent": 3,
+      "text": "It is difficult to escape the conclusion that a properly paranoid resolver must always perform its own signature checking, and that this rule even applies to stub resolvers.",
+      "zh-CHS": "很难不得出这样的结论：一个正确的偏执狂解析器必须始终执行自己的签名检查，而且这个规则甚至适用于存根解析器。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Denial of Service",
+      "section_title": true,
+      "zh-CHS": "2.5. 拒绝服务"
+    },
+    {
+      "indent": 3,
+      "text": "As with any network service (or, indeed, almost any service of any kind in any domain of discourse), DNS is vulnerable to denial of service attacks. DNSSEC does not help this, and may in fact make the problem worse for resolvers that check signatures, since checking signatures both increases the processing cost per DNS message and in some cases can also increase the number of messages needed to answer a query. TSIG (and similar mechanisms) have equivalent problems.",
+      "zh-CHS": "与任何网络服务（或者，事实上，任何话语领域中几乎任何类型的服务）一样，DNS容易受到拒绝服务攻击。DNSSEC对此没有帮助，事实上可能会使检查签名的解析程序的问题更糟，因为检查签名会增加每个DNS消息的处理成本，在某些情况下还会增加回答查询所需的消息数。TSIG（和类似的机制）也有相同的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "DNS servers are also at risk of being used as denial of service amplifiers, since DNS response packets tend to be significantly longer than DNS query packets. Unsurprisingly, DNSSEC doesn't help here either.",
+      "zh-CHS": "DNS服务器也有被用作拒绝服务放大器的风险，因为DNS响应数据包往往比DNS查询数据包长得多。毫不奇怪，DNSSEC在这方面也没有帮助。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Authenticated Denial of Domain Names",
+      "section_title": true,
+      "zh-CHS": "2.6. 经验证的域名拒绝"
+    },
+    {
+      "indent": 3,
+      "text": "Much discussion has taken place over the question of authenticated denial of domain names. The particular question is whether there is a requirement for authenticating the non-existence of a name. The issue is whether the resolver should be able to detect when an attacker removes RRs from a response.",
+      "zh-CHS": "关于域名的认证拒绝问题已经进行了大量讨论。具体的问题是，是否需要验证名称的不存在。问题在于解析器是否应该能够检测到攻击者何时从响应中删除RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "General paranoia aside, the existence of RR types whose absence causes an action other than immediate failure (such as missing MX and SRV RRs, which fail over to A RRs) constitutes a real threat. Arguably, in some cases, even the absence of an RR might be",
+      "zh-CHS": "撇开普遍的偏执不谈，RR类型的存在构成了真正的威胁。RR类型的缺失会导致除即时故障以外的其他行动（例如缺失MX和SRV RRs，它们会故障切换到RRs）。可以说，在某些情况下，即使没有RR也可能是错误的"
+    },
+    {
+      "indent": 3,
+      "text": "considered a problem. The question remains: how serious is this threat? Clearly the threat does exist; general paranoia says that some day it'll be on the front page of some major newspaper, even if we cannot conceive of a plausible scenario involving this attack today. This implies that some mitigation of this risk is required.",
+      "zh-CHS": "被认为是一个问题。问题仍然是：这一威胁有多严重？显然，威胁确实存在；“偏执狂将军”说，总有一天它会出现在一些主要报纸的头版，即使我们无法想象今天发生的这起袭击会是什么样。这意味着需要某种程度上缓解这种风险。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that it's necessary to prove the non-existence of applicable wildcard RRs as part of the authenticated denial mechanism, and that, in a zone that is more than one label deep, such a proof may require proving the non-existence of multiple discrete sets of wildcard RRs.",
+      "zh-CHS": "请注意，作为认证拒绝机制的一部分，有必要证明不存在适用的通配符RRs，并且在多个标签深度的区域中，这种证明可能需要证明不存在多个离散的通配符RRs集。"
+    },
+    {
+      "indent": 3,
+      "text": "DNSSEC does include mechanisms which make it possible to determine which authoritative names exist in a zone, and which authoritative resource record types exist at those names. The DNSSEC protections do not cover non-authoritative data such as glue records.",
+      "zh-CHS": "DNSSEC确实包括一些机制，这些机制可以确定区域中存在哪些权威名称，以及这些名称处存在哪些权威资源记录类型。DNSSEC保护不包括非权威数据，如胶水记录。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7. Wildcards",
+      "section_title": true,
+      "zh-CHS": "2.7. 通配符"
+    },
+    {
+      "indent": 3,
+      "text": "Much discussion has taken place over whether and how to provide data integrity and data origin authentication for \"wildcard\" DNS names. Conceptually, RRs with wildcard names are patterns for synthesizing RRs on the fly according to the matching rules described in section 4.3.2 of RFC 1034. While the rules that control the behavior of wildcard names have a few quirks that can make them a trap for the unwary zone administrator, it's clear that a number of sites make heavy use of wildcard RRs, particularly wildcard MX RRs.",
+      "zh-CHS": "关于是否以及如何为“通配符”DNS名称提供数据完整性和数据源身份验证，已经进行了大量讨论。从概念上讲，具有通配符名称的RRs是根据RFC 1034第4.3.2节中描述的匹配规则动态合成RRs的模式。虽然控制通配符名称行为的规则有一些怪癖，使它们成为粗心大意的区域管理员的陷阱，但很明显，许多站点大量使用通配符RRs，特别是通配符MX RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to provide the desired services for wildcard RRs, we need to do two things:",
+      "zh-CHS": "为了为通配符RRs提供所需的服务，我们需要做两件事："
+    },
+    {
+      "indent": 3,
+      "text": "- We need a way to attest to the existence of the wildcard RR itself (that is, we need to show that the synthesis rule exists), and",
+      "zh-CHS": "- 我们需要一种方法来证明通配符RR本身的存在（也就是说，我们需要证明合成规则的存在），并且"
+    },
+    {
+      "indent": 3,
+      "text": "- We need a way to attest to the non-existence of any RRs which, if they existed, would make the wildcard RR irrelevant according to the synthesis rules that govern the way in which wildcard RRs are used (that is, we need to show that the synthesis rule is applicable).",
+      "zh-CHS": "- 我们需要一种方法来证明任何RRs的不存在，如果它们存在，根据控制通配符RRs使用方式的综合规则，这些RRs将使通配符RR不相关（也就是说，我们需要证明综合规则是适用的）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this makes the wildcard mechanisms dependent upon the authenticated denial mechanism described in the previous section.",
+      "zh-CHS": "请注意，这使得通配符机制依赖于上一节中描述的经过身份验证的拒绝机制。"
+    },
+    {
+      "indent": 3,
+      "text": "DNSSEC includes mechanisms along the lines described above, which make it possible for a resolver to verify that a name server applied the wildcard expansion rules correctly when generating an answer.",
+      "zh-CHS": "DNSSEC包括上述机制，使解析器能够在生成应答时验证名称服务器是否正确应用了通配符扩展规则。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Weaknesses of DNSSEC",
+      "section_title": true,
+      "zh-CHS": "3. DNSSEC的弱点"
+    },
+    {
+      "indent": 3,
+      "text": "DNSSEC has some problems of its own:",
+      "zh-CHS": "DNSSEC自身也存在一些问题："
+    },
+    {
+      "indent": 3,
+      "text": "- DNSSEC is complex to implement and includes some nasty edge cases at the zone cuts that require very careful coding. Testbed experience to date suggests that trivial zone configuration errors or expired keys can cause serious problems for a DNSSEC-aware resolver, and that the current protocol's error reporting capabilities may leave something to be desired.",
+      "zh-CHS": "- DNSSEC实施起来很复杂，在区域切割处包括一些令人讨厌的边缘情况，需要非常仔细的编码。迄今为止的试验台经验表明，微不足道的区域配置错误或过期的密钥可能会导致DNSSEC感知的解析器出现严重问题，并且当前协议的错误报告功能可能存在一些不足之处。"
+    },
+    {
+      "indent": 3,
+      "text": "- DNSSEC significantly increases the size of DNS response packets; among other issues, this makes DNSSEC-aware DNS servers even more effective as denial of service amplifiers.",
+      "zh-CHS": "- DNSSEC显著增加DNS响应数据包的大小；除其他问题外，这使得支持DNSSEC的DNS服务器作为拒绝服务放大器更加有效。"
+    },
+    {
+      "indent": 3,
+      "text": "- DNSSEC answer validation increases the resolver's work load, since a DNSSEC-aware resolver will need to perform signature validation and in some cases will also need to issue further queries. This increased workload will also increase the time it takes to get an answer back to the original DNS client, which is likely to trigger both timeouts and re-queries in some cases. Arguably, many current DNS clients are already too impatient even before taking the further delays that DNSSEC will impose into account, but that topic is beyond the scope of this note.",
+      "zh-CHS": "- DNSSEC应答验证会增加解析程序的工作量，因为支持DNSSEC的解析程序需要执行签名验证，并且在某些情况下还需要发出进一步的查询。这一增加的工作负载还将增加返回原始DNS客户端所需的时间，在某些情况下，这可能会触发超时和重新查询。可以说，许多当前的DNS客户端甚至在考虑DNSSEC将施加的进一步延迟之前就已经太不耐烦了，但这个话题超出了本说明的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "- Like DNS itself, DNSSEC's trust model is almost totally hierarchical. While DNSSEC does allow resolvers to have special additional knowledge of public keys beyond those for the root, in the general case the root key is the one that matters. Thus any compromise in any of the zones between the root and a particular target name can damage DNSSEC's ability to protect the integrity of data owned by that target name. This is not a change, since insecure DNS has the same model.",
+      "zh-CHS": "- 与DNS本身一样，DNSSEC的信任模型几乎是完全分层的。虽然DNSSEC确实允许解析程序在根密钥之外拥有公共密钥的特殊附加知识，但在一般情况下，根密钥才是最重要的。因此，根目录和特定目标名称之间的任何区域中的任何妥协都可能损害DNSSEC保护该目标名称所拥有的数据完整性的能力。这不是一个变化，因为不安全的DNS具有相同的模型。"
+    },
+    {
+      "indent": 3,
+      "text": "- Key rollover at the root is really hard. Work to date has not even come close to adequately specifying how the root key rolls over, or even how it's configured in the first place.",
+      "zh-CHS": "- 根部的关键点翻转非常困难。迄今为止的工作甚至还没有接近于充分指定根键是如何滚动的，甚至还没有确定它最初是如何配置的。"
+    },
+    {
+      "indent": 3,
+      "text": "- DNSSEC creates a requirement of loose time synchronization between the validating resolver and the entity creating the DNSSEC signatures. Prior to DNSSEC, all time-related actions in DNS could be performed by a machine that only knew about \"elapsed\" or \"relative\" time. Because the validity period of a DNSSEC signature is based on \"absolute\" time, a validating resolver must have the same concept of absolute time as the zone signer in order to determine whether the signature is within its validity period or has expired. An attacker that can change a resolver's opinion of the current absolute time can fool the resolver using expired",
+      "zh-CHS": "- DNSSEC在验证解析器和创建DNSSEC签名的实体之间创建松散时间同步的要求。在DNSSEC之前，DNS中所有与时间相关的操作都可以由只知道“已用”或“相对”时间的机器执行。由于DNSSEC签名的有效期基于“绝对”时间，因此验证解析程序必须具有与区域签名人相同的绝对时间概念，以确定签名是否在其有效期内或已过期。可以更改冲突解决程序对当前绝对时间的看法的攻击者可以使用expired欺骗冲突解决程序"
+    },
+    {
+      "indent": 5,
+      "text": "signatures. An attacker that can change the zone signer's opinion of the current absolute time can fool the zone signer into generating signatures whose validity period does not match what the signer intended.",
+      "zh-CHS": "签名。可以更改区域签名者对当前绝对时间的看法的攻击者可以欺骗区域签名者生成有效期与签名者意图不匹配的签名。"
+    },
+    {
+      "indent": 3,
+      "text": "- The possible existence of wildcard RRs in a zone complicates the authenticated denial mechanism considerably. For most of the decade that DNSSEC has been under development these issues were poorly understood. At various times there have been questions as to whether the authenticated denial mechanism is completely airtight and whether it would be worthwhile to optimize the authenticated denial mechanism for the common case in which wildcards are not present in a zone. However, the main problem is just the inherent complexity of the wildcard mechanism itself. This complexity probably makes the code for generating and checking authenticated denial attestations somewhat fragile, but since the alternative of giving up wildcards entirely is not practical due to widespread use, we are going to have to live with wildcards. The question just becomes one of whether or not the proposed optimizations would make DNSSEC's mechanisms more or less fragile.",
+      "zh-CHS": "- 区域中可能存在通配符RRs，这使经过身份验证的拒绝机制相当复杂。在DNSSEC开发的十年中，对这些问题了解甚少。在不同的时候，存在着以下问题：经过身份验证的拒绝机制是否完全密封，以及是否值得针对区域中不存在通配符的常见情况优化经过身份验证的拒绝机制。然而，主要问题只是通配符机制本身固有的复杂性。这种复杂性可能使生成和检查经过身份验证的拒绝证明的代码有些脆弱，但由于通配符的广泛使用，完全放弃通配符的替代方案并不实用，因此我们将不得不使用通配符。问题只是提出的优化是否会使DNSSEC的机制变得更加脆弱。"
+    },
+    {
+      "indent": 3,
+      "text": "- Even with DNSSEC, the class of attacks discussed in section 2.4 is not easy to defeat. In order for DNSSEC to be effective in this case, it must be possible to configure the resolver to expect certain categories of DNS records to be signed. This may require manual configuration of the resolver, especially during the initial DNSSEC rollout period when the resolver cannot reasonably expect the root and TLD zones to be signed.",
+      "zh-CHS": "- 即使使用DNSSEC，第2.4节中讨论的攻击类别也不容易击败。为了使DNSSEC在这种情况下有效，必须能够将解析程序配置为期望对某些类别的DNS记录进行签名。这可能需要手动配置冲突解决程序，尤其是在初始DNSSEC推出期间，当冲突解决程序无法合理地期望根区域和TLD区域签名时。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Topics for Future Work",
+      "section_title": true,
+      "zh-CHS": "4. 今后工作的主题"
+    },
+    {
+      "indent": 3,
+      "text": "This section lists a few subjects not covered above which probably need additional study, additional mechanisms, or both.",
+      "zh-CHS": "本节列出了上面未涉及的一些可能需要额外研究、额外机制或两者兼而有之的主题。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Interactions With Other Protocols",
+      "section_title": true,
+      "zh-CHS": "4.1. 与其他协议的交互"
+    },
+    {
+      "indent": 3,
+      "text": "The above discussion has concentrated exclusively on attacks within the boundaries of the DNS protocol itself, since those are (some of) the problems against which DNSSEC was intended to protect. There are, however, other potential problems at the boundaries where DNS interacts with other protocols.",
+      "zh-CHS": "上述讨论仅集中于DNS协议本身边界内的攻击，因为这些是DNSSEC打算保护的（部分）问题。然而，在DNS与其他协议交互的边界上还存在其他潜在问题。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Securing DNS Dynamic Update",
+      "section_title": true,
+      "zh-CHS": "4.2. 保护DNS动态更新"
+    },
+    {
+      "indent": 3,
+      "text": "DNS dynamic update opens a number of potential problems when combined with DNSSEC. Dynamic update of a non-secure zone can use TSIG to authenticate the updating client to the server. While TSIG does not scale very well (it requires manual configuration of shared keys",
+      "zh-CHS": "DNS动态更新与DNSSEC结合使用时会出现许多潜在问题。非安全区域的动态更新可以使用TSIG向服务器验证更新客户端。虽然TSIG不能很好地扩展（它需要手动配置共享密钥）"
+    },
+    {
+      "indent": 3,
+      "text": "between the DNS name server and each TSIG client), it works well in a limited or closed environment such as a DHCP server updating a local DNS name server.",
+      "zh-CHS": "在DNS名称服务器和每个TSIG客户端之间），它在有限或封闭的环境中工作良好，例如DHCP服务器更新本地DNS名称服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Major issues arise when trying to use dynamic update on a secure zone. TSIG can similarly be used in a limited fashion to authenticate the client to the server, but TSIG only protects DNS transactions, not the actual data, and the TSIG is not inserted into the DNS zone, so resolvers cannot use the TSIG as a way of verifying the changes to the zone. This means that either:",
+      "zh-CHS": "尝试在安全区域上使用动态更新时会出现重大问题。TSIG同样可以以有限的方式用于向服务器验证客户端，但TSIG仅保护DNS事务，而不保护实际数据，并且TSIG未插入DNS区域，因此解析程序无法将TSIG用作验证区域更改的方式。这意味着："
+    },
+    {
+      "indent": 3,
+      "text": "a) The updating client must have access to a zone-signing key in order to sign the update before sending it to the server, or",
+      "zh-CHS": "a) 更新客户端必须具有区域签名密钥的访问权限，以便在将更新发送到服务器之前对其进行签名，或者"
+    },
+    {
+      "indent": 3,
+      "text": "b) The DNS name server must have access to an online zone-signing key in order to sign the update.",
+      "zh-CHS": "b) DNS名称服务器必须有权访问联机区域签名密钥才能对更新进行签名。"
+    },
+    {
+      "indent": 3,
+      "text": "In either case, a zone-signing key must be available to create signed RRsets to place in the updated zone. The fact that this key must be online (or at least available) is a potential security risk.",
+      "zh-CHS": "在这两种情况下，必须有区域签名密钥才能创建要放置在更新区域中的已签名RRSET。此密钥必须在线（或至少可用）这一事实存在潜在的安全风险。"
+    },
+    {
+      "indent": 3,
+      "text": "Dynamic update also requires an update to the SERIAL field of the zone's SOA RR. In theory, this could also be handled via either of the above options, but in practice (a) would almost certainly be extremely fragile, so (b) is the only workable mechanism.",
+      "zh-CHS": "动态更新还需要更新区域的SOA RR的序列字段。理论上，这也可以通过上述任何一种选择来解决，但实际上（a）几乎肯定是非常脆弱的，因此（b）是唯一可行的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "There are other threats in terms of describing the policy of who can make what changes to which RRsets in the zone. The current access control scheme in Secure Dynamic Update is fairly limited. There is no way to give fine-grained access to updating DNS zone information to multiple entities, each of whom may require different kinds of access. For example, Alice may need to be able to add new nodes to the zone or change existing nodes, but not remove them; Bob may need to be able to remove zones but not add them; Carol may need to be able to add, remove, or modify nodes, but only A records.",
+      "zh-CHS": "在描述谁可以对区域内的RRSET进行哪些更改的政策方面，还有其他威胁。当前安全动态更新中的访问控制方案相当有限。没有办法为多个实体提供细粒度的DNS区域信息更新访问，每个实体可能需要不同类型的访问。例如，Alice可能需要能够向区域添加新节点或更改现有节点，但不能删除它们；Bob可能需要能够删除区域，但不能添加区域；Carol可能需要能够添加、删除或修改节点，但只能添加记录。"
+    },
+    {
+      "indent": 3,
+      "text": "Scaling properties of the key management problem here are a particular concern that needs more study.",
+      "zh-CHS": "这里的密钥管理问题的伸缩特性是一个需要更多研究的特别关注的问题。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Securing DNS Zone Replication",
+      "section_title": true,
+      "zh-CHS": "4.3. 保护DNS区域复制"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in previous sections, DNSSEC per se attempts to provide data integrity and data origin authentication services on top of the normal DNS query protocol. Using the terminology discussed in [RFC3552], DNSSEC provides \"object security\" for the normal DNS query protocol. For purposes of replicating entire DNS zones, however, DNSSEC does not provide object security, because zones include unsigned NS RRs and glue at delegation points. Use of TSIG to",
+      "zh-CHS": "如前几节所述，DNSSEC本身试图在正常DNS查询协议的基础上提供数据完整性和数据源身份验证服务。使用[RFC3552]中讨论的术语，DNSSEC为正常DNS查询协议提供“对象安全性”。但是，为了复制整个DNS区域，DNSSEC不提供对象安全性，因为区域包括未签名的NS RRs和委派点的粘合。使用TSIG"
+    },
+    {
+      "indent": 3,
+      "text": "protect zone transfer (AXFR or IXFR) operations provides \"channel security\", but still does not provide object security for complete zones. The trust relationships involved in zone transfer are still very much a hop-by-hop matter of name server operators trusting other name server operators rather than an end-to-end matter of name server operators trusting zone administrators.",
+      "zh-CHS": "保护区域传输（AXFR或IXFR）操作提供“通道安全性”，但仍然不为完整区域提供对象安全性。区域传输中涉及的信任关系仍然是名称服务器操作员信任其他名称服务器操作员的逐跳问题，而不是名称服务器操作员信任区域管理员的端到端问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Zone object security was not an explicit design goal of DNSSEC, so failure to provide this service should not be a surprise. Nevertheless, there are some zone replication scenarios for which this would be a very useful additional service, so this seems like a useful area for future work. In theory it should not be difficult to add zone object security as a backwards compatible enhancement to the existing DNSSEC model, but the DNSEXT WG has not yet discussed either the desirability of or the requirements for such an enhancement.",
+      "zh-CHS": "区域对象安全性不是DNSSEC的明确设计目标，因此未能提供此服务也就不足为奇了。不过，对于某些区域复制场景，这将是一项非常有用的附加服务，因此这似乎是未来工作的一个有用领域。理论上，将区域对象安全性作为向后兼容的增强功能添加到现有DNSSEC模型并不困难，但DNSEXT工作组尚未讨论此类增强功能的可取性或要求。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Conclusion",
+      "section_title": true,
+      "zh-CHS": "5. 结论"
+    },
+    {
+      "indent": 3,
+      "text": "Based on the above analysis, the DNSSEC extensions do appear to solve a set of problems that do need to be solved, and are worth deploying.",
+      "zh-CHS": "基于上述分析，DNSSEC扩展似乎解决了一系列确实需要解决的问题，值得部署。"
+    },
+    {
+      "indent": 0,
+      "text": "Security Considerations",
+      "zh-CHS": "安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This entire document is about security considerations of the DNS. The authors believe that deploying DNSSEC will help to address some, but not all, of the known threats to the DNS.",
+      "zh-CHS": "整个文档都是关于DNS的安全注意事项。作者认为，部署DNSSEC将有助于解决DNS的一些已知威胁，但不是全部。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This note is based both on previous published works by others and on a number of discussions both public and private over a period of many years, but particular thanks go to",
+      "zh-CHS": "本说明基于他人之前发表的作品以及多年来公开和私下的一些讨论，但特别感谢"
+    },
+    {
+      "indent": 3,
+      "text": "Jaap Akkerhuis, Steve Bellovin, Dan Bernstein, Randy Bush, Steve Crocker, Olafur Gudmundsson, Russ Housley, Rip Loomis, Allison Mankin, Paul Mockapetris, Thomas Narten Mans Nilsson, Pekka Savola, Paul Vixie, Xunhua Wang,",
+      "zh-CHS": "雅普·阿克霍伊斯、史蒂夫·贝洛文、丹·伯恩斯坦、兰迪·布什、史蒂夫·克罗克、奥拉弗尔·古德蒙德森、罗斯·霍斯利、里普·卢姆斯、埃里森·曼金、保罗·莫卡佩特里斯、托马斯·纳滕·曼斯·尼尔森、佩卡·萨沃拉、保罗·维谢、王循华、，"
+    },
+    {
+      "indent": 3,
+      "text": "and any other members of the DNS, DNSSEC, DNSIND, and DNSEXT working groups whose names and contributions the authors have forgotten, none of whom are responsible for what the authors did with their ideas.",
+      "zh-CHS": "以及DNS、DNSSEC、DNSIND和DNSEXT工作组的任何其他成员，他们的姓名和贡献被作者遗忘，没有人对作者的想法负责。"
+    },
+    {
+      "indent": 3,
+      "text": "As with any work of this nature, the authors of this note acknowledge that we are standing on the toes of those who have gone before us. Readers interested in this subject may also wish to read [Bellovin95], [Schuba93], and [Vixie95].",
+      "zh-CHS": "与任何这类性质的作品一样，本文作者承认，我们正站在那些先行者的脚尖上。对本主题感兴趣的读者也可以阅读[Bellovin95]、[Schuba93]和[Vixie95]。"
+    },
+    {
+      "indent": 0,
+      "text": "Normative References",
+      "zh-CHS": "规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1034] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[RFC1034]Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1035] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[RFC1035]Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 1035，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1123] Braden, R., \"Requirements for Internet Hosts - Application and Support\", STD 3, RFC 1123, October 1989.",
+      "zh-CHS": "[RFC1123]Braden，R.，“互联网主机的要求-应用和支持”，STD 3，RFC 1123，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2181] Elz, R. and R. Bush, \"Clarifications to the DNS Specification\", RFC 2181, July 1997.",
+      "zh-CHS": "[RFC2181]Elz，R.和R.Bush，“DNS规范的澄清”，RFC 21811997年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2308] Andrews, M., \"Negative Caching of DNS Queries (DNS NCACHE)\", RFC 2308, March 1998.",
+      "zh-CHS": "[RFC2308]Andrews，M.，“DNS查询的反向缓存（DNS NCACHE）”，RFC 2308，1998年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2671] Vixie, P., \"Extension Mechanisms for DNS (EDNS0)\", RFC 2671, August 1999.",
+      "zh-CHS": "[RFC2671]Vixie，P.，“DNS的扩展机制（EDNS0）”，RFC 26711999年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2845] Vixie, P., Gudmundsson, O., Eastlake 3rd, D., and B. Wellington, \"Secret Key Transaction Authentication for DNS (TSIG)\", RFC 2845, May 2000.",
+      "zh-CHS": "[RFC2845]Vixie，P.，Gudmundsson，O.，Eastlake 3rd，D.，和B.Wellington，“DNS秘密密钥交易认证（TSIG）”，RFC 28452000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2930] Eastlake 3rd, D., \"Secret Key Establishment for DNS (TKEY RR)\", RFC 2930, September 2000.",
+      "zh-CHS": "[RFC2930]Eastlake 3rd，D.，“DNS密钥建立（TKEY RR）”，RFC 2930，2000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3007] Wellington, B., \"Secure Domain Name System (DNS) Dynamic Update\", RFC 3007, November 2000.",
+      "zh-CHS": "[RFC3007]惠灵顿，B.，“安全域名系统（DNS）动态更新”，RFC 3007，2000年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2535] Eastlake 3rd, D., \"Domain Name System Security Extensions\", RFC 2535, March 1999.",
+      "zh-CHS": "[RFC2535]Eastlake 3rd，D.，“域名系统安全扩展”，RFC 25351999年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Informative References",
+      "zh-CHS": "资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3552] Rescorla, E. and B. Korver, \"Guidelines for Writing RFC Text on Security Considerations\", BCP 72, RFC 3552, July 2003.",
+      "zh-CHS": "[RFC3552]Rescorla，E.和B.Korver，“关于安全考虑的RFC文本编写指南”，BCP 72，RFC 3552，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Bellovin95] Bellovin, S., \"Using the Domain Name System for System Break-Ins\", Proceedings of the Fifth Usenix Unix Security Symposium, June 1995.",
+      "zh-CHS": "[Bellovin95]Bellovin，S.，“使用域名系统进行系统入侵”，第五届Usenix Unix安全研讨会论文集，1995年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Galvin93] Design team meeting summary message posted to dns-security@tis.com mailing list by Jim Galvin on 19 November 1993.",
+      "zh-CHS": "[Galvin93]设计团队会议摘要消息发布到dns-security@tis.com吉姆·加尔文1993年11月19日的邮寄名单。"
+    },
+    {
+      "indent": 3,
+      "text": "[Schuba93] Schuba, C., \"Addressing Weaknesses in the Domain Name System Protocol\", Master's thesis, Purdue University Department of Computer Sciences, August 1993.",
+      "zh-CHS": "[Schuba93]Schuba，C.，“解决域名系统协议中的弱点”，硕士论文，普渡大学计算机科学系，1993年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Vixie95] Vixie, P, \"DNS and BIND Security Issues\", Proceedings of the Fifth Usenix Unix Security Symposium, June 1995.",
+      "zh-CHS": "[Vixie95]Vixie，P，“DNS和绑定安全问题”，第五届Usenix Unix安全研讨会论文集，1995年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Derek Atkins IHTFP Consulting, Inc. 6 Farragut Ave Somerville, MA 02144 USA",
+      "zh-CHS": "德里克·阿特金斯IHTFP咨询公司，美国马萨诸塞州萨默维尔法拉古特大道6号，邮编：02144"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: derek@ihtfp.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Rob Austein Internet Systems Consortium 950 Charter Street Redwood City, CA 94063 USA",
+      "zh-CHS": "Rob Austein互联网系统联合会950 Charter Street Redwood City，加利福尼亚州94063"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: sra@isc.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2004). This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "版权所有（C）互联网协会（2004年）。本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,559 @@
+{
+  "title": {
+    "text": "RFC 3006:  Integrated Services in the Presence of Compressible Flows ",
+    "zh-CHS": "RFC 3006"
+  },
+  "number": 3006,
+  "created_at": "2021-10-25 14:13:58.690838+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          B. Davie\nRequest for Comments: 3006                                 C. Iturralde\nCategory: Standards Track                                       D. Oran\n                                                    Cisco Systems, Inc.\n                                                              S. Casner\n                                                          Packet Design\n                                                          J. Wroclawski\n                                                                MIT LCS\n                                                          November 2000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "Integrated Services in the Presence of Compressible Flows",
+      "zh-CHS": "存在可压缩流时的综合服务"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2000). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2000年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "An Integrated Services (int-serv) router performs admission control and resource allocation based on the information contained in a TSpec (among other things). As currently defined, TSpecs convey information about the data rate (using a token bucket) and range of packet sizes of the flow in question. However, the TSpec may not be an accurate representation of the resources needed to support the reservation if the router is able to compress the data at the link level. This specification describes an extension to the TSpec which enables a sender of potentially compressible data to provide hints to int-serv routers about the compressibility they may obtain. Routers which support appropriate compression take advantage of the hint in their admission control decisions and resource allocation procedures; other routers ignore the hint. An initial application of this approach is to notify routers performing real-time transport protocol (RTP) header compression that they may allocate fewer resources to RTP flows.",
+      "zh-CHS": "综合服务（int serv）路由器基于TSpec中包含的信息（除其他外）执行接纳控制和资源分配。按照当前定义，TSPEC传递有关数据速率（使用令牌桶）和相关流的数据包大小范围的信息。然而，如果路由器能够在链路级别压缩数据，则TSpec可能不是支持保留所需资源的准确表示。本规范描述了TSpec的一个扩展，它使潜在可压缩数据的发送方能够向int-serv路由器提供有关其可能获得的压缩性的提示。支持适当压缩的路由器在其接纳控制决策和资源分配过程中利用提示；其他路由器忽略了这个提示。这种方法的初始应用是通知执行实时传输协议（RTP）报头压缩的路由器，它们可能会向RTP流分配更少的资源。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1      Introduction  ...........................................  2\n2      Addition of a Hint to the Sender TSpec  .................  3\n3      Admission Control and Resource Allocation  ..............  4\n4      Object Format  ..........................................  8\n4.1    Hint Numbering  .........................................  9\n5      Backward Compatibility  ................................. 10\n6      Security Considerations  ................................ 10\n7      IANA Considerations  .................................... 11\n8      Acknowledgments  ........................................ 11\n9      References  ............................................. 11\n10     Authors' Addresses  ..................................... 12\n11     Full Copyright Statement ................................ 13",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "In an Integrated Services network, RSVP [RFC 2205] may be used as a signalling protocol by which end nodes and network elements exchange information about resource requirements, resource availability, and the establishment and removal of resource reservations. The Integrated Services architecture currently defines two services, Controlled-Load [RFC 2211] and Guaranteed [RFC 2212]. When establishing a reservation using either service, RSVP requires a variety of information to be provided by the sender(s) and receiver(s) for a particular reservation which is used for the purposes of admission control and allocation of resources to the reservation. Some of this information is provided by the receiver in a FLOWSPEC object; some is provided by the sender in a SENDER_TSPEC object [RFC 2210].",
+      "zh-CHS": "在综合业务网络中，RSVP[RFC 2205]可用作信令协议，通过该协议，终端节点和网元交换关于资源需求、资源可用性以及资源预留的建立和移除的信息。集成服务体系结构目前定义了两种服务，受控负载[RFC 2211]和保证负载[RFC 2212]。当使用任一服务建立预订时，RSVP要求发送方和接收方为特定预订提供各种信息，用于许可控制和向预订分配资源。其中一些信息由FLOWSPEC对象中的接收器提供；一些由发送方在发送方\\u TSPEC对象[RFC 2210]中提供。"
+    },
+    {
+      "indent": 3,
+      "text": "A situation that is not handled well by the current specs arises when a router that is making an admission control decision is able to perform some sort of compression on the flow for which a reservation is requested. For example, suppose a router is able to perform IP/UDP/RTP header compression on one of its interfaces [RFC 2508]. The bandwidth needed to accommodate a compressible flow on that interface would be less than the amount contained in the SENDER_TSPEC. Thus the router might erroneously reject a reservation that could in fact have been accommodated. At the same time, the sender is not at liberty to reduce its TSpec to account for the compression of the data, since it does not know if the routers along the path are in fact able to perform compression. Furthermore, it is probable that only a subset of the routers on the path (e.g., those connected to low-speed serial links) will perform compression.",
+      "zh-CHS": "当做出接纳控制决策的路由器能够对请求保留的流执行某种压缩时，出现当前规范不能很好地处理的情况。例如，假设路由器能够在其一个接口[RFC2508]上执行IP/UDP/RTP报头压缩。在该接口上容纳可压缩流所需的带宽将小于发送方规范中包含的带宽。因此，路由器可能会错误地拒绝事实上可能已经容纳的保留。同时，发送方不能自由地减少其TSpec以考虑数据的压缩，因为它不知道沿路径的路由器是否实际上能够执行压缩。此外，可能只有路径上的路由器的子集（例如，连接到低速串行链路的路由器）将执行压缩。"
+    },
+    {
+      "indent": 3,
+      "text": "This specification describes a mechanism by which the sender can provide a hint to network elements regarding the compressibility of the data stream that it will generate. Network elements may use this hint as an additional piece of data when making admission control and resource allocation decisions.",
+      "zh-CHS": "本规范描述了一种机制，通过该机制，发送方可以向网元提供有关其将生成的数据流的可压缩性的提示。网络元件在作出接纳控制和资源分配决策时可以将该提示用作附加数据。"
+    },
+    {
+      "indent": 3,
+      "text": "This specification is restricted to the case where compression is performed only on a link-by-link basis, as with header compression. Other cases (e.g., transcoding, audio silence detection) which would affect the bandwidth consumed at all downstream nodes are for further study. In these latter cases, it would be necessary to modify a sender TSpec as it is passed through a compressing node. In the approach presented here, the sender TSpec that appears on the wire is never modified, just as specified in [RFC 2210].",
+      "zh-CHS": "本规范仅限于仅在逐链路的基础上执行压缩的情况，如头部压缩。其他会影响所有下游节点消耗的带宽的情况（例如，转码、音频静音检测）有待进一步研究。在后一种情况下，有必要在发送方TSpec通过压缩节点时对其进行修改。在这里介绍的方法中，出现在线路上的发送方TSpec永远不会被修改，正如[RFC 2210]中所规定的那样。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Addition of a Hint to the Sender TSpec",
+      "section_title": true,
+      "zh-CHS": "2. 向发送方TSpec添加提示"
+    },
+    {
+      "indent": 3,
+      "text": "The appropriate place for a `compressibility hint' is the Sender TSpec. The reasons for this choice are:",
+      "zh-CHS": "“压缩性提示”的适当位置是发送方TSpec。作出这一选择的原因是："
+    },
+    {
+      "indent": 6,
+      "text": "- The sender is the party who knows best what the data will look like.",
+      "zh-CHS": "- 发送方是最了解数据外观的一方。"
+    },
+    {
+      "indent": 6,
+      "text": "- Unlike the Adspec, the Sender TSpec is not modified in transit",
+      "zh-CHS": "- 与Adspec不同，发送方TSpec在传输过程中不会被修改"
+    },
+    {
+      "indent": 6,
+      "text": "- From the perspective of RSVP, the Sender TSpec is a set of opaque parameters that are passed to `traffic control' (admission control and resource allocation); the compressibility hint is just such a parameter.",
+      "zh-CHS": "- 从RSVP的角度来看，发送方TSpec是一组不透明的参数，传递给“流量控制”（准入控制和资源分配）；压缩性提示就是这样一个参数。"
+    },
+    {
+      "indent": 3,
+      "text": "An alternative to putting this information in the TSpec would be to use an additional object in the RSVP PATH message. While this could be made to work for RSVP, it does not address the issue of how to get the same information to an intserv router when mechanisms other than RSVP are used to reserve resources. It would also imply a change to RSVP message processing just for the purposes of getting more information to entities that are logically not part of RSVP (admission control and resource allocation). The inclusion of the information in the TSpec seems preferable and more consistent with the Integrated Services architecture.",
+      "zh-CHS": "将此信息放入TSpec的另一种方法是在RSVP PATH消息中使用附加对象。虽然这可以用于RSVP，但它并没有解决在使用RSVP以外的机制来保留资源时如何将相同信息发送到intserv路由器的问题。它还意味着对RSVP消息处理的更改，只是为了向逻辑上不属于RSVP（准入控制和资源分配）的实体获取更多信息。TSpec中包含的信息似乎更可取，并且更符合集成服务体系结构。"
+    },
+    {
+      "indent": 3,
+      "text": "The contents of the hint are likely to vary depending on the exact scenario. The hint needs to tell the routers that receive it:",
+      "zh-CHS": "提示的内容可能因具体场景而异。提示需要告诉接收它的路由器："
+    },
+    {
+      "indent": 6,
+      "text": "- the type of compression that is possible on this flow (e.g. IP/UDP/RTP);",
+      "zh-CHS": "- 此流上可能的压缩类型（例如IP/UDP/RTP）；"
+    },
+    {
+      "indent": 6,
+      "text": "- enough information to enable a router to determine the likely compression ratio that may be achieved.",
+      "zh-CHS": "- 足够的信息使路由器能够确定可能达到的压缩比。"
+    },
+    {
+      "indent": 3,
+      "text": "In a simple case such as IP/UDP/RTP header compression, it may be sufficient to tell the routers nothing more than the fact that IP/UDP/RTP data is being sent. Knowing this fact, the maximum packet size of the flow (from the TSpec), and the local conditions at the router, may be sufficient to allow the router to determine the reduction in bandwidth that compression will allow. In other cases, it may be helpful or necessary for the sender to include additional quantitative information to assist in the calculation of the compression ratio. To handle these cases, additional parameters containing various amounts of information may be added to the sender TSpec. Details of the encoding of these parameters, following the approach originally described in [RFC 2210] are described below.",
+      "zh-CHS": "在IP/UDP/RTP报头压缩这样的简单情况下，只告诉路由器正在发送IP/UDP/RTP数据就足够了。知道这一事实后，流的最大分组大小（来自TSpec）和路由器处的本地条件可能足以允许路由器确定压缩将允许的带宽减少。在其他情况下，发送方可能有助于或有必要包括额外的定量信息，以帮助计算压缩比。为了处理这些情况，可以向发送方TSpec添加包含各种信息量的附加参数。按照[RFC 2210]中最初描述的方法，这些参数的编码细节如下所述。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Admission Control and Resource Allocation",
+      "section_title": true,
+      "zh-CHS": "3. 接纳控制与资源分配"
+    },
+    {
+      "indent": 3,
+      "text": "Integrated Services routers make admission control and resource allocation decisions based on, among other things, information in the sender TSpec. If a router receives a sender TSpec which contains a compressibility hint, it may use the hint to calculate a `compressed TSpec' which can be used as input to the admission control and resource allocation processes in place of the TSpec provided by the sender. To make this concrete, consider the following simple example. A router receives a reservation request for controlled load service where:",
+      "zh-CHS": "综合服务路由器根据发送方TSpec中的信息进行准入控制和资源分配决策。如果路由器接收到包含可压缩性提示的发送方TSpec，它可以使用该提示来计算“压缩TSpec”，该“压缩TSpec”可以用作接入控制和资源分配过程的输入，而不是发送方提供的TSpec。为了具体化，请考虑下面的简单示例。路由器接收受控负载服务的保留请求，其中："
+    },
+    {
+      "indent": 6,
+      "text": "- The Sender TSpec and Receiver TSpec contain identical token bucket parameters;",
+      "zh-CHS": "- 发送方TSpec和接收方TSpec包含相同的令牌桶参数；"
+    },
+    {
+      "indent": 6,
+      "text": "- The rate parameter in the token bucket (r) is 48 kbps;",
+      "zh-CHS": "- 令牌桶（r）中的速率参数为48kbps；"
+    },
+    {
+      "indent": 6,
+      "text": "- The token bucket depth (b) is 120 bytes;",
+      "zh-CHS": "- 令牌桶深度（b）为120字节；"
+    },
+    {
+      "indent": 6,
+      "text": "- The maximum packet size (M) in the TSpecs is 120 bytes;",
+      "zh-CHS": "- tspec中的最大分组大小（M）为120字节；"
+    },
+    {
+      "indent": 6,
+      "text": "- The minimum policed unit (m) is 64 bytes;",
+      "zh-CHS": "- 最小策略单元（m）为64字节；"
+    },
+    {
+      "indent": 6,
+      "text": "- The Sender TSpec contains a compressibility hint indicating that the data is IP/UDP/RTP;",
+      "zh-CHS": "- 发送方TSpec包含可压缩性提示，指示数据为IP/UDP/RTP；"
+    },
+    {
+      "indent": 6,
+      "text": "- The compressibility hint includes a compression factor of 70%, meaning that IP/UDP/RTP header compression will cause a reduction in bandwidth consumed at the link level by a factor of 0.7 (the result of compressing 40 bytes of IP/UDP/RTP header to 4 bytes on a 120 byte packet)",
+      "zh-CHS": "- 压缩性提示包括70%的压缩系数，这意味着IP/UDP/RTP报头压缩将导致链路级消耗的带宽减少0.7倍（将120字节数据包上40字节的IP/UDP/RTP报头压缩为4字节的结果）"
+    },
+    {
+      "indent": 6,
+      "text": "- The interface on which the reservation is to be installed is able to perform IP/UDP/RTP header compression.",
+      "zh-CHS": "- 要安装预订的接口能够执行IP/UDP/RTP报头压缩。"
+    },
+    {
+      "indent": 3,
+      "text": "The router may thus conclude that it can scale down the token bucket parameters r and b by a factor of 0.7, i.e., to 33.6 kbps and 84 bytes respectively. M may be scaled down by the same factor (to 84 bytes), but a different calculation should be used for m. If the sender actually sends a packet of size m, its header may be compressed from 40 bytes to 4, thus reducing the packet to 28 bytes; this value should be used for m.",
+      "zh-CHS": "因此，路由器可以得出结论，它可以将令牌桶参数r和b缩小0.7倍，即分别缩小到33.6kbps和84字节。M可以按相同的因子缩小（到84字节），但M应使用不同的计算。如果发送方实际发送大小为m的分组，则其报头可以从40字节压缩到4字节，从而将分组减少到28字节；该值应用于m。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that if the source always sends packets of the same size and IP/UDP/RTP always works perfectly, the compression factor is not strictly needed. The router can independently determine that it can compress the 40 bytes of IP/UDP/RTP header to 4 bytes (with high probability). To determine the worst-case (smallest) gain provided by compression, it can assume that the sender always sends maximum sized packets at 48 kbps, i.e., a 120 byte packet every 20 milliseconds. The router can conclude that these packets would be compressed to 84 bytes, yielding a token bucket rate of 33.6 kbps and a token bucket depth of 84 bytes as before. If the sender is willing to allow an independent calculation of compression gain by the router, the explicit compression factor may be omitted from the TSpec. Details of the TSpec encoding are provided below.",
+      "zh-CHS": "请注意，如果源始终发送相同大小的数据包，并且IP/UDP/RTP始终工作正常，则不严格需要压缩因子。路由器可以独立地确定它可以将40字节的IP/UDP/RTP报头压缩为4字节（概率很高）。为了确定压缩提供的最坏情况（最小）增益，可以假设发送方总是以48 kbps的速率发送最大大小的数据包，即每20毫秒发送一个120字节的数据包。路由器可以得出结论，这些数据包将被压缩到84字节，产生33.6 kbps的令牌桶速率和84字节的令牌桶深度。如果发送方愿意允许路由器独立计算压缩增益，则可以从TSpec中省略显式压缩因子。下面提供了TSpec编码的详细信息。"
+    },
+    {
+      "indent": 3,
+      "text": "To generalize the above discussion, assume that the Sender TSpec consists of values (r, b, p, M, m), that the explicit compression factor provided by the sender is f percent, and that the number of bytes saved by compression is N, independent of packet size. The parameters in the compressed TSpec would be:",
+      "zh-CHS": "为了概括上述讨论，假设发送方TSpec由值（r、b、p、M、M）组成，发送方提供的显式压缩因子为f%，通过压缩保存的字节数为N，与数据包大小无关。压缩TSpec中的参数为："
+    },
+    {
+      "indent": 5,
+      "text": "r' = r * f/100\nb' = b * f/100\np' = p\nM' = M-N\nm' = m-N",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The calculations for r' and b' reflect that fact that f is expressed as a percentage and must therefore be divided by 100. The calculations for M' and m' hold only in the case where the compression algorithm reduces packets by a certain number of bytes independent of content or length of the packet, as is true for header compression. Other compression algorithms may not have this property. In determining the value of N, the router may need to make worst case assumptions about the number of bytes that may be removed by compression, which depends on such factors as the presence of UDP checksums and the linearity of RTP timestamps.",
+      "zh-CHS": "r'和b'的计算反映了f以百分比表示的事实，因此必须除以100。对于M'和M'的计算仅在压缩算法将数据包减少一定数量的字节（与数据包的内容或长度无关）的情况下有效，对于报头压缩也是如此。其他压缩算法可能没有此属性。在确定N的值时，路由器可能需要对可通过压缩移除的字节数做出最坏情况假设，这取决于UDP校验和的存在和RTP时间戳的线性等因素。"
+    },
+    {
+      "indent": 3,
+      "text": "All these adjusted values are used in the compressed TSpec. The router's admission control and resource allocation algorithms should behave as if the sender TSpec contained those values. [RFC 2205] provides a set of rules by which sender and receiver TSpecs are combined to calculate a single `effective' TSpec that is passed to admission control. When a reservation covering multiple senders is to be installed, it is necessary to reduce each sender TSpec by its appropriate compression factor. The set of sender TSpecs that apply to a single reservation on an interface are added together to form the effective sender TSpec, which is passed to traffic control. The effective receiver TSpec need not be modified; traffic control takes the greatest lower bound of these two TSpecs when making its admission control and resource allocation decisions.",
+      "zh-CHS": "所有这些调整值均用于压缩TSpec。路由器的准入控制和资源分配算法的行为应该像发送方TSpec包含这些值一样。[RFC 2205]提供了一组规则，通过这些规则，发送方和接收方的TSpec被组合起来，以计算传递给准入控制的单个“有效”TSpec。当要安装覆盖多个发送方的保留时，有必要通过其适当的压缩系数来减少每个发送方的TSpec。将应用于接口上单个保留的发送方TSpec集合添加在一起，以形成有效的发送方TSpec，并将其传递给流量控制。不需要修改有效接收机TSpec；在做出接纳控制和资源分配决策时，流量控制采用这两个TSPEC中的最大下界。"
+    },
+    {
+      "indent": 3,
+      "text": "The handling of the receiver RSpec depends on whether controlled load or guaranteed service is used. In the case of controlled load, no additional processing of RSpec is needed. However, a guaranteed service RSpec contains a rate term R which does need to be adjusted downwards to account for compression. To determine how R should be adjusted, we note that the receiver has chosen R to meet a certain delay goal, and that the terms in the delay equation that depend on R are b/R and C/R (when the peak rate is large). The burstsize b in this case is the sum of the burstsizes of all the senders for this reservation, and each of these numbers has been scaled down by the appropriate compression factor. Thus, R should be scaled down using an average compression factor",
+      "zh-CHS": "接收器RSpec的处理取决于是否使用受控负载或保证服务。在受控负载的情况下，不需要额外处理RSpec。然而，保证服务RSpec包含一个速率项R，它确实需要向下调整以考虑压缩。为了确定如何调整R，我们注意到接收机选择R以满足特定的延迟目标，并且延迟方程中依赖于R的项是b/R和C/R（当峰值速率较大时）。本例中的burstsize b是此保留的所有发件人的burstsize之和，并且这些数字中的每一个都已按适当的压缩因子进行了缩放。因此，应使用平均压缩因子来缩小R"
+    },
+    {
+      "indent": 6,
+      "text": "f_avg = (b1*f1 + b2*f2 + ... + bn*fn)/(b1 + b2 + ... bn)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where bk is the burstsize of sender k and fk is the corresponding compression factor for this sender. Note that f_avg, like the individual fi's, is a percentage. Note also that this results in a compression factor of f in the case where all senders use the same compression factor f.",
+      "zh-CHS": "其中，bk是发送方k的负荷大小，fk是该发送方的相应压缩系数。请注意，f_平均值与个别金融机构一样，是一个百分比。还请注意，如果所有发送方使用相同的压缩因子f，则这将导致压缩因子f。"
+    },
+    {
+      "indent": 3,
+      "text": "To prevent an increase in delay caused by the C/R term when the reduced value of R is used for the reservation, it is necessary for this hop to `inflate' its value of C by dividing it by (f_avg/100). This will cause the contribution to delay made by this hop's C term to be what the receiver would expect when it chooses its value of R.",
+      "zh-CHS": "当R的减少值用于预订时，为了防止C/R项引起的延迟增加，此跃点必须通过将其除以（f_avg/100）来“膨胀”其C值。这将导致该跃点的C项对延迟的贡献与接收机在选择其R值时所期望的相同。"
+    },
+    {
+      "indent": 3,
+      "text": "There are certain risks in adjusting the resource requirements downwards for the purposes of admission control and resource allocation. Most compression algorithms are not completely deterministic, and thus there is a risk that a flow will turn out to be less compressible than had been assumed by admission control. This risk is reduced by the use of the explicit compression factor provided by the sender, and may be minimized if the router makes",
+      "zh-CHS": "为了准入控制和资源分配的目的而向下调整资源需求存在一定的风险。大多数压缩算法不是完全确定的，因此存在一种风险，即流的可压缩性将比接纳控制假设的低。通过使用发送方提供的显式压缩因子，可以降低这种风险，并且如果路由器做出选择，这种风险可以最小化"
+    },
+    {
+      "indent": 3,
+      "text": "worst case assumptions about the amount of compression that may be achieved. This is somewhat analogous to the tradeoff between making worst case assumptions when performing admission control or making more optimistic assumptions, as in the case of measurement-based admission control. If a flow turns out to be less compressible that had been assumed when performing admission control, any extra traffic will need to be policed according to normal intserv rules. For example, if the router assumed that the 48 kbps stream above could be compressed to 33.6 kbps and it was ultimately possible to compress it to 35 kbps, the extra 1.4 kbps would be treated as excess. The exact treatment of such excess is service dependent.",
+      "zh-CHS": "关于可能达到的压缩量的最坏情况假设。这在某种程度上类似于在执行接纳控制时做出最坏情况假设或做出更乐观假设之间的权衡，如在基于测量的接纳控制的情况下。如果在执行准入控制时假设流量的可压缩性较低，则需要根据正常的intserv规则对任何额外流量进行监控。例如，如果路由器假设上面的48 kbps流可以压缩到33.6 kbps，并且最终可以将其压缩到35 kbps，那么额外的1.4 kbps将被视为多余。对此类过剩的准确处理取决于服务。"
+    },
+    {
+      "indent": 3,
+      "text": "A similar scenario may arise if a sender claims that data for a certain session is compressible when in fact it is not, or overstates the extent of its compressibility. This might cause the flow to be erroneously admitted, and would cause insufficient resources to be allocated to it. To prevent such behavior from adversely affecting other reserved flows, any flow that sends a compressibility hint should be policed (in any router that has made use of the hint for its admission control) on the assumption that it is indeed compressible, i.e., using the compressed TSpec. That is, if the flow is found to be less compressible than advertised, the extra traffic that must be forwarded by the router above the compressed TSpec will be policed according to intserv rules appropriate for the service. Note that services that use the maximum datagram size M for policing purposes (e.g. guaranteed service [RFC 2210]) should continue to use the uncompressed value of M to allow for the possibility that some packets may not be successfully compressed.",
+      "zh-CHS": "如果发送方声称某个会话的数据是可压缩的，而实际上不是，或者夸大了其可压缩性的程度，则可能会出现类似的情况。这可能会导致错误地接纳流，并导致分配给它的资源不足。为了防止此类行为对其他保留流产生不利影响，任何发送可压缩性提示的流（在任何使用该提示进行准入控制的路由器中）都应在其确实可压缩（即使用压缩TSpec）的假设下进行策略。也就是说，如果发现流的可压缩性比公布的要低，则必须由压缩的TSpec上方的路由器转发的额外流量将根据适用于该服务的intserv规则进行监控。请注意，出于监管目的使用最大数据报大小M的服务（例如，保证服务[RFC 2210]）应继续使用未压缩值M，以允许某些数据包可能无法成功压缩。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that RSVP does not generally require flows to be policed at every hop. To quote [RFC 2205]:",
+      "zh-CHS": "请注意，RSVP通常不要求在每个跃点对流进行策略。引用[RFC 2205]："
+    },
+    {
+      "indent": 6,
+      "text": "Some QoS services may require traffic policing at some or all of (1) the edge of the network, (2) a merging point for data from multiple senders, and/or (3) a branch point where traffic flow from upstream may be greater than the downstream reservation being requested. RSVP knows where such points occur and must so indicate to the traffic control mechanism.",
+      "zh-CHS": "一些QoS服务可能需要（1）网络边缘，（2）来自多个发送方的数据合并点，和/或（3）来自上游的流量可能大于所请求的下游预留的分支点的部分或全部流量监控。RSVP知道这些点的位置，因此必须向交通控制机制指出。"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of policing, a router which makes use of the compressibility hint in a sender TSpec should behave as if it is at the edge of the network, because it is in a position to receive traffic from a sender that, while it passed through policing at the real network edge, may still need to be policed if the amount of data sent exceeds the amount described by the compressed TSpec.",
+      "zh-CHS": "出于监控的目的，使用发送方TSpec中压缩性提示的路由器的行为应类似于它位于网络边缘，因为它能够接收来自发送方的流量，而发送方在真实网络边缘通过监控时，如果发送的数据量超过压缩TSpec描述的量，则可能仍需要对其进行监控。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Object Format",
+      "section_title": true,
+      "zh-CHS": "4. 对象格式"
+    },
+    {
+      "indent": 3,
+      "text": "The compressibility hint may be included in the sender TSpec using the encoding rules of Appendix A in [RFC 2210]. The complete sender TSpec is as follows:",
+      "zh-CHS": "可使用[RFC 2210]中附录A的编码规则将压缩性提示包括在发送方TSpec中。完整的发送方TSpec如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "     31           24 23           16 15            8 7             0\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n1   | 0 (a) |    reserved           |            10 (b)             |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n2   |    1  (c)     |0| reserved    |             9 (d)             |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n3   |   127 (e)     |    0 (f)      |             5 (g)             |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n4   |  Token Bucket Rate [r] (32-bit IEEE floating point number)    |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n5   |  Token Bucket Size [b] (32-bit IEEE floating point number)    |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n6   |  Peak Data Rate [p] (32-bit IEEE floating point number)       |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n7   |  Minimum Policed Unit [m] (32-bit integer)                    |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n8   |  Maximum Packet Size [M]  (32-bit integer)                    |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n9   |   126 (h)     |    0 (i)      |             2 (j)             |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n10  |     Hint (assigned number)                                    |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n11  |  Compression factor [f] (32-bit integer)                      |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "(a) - Message format version number (0)\n(b) - Overall length (10 words not including header)\n(c) - Service header, service number 1 (default/global\n      information)\n(d) - Length of service 1 data, 9 words not including header\n(e) - Parameter ID, parameter 127 (Token_Bucket_TSpec)\n(f) - Parameter 127 flags (none set)\n(g) - Parameter 127 length, 5 words not including header\n(h) - Parameter ID, parameter 126 (Compression_Hint)\n(i) - Parameter 126 flags (none set)\n(j) - Parameter 126 length, 2 words not including header",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The difference between this TSpec and the one described in [RFC 2210] is that the overall length contained in the first word is increased by 3, as is the length of the `service 1 data', and the original TSpec parameters are followed by a new parameter, the compressibility hint. This parameter contains the standard parameter header, and an",
+      "zh-CHS": "此TSpec与[RFC 2210]中所述的TSpec之间的区别在于，第一个字中包含的总长度增加了3，正如“服务1数据”的长度一样，原始TSpec参数后面跟着一个新参数，即压缩性提示。此参数包含标准参数标题和"
+    },
+    {
+      "indent": 3,
+      "text": "assigned number indicating the type of compression that is possible on this data. Different values of the hint would imply different compression algorithms may be applied to the data. Details of the numbering scheme for hints appear below.",
+      "zh-CHS": "指定的数字，指示此数据可能的压缩类型。提示的不同值意味着可能对数据应用不同的压缩算法。提示的编号方案的详细信息如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "Following the hint value is the compression factor f, expressed as a 32 bit integer representing the factor as a percentage value. The valid range for this factor is (0,100]. A sender that does not know what value to use here or wishes to leave the compression factor calculation to the routers' discretion may use the reserved value 0 to indicate this fact. Zero is reserved because it is not possible to compress a data stream to zero bits per second. The value 100 indicates that no compression is expected on this stream.",
+      "zh-CHS": "提示值后面是压缩因子f，表示为32位整数，表示为百分比值。此系数的有效范围为（0100）.不知道在此使用什么值或希望将压缩因子计算留给路由器决定的发送方可以使用保留值0来表示这一事实。保留0是因为不可能将数据流压缩到每秒零位。值100表示在这是一条小溪。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, additional quantitative information about the traffic may be required to enable a router to determine the amount of compression possible. In this case, a different encoding of the parameter would be required.",
+      "zh-CHS": "在某些情况下，可能需要关于业务的附加定量信息，以使路由器能够确定可能的压缩量。在这种情况下，需要对参数进行不同的编码。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases it may be desirable to include more than one hint in a Tspec (e.g., because more than one compression scheme could be applied to the data.) In this case, multiple instances of parameter 126 may appear in the Tspec and the overall length of the Tspec and the length of the Service 1 data would be increased accordingly.",
+      "zh-CHS": "在一些情况下，可能希望在Tspec中包括多个提示（例如，因为可以对数据应用多个压缩方案）。在这种情况下，参数126的多个实例可能出现在Tspec中，并且Tspec的总长度和服务1数据的长度将相应地增加。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the Compression_Hint is, like the Token_Bucket_Tspec, not specific to a single service, and thus has a parameter value less than 128. It is also included as part of the default/global information (service number 1).",
+      "zh-CHS": "注意，Compression_提示与Token_Bucket_Tspec一样，并不特定于单个服务，因此其参数值小于128。它也是默认/全局信息（服务编号1）的一部分。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Hint Numbering",
+      "section_title": true,
+      "zh-CHS": "4.1. 提示编号"
+    },
+    {
+      "indent": 3,
+      "text": "Hints are represented by a 32 bit field, with the high order 16 bits being the IP-compression-protocol number as defined in [RFC 1332] and [RFC 2509]. The low order 16 bits are a sub-option for the cases where the IP-compression-protocol number alone is not sufficient for int-serv purposes. The following hint values are required at the time of writing:",
+      "zh-CHS": "提示由32位字段表示，高阶16位为[RFC 1332]和[RFC 2509]中定义的IP压缩协议编号。低阶16位是仅IP压缩协议编号不足以用于int serv目的的情况下的子选项。编写时需要以下提示值："
+    },
+    {
+      "indent": 6,
+      "text": "- hint = 0x002d0000: IP/TCP data that may be compressed according to [RFC 1144]",
+      "zh-CHS": "- 提示=0x00240000：可根据[RFC 1144]进行压缩的IP/TCP数据"
+    },
+    {
+      "indent": 6,
+      "text": "- hint = 0x00610000: IP data that may be compressed according to [RFC 2507]",
+      "zh-CHS": "- 提示=0x00610000:可根据[RFC 2507]进行压缩的IP数据"
+    },
+    {
+      "indent": 6,
+      "text": "- hint = 0x00610100: IP/UDP/RTP data that may be compressed according to [RFC 2508]",
+      "zh-CHS": "- 提示=0x00610100:IP/UDP/RTP数据，可根据[RFC 2508]进行压缩"
+    },
+    {
+      "indent": 0,
+      "text": "5. Backward Compatibility",
+      "section_title": true,
+      "zh-CHS": "5. 向后兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "It is desirable that an intserv router which receives this new TSpec format and does not understand the compressibility hint should silently ignore the hint rather than rejecting the entire TSpec (or the message containing it) as malformed. While [RFC 2210] clearly specifies the format of TSpecs in a way that they can be parsed even when they contain unknown parameters, it does not specify what action should be taken when unknown objects are received. Thus it is quite possible that some RSVP implementations will discard PATH messages containing a TSpec with the compressibility hint. In such a case, the router should send a PathErr message to the sending host. The message should indicate a malformed TSpec (Error code 21, Sub-code 04). The host may conclude that the hint caused the problem and send a new PATH without the hint.",
+      "zh-CHS": "接收到这种新的TSpec格式但不理解压缩性提示的intserv路由器应该默默地忽略该提示，而不是因为格式错误而拒绝整个TSpec（或包含它的消息）。虽然[RFC 2210]明确规定了TSPEC的格式，即使它们包含未知参数，也可以对其进行解析，但它没有规定在接收到未知对象时应采取的操作。因此，一些RSVP实现很可能会丢弃包含带有压缩性提示的TSpec的路径消息。在这种情况下，路由器应向发送主机发送PathErr消息。该消息应指示格式错误的TSpec（错误代码21，子代码04）。主机可能会得出提示导致问题的结论，并在没有提示的情况下发送新路径。"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of this specification, it would be preferable if unknown TSpec parameters could be silently ignored. In the case where a parameter is silently ignored, the node should behave as if that parameter were not present, but leave the unknown parameter intact in the object that it forwards. This should be the default for unknown parameters of the type described in [RFC 2210].",
+      "zh-CHS": "出于本规范的目的，如果未知的TSpec参数可以被静默忽略，则更可取。在静默忽略某个参数的情况下，节点的行为应与该参数不存在一样，但将未知参数保留在它转发的对象中。这应该是[RFC 2210]中所述类型的未知参数的默认值。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible that some future modifications to [RFC 2210] will require unknown parameter types to cause an error response. This situation is analogous to RSVP's handling of unknown objects, which allows for three different response to an unknown object, based on the highest two bits of the Class-Num. One way to handle this would be to divide the parameter space further than already done in [RFC 2216]. For example, parameter numbers of the form x1xxxxxx could be silently ignored if unrecognized, while parameter numbers of the form x0xxxxxx could cause an error response if unrecognized. (The meaning of the highest order bit is already fixed by [RFC 2216].) A third possibility exists, which is to remove the unrecognized parameter before forwarding, but this does not seem to be useful.",
+      "zh-CHS": "可能将来对[RFC 2210]的某些修改将需要未知的参数类型来引起错误响应。这种情况类似于RSVP对未知对象的处理，它允许基于类Num的最高两位对未知对象做出三种不同的响应。处理这种情况的一种方法是将参数空间进一步划分，而不是[RFC 2216]中已经做过的。例如，若无法识别，则x1xxxxxx表格的参数号可以被静默忽略，而若无法识别，则x0xxxxxx表格的参数号可能会导致错误响应。（最高阶位的含义已由[RFC 2216]确定）存在第三种可能性，即在转发之前删除无法识别的参数，但这似乎没有用处。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The extensions defined in this document pose essentially the same security risks as those of [RFC 2210]. The risk that a sender will falsely declare his data to be compressible is equivalent to the sender providing an insufficiently large TSpec and is dealt with in the same way.",
+      "zh-CHS": "本文件中定义的扩展与[RFC 2210]中定义的扩展具有基本相同的安全风险。发送方错误地声明其数据可压缩的风险等同于发送方提供的TSpec不够大，并以相同的方式处理。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This specification relies on IANA-assigned numbers for the compression scheme hint. Where possible the existing numbering scheme for compression algorithm identification in PPP has been used, but it may in the future be necessary for IANA to assign hint numbers purely for the purposes of int-serv.",
+      "zh-CHS": "此规范依赖IANA分配的压缩方案提示号。在可能的情况下，已经使用了PPP中用于压缩算法识别的现有编号方案，但IANA将来可能需要纯粹为了int serv的目的分配提示编号。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Carsten Borman and Mike DiBiasio provided much helpful feedback on this document.",
+      "zh-CHS": "Carsten Borman和Mike DiBiasio对此文档提供了很多有用的反馈。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1144] Jacobson, V., \"Compressing TCP/IP Headers for Low-Speed Serial Links\", RFC 1144, February 1990.",
+      "zh-CHS": "[RFC 1144]Jacobson，V.，“压缩低速串行链路的TCP/IP头”，RFC 1144，1990年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 1332] McGregor, G., \"The PPP Internet Protocol Control Protocol (IPCP)\", RFC 1332, May 1992.",
+      "zh-CHS": "[RFC 1332]McGregor，G.“PPP互联网协议控制协议（IPCP）”，RFC 1332，1992年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2205] Braden, R., Zhang, L., Berson, S., Herzog, S. and S. Jamin, \"Resource ReSerVation Protocol (RSVP) -- Version 1 Functional Specification\", RFC 2205, September 1997.",
+      "zh-CHS": "[RFC 2205]Braden，R.，Zhang，L.，Berson，S.，Herzog，S.和S.Jamin，“资源预留协议（RSVP）——第1版功能规范”，RFC 2205，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2210] Wroclawski, J., \"The Use of RSVP with IETF Integrated Services\", RFC 2210, September 1997.",
+      "zh-CHS": "[RFC 2210]Wroclawski，J.，“RSVP与IETF集成服务的使用”，RFC 2210，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2211] Wroclawski, J., \"Specification of the Controlled-Load Network Element Service\", RFC 2211, September 1997.",
+      "zh-CHS": "[RFC 2211]Wroclawski，J.“受控负荷网元服务规范”，RFC 2211，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2212] Shenker, S., Partridge, C. and R. Guerin, \"Specification of Guaranteed Quality of Service\", RFC 2212, September 1997.",
+      "zh-CHS": "[RFC 2212]Shenker，S.，Partridge，C.和R.Guerin，“保证服务质量规范”，RFC 2212，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2216] Shenker, S. and J. Wroclawski, \"Network Element Service Specification Template\", RFC 2216, September 1997.",
+      "zh-CHS": "[RFC 2216]Shenker，S.和J.Wroclawski，“网元服务规范模板”，RFC 2216，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2507] Degermark, M., Nordgren, B. and S. Pink,\"Header Compression for IP\", RFC 2507, February 1999.",
+      "zh-CHS": "[RFC 2507]Degermark，M.，Nordgren，B.和S.Pink，“IP的头压缩”，RFC 2507，1999年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2508] Casner, S. and V. Jacobson, \"Compressing IP/UDP/RTP Headers for Low-Speed Serial Links\", RFC 2508, February 1999.",
+      "zh-CHS": "[RFC 2508]Casner，S.和V.Jacobson，“压缩低速串行链路的IP/UDP/RTP报头”，RFC 2508，1999年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC 2509] Engan, M., Casner, S. and C. Bormann, \"IP Header Compression over PPP\", RFC 2509, February 1999.",
+      "zh-CHS": "[RFC 2509]Engan，M.，Casner，S.和C.Bormann，“PPP上的IP报头压缩”，RFC 2509，1999年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Authors' Addresses",
+      "section_title": true,
+      "zh-CHS": "10. 作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Bruce Davie Cisco Systems, Inc. 250 Apollo Drive Chelmsford, MA, 01824",
+      "zh-CHS": "布鲁斯·戴维斯思科系统公司，马萨诸塞州切姆斯福德阿波罗大道250号，邮编01824"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: bsd@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Carol Iturralde Cisco Systems, Inc. 250 Apollo Drive Chelmsford, MA, 01824",
+      "zh-CHS": "卡罗尔·伊图拉尔德思科系统公司，马萨诸塞州切姆斯福德阿波罗大道250号，邮编01824"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: cei@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Dave Oran Cisco Systems, Inc. 170 Tasman Drive San Jose, CA, 95134",
+      "zh-CHS": "Dave Oran Cisco Systems，Inc.加利福尼亚州圣何塞塔斯曼大道170号，邮编：95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: oran@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Stephen L. Casner Packet Design 66 Willow Place Menlo Park, CA 94025",
+      "zh-CHS": "Stephen L.Casner Packet Design 66 Willow Place Menlo Park，加利福尼亚州94025"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: casner@acm.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "John Wroclawski MIT Laboratory for Computer Science 545 Technology Sq. Cambridge, MA 02139",
+      "zh-CHS": "约翰·沃克罗夫斯基麻省理工学院计算机科学实验室，马萨诸塞州剑桥545技术广场，邮编：02139"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jtw@lcs.mit.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2000). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2000年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,1335 @@
+{
+  "title": {
+    "text": "RFC 5026: Mobile IPv6 Bootstrapping in Split Scenario",
+    "zh-CHS": "RFC 5026"
+  },
+  "number": 5026,
+  "created_at": "2021-11-09 21:56:42.813847+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                   G. Giaretta, Ed.\nRequest for Comments: 5026                                      Qualcomm\nCategory: Standards Track                                       J. Kempf\n                                                         DoCoMo Labs USA\n                                                     V. Devarapalli, Ed.\n                                                         Azaire Networks\n                                                            October 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Mobile IPv6 Bootstrapping in Split Scenario",
+      "zh-CHS": "拆分场景中的移动IPv6引导"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "A Mobile IPv6 node requires a Home Agent address, a home address, and IPsec security associations with its Home Agent before it can start utilizing Mobile IPv6 service. RFC 3775 requires that some or all of these are statically configured. This document defines how a Mobile IPv6 node can bootstrap this information from non-topological information and security credentials pre-configured on the Mobile Node. The solution defined in this document solves the split scenario described in the Mobile IPv6 bootstrapping problem statement in RFC 4640. The split scenario refers to the case where the Mobile Node's mobility service is authorized by a different service provider than basic network access. The solution described in this document is also generically applicable to any bootstrapping case, since other scenarios are more specific realizations of the split scenario.",
+      "zh-CHS": "移动IPv6节点需要一个归属代理地址、一个归属地址以及与其归属代理的IPsec安全关联，然后才能开始使用移动IPv6服务。RFC 3775要求对其中的部分或全部进行静态配置。本文档定义了移动IPv6节点如何从移动节点上预先配置的非拓扑信息和安全凭据引导此信息。本文档中定义的解决方案解决了RFC 4640中移动IPv6引导问题声明中描述的拆分场景。分割场景是指移动节点的移动服务由不同于基本网络接入的服务提供商授权的情况。本文档中描述的解决方案通常也适用于任何引导案例，因为其他场景是拆分场景的更具体实现。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Terminology .....................................................3\n3. Split Scenario ..................................................4\n4. Components of the Solution ......................................7\n5. Protocol Operations .............................................9\n   5.1. Home Agent Address Discovery ...............................9\n        5.1.1. DNS Lookup by Home Agent Name ......................10\n        5.1.2. DNS Lookup by Service Name .........................10\n   5.2. IPsec Security Associations Setup .........................11\n   5.3. Home Address Assignment ...................................11\n        5.3.1. Home Address Assignment by the Home Agent ..........11\n        5.3.2. Home Address Auto-Configuration by the\n               Mobile Node ........................................12\n   5.4. Authorization and Authentication with MSA .................14\n6. Home Address Registration in the DNS ...........................14\n7. Summary of Bootstrapping Protocol Flow .........................16\n8. Option and Attribute Format ....................................17\n   8.1. DNS Update Mobility Option ................................17\n   8.2. MIP6_HOME_PREFIX Attribute ................................19\n9. Security Considerations ........................................20\n   9.1. HA Address Discovery ......................................20\n   9.2. Home Address Assignment through IKEv2 .....................22\n   9.3. SA Establishment Using EAP through IKEv2 ..................22\n   9.4. Backend Security between the HA and AAA Server ............22\n   9.5. Dynamic DNS Update ........................................23\n10. IANA Considerations ...........................................24\n11. Contributors ..................................................24\n12. Acknowledgements ..............................................25\n13. References ....................................................25\n   13.1. Normative References .....................................25\n   13.2. Informative References ...................................26",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile IPv6 [1] requires the Mobile Node to know its Home Agent Address, its own Home Address, and the cryptographic materials (e.g., shared keys or certificates) needed to set up IPsec security associations with the Home Agent (HA) in order to protect Mobile IPv6 signaling. This is generally referred to as the Mobile IPv6 bootstrapping problem [7].",
+      "zh-CHS": "移动IPv6[1]要求移动节点知道其归属代理地址、自己的归属地址以及与归属代理（HA）建立IPsec安全关联以保护移动IPv6信令所需的加密材料（例如，共享密钥或证书）。这通常被称为移动IPv6引导问题[7]。"
+    },
+    {
+      "indent": 3,
+      "text": "The Mobile IPv6 base protocol does not specify any method to automatically acquire this information, which means that network administrators are normally required to manually set configuration data on Mobile Nodes and HAs. However, in real deployments, manual configuration does not scale as the Mobile Nodes increase in number.",
+      "zh-CHS": "移动IPv6基本协议未指定任何自动获取此信息的方法，这意味着网络管理员通常需要手动设置移动节点上的配置数据，并且具有。但是，在实际部署中，手动配置不会随着移动节点数量的增加而扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in [7], several bootstrapping scenarios can be identified depending on the relationship between the network operator that authenticates a mobile node for granting network access service (Access Service Authorizer, ASA) and the service provider that authorizes Mobile IPv6 service (Mobility Service Authorizer, MSA). This document describes a solution to the bootstrapping problem that is applicable in a scenario where the MSA and the ASA are different entities (i.e., a split scenario).",
+      "zh-CHS": "如[7]中所讨论的，根据验证移动节点以授予网络接入服务的网络运营商（接入服务授权人，ASA）和授权移动IPv6服务的服务提供商（移动服务授权人，MSA）之间的关系，可以确定几个引导场景。本文档描述了适用于MSA和ASA是不同实体的场景（即拆分场景）中的引导问题的解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [2].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[2]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "General mobility terminology can be found in [8]. The following additional terms are used here:",
+      "zh-CHS": "通用移动术语见[8]。此处使用以下附加术语："
+    },
+    {
+      "indent": 3,
+      "text": "Access Service Authorizer (ASA)",
+      "zh-CHS": "访问服务授权人（ASA）"
+    },
+    {
+      "indent": 6,
+      "text": "A network operator that authenticates a mobile node and establishes the mobile node's authorization to receive Internet service.",
+      "zh-CHS": "一种网络运营商，对移动节点进行认证，并建立移动节点接收互联网服务的授权。"
+    },
+    {
+      "indent": 3,
+      "text": "Access Service Provider (ASP)",
+      "zh-CHS": "访问服务提供商（ASP）"
+    },
+    {
+      "indent": 6,
+      "text": "A network operator that provides direct IP packet forwarding to and from the end host.",
+      "zh-CHS": "提供与终端主机之间的直接IP数据包转发的网络运营商。"
+    },
+    {
+      "indent": 3,
+      "text": "Mobility Service Authorizer (MSA)",
+      "zh-CHS": "移动服务授权人（MSA）"
+    },
+    {
+      "indent": 6,
+      "text": "A service provider that authorizes Mobile IPv6 service.",
+      "zh-CHS": "授权移动IPv6服务的服务提供商。"
+    },
+    {
+      "indent": 3,
+      "text": "Mobility Service Provider (MSP)",
+      "zh-CHS": "移动服务提供商（MSP）"
+    },
+    {
+      "indent": 6,
+      "text": "A service provider that provides Mobile IPv6 service. In order to obtain such service, the mobile node must be authenticated and prove authorization to obtain the service.",
+      "zh-CHS": "提供移动IPv6服务的服务提供商。为了获得这样的服务，必须对移动节点进行身份验证并证明其获得服务的授权。"
+    },
+    {
+      "indent": 3,
+      "text": "Split scenario",
+      "zh-CHS": "分裂情景"
+    },
+    {
+      "indent": 6,
+      "text": "A scenario where mobility service and network access service are authorized by different entities. This implies that MSA is different from ASA.",
+      "zh-CHS": "移动服务和网络接入服务由不同实体授权的场景。这意味着MSA不同于ASA。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Split Scenario",
+      "section_title": true,
+      "zh-CHS": "3. 分裂情景"
+    },
+    {
+      "indent": 3,
+      "text": "In the problem statement description [7], there is a clear assumption that mobility service and network access service can be separate. This assumption implies that mobility service and network access service may be authorized by different entities. As an example, the service model defined in [7] allows an enterprise network to deploy a Home Agent and offer Mobile IPv6 service to a user, even if the user is accessing the Internet independent of its enterprise account (e.g., by using his personal WiFi hotspot account at a coffee shop).",
+      "zh-CHS": "在问题陈述描述[7]中，有一个明确的假设，即移动服务和网络接入服务可以分开。该假设意味着移动服务和网络接入服务可以由不同的实体授权。例如，[7]中定义的服务模型允许企业网络部署归属代理并向用户提供移动IPv6服务，即使用户独立于其企业帐户访问互联网（例如，通过在咖啡店使用其个人WiFi热点帐户）。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, in this document it is assumed that network access and mobility service are authorized by different entities, which means that authentication and authorization for mobility service and network access will be considered separately. This scenario is called split scenario.",
+      "zh-CHS": "因此，在本文件中，假设网络接入和移动服务由不同实体授权，这意味着移动服务和网络接入的认证和授权将分别考虑。此场景称为拆分场景。"
+    },
+    {
+      "indent": 3,
+      "text": "Moreover, the model defined in [7] separates the entity providing the service from the entity that authenticates and authorizes the user. This is similar to the roaming model for network access. Therefore, in the split scenario, two different cases can be identified depending on the relationship between the entity that provides the mobility service (i.e., Mobility Service Provider, MSP) and the entity that authenticates and authorizes the user (i.e., Mobility Service Authorizer, MSA).",
+      "zh-CHS": "此外，在[7]中定义的模型将提供服务的实体与认证和授权用户的实体分开。这类似于网络访问的漫游模型。因此，在分割场景中，根据提供移动服务的实体（即，移动服务提供商，MSP）和认证和授权用户的实体（即，移动服务授权人，MSA）之间的关系，可以识别两种不同的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 1 depicts the split scenario when the MSP and the MSA are the same entity. This means that the network operator that provides the Home Agent authenticates and authorizes the user for mobility service.",
+      "zh-CHS": "图1描述了MSP和MSA是同一实体时的拆分场景。这意味着提供归属代理的网络运营商认证并授权用户进行移动服务。"
+    },
+    {
+      "indent": 15,
+      "text": "                            Mobility Service\n                     Provider and Authorizer\n+-------------------------------------------+\n|                                           |\n|  +-------------+                   +--+   |\n|  | MSA/MSP AAA |  <------------->  |HA|   |\n|  |   server    |    AAA protocol   +--+   |\n|  +-------------+                          |\n|                                           |\n+-------------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "+--+\n|MN|\n+--+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Figure 1 -- Split Scenario (MSA == MSP)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Figure 2 shows the split scenario in case the MSA and the MSP are two different entities. This might happen if the Mobile Node is far from its MSA network and is assigned a closer HA to optimize performance or if the MSA cannot provide any Home Agent and relies on a third party (i.e., the MSP) to grant mobility service to its users. Notice that the MSP might or might not also be the network operator that is providing network access (i.e., ASP, Access Service Provider).",
+      "zh-CHS": "图2显示了MSA和MSP是两个不同实体的情况下的拆分场景。如果移动节点远离其MSA网络并且被分配了更近的HA以优化性能，或者如果MSA不能提供任何归属代理并且依赖第三方（即MSP）向其用户授予移动服务，则可能发生这种情况。请注意，MSP可能是也可能不是提供网络访问的网络运营商（即ASP，访问服务提供商）。"
+    },
+    {
+      "indent": 11,
+      "text": "      Mobility Service\n            Authorizer\n       +-------------+\n       |  MSA AAA    |\n       |   server    |\n       +-------------+\n             ^\n             |\nAAA protocol |\n             |                  Mobility Service\n             |                          Provider\n    +--------|----------------------------------+\n    |        V                                  |\n    |  +-------------+                   +--+   |\n    |  |  MSP AAA    |  <------------->  |HA|   |\n    |  |   server    |    AAA protocol   +--+   |\n    |  +-------------+                          |\n    |                                           |\n    +-------------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "+--+\n|MN|\n+--+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 2 -- Split Scenario (MSA != MSP)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that Figure 1 and Figure 2 assume the use of an Authentication, Authorization, and Accounting (AAA) protocol to authenticate and authorize the Mobile Node for mobility service. However, since the Internet Key Exchange Protocol (IKEv2) allows an Extensible Authentication Protocol (EAP) client authentication only and the server authentication needs to be performed based on certificates or public keys, the Mobile Node potentially requires a Certificate Revocation List check (CRL check) even though an AAA protocol is used to authenticate and authorize the Mobile Node for mobility service.",
+      "zh-CHS": "注意，图1和图2假设使用身份验证、授权和计费（AAA）协议对移动节点的移动服务进行身份验证和授权。然而，由于因特网密钥交换协议（IKEv2）仅允许可扩展认证协议（EAP）客户端认证，并且需要基于证书或公钥执行服务器认证，因此移动节点可能需要证书撤销列表检查（CRL检查）即使使用AAA协议来认证和授权移动节点的移动服务。"
+    },
+    {
+      "indent": 3,
+      "text": "If, instead, a Public Key Infrastructure (PKI) is used, the Mobile Node and HA use certificates to authenticate each other and there is no AAA server involved [9]. This is conceptually similar to Figure 1, since the MSP == MSA, except the Home Agent, and potentially the",
+      "zh-CHS": "相反，如果使用公钥基础设施（PKI），则移动节点和HA使用证书相互验证，并且不涉及AAA服务器[9]。这在概念上类似于图1，因为MSP==MSA，除了Home Agent，可能还有"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile Node, may require a certificate revocation list check (CRL check) with the Certification Authority (CA). The CA may be either internal or external to the MSP. Figure 3 illustrates this.",
+      "zh-CHS": "移动节点可能需要证书颁发机构（CA）进行证书撤销列表检查（CRL检查）。CA可以是MSP的内部或外部。图3说明了这一点。"
+    },
+    {
+      "indent": 18,
+      "text": "        Certification\n          Authority\n       +-------------+\n       |    CA       |\n       |   server    |\n       +-------------+\n             ^\n             |\nCRL Check    |\n             |       Mobility Service\n             |    Provider and Authorizer\n    +--------|----------+\n    |        V          |\n    |  +-------------+  |\n    |  |     HA      |  |\n    |  |             |  |\n    |  +-------------+  |\n    |                   |\n    +-------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "+--+\n|MN|\n+--+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 3 -- Split Scenario with PKI",
+      "zh-CHS": "图3——使用PKI的拆分场景"
+    },
+    {
+      "indent": 3,
+      "text": "For more details on the use of PKI for IKEv2 authentication, please refer to [3] and [10].",
+      "zh-CHS": "有关使用PKI进行IKEv2身份验证的更多详细信息，请参阅[3]和[10]。"
+    },
+    {
+      "indent": 3,
+      "text": "The split scenario is the simplest model that can be identified, since no assumptions about the access network are made. This implies that the mobility service is bootstrapped independently from the authentication protocol for network access used (e.g., EAP or even open access). For this reason, the solution described in this document and developed for this scenario could also be applied to the integrated access-network deployment model [7], even if it might not be optimized.",
+      "zh-CHS": "分割场景是可以识别的最简单的模型，因为没有对接入网络进行任何假设。这意味着移动服务独立于所使用的网络访问（例如，EAP或甚至开放访问）的身份验证协议进行引导。因此，本文档中描述并为此场景开发的解决方案也可以应用于集成接入网络部署模型[7]，即使它可能没有得到优化。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Components of the Solution",
+      "section_title": true,
+      "zh-CHS": "4. 解决方案的组成部分"
+    },
+    {
+      "indent": 3,
+      "text": "The bootstrapping problem is composed of different sub-problems that can be solved independently in a modular way. The components are identified and a brief overview of their solution follow.",
+      "zh-CHS": "bootstrapping问题由不同的子问题组成，这些子问题可以以模块化的方式独立解决。确定了这些组件，并简要概述了它们的解决方案。"
+    },
+    {
+      "indent": 3,
+      "text": "HA address discovery",
+      "zh-CHS": "HA地址发现"
+    },
+    {
+      "indent": 6,
+      "text": "The Mobile Node needs to discover the address of its Home Agent. The main objective of a bootstrapping solution is to minimize the data pre-configured on the Mobile Node. For this reason, the DHAAD defined in [1] may not be applicable in real deployments since it is required that the Mobile Node is pre-configured with the home network prefix and does not allow an operator to load balance by having Mobile Nodes dynamically assigned to Home Agents located in different subnets. This document defines a solution for Home Agent address discovery that is based on Domain Name Service (DNS), introducing a new DNS SRV record [4]. The unique information that needs to be pre-configured on the Mobile Node is the domain name of the MSP.",
+      "zh-CHS": "移动节点需要发现其归属代理的地址。引导解决方案的主要目标是最小化移动节点上预先配置的数据。因此，[1]中定义的DHAAD可能不适用于实际部署，因为要求移动节点预先配置家庭网络前缀，并且不允许运营商通过将移动节点动态分配给位于不同子网中的家庭代理来实现负载平衡。本文档定义了基于域名服务（DNS）的归属代理地址发现解决方案，引入了新的DNS SRV记录[4]。需要在移动节点上预先配置的唯一信息是MSP的域名。"
+    },
+    {
+      "indent": 3,
+      "text": "IPsec Security Associations setup",
+      "zh-CHS": "IPsec安全关联设置"
+    },
+    {
+      "indent": 6,
+      "text": "Mobile IPv6 requires that a Mobile Node and its Home Agent share an IPsec SA in order to protect binding updates and other Mobile IPv6 signaling. This document provides a solution that is based on IKEv2 and follows what is specified in [3]. The IKEv2 peer authentication can be performed both using certificates and using EAP depending on the network operator's deployment model.",
+      "zh-CHS": "移动IPv6要求移动节点及其归属代理共享IPsec SA，以保护绑定更新和其他移动IPv6信令。本文档提供了一个基于IKEv2并遵循[3]中规定的解决方案。根据网络运营商的部署模式，可以使用证书和EAP执行IKEv2对等身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Home Address (HoA) assignment",
+      "zh-CHS": "家庭住址（HoA）分配"
+    },
+    {
+      "indent": 6,
+      "text": "The Mobile Node needs to know its Home Address in order to bootstrap Mobile IPv6 operation. The Home Address is assigned by the Home Agent during the IKEv2 exchange (as described in [3]). The solution defined in this document also allows the Mobile Node to auto-configure its Home Address based on stateless auto-configuration [11], Cryptographically Generated Addresses [12], or privacy addresses [13].",
+      "zh-CHS": "移动节点需要知道其家庭地址，以便引导移动IPv6操作。家庭地址由家庭代理在IKEv2交换期间分配（如[3]所述）。本文档中定义的解决方案还允许移动节点根据无状态自动配置[11]、加密生成的地址[12]或隐私地址[13]自动配置其家庭地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Authentication and Authorization with MSA",
+      "zh-CHS": "使用MSA进行身份验证和授权"
+    },
+    {
+      "indent": 6,
+      "text": "The user must be authenticated in order for the MSP to grant the service. Since the user credentials can be verified only by the MSA, this authorization step is performed by the MSA. Moreover, the mobility service must be explicitly authorized by the MSA based on the user's profile. These operations are performed in different ways depending on the credentials used by the Mobile Node during the IKEv2 peer authentication and on the backend infrastructure (PKI or AAA).",
+      "zh-CHS": "必须对用户进行身份验证，MSP才能授予该服务。由于用户凭据只能由MSA验证，因此此授权步骤由MSA执行。此外，移动服务必须由MSA根据用户配置文件明确授权。根据IKEv2对等身份验证期间移动节点使用的凭据以及后端基础设施（PKI或AAA），以不同的方式执行这些操作。"
+    },
+    {
+      "indent": 3,
+      "text": "An optional part of bootstrapping involves providing a way for the Mobile Node to have its Fully Qualified Domain Name (FQDN) updated in the DNS with a dynamically assigned home address. While not all",
+      "zh-CHS": "引导的可选部分包括为移动节点提供一种方法，使其在DNS中使用动态分配的主地址更新其完全限定域名（FQDN）。虽然不是全部"
+    },
+    {
+      "indent": 3,
+      "text": "applications will require this service, many networking applications use the FQDN to obtain an address for a node prior to starting IP traffic with it. The solution defined in this document specifies that the dynamic DNS update is performed by the Home Agent or through the AAA infrastructure, depending on the trust relationship in place.",
+      "zh-CHS": "应用程序将需要此服务，许多网络应用程序在启动节点的IP通信之前使用FQDN获取节点的地址。本文档中定义的解决方案指定由归属代理或通过AAA基础设施执行动态DNS更新，具体取决于现有的信任关系。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Protocol Operations",
+      "section_title": true,
+      "zh-CHS": "5. 协议操作"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes in detail the procedures needed to perform Mobile IPv6 bootstrapping based on the components identified in the previous section.",
+      "zh-CHS": "本节详细描述了基于上一节中确定的组件执行移动IPv6引导所需的过程。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Home Agent Address Discovery",
+      "section_title": true,
+      "zh-CHS": "5.1. 归属代理地址发现"
+    },
+    {
+      "indent": 3,
+      "text": "Once a Mobile Node has obtained network access, it can perform Mobile IPv6 bootstrapping. For this purpose, the Mobile Node queries the DNS server to request information on Home Agent service. As mentioned before in the document, the Mobile Node should be pre-configured with the domain name of the Mobility Service Provider.",
+      "zh-CHS": "一旦移动节点获得网络访问权，它就可以执行移动IPv6引导。为此，移动节点查询DNS服务器以请求关于归属代理服务的信息。如前所述，移动节点应预先配置移动服务提供商的域名。"
+    },
+    {
+      "indent": 3,
+      "text": "The Mobile Node needs to obtain the IP address of a DNS server before it can send a DNS request. This can be configured on the Mobile Node or obtained through DHCPv6 from the visited link [14]. In any case, it is assumed that there is some kind of mechanism by which the Mobile Node is configured with a DNS server since a DNS server is needed for many other reasons.",
+      "zh-CHS": "移动节点需要先获得DNS服务器的IP地址，然后才能发送DNS请求。这可以在移动节点上配置，也可以通过DHCPv6从访问的链路获得[14]。在任何情况下，假定存在某种机制，通过该机制，移动节点配置有DNS服务器，因为出于许多其他原因需要DNS服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Two options for DNS lookup for a Home Agent address are identified in this document: DNS lookup by Home Agent Name and DNS lookup by service name.",
+      "zh-CHS": "本文档中标识了两个本地代理地址的DNS查找选项：按本地代理名称进行DNS查找和按服务名称进行DNS查找。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not provide a specific mechanism to load balance different Mobile Nodes among Home Agents. It is possible for an MSP to achieve coarse-grained load balancing by dynamically updating the SRV RR priorities to reflect the current load on the MSP's collection of Home Agents. Mobile Nodes then use the priority mechanism to preferentially select the least loaded HA. The effectiveness of this technique depends on how much of a load it will place on the DNS servers, particularly if dynamic DNS is used for frequent updates.",
+      "zh-CHS": "本文档不提供特定的机制来在归属代理之间平衡不同移动节点的负载。MSP可以通过动态更新SRV RR优先级来实现粗粒度负载平衡，以反映MSP的主代理集合上的当前负载。然后，移动节点使用优先级机制优先选择负载最少的HA。此技术的有效性取决于它将在DNS服务器上施加多少负载，特别是在动态DNS用于频繁更新的情况下。"
+    },
+    {
+      "indent": 3,
+      "text": "While this document specifies a Home Agent Address Discovery solution based on DNS, when the ASP and the MSP are the same entity, DHCP may be used. See [15] for details.",
+      "zh-CHS": "虽然本文档指定了基于DNS的归属代理地址发现解决方案，但当ASP和MSP是同一实体时，可以使用DHCP。详情见[15]。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. DNS Lookup by Home Agent Name",
+      "section_title": true,
+      "zh-CHS": "5.1.1. 按归属代理名称进行DNS查找"
+    },
+    {
+      "indent": 3,
+      "text": "In this case, the Mobile Node is configured with the Fully Qualified Domain Name of the Home Agent. As an example, the Mobile Node could be configured with the name \"ha1.example.com\", where \"example.com\" is the domain name of the MSP granting the mobility service.",
+      "zh-CHS": "在这种情况下，使用归属代理的完全限定域名配置移动节点。例如，移动节点可以被配置为名称“ha1.example.com”，其中“example.com”是授予移动服务的MSP的域名。"
+    },
+    {
+      "indent": 3,
+      "text": "The Mobile Node constructs a DNS request by setting the QNAME to the name of the Home Agent. The request has QTYPE set to \"AAAA\" so that the DNS server sends the IPv6 address of the Home Agent. Once the DNS server replies to this query, the Mobile Node knows its Home Agent address and can run IKEv2 in order to set up the IPsec SAs and get a Home Address.",
+      "zh-CHS": "移动节点通过将QNAME设置为归属代理的名称来构造DNS请求。请求的QTYPE设置为“AAAA”，以便DNS服务器发送归属代理的IPv6地址。一旦DNS服务器回复此查询，移动节点就知道其归属代理地址，并且可以运行IKEv2以设置IPsec SAs并获取归属地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the configuration of a home agent FQDN on the mobile node can also be extended to dynamically assign a local home agent from the visited network. Such dynamic assignment would be useful, for instance, from the point of view of improving routing efficiency in bidirectional tunneling mode. Enhancements or conventions for dynamic assignment of local home agents are outside the scope of this specification.",
+      "zh-CHS": "注意，还可以扩展移动节点上的归属代理FQDN的配置，以便从访问的网络动态分配本地归属代理。例如，从提高双向隧道模式中的路由效率的角度来看，这种动态分配将是有用的。本地本地代理动态分配的增强功能或约定不在本规范的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.2. DNS Lookup by Service Name",
+      "section_title": true,
+      "zh-CHS": "5.1.2. 按服务名称进行DNS查找"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 2782 [4] defines the service resource record (SRV RR) that allows an operator to use several servers for a single domain, to move services from host to host, and to designate some hosts as primary servers for a service and others as backups. Clients ask for a specific service/protocol for a specific domain and get back the names of any available servers.",
+      "zh-CHS": "RFC 2782[4]定义了服务资源记录（SRV RR），该记录允许操作员为单个域使用多台服务器，将服务从主机移动到主机，并将一些主机指定为服务的主服务器，其他主机指定为备份。客户端请求特定域的特定服务/协议，并获取任何可用服务器的名称。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 2782 [4] also describes the policies to choose a service agent based on the preference and weight values. The DNS SRV record may contain the preference and weight values for multiple Home Agents available to the Mobile Node in addition to the Home Agent FQDNs. If multiple Home Agents are available in the DNS SRV record, then the Mobile Node is responsible for processing the information as per policy and for picking one Home Agent. If the Home Agent of choice does not respond to the IKE_SA_INIT messages or if IKEv2 authentication fails, the Mobile Node SHOULD try the next Home Agent on the list. If none of the Home Agents respond, the Mobile Node SHOULD try again after a period of time that is configurable on the Mobile Node. If IKEv2 authentication fails with all Home Agents, it is an unrecoverable error on the Mobile Node.",
+      "zh-CHS": "RFC 2782[4]还描述了基于首选项和权重值选择服务代理的策略。除了归属代理FQDNs之外，DNS SRV记录还可以包含移动节点可用的多个归属代理的偏好和权重值。如果DNS SRV记录中有多个归属代理可用，则移动节点负责根据策略处理信息并选择一个归属代理。如果所选择的归属代理不响应IKE_SA_INIT消息，或者如果IKEv2身份验证失败，则移动节点应尝试列表上的下一个归属代理。如果没有任何归属代理响应，则移动节点应在移动节点上可配置的一段时间后重试。如果所有家庭代理的IKEv2身份验证都失败，则在移动节点上是一个不可恢复的错误。"
+    },
+    {
+      "indent": 3,
+      "text": "The service name for Mobile IPv6 Home Agent service, as required by RFC 2782, is \"mip6\" and the protocol name is \"ipv6\". Note that a",
+      "zh-CHS": "根据RFC 2782的要求，移动IPv6归属代理服务的服务名称为“mip6”，协议名称为“IPv6”。请注意"
+    },
+    {
+      "indent": 3,
+      "text": "transport name cannot be used here because Mobile IPv6 does not run over a transport protocol.",
+      "zh-CHS": "此处无法使用传输名称，因为移动IPv6未通过传输协议运行。"
+    },
+    {
+      "indent": 3,
+      "text": "The SRV RR has a DNS type code of 33. As an example, the Mobile constructs a request with QNAME set to \"_mip6._ipv6.example.com\" and QTYPE to SRV. The reply contains the FQDNs of one or more servers that can then be resolved in a separate DNS transaction to the IP addresses. However, if there is room in the SRV reply, it is RECOMMENDED that the DNS server also return the IP addresses of the Home Agents in AAAA records as part of the additional data section (in order to avoid requiring an additional DNS round trip to resolve the FQDNs).",
+      "zh-CHS": "SRV RR的DNS类型代码为33。例如，移动设备构造一个QNAME设置为“_mip6._ipv6.example.com”且QTYPE设置为SRV的请求。回复包含一个或多个服务器的FQDN，然后可以在单独的DNS事务中将其解析为IP地址。但是，如果SRV回复中有空间，建议DNS服务器也返回AAAA记录中的归属代理的IP地址，作为附加数据部分的一部分（以避免需要附加DNS往返来解析FQDN）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. IPsec Security Associations Setup",
+      "section_title": true,
+      "zh-CHS": "5.2. IPsec安全关联设置"
+    },
+    {
+      "indent": 3,
+      "text": "As soon as the Mobile Node has discovered the Home Agent Address, it establishes an IPsec Security Association with the Home Agent itself through IKEv2. The detailed description of this procedure is provided in [3]. If the Mobile Node wants the HA to register the Home Address in the DNS, it MUST use the FQDN as the initiator identity in the IKE_AUTH step of the IKEv2 exchange (IDi). This is needed because the Mobile Node has to prove it is the owner of the FQDN provided in the subsequent DNS Update Option. See Sections 6 and 9 for a more detailed analysis on this issue.",
+      "zh-CHS": "一旦移动节点发现归属代理地址，它就会通过IKEv2与归属代理本身建立IPsec安全关联。[3]中提供了该程序的详细说明。如果移动节点希望HA在DNS中注册归属地址，则必须在IKEv2交换（IDi）的IKE_AUTH步骤中将FQDN用作启动器标识。这是必需的，因为移动节点必须证明它是后续DNS更新选项中提供的FQDN的所有者。有关此问题的更详细分析，请参见第6节和第9节。"
+    },
+    {
+      "indent": 3,
+      "text": "The IKEv2 Mobile Node to Home Agent authentication can be performed using either IKEv2 public key signatures or the Extensible Authentication Protocol (EAP). The details about how to use IKEv2 authentication are described in [3] and [5]. The choice of an IKEv2 peer authentication method depends on the deployment. The Mobile Node should be configured with the information on which IKEv2 authentication method to use. However, IKEv2 restricts the Home Agent to Mobile Node authentication to use public key signature-based authentication.",
+      "zh-CHS": "可以使用IKEv2公钥签名或可扩展认证协议（EAP）执行IKEv2移动节点到归属代理的认证。[3]和[5]中描述了有关如何使用IKEv2身份验证的详细信息。IKEv2对等身份验证方法的选择取决于部署。移动节点应配置使用IKEv2身份验证方法的信息。然而，IKEv2将归属代理限制为移动节点身份验证，以使用基于公钥签名的身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Home Address Assignment",
+      "section_title": true,
+      "zh-CHS": "5.3. 家庭地址分配"
+    },
+    {
+      "indent": 3,
+      "text": "Home Address assignment is performed during the IKEv2 exchange. The Home Address can be assigned directly by the Home Agent or it can be auto-configured by the Mobile Node.",
+      "zh-CHS": "家庭地址分配在IKEv2交换期间执行。归属地址可以由归属代理直接分配，也可以由移动节点自动配置。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.1. Home Address Assignment by the Home Agent",
+      "section_title": true,
+      "zh-CHS": "5.3.1. 家庭代理分配的家庭地址"
+    },
+    {
+      "indent": 3,
+      "text": "When the Mobile Node runs IKEv2 with its Home Agent, it can request a HoA through the Configuration Payload in the IKE_AUTH exchange by including an INTERNAL_IP6_ADDRESS attribute. When the Home Agent processes the message, it allocates a HoA and sends it a CFG_REPLY message. The Home Agent could consult a DHCP server on the home link",
+      "zh-CHS": "当移动节点使用其归属代理运行IKEv2时，它可以通过IKE_认证交换中的配置有效负载请求HoA，方法是包括内部_IP6_地址属性。当归属代理处理消息时，它分配HoA并向其发送CFG_回复消息。归属代理可以在归属链接上咨询DHCP服务器"
+    },
+    {
+      "indent": 3,
+      "text": "for the actual home address allocation. This is explained in detail in [3].",
+      "zh-CHS": "用于实际家庭地址分配。[3]对此进行了详细解释。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.2. Home Address Auto-Configuration by the Mobile Node",
+      "section_title": true,
+      "zh-CHS": "5.3.2. 移动节点的家庭地址自动配置"
+    },
+    {
+      "indent": 3,
+      "text": "With the type of assignment described in the previous section, the Home Address cannot be generated based on Cryptographically Generated Addresses (CGAs) [12] or based on the privacy extensions for stateless auto-configuration [13]. However, the Mobile Node might want to have an auto-configured HoA based on these mechanisms. It is worthwhile to mention that the auto-configuration procedure described in this section cannot be used in some possible deployments, since the Home Agents might be provisioned with pools of allowed Home Addresses.",
+      "zh-CHS": "对于上一节中描述的分配类型，不能基于加密生成的地址（CGA）[12]或基于无状态自动配置的隐私扩展[13]生成家庭地址。但是，移动节点可能希望基于这些机制自动配置HoA。值得一提的是，本节中描述的自动配置过程不能在某些可能的部署中使用，因为可能会为家庭代理提供允许的家庭地址池。"
+    },
+    {
+      "indent": 3,
+      "text": "In the simplest case, the Mobile Node is provided with a pre-configured home prefix and home prefix length. In this case, the Mobile Node creates a Home Address based on the pre-configured prefix and sends it to the Home Agent, including an INTERNAL_IP6_ADDRESS attribute in a Configuration Payload of type CFG_REQUEST. If the Home Address is valid, the Home Agent replies with a CFG_REPLY, including an INTERNAL_IP6_ADDRESS with the same address. If the Home Address provided by the Mobile Node is not valid, the Home Agent assigns a different Home Address including an INTERNAL_IP6_ADDRESS attribute with a new value. According to [5], the Mobile Node MUST use the address sent by the Home Agent. Later, if the Mobile Node wants to use an auto-configured Home Address (e.g., based on CGA), it can run Mobile Prefix Discovery, obtain a prefix, auto-configure a new Home Address, and then perform a new CREATE_CHILD_SA exchange.",
+      "zh-CHS": "在最简单的情况下，移动节点具有预先配置的归属前缀和归属前缀长度。在这种情况下，移动节点基于预先配置的前缀创建归属地址并将其发送给归属代理，包括CFG_请求类型的配置有效负载中的内部_IP6_地址属性。如果家庭地址有效，家庭代理会回复CFG_回复，包括具有相同地址的内部_IP6_地址。如果移动节点提供的家庭地址无效，则家庭代理会为包括内部_IP6_Address属性的不同家庭地址分配一个新值。根据[5]，移动节点必须使用归属代理发送的地址。稍后，如果移动节点想要使用自动配置的家庭地址（例如，基于CGA），则它可以运行移动前缀发现、获取前缀、自动配置新的家庭地址，然后执行新的创建子SA交换。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Mobile Node is not provided with a pre-configured Home Prefix, the Mobile cannot simply propose an auto-configured HoA in the Configuration Payload since the Mobile Node does not know the home prefix before the start of the IKEv2 exchange. The Mobile Node must obtain the home prefix and the home prefix length before it can configure a home address.",
+      "zh-CHS": "如果移动节点没有提供预配置的归属前缀，则移动节点不能简单地在配置有效载荷中提出自动配置的HoA，因为移动节点在IKEv2交换开始之前不知道归属前缀。移动节点必须先获得归属前缀和归属前缀长度，然后才能配置归属地址。"
+    },
+    {
+      "indent": 3,
+      "text": "One simple solution would be for the Mobile Node to just assume that the prefix length on the home link is 64 bits and extract the home prefix from the Home Agent's address. The disadvantage with this solution is that the home prefix cannot be anything other than /64. Moreover, this ties the prefix on the home link and the Home Agent's address, but, in general, a Home Agent with a particular address should be able to serve a number of prefixes on the home link, not just the prefix from which its address is configured.",
+      "zh-CHS": "一个简单的解决方案是，移动节点仅假设归属链路上的前缀长度为64位，并从归属代理的地址提取归属前缀。此解决方案的缺点是主前缀不能是/64以外的任何内容。此外，这将归属链路上的前缀与归属代理的地址联系起来，但是，一般来说，具有特定地址的归属代理应该能够在归属链路上提供多个前缀，而不仅仅是配置其地址的前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "Another solution would be for the Mobile Node to assume that the prefix length on the home link is 64 bits and send its interface",
+      "zh-CHS": "另一个解决方案是，移动节点假设主链路上的前缀长度为64位，并发送其接口"
+    },
+    {
+      "indent": 3,
+      "text": "identifier to the Home Agent in the INTERNAL_IP6_ADDRESS attribute within the CFG_REQ payload. Even though this approach does not tie the prefix on the home link and the Home Agent's address, it still requires that the home prefix length is 64 bits.",
+      "zh-CHS": "CFG_REQ有效负载内的内部_IP6_地址属性中归属代理的标识符。即使这种方法不将归属链路上的前缀与归属代理的地址绑定，它仍然要求归属前缀长度为64位。"
+    },
+    {
+      "indent": 3,
+      "text": "For this reason, the Mobile Node needs to obtain the home link prefixes through the IKEv2 exchange. In the Configuration Payload during the IKE_AUTH exchange, the Mobile Node includes the MIP6_HOME_PREFIX attribute in the CFG_REQUEST message. The Home Agent, when it processes this message, MUST include in the CFG_REPLY payload prefix information for one prefix on the home link. This prefix information includes the prefix length (see Section 8.2). The Mobile Node auto-configures a Home Address from the prefix returned in the CFG_REPLY message and runs a CREATE_CHILD_SA exchange to create security associations for the new Home Address.",
+      "zh-CHS": "因此，移动节点需要通过IKEv2交换获得归属链路前缀。在IKE_AUTH交换期间的配置有效负载中，移动节点在CFG_请求消息中包括MIP6_HOME_前缀属性。归属代理在处理此消息时，必须在CFG_应答有效负载中包含归属链路上一个前缀的前缀信息。该前缀信息包括前缀长度（见第8.2节）。移动节点根据CFG_回复消息中返回的前缀自动配置家庭地址，并运行CREATE_CHILD_SA交换为新家庭地址创建安全关联。"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned before in this document, there are deployments where auto-configuration of the Home Address cannot be used. In this case, when the Home Agent receives a CFG_REQUEST that includes a MIP6_HOME_PREFIX attribute in the subsequent IKE response, it includes a Notify Payload type \"USE_ASSIGNED_HoA\" and the related Home Address in a INTERNAL_IP6_ADDRESS attribute. If the Mobile Node gets a \"USE_ASSIGNED_HoA\" Notify Payload in response to the Configuration Payload containing the MIP6_HOME_PREFIX attribute, it looks for an INTERNAL_IP6_ADDRESS attribute and MUST use the address contained in it in the subsequent CREATE_CHILD_SA exchange.",
+      "zh-CHS": "如本文档前面所述，有些部署无法使用家庭地址的自动配置。在这种情况下，当归属代理接收到在随后的IKE响应中包括MIP6\\u Home\\u前缀属性的CFG\\u请求时，它在内部\\u IP6\\u地址属性中包括通知有效负载类型“USE\\u ASSIGNED\\u HoA”和相关的归属地址。如果移动节点响应包含MIP6_HOME_前缀属性的配置负载而获得“USE_ASSIGNED_HoA”Notify Payload，它将查找内部_IP6_ADDRESS属性，并且必须在随后的CREATE_CHILD_SA交换中使用其中包含的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "When the Home Agent receives a Binding Update for the Mobile Node, it performs proxy DAD for the auto-configured Home Address. If DAD fails, the Home Agent rejects the Binding Update. If the Mobile Node receives a Binding Acknowledgement with status 134 (DAD failed), it MUST stop using the current Home Address, configure a new HoA, and then run IKEv2 CREATE_CHILD_SA exchange to create security associations based on the new HoA. The Mobile Node does not need to run IKE_INIT and IKE_AUTH exchanges again. Once the necessary security associations are created, the Mobile Node sends a Binding Update for the new Home Address.",
+      "zh-CHS": "当归属代理接收到移动节点的绑定更新时，它对自动配置的归属地址执行代理DAD。如果DAD失败，则归属代理将拒绝绑定更新。如果移动节点收到状态为134（DAD失败）的绑定确认，它必须停止使用当前家庭地址，配置新HoA，然后运行IKEv2 CREATE_CHILD_SA exchange以基于新HoA创建安全关联。移动节点不需要再次运行IKE_INIT和IKE_AUTH交换。一旦创建了必要的安全关联，移动节点就会发送新家庭地址的绑定更新。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth noting that with this mechanism, the prefix information carried in MIP6_HOME_PREFIX attribute includes only one prefix and does not carry all the information that is typically present when received through a IPv6 router advertisement. Mobile Prefix Discovery, specified in RFC 3775, is the mechanism through which the Mobile Node can get all prefixes on the home link and all related information. That means that MIP6_HOME_PREFIX attribute is only used for Home Address auto-configuration and does not replace the usage of Mobile Prefix Discovery for the purposes detailed in RFC 3775.",
+      "zh-CHS": "值得注意的是，通过该机制，MIP6_HOME_prefix属性中携带的前缀信息仅包括一个前缀，并且不携带通常通过IPv6路由器广告接收时存在的所有信息。RFC 3775中指定的移动前缀发现是一种机制，通过该机制，移动节点可以获得主链路上的所有前缀和所有相关信息。这意味着，MIP6_HOME_PREFIX属性仅用于家庭地址自动配置，而不代替移动前缀发现的使用，如RFC 3775所述。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Authorization and Authentication with MSA",
+      "section_title": true,
+      "zh-CHS": "5.4. 使用MSA进行授权和身份验证"
+    },
+    {
+      "indent": 3,
+      "text": "In a scenario where the Home Agent is discovered dynamically by the Mobile Node, it is very likely that the Home Agent is not able to verify by its own the credentials provided by the Mobile Node during the IKEv2 exchange. Moreover, the mobility service needs to be explicitly authorized based on the user's profile. As an example, the Home Agent might not be aware of whether the mobility service can be granted at a particular time of the day or when the credit of the Mobile Node is going to expire.",
+      "zh-CHS": "在移动节点动态发现归属代理的场景中，归属代理很可能无法在IKEv2交换期间通过自身验证移动节点提供的凭据。此外，移动服务需要根据用户的配置文件进行明确授权。例如，归属代理可能不知道是否可以在一天中的特定时间或移动节点的信用即将到期时授予移动服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Due to all these reasons, the Home Agent may need to contact the MSA in order to authenticate the Mobile Node and authorize mobility service. This can be accomplished based on a Public Key Infrastructure if certificates are used and a PKI is deployed by the MSP and MSA. On the other hand, if the Mobile Node is provided with other types of credentials, the AAA infrastructure must be used.",
+      "zh-CHS": "由于所有这些原因，归属代理可能需要联系MSA以认证移动节点并授权移动服务。如果MSP和MSA使用证书并部署PKI，则可以基于公钥基础设施实现这一点。另一方面，如果为移动节点提供了其他类型的凭据，则必须使用AAA基础设施。"
+    },
+    {
+      "indent": 3,
+      "text": "The definition of this backend communication is out of the scope of this document. In [16], a list of goals for such a communication is provided. [17] and [18] define the RADIUS and Diameter extensions, respectively, for the backend communication.",
+      "zh-CHS": "此后端通信的定义超出了本文档的范围。在[16]中，提供了此类沟通的目标列表。[17] 和[18]分别为后端通信定义半径和直径扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Home Address Registration in the DNS",
+      "section_title": true,
+      "zh-CHS": "6. DNS中的家庭地址注册"
+    },
+    {
+      "indent": 3,
+      "text": "In order that the Mobile Node is reachable through its dynamically assigned Home Address, the DNS needs to be updated with the new Home Address. Since applications make use of DNS lookups on FQDN to find a node, the DNS update is essential for providing IP reachability to the Mobile Node, which is the main purpose of the Mobile IPv6 protocol. The need for DNS updating is not discussed in RFC 3775 since it assumes that the Mobile Node is provisioned with a static Home Address. However, when a dynamic Home Address is assigned to the Mobile Node, any existing DNS entry becomes invalid and the Mobile Node becomes unreachable unless a DNS update is performed.",
+      "zh-CHS": "为了通过动态分配的家庭地址访问移动节点，需要使用新的家庭地址更新DNS。由于应用程序使用FQDN上的DNS查找来查找节点，因此DNS更新对于为移动节点提供IP可达性至关重要，这是移动IPv6协议的主要目的。RFC 3775中没有讨论DNS更新的需要，因为它假设移动节点被提供了静态归属地址。然而，当动态归属地址被分配给移动节点时，任何现有DNS条目都将变得无效，并且除非执行DNS更新，否则移动节点将变得不可访问。"
+    },
+    {
+      "indent": 3,
+      "text": "Since the DNS update must be performed securely in order to prevent attacks or modifications from malicious nodes, the node performing this update must share a security association with the DNS server. Having all possible Mobile Nodes sharing a security association with the DNS servers of the MSP might be cumbersome from an administrative perspective. Moreover, even if a Mobile Node has a security association with a DNS server of its MSP, an address authorization issue comes into the picture. A detailed analysis of possible threats against DNS update is provided in Section 9.5.",
+      "zh-CHS": "由于必须安全地执行DNS更新以防止恶意节点的攻击或修改，因此执行此更新的节点必须与DNS服务器共享安全关联。从管理的角度来看，让所有可能的移动节点和MSP的DNS服务器共享安全关联可能会很麻烦。此外，即使移动节点与其MSP的DNS服务器具有安全关联，也会出现地址授权问题。第9.5节提供了针对DNS更新的可能威胁的详细分析。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, due to security and administrative reasons, it is RECOMMENDED that the Home Agent perform DNS entry updates for the",
+      "zh-CHS": "因此，出于安全和管理原因，建议归属代理为服务器执行DNS条目更新"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile Node. For this purpose, the Mobile Node MAY include a new mobility option in the Binding Update, the DNS Update option, with the flag R not set in the option. This option is defined in Section 8 and includes the FQDN that needs to be updated. After receiving the Binding Update, the Home Agent MUST update the DNS entry with the identifier provided by the Mobile Node and the Home Address included in the Home Address Option. The procedure for sending a dynamic DNS update message is specified in [6]. The dynamic DNS update SHOULD be performed in a secure way; for this reason, the usage of TKEY and TSEC or DNSSEC is recommended (see Section 9.5 for details). As soon as the Home Agent has updated the DNS, it MUST send a Binding Acknowledgement message to the Mobile Node, including the DNS Update mobility option with the correct value in the Status field (see Section 8.1).",
+      "zh-CHS": "移动节点。为此目的，移动节点可以在绑定更新中包括新的移动选项DNS更新选项，并且在该选项中未设置标志R。此选项在第8节中定义，包括需要更新的FQDN。在接收到绑定更新后，归属代理必须使用移动节点提供的标识符和包含在归属地址选项中的归属地址更新DNS条目。[6]中规定了发送动态DNS更新消息的过程。动态DNS更新应以安全的方式执行；因此，建议使用TKEY和TSEC或DNSSEC（详见第9.5节）。一旦归属代理更新了DNS，它必须向移动节点发送绑定确认消息，包括状态字段中具有正确值的DNS更新移动选项（参见第8.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "This procedure can be performed directly by the Home Agent if the Home Agent has a security association with the domain specified in the Mobile Node's FQDN.",
+      "zh-CHS": "如果归属代理与移动节点的FQDN中指定的域具有安全关联，则归属代理可以直接执行此过程。"
+    },
+    {
+      "indent": 3,
+      "text": "On the other hand, if the Mobile Node wants to be reachable through a FQDN that belongs to the MSA, the Home Agent and the DNS server that must be updated belong to different administrative domains. In this case, the Home Agent may not share a security association with the DNS server and the DNS entry update can be performed by the AAA server of the MSA. In order to accomplish this, the Home Agent sends to the AAA server the FQDN-HoA pair through the AAA protocol. This message is proxied by the AAA infrastructure of the MSP and is received by the AAA server of the MSA. The AAA server of the MSA performs the DNS update based on [6]. Notice that, even in this case, the Home Agent is always required to perform a DNS update for the reverse entry, since this is always performed in the DNS server of the MSP. The detailed description of the communication between Home Agent and AAA is out of the scope of this document. More details are provided in [16].",
+      "zh-CHS": "另一方面，如果移动节点希望通过属于MSA的FQDN进行访问，则必须更新的归属代理和DNS服务器属于不同的管理域。在这种情况下，归属代理可能不与DNS服务器共享安全关联，并且DNS条目更新可以由MSA的AAA服务器执行。为了实现这一点，归属代理通过AAA协议向AAA服务器发送FQDN HoA对。此消息由MSP的AAA基础设施代理，并由MSA的AAA服务器接收。MSA的AAA服务器根据[6]执行DNS更新。请注意，即使在这种情况下，也始终要求归属代理对反向条目执行DNS更新，因为这始终在MSP的DNS服务器中执行。Home Agent和AAA之间通信的详细说明不在本文档范围内。更多详情见[16]。"
+    },
+    {
+      "indent": 3,
+      "text": "A mechanism to remove stale DNS entries is needed. A DNS entry becomes stale when the related Home Address is no longer used by the Mobile Node. To remove a DNS entry, the Mobile Node includes in the Binding Update the DNS Update mobility option, with the flag R set in the option. After receiving the Binding Update, the Home Agent MUST remove the DNS entry identified by the FQDN provided by the Mobile Node and the Home Address included in the Home Address Option. The procedure for sending a dynamic DNS update message is specified in [6]. As mentioned above, the dynamic DNS update SHOULD be performed in a secure way; for this reason, the usage of TKEY and TSEC or DNSSEC is recommended (see Section 9.5 for details).",
+      "zh-CHS": "需要一种删除过时DNS条目的机制。当移动节点不再使用相关的家庭地址时，DNS条目将过时。要删除DNS条目，移动节点在绑定更新中包括DNS更新移动选项，并在选项中设置标志R。在接收到绑定更新后，归属代理必须删除由移动节点提供的FQDN标识的DNS条目以及包含在归属地址选项中的归属地址。[6]中规定了发送动态DNS更新消息的过程。如上所述，应以安全的方式执行动态DNS更新；因此，建议使用TKEY和TSEC或DNSSEC（详见第9.5节）。"
+    },
+    {
+      "indent": 3,
+      "text": "If there is no explicit de-registration BU from the Mobile Node, then the HA MAY use the binding cache entry expiration as a trigger to remove the DNS entry.",
+      "zh-CHS": "如果没有来自移动节点的显式取消注册BU，则HA可以使用绑定缓存项到期作为移除DNS项的触发器。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Summary of Bootstrapping Protocol Flow",
+      "section_title": true,
+      "zh-CHS": "7. 引导协议流程概述"
+    },
+    {
+      "indent": 3,
+      "text": "The message flow of the whole bootstrapping procedure when the dynamic DNS update is performed by the Home Agent is depicted below.",
+      "zh-CHS": "当归属代理执行动态DNS更新时，整个引导过程的消息流如下所示。"
+    },
+    {
+      "indent": 10,
+      "text": "+----+                  +----+              +-----+\n| MN |                  | HA |              | DNS |\n+----+                  +----+              +-----+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "    IKEv2 exchange\n (HoA configuration)\n<======================>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "BU (DNS update option)\n----------------------->\n                              DNS update\n                        <------------------->\n BA (DNS update option)\n<-----------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "On the contrary, the figure below shows the message flow of the whole bootstrapping procedure when the dynamic DNS update is performed by the AAA server of the MSA.",
+      "zh-CHS": "相反，下图显示了MSA的AAA服务器执行动态DNS更新时整个引导过程的消息流。"
+    },
+    {
+      "indent": 8,
+      "text": "+----+                +----+         +---+         +---+\n| MN |                | HA |         |AAA|         |DNS|\n+----+                +----+         +---+         +---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "    IKEv2 exchange\n  (HoA configuration)\n<======================>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "BU (DNS update option)\n----------------------->",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "  AAA request\n  (FQDN, HoA)\n<-------------->",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "                                        DNS update\n                                       <----------->\n                         AAA answer\n                         (FQDN, HoA)\n                       <-------------->\n  BA (DNS update option)\n<-----------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Notice that even in this last case, the Home Agent is always required to perform a DNS update for the reverse entry, since this is always performed in the DNS server of the MSP. This is not depicted in the figure above.",
+      "zh-CHS": "请注意，即使在最后一种情况下，也始终需要归属代理对反向条目执行DNS更新，因为这始终在MSP的DNS服务器中执行。上图中没有描述这一点。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Option and Attribute Format",
+      "section_title": true,
+      "zh-CHS": "8. 选项和属性格式"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. DNS Update Mobility Option",
+      "section_title": true,
+      "zh-CHS": "8.1. DNS更新移动选项"
+    },
+    {
+      "indent": 6,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                                |  Option Type  | Option Length |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   Status      |R|  Reserved   |     MN identity (FQDN) ...\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "DNS-UPDATE-TYPE (17)",
+      "zh-CHS": "DNS-UPDATE-TYPE（17）"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit unsigned integer indicating the length of the option excluding the type and length fields",
+      "zh-CHS": "8位无符号整数，指示不包括类型和长度字段的选项的长度"
+    },
+    {
+      "indent": 3,
+      "text": "Status",
+      "zh-CHS": "地位"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit unsigned integer indicating the result of the dynamic DNS update procedure. This field MUST be set to 0 and ignored by the receiver when the DNS Update mobility option is included in a Binding Update message. When the DNS Update mobility option is included in the Binding Acknowledgement message, values of the Status field less than 128 indicate that the dynamic DNS update was performed successfully by the Home Agent. Values greater than or equal to 128 indicate that the dynamic DNS update was not completed by the HA. The following Status values are currently defined:",
+      "zh-CHS": "8位无符号整数，指示动态DNS更新过程的结果。当绑定更新消息中包含DNS更新移动选项时，此字段必须设置为0，并由接收方忽略。当绑定确认消息中包括DNS更新移动选项时，小于128的状态字段的值表示归属代理成功执行了动态DNS更新。大于或等于128的值表示HA未完成动态DNS更新。当前定义了以下状态值："
+    },
+    {
+      "indent": 14,
+      "text": "0 DNS update performed",
+      "zh-CHS": "已执行0个DNS更新"
+    },
+    {
+      "indent": 12,
+      "text": "128 Reason unspecified",
+      "zh-CHS": "128原因未明"
+    },
+    {
+      "indent": 12,
+      "text": "129 Administratively prohibited",
+      "zh-CHS": "129行政禁止"
+    },
+    {
+      "indent": 12,
+      "text": "130 DNS update failed",
+      "zh-CHS": "130 DNS更新失败"
+    },
+    {
+      "indent": 3,
+      "text": "R flag",
+      "zh-CHS": "R旗"
+    },
+    {
+      "indent": 6,
+      "text": "If set, the Mobile Node is requesting the HA to remove the DNS entry identified by the FQDN specified in this option and the HoA of the Mobile Node. If not set, the Mobile Node is requesting the HA to create or update a DNS entry with its HoA and the FQDN specified in the option.",
+      "zh-CHS": "如果设置，移动节点将请求HA删除由该选项中指定的FQDN和移动节点的HoA标识的DNS条目。如果未设置，移动节点将请求HA使用其HoA和选项中指定的FQDN创建或更新DNS条目。"
+    },
+    {
+      "indent": 3,
+      "text": "Reserved",
+      "zh-CHS": "含蓄的"
+    },
+    {
+      "indent": 6,
+      "text": "MUST be set to 0.",
+      "zh-CHS": "必须设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "MN identity",
+      "zh-CHS": "MN身份"
+    },
+    {
+      "indent": 6,
+      "text": "The identity of the Mobile Node in FQDN format to be used by the Home Agent to send a Dynamic DNS update. It is a variable length field.",
+      "zh-CHS": "归属代理用于发送动态DNS更新的FQDN格式的移动节点的标识。它是一个可变长度字段。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. MIP6_HOME_PREFIX Attribute",
+      "section_title": true,
+      "zh-CHS": "8.2. MIP6\\u HOME\\u前缀属性"
+    },
+    {
+      "indent": 3,
+      "text": "The MIP6_HOME_PREFIX attribute is carried in IKEv2 Configuration Payload messages. This attribute is used to convey the home prefix from which the Mobile Node auto-configures its home address.",
+      "zh-CHS": "MIP6_HOME_PREFIX属性在IKEv2配置有效负载消息中携带。此属性用于传递归属前缀，移动节点根据该前缀自动配置其归属地址。"
+    },
+    {
+      "indent": 7,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|R|      Attribute Type         |           Length              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                         Prefix Lifetime                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|                         Home Prefix                           |\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Prefix Length |\n+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Reserved (1 bit)",
+      "zh-CHS": "保留（1位）"
+    },
+    {
+      "indent": 6,
+      "text": "This bit MUST be set to zero and MUST be ignored on receipt.",
+      "zh-CHS": "此位必须设置为零，并且在收到时必须忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "Attribute Type (15 bits)",
+      "zh-CHS": "属性类型（15位）"
+    },
+    {
+      "indent": 6,
+      "text": "A unique identifier for the MIP6_HOME_PREFIX attribute (16).",
+      "zh-CHS": "MIP6_HOME_前缀属性的唯一标识符（16）。"
+    },
+    {
+      "indent": 3,
+      "text": "Length (2 octets)",
+      "zh-CHS": "长度（2个八位字节）"
+    },
+    {
+      "indent": 6,
+      "text": "Length in octets of Value field (Home Prefix, Prefix Lifetime and Prefix Length). This can be 0 or 21.",
+      "zh-CHS": "值字段的八位字节长度（主前缀、前缀生存期和前缀长度）。这可以是0或21。"
+    },
+    {
+      "indent": 3,
+      "text": "Prefix Lifetime (4 octets)",
+      "zh-CHS": "前缀生存期（4个八位字节）"
+    },
+    {
+      "indent": 6,
+      "text": "The lifetime of the Home Prefix.",
+      "zh-CHS": "主前缀的生存期。"
+    },
+    {
+      "indent": 3,
+      "text": "Home Prefix (16 octets)",
+      "zh-CHS": "主前缀（16个八位字节）"
+    },
+    {
+      "indent": 6,
+      "text": "The prefix of the home link through which the Mobile Node may auto-configure its Home Address.",
+      "zh-CHS": "归属链路的前缀，移动节点可通过该前缀自动配置其归属地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Prefix Length (1 octet)",
+      "zh-CHS": "前缀长度（1个八位字节）"
+    },
+    {
+      "indent": 6,
+      "text": "The length in bits of the home prefix specified in the field Home Prefix.",
+      "zh-CHS": "在“起始前缀”字段中指定的起始前缀的长度（以位为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "When the MIP6_HOME_PREFIX attribute is included by the Mobile Node in the CFG_REQUEST payload, the value of the Length field is 0. When the MIP6_HOME_PREFIX attribute is included in the CFG_REPLY payload by the Home Agent, the value of the Length field is 21 and the attribute contains also the home prefix information.",
+      "zh-CHS": "当移动节点将MIP6_HOME_PREFIX属性包括在CFG_请求有效负载中时，长度字段的值为0。当归属代理将MIP6_HOME_PREFIX属性包括在CFG_应答有效负载中时，长度字段的值为21，并且该属性还包含归属前缀信息。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "9. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. HA Address Discovery",
+      "section_title": true,
+      "zh-CHS": "9.1. HA地址发现"
+    },
+    {
+      "indent": 3,
+      "text": "Use of DNS for address discovery carries certain security risks. DNS transactions in the Internet are typically done without any authentication of the DNS server by the client or of the client by the server. There are two risks involved:",
+      "zh-CHS": "使用DNS进行地址发现存在一定的安全风险。Internet中的DNS事务通常在没有客户机对DNS服务器或服务器对客户机进行任何身份验证的情况下完成。涉及两个风险："
+    },
+    {
+      "indent": 3,
+      "text": "1. A legitimate client obtains a bogus Home Agent address from a bogus DNS server. This is sometimes called a \"pharming\" attack.",
+      "zh-CHS": "1. 合法客户端从虚假DNS服务器获取虚假的主代理地址。这有时被称为“欺骗”攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "2. An attacking client obtains a legitimate Home Agent address from a legitimate server.",
+      "zh-CHS": "2. 攻击客户端从合法服务器获取合法的归属代理地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The risk in Case 1 is mitigated because the Mobile Node is required to conduct an IKE transaction with the Home Agent prior to performing a Binding Update to establish Mobile IPv6 service. According to the IKEv2 specification [5], the responder must present the initiator with a valid certificate containing the responder's public key, and the responder to initiator IKE_AUTH message must be protected with an authenticator calculated using the public key in the certificate. Thus, an attacker would have to set up both a bogus DNS server and a bogus Home Agent, and provision the Home Agent with a certificate that a victim Mobile Node could verify. If the Mobile Node can detect that the certificate is not trustworthy, the attack will be foiled when the Mobile Node attempts to set up the IKE SA.",
+      "zh-CHS": "情况1中的风险得到缓解，因为移动节点需要在执行绑定更新以建立移动IPv6服务之前与归属代理进行IKE事务。根据IKEv2规范[5]，响应者必须向启动器提供包含响应者公钥的有效证书，并且响应者到启动器IKE_AUTH消息必须使用使用证书中的公钥计算的验证器进行保护。因此，攻击者必须同时设置伪造的DNS服务器和伪造的归属代理，并向归属代理提供受害者移动节点可以验证的证书。如果移动节点能够检测到证书不可信，则当移动节点尝试设置IKE SA时，攻击将被挫败。"
+    },
+    {
+      "indent": 3,
+      "text": "The risk in Case 2 is limited for a single Mobile Node to Home Agent transaction if the attacker does not possess proper credentials to authenticate with the Home Agent. The IKE SA establishment will fail when the attacking Mobile Node attempts to authenticate itself with the Home Agent. Regardless of whether the Home Agent utilizes EAP or host-side certificates to authenticate the Mobile Node, the authentication will fail unless the Mobile Node has valid credentials.",
+      "zh-CHS": "如果攻击者不具备与归属代理进行身份验证的适当凭据，则情况2中的风险对于单个移动节点到归属代理事务是有限的。当攻击移动节点尝试向归属代理验证自身时，IKE SA建立将失败。无论归属代理是利用EAP还是主机端证书对移动节点进行身份验证，除非移动节点具有有效凭据，否则身份验证将失败。"
+    },
+    {
+      "indent": 3,
+      "text": "Another risk exists in Case 2 because the attacker may be attempting to propagate a Denial of Service (DoS) attack on the Home Agent. In that case, the attacker obtains the Home Agent address from the DNS, then propagates the address to a network of attacking hosts that bombard the Home Agent with traffic. This attack is not unique to",
+      "zh-CHS": "情况2中存在另一个风险，因为攻击者可能试图在Home Agent上传播拒绝服务（DoS）攻击。在这种情况下，攻击者从DNS获得归属代理地址，然后将该地址传播到攻击主机的网络，这些主机用流量轰炸归属代理。这种攻击并不是唯一的"
+    },
+    {
+      "indent": 3,
+      "text": "the bootstrapping solution, however, it is actually a risk that any Mobile IPv6 Home Agent installation faces. In fact, the risk is faced by any service in the Internet that distributes a unicast globally routable address to clients. Since Mobile IPv6 requires that the Mobile Node communicate through a globally routable unicast address of a Home Agent, it is possible that the Home Agent address could be propagated to an attacker by various means (theft of the Mobile Node, malware installed on the Mobile Node, evil intent of the Mobile Node owner him/herself, etc.) even if the home address is manually configured on the Mobile Node. Consequently, every Mobile IPv6 Home Agent installation will likely be required to mount anti-DoS measures. Such measures include overprovisioning of links to and from Home Agents and of Home Agent processing capacity, vigilant monitoring of traffic on the Home Agent networks to detect when traffic volume increases abnormally indicating a possible DoS attack, and hot spares that can quickly be switched on in the event an attack is mounted on an operating collection of Home Agents. DoS attacks of moderate intensity should be foiled during the IKEv2 transaction. IKEv2 implementations are expected to generate their cookies without any saved state, and to time out cookie generation parameters frequently, with the timeout value increasing if a DoS attack is suspected. This should prevent state depletion attacks, and should assure continued service to legitimate clients until the practical limits on the network bandwidth and processing capacity of the Home Agent network are reached.",
+      "zh-CHS": "然而，引导解决方案实际上是任何移动IPv6 Home Agent安装都面临的风险。事实上，互联网上任何向客户端分发单播全球可路由地址的服务都面临着风险。由于移动IPv6要求移动节点通过归属代理的全局可路由单播地址进行通信，因此归属代理地址可能通过各种方式传播给攻击者（移动节点被盗、移动节点上安装的恶意软件、移动节点所有者本人的恶意意图等）即使在移动节点上手动配置了家庭地址。因此，每个移动IPv6 Home Agent安装都可能需要安装反DoS措施。这些措施包括过度提供与归属代理之间的链接和归属代理处理能力，警惕地监控归属代理网络上的流量，以检测流量何时异常增加，表明可能存在DoS攻击，以及热备盘，可在对正在运行的家庭代理集合发起攻击时快速打开。在IKEv2事务期间，应阻止中等强度的DoS攻击。IKEv2实现需要在不保存任何状态的情况下生成cookie，并经常超时cookie生成参数，如果怀疑存在DoS攻击，超时值会增加。这将防止状态耗尽攻击，并应确保继续向合法客户端提供服务，直到达到归属代理网络的网络带宽和处理能力的实际限制。"
+    },
+    {
+      "indent": 3,
+      "text": "Explicit security measures between the DNS server and host, such as DNSSEC [19] or TSIG/TKEY [20] [21], can mitigate the risk of 1) and 2), but these security measures are not widely deployed on end nodes. These security measures are not sufficient to protect the Home Agent address against DoS attack, however, because a node having a legitimate security association with the DNS server could nevertheless intentionally or inadvertently cause the Home Agent address to become the target of DoS.",
+      "zh-CHS": "DNS服务器和主机之间的明确安全措施，如DNSSEC[19]或TSIG/TKEY[20][21]可以降低1）和2）的风险，但这些安全措施并未广泛部署在终端节点上。但是，这些安全措施不足以保护归属代理地址免受DoS攻击，因为与DNS服务器具有合法安全关联的节点可能会有意或无意地导致归属代理地址成为DoS攻击的目标。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, notice that the assignment of a home agent from the serving network access provider's (local home agent) or a home agent from a nearby network (nearby home agent) may set up the potential to compromise a mobile node's location privacy. A home address anchored at such a home agent contains some information about the topological location of the mobile node. Consequently, a mobile node requiring location privacy should not disclose this home address to nodes that are not authorized to learn the mobile node's location, e.g., by updating DNS with the new home address.",
+      "zh-CHS": "最后，请注意，来自服务网络接入提供商的归属代理（本地归属代理）或来自附近网络的归属代理（附近归属代理）的分配可能设置危害移动节点的位置隐私的可能性。锚定在这样的归属代理处的归属地址包含关于移动节点的拓扑位置的一些信息。因此，需要位置隐私的移动节点不应向未被授权学习移动节点位置的节点披露该归属地址，例如，通过使用新归属地址更新DNS。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations for discovering HA using DHCP are covered in [22].",
+      "zh-CHS": "[22]介绍了使用DHCP发现HA的安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Home Address Assignment through IKEv2",
+      "section_title": true,
+      "zh-CHS": "9.2. 通过IKEv2分配家庭地址"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile IPv6 bootstrapping assigns the home address through the IKEv2 transaction. The Mobile Node can either choose to request an address, similar to DHCP, or the Mobile Node can request a prefix on the home link, then auto-configure an address.",
+      "zh-CHS": "移动IPv6引导通过IKEv2事务分配家庭地址。移动节点可以选择请求类似于DHCP的地址，或者移动节点可以在主链路上请求前缀，然后自动配置地址。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3775 [1] requires that a Home Agent check authorization of a home address received during a Binding Update. Therefore, the home agent MUST authorize each home address allocation and use. This authorization is based on linking the mobile node identity used in the IKEv2 authentication process and the home address. Home agents MUST implement at least the following two modes of authorization:",
+      "zh-CHS": "RFC 3775[1]要求归属代理检查绑定更新期间收到的归属地址的授权。因此，归属代理必须授权每个归属地址的分配和使用。此授权基于将IKEv2身份验证过程中使用的移动节点标识与家庭地址链接。家庭代理必须至少实施以下两种授权模式："
+    },
+    {
+      "indent": 3,
+      "text": "o Configured home address(es) for each mobile node. In this mode, the home agent or infrastructure nodes behind it know what addresses a specific mobile node is authorized to use. The mobile node is allowed to request these addresses, or if the mobile node requests any home address, these addresses are returned to it.",
+      "zh-CHS": "o 为每个移动节点配置的家庭地址。在此模式下，归属代理或其背后的基础设施节点知道特定移动节点被授权使用的地址。允许移动节点请求这些地址，或者如果移动节点请求任何家庭地址，则将这些地址返回给它。"
+    },
+    {
+      "indent": 3,
+      "text": "o First-come-first-served (FCFS). In this mode, the home agent maintains a pool of \"used\" addresses, and allows mobile nodes to request any address, as long as it is not used by another mobile node.",
+      "zh-CHS": "o 先到先得（FCFS）。在此模式下，归属代理维护一个“已使用”地址池，并允许移动节点请求任何地址，只要该地址未被另一个移动节点使用。"
+    },
+    {
+      "indent": 3,
+      "text": "Addresses MUST be marked as used for at least as long as the binding exists, and are associated with the identity of the mobile node that made the allocation.",
+      "zh-CHS": "地址必须至少在绑定存在时标记为已使用，并与进行分配的移动节点的标识相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, the home agent MUST ensure that the requested address is not the authorized address of any other mobile node, i.e., if both FCFS and configured modes use the same address space.",
+      "zh-CHS": "此外，归属代理必须确保请求的地址不是任何其他移动节点的授权地址，即，如果FCFS和配置的模式使用相同的地址空间。"
+    },
+    {
+      "indent": 0,
+      "text": "9.3. SA Establishment Using EAP through IKEv2",
+      "section_title": true,
+      "zh-CHS": "9.3. 通过IKEv2使用EAP建立SA"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations for authentication of the IKE transaction using EAP are covered in [3] .",
+      "zh-CHS": "[3]介绍了使用EAP对IKE事务进行身份验证的安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "9.4. Backend Security between the HA and AAA Server",
+      "section_title": true,
+      "zh-CHS": "9.4. HA和AAA服务器之间的后端安全性"
+    },
+    {
+      "indent": 3,
+      "text": "Some deployments of Mobile IPv6 bootstrapping may use an AAA server to handle authorization for mobility service. This process has its own security requirements, but the backend protocol for a Home Agent to an AAA server interface is not covered in this document. Please see [16] for a discussion of this interface.",
+      "zh-CHS": "某些移动IPv6引导部署可能使用AAA服务器来处理移动服务的授权。此过程有其自身的安全性要求，但本文档中不包括归属代理到AAA服务器接口的后端协议。有关此接口的讨论，请参见[16]。"
+    },
+    {
+      "indent": 0,
+      "text": "9.5. Dynamic DNS Update",
+      "section_title": true,
+      "zh-CHS": "9.5. 动态DNS更新"
+    },
+    {
+      "indent": 3,
+      "text": "If a Home Agent performs dynamic DNS update on behalf of the Mobile Node directly with the DNS server, the Home Agent MUST have a security association of some type with the DNS server. The security association MAY be established either using DNSSEC [19] or TSIG/TKEY [20][21]. A security association is REQUIRED even if the DNS server is in the same administrative domain as the Home Agent. The security association SHOULD be separate from the security associations used for other purposes, such as AAA.",
+      "zh-CHS": "如果归属代理代表移动节点直接与DNS服务器执行动态DNS更新，则归属代理必须与DNS服务器具有某种类型的安全关联。可使用DNSSEC[19]或TSIG/TKEY[20][21]建立安全协会。即使DNS服务器与归属代理位于同一管理域中，也需要安全关联。安全关联应与用于其他目的（如AAA）的安全关联分开。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case where the Mobility Service Provider is different from the Mobility Service Authorizer, the network administrators may want to limit the number of cross-administrative domain security associations. If the Mobile Node's FQDN is in the Mobility Service Authorizer's domain, since a security association for AAA signaling involved in mobility service authorization is required in any case, the Home Agent can send the Mobile Node's FQDN to the AAA server under the HA-AAA server security association, and the AAA server can perform the update. In that case, a security association is required between the AAA server and DNS server for the dynamic DNS update. See [16] for a deeper discussion of the Home Agent to AAA server interface.",
+      "zh-CHS": "在移动服务提供者不同于移动服务授权者的情况下，网络管理员可能希望限制跨管理域安全关联的数量。如果移动节点的FQDN在移动服务授权者的域中，因为在任何情况下都需要移动服务授权中涉及的AAA信令的安全关联，所以归属代理可以将移动节点的FQDN发送到HA-AAA服务器安全关联下的AAA服务器，并且AAA服务器可以执行更新。在这种情况下，动态DNS更新需要AAA服务器和DNS服务器之间的安全关联。有关Home Agent到AAA服务器接口的更深入讨论，请参见[16]。"
+    },
+    {
+      "indent": 3,
+      "text": "Regardless of whether the AAA server or Home Agent performs DNS update, the authorization of the Mobile Node to update a FQDN MUST be checked prior to the performance of the update. It is an implementation issue as to how authorization is determined. However, in order to allow this authorization step, the Mobile Node MUST use a FQDN as the IDi in IKE_AUTH step of the IKEv2 exchange. The FQDN MUST be the same as the FQDN that will be provided by the Mobile Node in the DNS Update Option.",
+      "zh-CHS": "无论AAA服务器或归属代理是否执行DNS更新，都必须在执行更新之前检查移动节点更新FQDN的授权。如何确定授权是一个实现问题。但是，为了允许此授权步骤，移动节点必须在IKEv2交换的IKE_AUTH步骤中使用FQDN作为IDi。FQDN必须与移动节点在DNS更新选项中提供的FQDN相同。"
+    },
+    {
+      "indent": 3,
+      "text": "In case EAP over IKEv2 is used to set-up the IPsec SA, the Home Agent gets authorization information about the Mobile Node's FQDN via the AAA back end communication performed during IKEv2 exchange. The outcome of this step will give the Home Agent the necessary information to authorize the DNS update request of the Mobile Node. See [16] for details about the communication between the AAA server and the Home Agent needed to perform the authorization.",
+      "zh-CHS": "在使用IKEv2上的EAP设置IPsec SA的情况下，归属代理通过IKEv2交换期间执行的AAA后端通信获取关于移动节点的FQDN的授权信息。该步骤的结果将向归属代理提供必要的信息，以授权移动节点的DNS更新请求。有关AAA服务器和执行授权所需的归属代理之间的通信的详细信息，请参见[16]。"
+    },
+    {
+      "indent": 3,
+      "text": "In case certificates are used in IKEv2, the authorization information about the FQDN for DNS update MUST be present in the certificate provided by the Mobile Node. Since the IKEv2 specification does not include a required certificate type, it is not possible to specify precisely how the Mobile Node's FQDN should appear in the",
+      "zh-CHS": "在IKEv2中使用证书的情况下，有关DNS更新的FQDN的授权信息必须存在于移动节点提供的证书中。由于IKEv2规范不包括所需的证书类型，因此无法精确指定移动节点的FQDN在证书中的显示方式"
+    },
+    {
+      "indent": 3,
+      "text": "certificate. However, as an example, if the certificate type is \"X.509 Certificate - Signature\" (one of the recommended types), then the FQDN may appear in the subjectAltName attribute extension [23].",
+      "zh-CHS": "证明书但是，例如，如果证书类型为“X.509 certificate-Signature”（推荐的类型之一），则FQDN可能出现在subjectAltName属性扩展中[23]。"
+    },
+    {
+      "indent": 0,
+      "text": "10. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "10. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new Mobility Option and a new IKEv2 Configuration Attribute Type.",
+      "zh-CHS": "本文档定义了一个新的移动性选项和一个新的IKEv2配置属性类型。"
+    },
+    {
+      "indent": 3,
+      "text": "The following values have been assigned:",
+      "zh-CHS": "已指定以下值："
+    },
+    {
+      "indent": 3,
+      "text": "o from the \"Mobility Option\" namespace ([1]): DNS-UPDATE-TYPE, 17 (Section 8.1)",
+      "zh-CHS": "o 来自“移动选项”命名空间（[1]）：DNS-UPDATE-TYPE，17（第8.1节）"
+    },
+    {
+      "indent": 3,
+      "text": "o from the \"IKEv2 Configuration Payload Attribute Types\" namespace ([5]): MIP6_HOME_PREFIX attribute, 16 (Section 8.2)",
+      "zh-CHS": "o 来自“IKEv2配置有效负载属性类型”命名空间（[5]）：MIP6_HOME_前缀属性，16（第8.2节）"
+    },
+    {
+      "indent": 3,
+      "text": "o from the \"IKEv2 Notify Payload Error Types\" namespace ([5]): USE_ASSIGNED_HoA error type, 42 (Section 5.3.2)",
+      "zh-CHS": "o 从“IKEv2通知有效负载错误类型”命名空间（[5]）：使用指定的错误类型42（第5.3.2节）"
+    },
+    {
+      "indent": 3,
+      "text": "This document creates a new name space \"Status Codes (DNS Update Mobility Option)\" for the status field in the DNS Update mobility option. The current values are described in Section 8.1 and are listed below.",
+      "zh-CHS": "本文档为DNS更新移动选项中的状态字段创建一个新的名称空间“状态代码（DNS更新移动选项）”。电流值在第8.1节中描述，如下所示。"
+    },
+    {
+      "indent": 8,
+      "text": "0 DNS update performed",
+      "zh-CHS": "已执行0个DNS更新"
+    },
+    {
+      "indent": 6,
+      "text": "128 Reason unspecified",
+      "zh-CHS": "128原因未明"
+    },
+    {
+      "indent": 6,
+      "text": "129 Administratively prohibited",
+      "zh-CHS": "129行政禁止"
+    },
+    {
+      "indent": 6,
+      "text": "130 DNS update failed",
+      "zh-CHS": "130 DNS更新失败"
+    },
+    {
+      "indent": 3,
+      "text": "Future values of the Status field in the DNS Update mobility option can be allocated using Standards Action or IESG approval.",
+      "zh-CHS": "DNS更新移动选项中状态字段的未来值可以使用标准操作或IESG批准进行分配。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Contributors",
+      "section_title": true,
+      "zh-CHS": "11. 贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "This contribution is a joint effort of the bootstrapping solution design team of the MIP6 WG. The contributors include Basavaraj Patil, Alpesh Patel, Jari Arkko, James Kempf, Yoshihiro Ohba, Gopal Dommety, Alper Yegin, Junghoon Jee, Vijay Devarapalli, Kuntal Chowdury, and Julien Bournelle.",
+      "zh-CHS": "这一贡献是MIP6工作组引导解决方案设计团队的共同努力。贡献者包括巴萨瓦拉吉·帕蒂尔、阿尔佩什·帕特尔、贾里·阿尔科、詹姆斯·肯普夫、大叶吉弘、戈帕尔·多梅蒂、阿尔珀·叶金、郑勋吉、维杰·德瓦拉帕利、昆塔尔·乔杜里和朱利安·博内尔。"
+    },
+    {
+      "indent": 3,
+      "text": "The design team members can be reached at:",
+      "zh-CHS": "可通过以下方式联系设计团队成员："
+    },
+    {
+      "indent": 6,
+      "text": "Gerardo Giaretta, gerardog@qualcomm.com",
+      "zh-CHS": "杰拉尔多·贾雷塔，gerardog@qualcomm.com"
+    },
+    {
+      "indent": 6,
+      "text": "Basavaraj Patil, basavaraj.patil@nokia.com",
+      "zh-CHS": "巴萨瓦拉吉，巴萨瓦拉吉。patil@nokia.com"
+    },
+    {
+      "indent": 6,
+      "text": "Alpesh Patel, alpesh@cisco.com",
+      "zh-CHS": "阿尔皮什·帕特尔，alpesh@cisco.com"
+    },
+    {
+      "indent": 6,
+      "text": "Jari Arkko, jari.arkko@kolumbus.fi",
+      "zh-CHS": "雅丽，雅丽。arkko@kolumbus.fi"
+    },
+    {
+      "indent": 6,
+      "text": "James Kempf, kempf@docomolabs-usa.com",
+      "zh-CHS": "詹姆斯·坎普夫，kempf@docomolabs-美国网"
+    },
+    {
+      "indent": 6,
+      "text": "Yoshihiro Ohba, yohba@tari.toshiba.com",
+      "zh-CHS": "大叶吉弘,，yohba@tari.toshiba.com"
+    },
+    {
+      "indent": 6,
+      "text": "Gopal Dommety, gdommety@cisco.com",
+      "zh-CHS": "戈帕尔·多梅蒂，gdommety@cisco.com"
+    },
+    {
+      "indent": 6,
+      "text": "Alper Yegin, alper.yegin@samsung.com",
+      "zh-CHS": "阿尔帕·耶金，阿尔帕。yegin@samsung.com"
+    },
+    {
+      "indent": 6,
+      "text": "Vijay Devarapalli, vijay.devarapalli@azairenet.com",
+      "zh-CHS": "维杰·德瓦拉帕利，维杰。devarapalli@azairenet.com"
+    },
+    {
+      "indent": 6,
+      "text": "Kuntal Chowdury, kchowdury@starentnetworks.com",
+      "zh-CHS": "昆塔·乔杜里，kchowdury@starentnetworks.com"
+    },
+    {
+      "indent": 6,
+      "text": "Junghoon Jee, jhjee@etri.re.kr",
+      "zh-CHS": "郑勋吉，jhjee@etri.re.kr"
+    },
+    {
+      "indent": 6,
+      "text": "Julien Bournelle, julien.bournelle@gmail.com",
+      "zh-CHS": "朱利安·博内尔，朱利安。bournelle@gmail.com"
+    },
+    {
+      "indent": 0,
+      "text": "12. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "12. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Rafa Lopez, Francis Dupont, Jari Arkko, Kilian Weniger, Vidya Narayanan, Ryuji Wakikawa, and Michael Ye for their valuable comments.",
+      "zh-CHS": "作者要感谢拉法·洛佩兹、弗朗西斯·杜邦、贾里·阿尔科、基里安·韦尼格尔、维迪亚·纳拉亚南、若川龙治和迈克尔·叶的宝贵评论。"
+    },
+    {
+      "indent": 0,
+      "text": "13. References",
+      "section_title": true,
+      "zh-CHS": "13. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "13.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Johnson, D., Perkins, C., and J. Arkko, \"Mobility Support in IPv6\", RFC 3775, June 2004.",
+      "zh-CHS": "[1] Johnson，D.，Perkins，C.，和J.Arkko，“IPv6中的移动支持”，RFC 37752004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[2] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Devarapalli, V. and F. Dupont, \"Mobile IPv6 Operation with IKEv2 and the Revised IPsec Architecture\", RFC 4877, April 2007.",
+      "zh-CHS": "[3] Devarapalli，V.和F.Dupont，“使用IKEv2的移动IPv6操作和修订的IPsec架构”，RFC 4877，2007年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Gulbrandsen, A., Vixie, P., and L. Esibov, \"A DNS RR for specifying the location of services (DNS SRV)\", RFC 2782, February 2000.",
+      "zh-CHS": "[4] Gulbrandsen，A.，Vixie，P.和L.Esibov，“用于指定服务位置（DNS SRV）的DNS RR”，RFC 2782，2000年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Kaufman, C., \"Internet Key Exchange (IKEv2) Protocol\", RFC 4306, December 2005.",
+      "zh-CHS": "[5] Kaufman，C.，“因特网密钥交换（IKEv2）协议”，RFC 4306，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Vixie, P., Thomson, S., Rekhter, Y., and J. Bound, \"Dynamic Updates in the Domain Name System (DNS UPDATE)\", RFC 2136, April 1997.",
+      "zh-CHS": "[6] Vixie，P.，Thomson，S.，Rekhter，Y.，和J.Bound，“域名系统中的动态更新（DNS更新）”，RFC 21361997年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "13.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Patel, A. and G. Giaretta, \"Problem Statement for bootstrapping Mobile IPv6 (MIPv6)\", RFC 4640, September 2006.",
+      "zh-CHS": "[7] Patel，A.和G.Giaretta，“引导移动IPv6（MIPv6）的问题陈述”，RFC4640，2006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Manner, J. and M. Kojo, \"Mobility Related Terminology\", RFC 3753, June 2004.",
+      "zh-CHS": "[8] Way，J.和M.Kojo，“机动性相关术语”，RFC 3753，2004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Adams, C., Farrell, S., Kause, T., and T. Mononen, \"Internet X.509 Public Key Infrastructure Certificate Management Protocol (CMP)\", RFC 4210, September 2005.",
+      "zh-CHS": "[9] Adams，C.，Farrell，S.，Kause，T.，和T.Mononen，“互联网X.509公钥基础设施证书管理协议（CMP）”，RFC 42102005年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Korver, B., \"The Internet IP Security PKI Profile of IKEv1/ISAKMP, IKEv2, and PKIX\", RFC 4945, August 2007.",
+      "zh-CHS": "[10] Korver，B.，“IKEv1/ISAKMP、IKEv2和PKIX的互联网IP安全PKI配置文件”，RFC 49452007年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Narten, T., Nordmark, E., Simpson, W., and H. Soliman, \"Neighbor Discovery for IP version 6 (IPv6)\", RFC 4861, September 2007.",
+      "zh-CHS": "[11] Narten，T.，Nordmark，E.，Simpson，W.，和H.Soliman，“IP版本6（IPv6）的邻居发现”，RFC 48612007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Aura, T., \"Cryptographically Generated Addresses (CGA)\", RFC 3972, March 2005.",
+      "zh-CHS": "[12] Aura，T.，“加密生成地址（CGA）”，RFC 39722005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Narten, T., Draves, R., and S. Krishnan, \"Privacy Extensions for Stateless Address Autoconfiguration in IPv6\", RFC 4941, September 2007.",
+      "zh-CHS": "[13] Narten，T.，Draves，R.，和S.Krishnan，“IPv6中无状态地址自动配置的隐私扩展”，RFC 49412007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Droms, R., \"DNS Configuration options for Dynamic Host Configuration Protocol for IPv6 (DHCPv6)\", RFC 3646, December 2003.",
+      "zh-CHS": "[14] Droms，R.，“IPv6动态主机配置协议（DHCPv6）的DNS配置选项”，RFC 3646，2003年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[15] Chowdhury, K. and A. Yegin, \"MIP6-bootstrapping for the Integrated Scenario\", Work in Progress, June 2007.",
+      "zh-CHS": "[15] Chowdhury，K.和A.Yegin，“集成场景的MIP6引导”，正在进行的工作，2007年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[16] Giaretta, G., \"AAA Goals for Mobile IPv6\", Work in Progress, September 2006.",
+      "zh-CHS": "[16] Giaretta，G.，“移动IPv6的AAA目标”，进展中的工作，2006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[17] Chowdhury, K., \"RADIUS Mobile IPv6 Support\", Work in Progress, March 2007.",
+      "zh-CHS": "[17] Chowdhury，K.，“RADIUS移动IPv6支持”，正在进行的工作，2007年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[18] Bournelle, J., \"Diameter Mobile IPv6: HA <-> HAAA Support\", Work in Progress, May 2007.",
+      "zh-CHS": "[18] Bournelle，J.，“Diameter移动IPv6:HA<->HAAA支持”，正在进行的工作，2007年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[19] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, March 2005.",
+      "zh-CHS": "[19] Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[20] Vixie, P., Gudmundsson, O., Eastlake, D., and B. Wellington, \"Secret Key Transaction Authentication for DNS (TSIG)\", RFC 2845, May 2000.",
+      "zh-CHS": "[20] Vixie，P.，Gudmundsson，O.，Eastlake，D.，和B.Wellington，“DNS的密钥交易认证（TSIG）”，RFC 28452000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[21] Eastlake, D., \"Secret Key Establishment for DNS (TKEY RR)\", RFC 2930, September 2000.",
+      "zh-CHS": "[21] 伊斯特莱克，D.，“DNS密钥建立（TKEY RR）”，RFC 2930，2000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[22] Jang, H., \"DHCP Option for Home Information Discovery in MIPv6\", Work in Progress, June 2007.",
+      "zh-CHS": "[22] Jang，H.，“MIPv6中家庭信息发现的DHCP选项”，正在进行的工作，2007年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[23] Housley, R., Polk, W., Ford, W., and D. Solo, \"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile\", RFC 3280, April 2002.",
+      "zh-CHS": "[23] Housley，R.，Polk，W.，Ford，W.，和D.Solo，“Internet X.509公钥基础设施证书和证书撤销列表（CRL）配置文件”，RFC 32802002年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Gerardo Giaretta Qualcomm",
+      "zh-CHS": "Gerardo Giaretta高通公司"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: gerardog@qualcomm.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "James Kempf DoCoMo Labs USA 181 Metro Drive San Jose, CA 95110 USA",
+      "zh-CHS": "詹姆斯·肯普夫·多科莫实验室美国加利福尼亚州圣何塞市地铁路181号，邮编95110"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: kempf@docomolabs-usa.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Vijay Devarapalli Azaire Networks 3121 Jay Street Santa Clara, CA 95054 USA",
+      "zh-CHS": "Vijay Devarapalli Azaire Networks美国加利福尼亚州圣克拉拉市杰街3121号，邮编95054"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: vijay.devarapalli@azairenet.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

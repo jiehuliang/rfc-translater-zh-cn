@@ -1,0 +1,535 @@
+{
+  "title": {
+    "text": "RFC 6811: BGP Prefix Origin Validation",
+    "zh-CHS": "RFC 6811"
+  },
+  "number": 6811,
+  "created_at": "2021-11-22 01:25:59.343798+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                      P. Mohapatra\nRequest for Comments: 6811                                 Cisco Systems\nCategory: Standards Track                                     J. Scudder\nISSN: 2070-1721                                         Juniper Networks\n                                                                 D. Ward\n                                                           Cisco Systems\n                                                                 R. Bush\n                                               Internet Initiative Japan\n                                                              R. Austein\n                                                    Dragon Research Labs\n                                                            January 2013",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 22,
+      "text": "BGP Prefix Origin Validation",
+      "zh-CHS": "BGP前缀源验证"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "To help reduce well-known threats against BGP including prefix mis-announcing and monkey-in-the-middle attacks, one of the security requirements is the ability to validate the origination Autonomous System (AS) of BGP routes. More specifically, one needs to validate that the AS number claiming to originate an address prefix (as derived from the AS_PATH attribute of the BGP route) is in fact authorized by the prefix holder to do so. This document describes a simple validation mechanism to partially satisfy this requirement.",
+      "zh-CHS": "为了帮助减少针对BGP的众所周知的威胁，包括前缀错误宣布和中间猴子攻击，安全要求之一是能够验证BGP路由的发起自治系统（AS）。更具体地说，需要验证声称发起地址前缀的AS号码（源自BGP路由的AS_PATH属性）实际上是由前缀持有者授权的。本文档描述了一种简单的验证机制，以部分满足此要求。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6811.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6811."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2013 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2013 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 2\n  1.1.  Requirements Language . . . . . . . . . . . . . . . . . . . 4\n2.  Prefix-to-AS Mapping Database . . . . . . . . . . . . . . . . . 4\n  2.1.  Pseudo-Code . . . . . . . . . . . . . . . . . . . . . . . . 6\n3.  Policy Control  . . . . . . . . . . . . . . . . . . . . . . . . 6\n4.  Interaction with Local Cache  . . . . . . . . . . . . . . . . . 7\n5.  Deployment Considerations . . . . . . . . . . . . . . . . . . . 7\n6.  Security Considerations . . . . . . . . . . . . . . . . . . . . 7\n7.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . 8\n8.  References  . . . . . . . . . . . . . . . . . . . . . . . . . . 8\n  8.1.  Normative References  . . . . . . . . . . . . . . . . . . . 8\n  8.2.  Informational References  . . . . . . . . . . . . . . . . . 9",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "A BGP route associates an address prefix with a set of Autonomous Systems (ASes) that identify the interdomain path the prefix has traversed in the form of BGP announcements. This set is represented as the AS_PATH attribute in BGP [RFC4271] and starts with the AS that originated the prefix. To help reduce well-known threats against BGP including prefix mis-announcing and monkey-in-the-middle attacks, one of the security requirements is the ability to validate the origination AS of BGP routes. More specifically, one needs to validate that the AS number claiming to originate an address prefix (as derived from the AS_PATH attribute of the BGP route) is in fact authorized by the prefix holder to do so. This document describes a simple validation mechanism to partially satisfy this requirement.",
+      "zh-CHS": "BGP路由将地址前缀与一组自治系统（ASE）相关联，ASE以BGP公告的形式标识前缀所经过的域间路径。该集合在BGP[RFC4271]中表示为as_PATH属性，并以产生前缀的as开头。为了帮助减少针对BGP的众所周知的威胁，包括前缀错误宣布和中间猴子攻击，安全要求之一是能够验证BGP路由的发起。更具体地说，需要验证声称发起地址前缀的AS号码（源自BGP路由的AS_PATH属性）实际上是由前缀持有者授权的。本文档描述了一种简单的验证机制，以部分满足此要求。"
+    },
+    {
+      "indent": 3,
+      "text": "The Resource Public Key Infrastructure (RPKI) describes an approach to build a formally verifiable database of IP addresses and AS numbers as resources. The overall architecture of RPKI as defined in [RFC6480] consists of three main components:",
+      "zh-CHS": "资源公钥基础设施（RPKI）描述了一种构建IP地址和资源数量的正式可验证数据库的方法。[RFC6480]中定义的RPKI总体架构包括三个主要组件："
+    },
+    {
+      "indent": 3,
+      "text": "o a public key infrastructure (PKI) with the necessary certificate objects,",
+      "zh-CHS": "o 具有必要证书对象的公钥基础设施（PKI），"
+    },
+    {
+      "indent": 3,
+      "text": "o digitally signed routing objects, and",
+      "zh-CHS": "o 数字签名路由对象，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o a distributed repository system to hold the objects that would also support periodic retrieval.",
+      "zh-CHS": "o 一个分布式存储库系统，用于保存还支持定期检索的对象。"
+    },
+    {
+      "indent": 3,
+      "text": "The RPKI system is based on resource certificates that define extensions to X.509 to represent IP addresses and AS identifiers [RFC3779], thus the name RPKI. Route Origin Authorizations (ROAs) [RFC6482] are separate digitally signed objects that define associations between ASes and IP address blocks. Finally, the repository system is operated in a distributed fashion through the IANA, Regional Internet Registry (RIR) hierarchy, and ISPs.",
+      "zh-CHS": "RPKI系统基于资源证书，该证书定义了X.509的扩展，以表示IP地址和标识符[RFC3779]，因此命名为RPKI。路由源授权（ROA）[RFC6482]是单独的数字签名对象，用于定义ASE和IP地址块之间的关联。最后，存储库系统通过IANA、区域互联网注册（RIR）层次结构和ISP以分布式方式运行。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to benefit from the RPKI system, it is envisioned that relying parties at either the AS or organization level obtain a local copy of the signed object collection, verify the signatures, and process them. The cache must also be refreshed periodically. The exact access mechanism used to retrieve the local cache is beyond the scope of this document.",
+      "zh-CHS": "为了从RPKI系统中获益，设想AS或组织级别的依赖方获得签名对象集合的本地副本，验证签名，并对其进行处理。缓存也必须定期刷新。用于检索本地缓存的确切访问机制超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Individual BGP speakers can utilize the processed data contained in the local cache to validate BGP announcements. The protocol details to retrieve the processed data from the local cache to the BGP speakers is beyond the scope of this document (refer to [RFC6810] for such a mechanism). This document proposes a means by which a BGP speaker can make use of the processed data in order to assign a \"validation state\" to each prefix in a received BGP UPDATE message.",
+      "zh-CHS": "单个BGP扬声器可以利用本地缓存中包含的已处理数据来验证BGP公告。从本地缓存向BGP扬声器检索已处理数据的协议细节超出了本文档的范围（有关此类机制，请参阅[RFC6810]）。本文件提出了一种方法，通过该方法，BGP演讲者可以利用处理后的数据，为接收到的BGP更新消息中的每个前缀分配“验证状态”。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the complete path attestation against the AS_PATH attribute of a route is outside the scope of this document.",
+      "zh-CHS": "请注意，针对路由的AS_path属性的完整路径证明超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Like the DNS, the global RPKI presents only a loosely consistent view, depending on timing, updating, fetching, etc. Thus, one cache or router may have different data about a particular prefix than another cache or router. There is no 'fix' for this; it is the nature of distributed data with distributed caches.",
+      "zh-CHS": "与DNS一样，全局RPKI仅呈现松散一致的视图，这取决于定时、更新、获取等。因此，一个缓存或路由器可能与另一个缓存或路由器具有不同的关于特定前缀的数据。这个问题没有“解决方案”；这是具有分布式缓存的分布式数据的本质。"
+    },
+    {
+      "indent": 3,
+      "text": "Although RPKI provides the context for this document, it is equally possible to use any other database that is able to map prefixes to their authorized origin ASes. Each distinct database will have its",
+      "zh-CHS": "尽管RPKI为本文档提供了上下文，但同样可以使用能够将前缀映射到其授权来源的任何其他数据库。每个不同的数据库都有自己的"
+    },
+    {
+      "indent": 3,
+      "text": "own particular operational and security characteristics; such characteristics are beyond the scope of this document.",
+      "zh-CHS": "具有特定的操作和安全特性；这些特征超出了本文件的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Requirements Language",
+      "section_title": true,
+      "zh-CHS": "1.1. 需求语言"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" are to be interpreted as described in RFC 2119 [RFC2119] only when they appear in all upper case. They may also appear in lower or mixed case as English words, without special meaning.",
+      "zh-CHS": "关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”仅当出现在所有大写字母中时，才应按照RFC 2119[RFC2119]中所述进行解释。它们也可能出现在小写或混用英语单词中，没有特殊意义。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Prefix-to-AS Mapping Database",
+      "section_title": true,
+      "zh-CHS": "2. 作为映射数据库的前缀"
+    },
+    {
+      "indent": 3,
+      "text": "The BGP speaker loads validated objects from the cache into local storage. The objects loaded have the content (IP address, prefix length, maximum length, origin AS number). We refer to such a locally stored object as a \"Validated ROA Payload\" or \"VRP\".",
+      "zh-CHS": "BGP扬声器将已验证的对象从缓存加载到本地存储中。加载的对象具有内容（IP地址、前缀长度、最大长度、原点为数字）。我们将这种本地存储的对象称为“已验证的ROA有效载荷”或“VRP”。"
+    },
+    {
+      "indent": 3,
+      "text": "We define several terms in addition to \"VRP\". Where these terms are used, they are capitalized:",
+      "zh-CHS": "除了“VRP”之外，我们还定义了几个术语。使用这些术语时，应大写："
+    },
+    {
+      "indent": 3,
+      "text": "o Prefix: (IP address, prefix length), interpreted as is customary (see [RFC4632]).",
+      "zh-CHS": "o 前缀：（IP地址，前缀长度），按惯例解释（参见[RFC4632]）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Route: Data derived from a received BGP UPDATE, as defined in [RFC4271], Section 1.1. The Route includes one Prefix and an AS_PATH; it may include other attributes to characterize the prefix.",
+      "zh-CHS": "o 路由：根据[RFC4271]第1.1节的定义，从接收到的BGP更新中获得的数据。路由包括一个前缀和一个AS_路径；它可以包括其他属性来表征前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "o VRP Prefix: The Prefix from a VRP.",
+      "zh-CHS": "o VRP前缀：来自VRP的前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "o VRP ASN: The origin AS number from a VRP.",
+      "zh-CHS": "o VRP ASN：来源于VRP的AS编号。"
+    },
+    {
+      "indent": 3,
+      "text": "o Route Prefix: The Prefix derived from a route.",
+      "zh-CHS": "o 路由前缀：从路由派生的前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "o Route Origin ASN: The origin AS number derived from a Route as follows:",
+      "zh-CHS": "o Route Origin ASN：从以下路线派生的Origin AS编号："
+    },
+    {
+      "indent": 6,
+      "text": "* the rightmost AS in the final segment of the AS_PATH attribute in the Route if that segment is of type AS_SEQUENCE, or",
+      "zh-CHS": "* 路线中AS_路径属性的最后一段中最右边的AS，如果该段类型为AS_序列，或"
+    },
+    {
+      "indent": 6,
+      "text": "* the BGP speaker's own AS number if that segment is of type AS_CONFED_SEQUENCE or AS_CONFED_SET or if the AS_PATH is empty, or",
+      "zh-CHS": "* BGP扬声器自己的AS编号，如果该段属于AS_-CONFED_序列或AS_-CONFED_集类型，或者AS_路径为空，或者"
+    },
+    {
+      "indent": 6,
+      "text": "* the distinguished value \"NONE\" if the final segment of the AS_PATH attribute is of any other type.",
+      "zh-CHS": "* 如果AS_路径属性的最后一段为任何其他类型，则可分辨值为“无”。"
+    },
+    {
+      "indent": 3,
+      "text": "o Covered: A Route Prefix is said to be Covered by a VRP when the VRP prefix length is less than or equal to the Route prefix length, and the VRP prefix address and the Route prefix address are identical for all bits specified by the VRP prefix length. (That is, the Route prefix is either identical to the VRP prefix or more specific than the VRP prefix.)",
+      "zh-CHS": "o 覆盖：当VRP前缀长度小于或等于路由前缀长度，且VRP前缀地址和路由前缀地址对于VRP前缀长度指定的所有位都相同时，称路由前缀被VRP覆盖。（即，路由前缀与VRP前缀相同或比VRP前缀更具体。）"
+    },
+    {
+      "indent": 3,
+      "text": "o Matched: A Route Prefix is said to be Matched by a VRP when the Route Prefix is Covered by that VRP, the Route prefix length is less than or equal to the VRP maximum length, and the Route Origin ASN is equal to the VRP ASN.",
+      "zh-CHS": "o 匹配：当路由前缀被VRP覆盖，路由前缀长度小于或等于VRP最大长度，且路由起始ASN等于VRP ASN时，称路由前缀与VRP匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "Given these definitions, any given BGP Route will be found to have one of the following validation states:",
+      "zh-CHS": "根据这些定义，将发现任何给定的BGP路由具有以下验证状态之一："
+    },
+    {
+      "indent": 3,
+      "text": "o NotFound: No VRP Covers the Route Prefix.",
+      "zh-CHS": "o 未找到：没有VRP覆盖路由前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "o Valid: At least one VRP Matches the Route Prefix.",
+      "zh-CHS": "o 有效：至少有一个VRP与路由前缀匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o Invalid: At least one VRP Covers the Route Prefix, but no VRP Matches it.",
+      "zh-CHS": "o 无效：至少有一个VRP覆盖路由前缀，但没有与之匹配的VRP。"
+    },
+    {
+      "indent": 3,
+      "text": "We observe that no VRP can have the value \"NONE\" as its VRP ASN. Thus, a Route whose Origin ASN is \"NONE\" cannot be Matched by any VRP. Similarly, no valid Route can have an Origin ASN of zero [AS0]. Thus, no Route can be Matched by a VRP whose ASN is zero.",
+      "zh-CHS": "我们观察到，任何VRP都不能将值“NONE”作为其VRP ASN。因此，起始ASN为“无”的路线不能与任何VRP匹配。类似地，任何有效路由的原点ASN都不能为零[AS0]。因此，ASN为零的VRP无法匹配任何路线。"
+    },
+    {
+      "indent": 3,
+      "text": "When a BGP speaker receives an UPDATE from a neighbor, it SHOULD perform a lookup as described above for each of the Routes in the UPDATE message. The lookup SHOULD also be applied to routes that are redistributed into BGP from another source, such as another protocol or a locally defined static route. An implementation MAY provide configuration options to control which routes the lookup is applied to. The validation state of the Route MUST be set to reflect the result of the lookup. The implementation should consider the validation state as described in the document as a local property or attribute of the Route. If validation is not performed on a Route, the implementation SHOULD initialize the validation state of such a route to \"NotFound\".",
+      "zh-CHS": "当BGP扬声器接收到来自邻居的更新时，它应该对更新消息中的每个路由执行如上所述的查找。查找还应应用于从另一个源（如另一个协议或本地定义的静态路由）重新分发到BGP中的路由。实现可以提供配置选项来控制应用查找的路由。必须设置路由的验证状态以反映查找结果。实现应将文档中描述的验证状态视为路由的本地属性或属性。如果未对路由执行验证，则实现应将此类路由的验证状态初始化为“NotFound”。"
+    },
+    {
+      "indent": 3,
+      "text": "Use of the validation state is discussed in Sections 3 and 5. An implementation MUST NOT exclude a route from the Adj-RIB-In or from consideration in the decision process as a side effect of its validation state, unless explicitly configured to do so.",
+      "zh-CHS": "第3节和第5节讨论了验证状态的使用。实施不得将Adj RIB中的路线作为其验证状态的副作用排除在决策过程的考虑之外，除非明确配置为这样做。"
+    },
+    {
+      "indent": 3,
+      "text": "We observe that a Route can be Matched or Covered by more than one VRP. This procedure does not mandate an order in which VRPs must be visited; however, the validation state output is fully determined.",
+      "zh-CHS": "我们观察到，一条路线可以由多个VRP匹配或覆盖。本程序不强制规定必须访问VRP的顺序；但是，验证状态输出是完全确定的。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Pseudo-Code",
+      "section_title": true,
+      "zh-CHS": "2.1. 伪码"
+    },
+    {
+      "indent": 3,
+      "text": "The following pseudo-code illustrates the procedure above. In case of ambiguity, the procedure above, rather than the pseudo-code, should be taken as authoritative.",
+      "zh-CHS": "下面的伪代码说明了上述过程。如果存在歧义，应将上述过程而不是伪代码视为权威。"
+    },
+    {
+      "indent": 3,
+      "text": "result = BGP_PFXV_STATE_NOT_FOUND;",
+      "zh-CHS": "结果=未找到BGP_PFXV_状态；"
+    },
+    {
+      "indent": 3,
+      "text": "//Iterate through all the Covering entries in the local VRP\n//database, pfx_validate_table.\nentry = next_lookup_result(pfx_validate_table, route_prefix);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "while (entry != NULL) {\n  prefix_exists = TRUE;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "  if (route_prefix_length <= entry->max_length) {\n    if (route_origin_as != NONE\n        && entry->origin_as != 0\n        && route_origin_as == entry->origin_as) {\n      result = BGP_PFXV_STATE_VALID;\n      return (result);\n    }\n  }\n  entry = next_lookup_result(pfx_validate_table, input.prefix);\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "//If one or more VRP entries Covered the route prefix, but\n//none Matched, return \"Invalid\" validation state.\nif (prefix_exists == TRUE) {\n  result = BGP_PFXV_STATE_INVALID;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "return (result);",
+      "zh-CHS": "返回（结果）；"
+    },
+    {
+      "indent": 0,
+      "text": "3. Policy Control",
+      "section_title": true,
+      "zh-CHS": "3. 策略控制"
+    },
+    {
+      "indent": 3,
+      "text": "An implementation MUST provide the ability to match and set the validation state of routes as part of its route policy filtering function. Use of validation state in route policy is elaborated in Section 5. For more details on operational policy considerations, see [ORIGIN-OPS].",
+      "zh-CHS": "作为路由策略筛选功能的一部分，实现必须提供匹配和设置路由验证状态的能力。第5节详细说明了在路由策略中使用验证状态。有关操作策略注意事项的更多详细信息，请参阅[ORIGIN-OPS]。"
+    },
+    {
+      "indent": 3,
+      "text": "An implementation MUST also support four-octet AS numbers [RFC6793].",
+      "zh-CHS": "实现还必须支持四个八位字节作为数字[RFC6793]。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Interaction with Local Cache",
+      "section_title": true,
+      "zh-CHS": "4. 与本地缓存的交互"
+    },
+    {
+      "indent": 3,
+      "text": "Each BGP speaker supporting prefix validation as described in this document is expected to communicate with one or more RPKI caches, each of which stores a local copy of the global RPKI database. The protocol mechanisms used to gather and validate these data and present them to BGP speakers are described in [RFC6810].",
+      "zh-CHS": "如本文档所述，支持前缀验证的每个BGP扬声器应与一个或多个RPKI缓存通信，每个RPKI缓存存储全局RPKI数据库的本地副本。[RFC6810]中描述了用于收集和验证这些数据并将其呈现给BGP扬声器的协议机制。"
+    },
+    {
+      "indent": 3,
+      "text": "The prefix-to-AS mappings used by the BGP speaker are expected to be updated over time. When a mapping is added or deleted, the implementation MUST re-validate any affected prefixes and run the BGP decision process if needed. An \"affected prefix\" is any prefix that was matched by a deleted or updated mapping, or could be matched by an added or updated mapping.",
+      "zh-CHS": "BGP演讲者使用的AS映射前缀预计会随着时间的推移而更新。添加或删除映射时，实现必须重新验证任何受影响的前缀，并在需要时运行BGP决策过程。“受影响的前缀”是由删除或更新的映射匹配的任何前缀，或者可以由添加或更新的映射匹配的任何前缀。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Deployment Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 部署注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "Once a Route is selected for validation, it is categorized according the procedure given in Section 2. Subsequently, routing policy as discussed in Section 3 can be used to take action based on the validation state.",
+      "zh-CHS": "一旦选择路线进行验证，则根据第2节中给出的程序对其进行分类。随后，可以使用第3节中讨论的路由策略根据验证状态采取操作。"
+    },
+    {
+      "indent": 3,
+      "text": "Policies that could be implemented include filtering routes based on validation state (for example, rejecting all \"invalid\" routes) or adjusting a route's degree of preference in the selection algorithm based on its validation state. The latter could be accomplished by adjusting the value of such attributes as LOCAL_PREF. Considering invalid routes for BGP decision process is a purely local policy matter and should be done with utmost care.",
+      "zh-CHS": "可以实现的策略包括基于验证状态过滤路由（例如，拒绝所有“无效”路由）或基于其验证状态在选择算法中调整路由的偏好程度。后者可以通过调整诸如LOCAL_PREF等属性的值来实现。考虑BGP决策过程中的无效路由纯粹是一个本地策略问题，应该非常小心。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases (particularly when the selection algorithm is influenced by the adjustment of a route property that is not propagated into Internal BGP (IBGP)) it could be necessary for routing correctness to propagate the validation state to the IBGP peer. This can be accomplished on the sending side by setting a community or extended community based on the validation state, and on the receiving side by matching the (extended) community and setting the validation state.",
+      "zh-CHS": "在某些情况下（特别是当选择算法受到未传播到内部BGP（IBGP）的路由属性调整的影响时），路由正确性可能需要将验证状态传播到IBGP对等方。这可以在发送端通过基于验证状态设置社区或扩展社区来实现，在接收端通过匹配（扩展）社区并设置验证状态来实现。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Although this specification discusses one portion of a system to validate BGP routes, it should be noted that it relies on a database (RPKI or other) to provide validation information. As such, the security properties of that database must be considered in order to determine the security provided by the overall solution. If \"invalid\" routes are blocked as this specification suggests, the overall system provides a possible denial-of-service vector; for",
+      "zh-CHS": "尽管本规范讨论了验证BGP路由的系统的一部分，但应注意的是，它依赖于数据库（RPKI或其他）来提供验证信息。因此，必须考虑该数据库的安全属性，以确定总体解决方案提供的安全性。如果按照本规范的建议阻止了“无效”路由，则整个系统将提供一个可能的拒绝服务向量；对于"
+    },
+    {
+      "indent": 3,
+      "text": "example, if an attacker is able to inject (or remove) one or more records into (or from) the validation database, it could lead an otherwise valid route to be marked as invalid.",
+      "zh-CHS": "例如，如果攻击者能够将一条或多条记录注入（或删除）验证数据库（或从中删除），则可能导致将其他有效路由标记为无效。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, this system is only able to provide limited protection against a determined attacker -- the attacker need only prepend the \"valid\" source AS to a forged BGP route announcement in order to defeat the protection provided by this system.",
+      "zh-CHS": "此外，该系统只能针对已确定的攻击者提供有限的保护——攻击者只需预先提供伪造BGP路由公告的“有效”来源，即可击败该系统提供的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "This mechanism does not protect against \"AS-in-the-middle attacks\" or provide any path validation. It only attempts to verify the origin. In general, this system should be thought of more as a protection against misconfiguration than as true \"security\" in the strong sense.",
+      "zh-CHS": "此机制不能防止“中间攻击”或提供任何路径验证。它只尝试验证来源。一般来说，这个系统应该更多地被认为是一种防止错误配置的保护，而不是真正意义上的“安全”。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to thank Rex Fernando, Hannes Gredler, Mouhcine Guennoun, Russ Housley, Junaid Israr, Miya Kohno, Shin Miyakawa, Taka Mizuguchi, Hussein Mouftah, Keyur Patel, Tomoya Yoshida, Kannan Varadhan, Wes George, Jay Borkenhagen, and Sandra Murphy. The authors are grateful for the feedback from the members of the SIDR working group.",
+      "zh-CHS": "作者希望感谢雷克斯·费尔南多、汉内斯·格雷德勒、莫辛·格农、罗斯·霍斯利、朱奈德·伊斯拉尔、宫野宫男、三川信孝、水口隆隆、侯赛因·穆夫塔、基尔·帕特尔、吉田友也、坎南·瓦拉丹、韦斯·乔治、杰·博肯哈根和桑德拉·墨菲。作者感谢SIDR工作组成员的反馈。"
+    },
+    {
+      "indent": 3,
+      "text": "Junaid Israr's contribution to this specification was part of his PhD research work and thesis at University of Ottawa.",
+      "zh-CHS": "Junaid Israr对这一规范的贡献是他在渥太华大学博士研究工作和论文的一部分。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3779] Lynn, C., Kent, S., and K. Seo, \"X.509 Extensions for IP Addresses and AS Identifiers\", RFC 3779, June 2004.",
+      "zh-CHS": "[RFC3779]Lynn，C.，Kent，S.，和K.Seo，“IP地址和AS标识符的X.509扩展”，RFC 3779，2004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4271] Rekhter, Y., Li, T., and S. Hares, \"A Border Gateway Protocol 4 (BGP-4)\", RFC 4271, January 2006.",
+      "zh-CHS": "[RFC4271]Rekhter，Y.，Li，T.，和S.Hares，“边境网关协议4（BGP-4）”，RFC 42712006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4632] Fuller, V. and T. Li, \"Classless Inter-domain Routing (CIDR): The Internet Address Assignment and Aggregation Plan\", BCP 122, RFC 4632, August 2006.",
+      "zh-CHS": "[RFC4632]Fuller，V.和T.Li，“无类域间路由（CIDR）：互联网地址分配和聚合计划”，BCP 122，RFC 4632，2006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6482] Lepinski, M., Kent, S., and D. Kong, \"A Profile for Route Origin Authorizations (ROAs)\", RFC 6482, February 2012.",
+      "zh-CHS": "[RFC6482]Lepinski，M.，Kent，S.，和D.Kong，“路线原产地授权（ROA）的配置文件”，RFC 64822012年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6793] Vohra, Q. and E. Chen, \"BGP Support for Four-Octet Autonomous System (AS) Number Space\", RFC 6793, December 2012.",
+      "zh-CHS": "[RFC6793]Vohra，Q.和E.Chen，“BGP对四个八位组自治系统（AS）数字空间的支持”，RFC 6793，2012年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informational References",
+      "section_title": true,
+      "zh-CHS": "8.2. 参考资料"
+    },
+    {
+      "indent": 3,
+      "text": "[AS0] Kumari, W., Bush, R., Schiller, H., and K. Patel, \"Codification of AS 0 processing.\", Work in Progress, August 2012.",
+      "zh-CHS": "[AS0]Kumari，W.，Bush，R.，Schiller，H.，和K.Patel，“AS 0处理的编目”，正在进行的工作，2012年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ORIGIN-OPS] Bush, R., \"RPKI-Based Origin Validation Operation\", Work in Progress, August 2012.",
+      "zh-CHS": "[ORIGIN-OPS]Bush，R.，“基于RPKI的原产地验证操作”，正在进行的工作，2012年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6480] Lepinski, M. and S. Kent, \"An Infrastructure to Support Secure Internet Routing\", RFC 6480, February 2012.",
+      "zh-CHS": "[RFC6480]Lepinski，M.和S.Kent，“支持安全互联网路由的基础设施”，RFC 6480，2012年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6810] Bush, R. and R. Austein, \"The RPKI/Router Protocol\", RFC 6810, January 2013.",
+      "zh-CHS": "[RFC6810]Bush，R.和R.Austein，“RPKI/路由器协议”，RFC 6810，2013年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Pradosh Mohapatra Cisco Systems 170 W. Tasman Drive San Jose, CA 95134 USA",
+      "zh-CHS": "Pradosh Mohapatra Cisco Systems 170 W.塔斯曼大道圣何塞，加利福尼亚州95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: pmohapat@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "John Scudder Juniper Networks 1194 N. Mathilda Ave Sunnyvale, CA 94089 USA",
+      "zh-CHS": "美国加利福尼亚州桑尼维尔市马蒂尔达大道北1194号约翰·斯卡德尔·朱尼珀网络公司，邮编94089"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jgs@juniper.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "David Ward Cisco Systems 170 W. Tasman Drive San Jose, CA 95134 USA",
+      "zh-CHS": "David Ward Cisco Systems 170 W.塔斯曼大道圣何塞，加利福尼亚州95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: dward@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Randy Bush Internet Initiative Japan 5147 Crystal Springs Bainbridge Island, WA 98110 USA",
+      "zh-CHS": "兰迪·布什互联网倡议日本5147水晶泉班布里奇岛，华盛顿98110美国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: randy@psg.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Rob Austein Dragon Research Labs",
+      "zh-CHS": "Rob Austein Dragon研究实验室"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: sra@hactrn.net",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

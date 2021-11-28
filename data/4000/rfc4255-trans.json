@@ -1,0 +1,577 @@
+{
+  "title": {
+    "text": "RFC 4255: Using DNS to Securely Publish Secure Shell (SSH) Key Fingerprints",
+    "zh-CHS": "RFC 4255"
+  },
+  "number": 4255,
+  "created_at": "2021-11-13 08:19:54.450532+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        J. Schlyter\nRequest for Comments: 4255                                       OpenSSH\nCategory: Standards Track                                     W. Griffin\n                                                                  SPARTA\n                                                            January 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Using DNS to Securely Publish Secure Shell (SSH) Key Fingerprints",
+      "zh-CHS": "使用DNS安全发布安全外壳（SSH）密钥指纹"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a method of verifying Secure Shell (SSH) host keys using Domain Name System Security (DNSSEC). The document defines a new DNS resource record that contains a standard SSH key fingerprint.",
+      "zh-CHS": "本文档描述了使用域名系统安全性（DNSSEC）验证Secure Shell（SSH）主机密钥的方法。该文档定义了包含标准SSH密钥指纹的新DNS资源记录。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. SSH Host Key Verification .......................................2\n   2.1. Method .....................................................2\n   2.2. Implementation Notes .......................................2\n   2.3. Fingerprint Matching .......................................3\n   2.4. Authentication .............................................3\n3. The SSHFP Resource Record .......................................3\n   3.1. The SSHFP RDATA Format .....................................4\n        3.1.1. Algorithm Number Specification ......................4\n        3.1.2. Fingerprint Type Specification ......................4\n        3.1.3. Fingerprint .........................................5\n   3.2. Presentation Format of the SSHFP RR ........................5\n4. Security Considerations .........................................5\n5. IANA Considerations .............................................6\n6. Normative References ............................................7\n7. Informational References ........................................7\n8. Acknowledgements ................................................8",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The SSH [6] protocol provides secure remote login and other secure network services over an insecure network. The security of the connection relies on the server authenticating itself to the client as well as the user authenticating itself to the server.",
+      "zh-CHS": "SSH[6]协议通过不安全的网络提供安全的远程登录和其他安全的网络服务。连接的安全性依赖于服务器向客户机进行身份验证，以及用户向服务器进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "If a connection is established to a server whose public key is not already known to the client, a fingerprint of the key is presented to the user for verification. If the user decides that the fingerprint is correct and accepts the key, the key is saved locally and used for verification for all following connections. While some security-conscious users verify the fingerprint out-of-band before accepting the key, many users blindly accept the presented key.",
+      "zh-CHS": "如果与客户端尚不知道其公钥的服务器建立连接，则会向用户提供密钥指纹以供验证。如果用户确定指纹正确并接受密钥，则密钥将保存在本地并用于验证以下所有连接。虽然一些有安全意识的用户在接受密钥之前会在带外验证指纹，但许多用户会盲目地接受提供的密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "The method described here can provide out-of-band verification by looking up a fingerprint of the server public key in the DNS [1][2] and using DNSSEC [5] to verify the lookup.",
+      "zh-CHS": "这里描述的方法可以通过在DNS[1][2]中查找服务器公钥的指纹并使用DNSSEC[5]验证查找来提供带外验证。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to distribute the fingerprint using DNS, this document defines a new DNS resource record, \"SSHFP\", to carry the fingerprint.",
+      "zh-CHS": "为了使用DNS分发指纹，本文档定义了一个新的DNS资源记录“SSHFP”，以携带指纹。"
+    },
+    {
+      "indent": 3,
+      "text": "Basic understanding of the DNS system [1][2] and the DNS security extensions [5] is assumed by this document.",
+      "zh-CHS": "本文档假设对DNS系统[1][2]和DNS安全扩展[5]有基本了解。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [3].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[3]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. SSH Host Key Verification",
+      "section_title": true,
+      "zh-CHS": "2. SSH主机密钥验证"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Method",
+      "section_title": true,
+      "zh-CHS": "2.1. 方法"
+    },
+    {
+      "indent": 3,
+      "text": "Upon connection to an SSH server, the SSH client MAY look up the SSHFP resource record(s) for the host it is connecting to. If the algorithm and fingerprint of the key received from the SSH server match the algorithm and fingerprint of one of the SSHFP resource record(s) returned from DNS, the client MAY accept the identity of the server.",
+      "zh-CHS": "连接到SSH服务器后，SSH客户端可能会查找其连接到的主机的SSHFP资源记录。如果从SSH服务器接收的密钥的算法和指纹与从DNS返回的其中一个SSHFP资源记录的算法和指纹匹配，则客户端可以接受服务器的身份。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Implementation Notes",
+      "section_title": true,
+      "zh-CHS": "2.2. 实施说明"
+    },
+    {
+      "indent": 3,
+      "text": "Client implementors SHOULD provide a configurable policy used to select the order of methods used to verify a host key. This document defines one method: Fingerprint storage in DNS. Another method defined in the SSH Architecture [6] uses local files to store keys for comparison. Other methods that could be defined in the future might include storing fingerprints in LDAP or other databases. A",
+      "zh-CHS": "客户端实现者应该提供一个可配置的策略，用于选择用于验证主机密钥的方法顺序。本文档定义了一种方法：DNS中的指纹存储。SSH体系结构[6]中定义的另一种方法使用本地文件存储密钥以进行比较。将来可能定义的其他方法可能包括在LDAP或其他数据库中存储指纹。A."
+    },
+    {
+      "indent": 3,
+      "text": "configurable policy will allow administrators to determine which methods they want to use and in what order the methods should be prioritized. This will allow administrators to determine how much trust they want to place in the different methods.",
+      "zh-CHS": "可配置策略将允许管理员确定他们想要使用的方法以及这些方法的优先级顺序。这将允许管理员确定他们希望对不同方法的信任程度。"
+    },
+    {
+      "indent": 3,
+      "text": "One specific scenario for having a configurable policy is where clients do not use fully qualified host names to connect to servers. In this scenario, the implementation SHOULD verify the host key against a local database before verifying the key via the fingerprint returned from DNS. This would help prevent an attacker from injecting a DNS search path into the local resolver and forcing the client to connect to a different host.",
+      "zh-CHS": "具有可配置策略的一个特定场景是，客户端不使用完全限定的主机名连接到服务器。在这种情况下，实现应该在通过DNS返回的指纹验证密钥之前，根据本地数据库验证主机密钥。这将有助于防止攻击者将DNS搜索路径注入本地解析程序，并强制客户端连接到其他主机。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Fingerprint Matching",
+      "section_title": true,
+      "zh-CHS": "2.3. 指纹匹配"
+    },
+    {
+      "indent": 3,
+      "text": "The public key and the SSHFP resource record are matched together by comparing algorithm number and fingerprint.",
+      "zh-CHS": "通过比较算法编号和指纹，将公钥和SSHFP资源记录匹配在一起。"
+    },
+    {
+      "indent": 6,
+      "text": "The public key algorithm and the SSHFP algorithm number MUST match.",
+      "zh-CHS": "公钥算法和SSHFP算法编号必须匹配。"
+    },
+    {
+      "indent": 6,
+      "text": "A message digest of the public key, using the message digest algorithm specified in the SSHFP fingerprint type, MUST match the SSHFP fingerprint.",
+      "zh-CHS": "使用SSHFP指纹类型中指定的消息摘要算法的公钥消息摘要必须与SSHFP指纹匹配。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Authentication",
+      "section_title": true,
+      "zh-CHS": "2.4. 认证"
+    },
+    {
+      "indent": 3,
+      "text": "A public key verified using this method MUST NOT be trusted if the SSHFP resource record (RR) used for verification was not authenticated by a trusted SIG RR.",
+      "zh-CHS": "如果用于验证的SSHFP资源记录（RR）未经受信任的SIG RR验证，则使用此方法验证的公钥不得受信任。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients that do validate the DNSSEC signatures themselves SHOULD use standard DNSSEC validation procedures.",
+      "zh-CHS": "自行验证DNSSEC签名的客户机应使用标准DNSSEC验证程序。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients that do not validate the DNSSEC signatures themselves MUST use a secure transport (e.g., TSIG [9], SIG(0) [10], or IPsec [8]) between themselves and the entity performing the signature validation.",
+      "zh-CHS": "未验证DNSSEC签名的客户端必须在自身和执行签名验证的实体之间使用安全传输（例如，TSIG[9]、SIG（0）[10]或IPsec[8]）。"
+    },
+    {
+      "indent": 0,
+      "text": "3. The SSHFP Resource Record",
+      "section_title": true,
+      "zh-CHS": "3. SSHFP资源记录"
+    },
+    {
+      "indent": 3,
+      "text": "The SSHFP resource record (RR) is used to store a fingerprint of an SSH public host key that is associated with a Domain Name System (DNS) name.",
+      "zh-CHS": "SSHFP资源记录（RR）用于存储与域名系统（DNS）名称关联的SSH公用主机密钥的指纹。"
+    },
+    {
+      "indent": 3,
+      "text": "The RR type code for the SSHFP RR is 44.",
+      "zh-CHS": "SSHFP RR的RR类型代码为44。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. The SSHFP RDATA Format",
+      "section_title": true,
+      "zh-CHS": "3.1. SSHFP-RDATA格式"
+    },
+    {
+      "indent": 3,
+      "text": "The RDATA for a SSHFP RR consists of an algorithm number, fingerprint type and the fingerprint of the public host key.",
+      "zh-CHS": "SSHFP RR的RDATA由算法编号、指纹类型和公用主机密钥的指纹组成。"
+    },
+    {
+      "indent": 7,
+      "text": "1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   algorithm   |    fp type    |                               /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               /\n/                                                               /\n/                          fingerprint                          /\n/                                                               /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.1.1. Algorithm Number Specification",
+      "section_title": true,
+      "zh-CHS": "3.1.1. 算法编号规范"
+    },
+    {
+      "indent": 3,
+      "text": "This algorithm number octet describes the algorithm of the public key. The following values are assigned:",
+      "zh-CHS": "此算法描述了八位字节数的公钥算法。将指定以下值："
+    },
+    {
+      "indent": 10,
+      "text": "Value    Algorithm name\n-----    --------------\n0        reserved\n1        RSA\n2        DSS",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Reserving other types requires IETF consensus [4].",
+      "zh-CHS": "保留其他类型需要IETF协商一致[4]。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2. Fingerprint Type Specification",
+      "section_title": true,
+      "zh-CHS": "3.1.2. 指纹类型规范"
+    },
+    {
+      "indent": 3,
+      "text": "The fingerprint type octet describes the message-digest algorithm used to calculate the fingerprint of the public key. The following values are assigned:",
+      "zh-CHS": "指纹类型八位组描述了用于计算公钥指纹的消息摘要算法。将指定以下值："
+    },
+    {
+      "indent": 10,
+      "text": "Value    Fingerprint type\n-----    ----------------\n0        reserved\n1        SHA-1",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Reserving other types requires IETF consensus [4].",
+      "zh-CHS": "保留其他类型需要IETF协商一致[4]。"
+    },
+    {
+      "indent": 3,
+      "text": "For interoperability reasons, as few fingerprint types as possible should be reserved. The only reason to reserve additional types is to increase security.",
+      "zh-CHS": "出于互操作性原因，应保留尽可能少的指纹类型。保留其他类型的唯一原因是为了提高安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.3. Fingerprint",
+      "section_title": true,
+      "zh-CHS": "3.1.3. 指纹"
+    },
+    {
+      "indent": 3,
+      "text": "The fingerprint is calculated over the public key blob as described in [7].",
+      "zh-CHS": "如[7]所述，在公钥blob上计算指纹。"
+    },
+    {
+      "indent": 3,
+      "text": "The message-digest algorithm is presumed to produce an opaque octet string output, which is placed as-is in the RDATA fingerprint field.",
+      "zh-CHS": "假定消息摘要算法生成不透明的八位字节字符串输出，该字符串按原样放置在RDATA指纹字段中。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Presentation Format of the SSHFP RR",
+      "section_title": true,
+      "zh-CHS": "3.2. SSHFP RR的演示格式"
+    },
+    {
+      "indent": 3,
+      "text": "The RDATA of the presentation format of the SSHFP resource record consists of two numbers (algorithm and fingerprint type) followed by the fingerprint itself, presented in hex, e.g.:",
+      "zh-CHS": "SSHFP资源记录表示格式的RDATA由两个数字（算法和指纹类型）组成，后面是指纹本身，以十六进制表示，例如："
+    },
+    {
+      "indent": 7,
+      "text": "host.example.  SSHFP 2 1 123456789abcdef67890123456789abcdef67890",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The use of mnemonics instead of numbers is not allowed.",
+      "zh-CHS": "不允许使用助记符代替数字。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Currently, the amount of trust a user can realistically place in a server key is proportional to the amount of attention paid to verifying that the public key presented actually corresponds to the private key of the server. If a user accepts a key without verifying the fingerprint with something learned through a secured channel, the connection is vulnerable to a man-in-the-middle attack.",
+      "zh-CHS": "目前，用户可以实际地对服务器密钥进行信任的程度与验证所提供的公钥是否实际对应于服务器的私钥所花费的精力成正比。如果用户未通过安全通道验证指纹而接受密钥，则连接容易受到中间人攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The overall security of using SSHFP for SSH host key verification is dependent on the security policies of the SSH host administrator and DNS zone administrator (in transferring the fingerprint), detailed aspects of how verification is done in the SSH implementation, and in the client's diligence in accessing the DNS in a secure manner.",
+      "zh-CHS": "使用SSHFP进行SSH主机密钥验证的总体安全性取决于SSH主机管理员和DNS区域管理员（在传输指纹时）的安全策略、SSH实现中如何进行验证的详细方面，以及客户端在以安全方式访问DNS方面的努力。"
+    },
+    {
+      "indent": 3,
+      "text": "One such aspect is in which order fingerprints are looked up (e.g., first checking local file and then SSHFP). We note that, in addition to protecting the first-time transfer of host keys, SSHFP can optionally be used for stronger host key protection.",
+      "zh-CHS": "其中一个方面是查找顺序指纹（例如，首先检查本地文件，然后检查SSHFP）。我们注意到，除了保护主机密钥的首次传输之外，SSHFP还可以选择性地用于更强的主机密钥保护。"
+    },
+    {
+      "indent": 6,
+      "text": "If SSHFP is checked first, new SSH host keys may be distributed by replacing the corresponding SSHFP in DNS.",
+      "zh-CHS": "如果先检查SSHFP，则可以通过替换DNS中相应的SSHFP来分发新的SSH主机密钥。"
+    },
+    {
+      "indent": 6,
+      "text": "If SSH host key verification can be configured to require SSHFP, SSH host key revocation can be implemented by removing the corresponding SSHFP from DNS.",
+      "zh-CHS": "如果可以将SSH主机密钥验证配置为需要SSHFP，则可以通过从DNS中删除相应的SSHFP来实现SSH主机密钥撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "As stated in Section 2.2, we recommend that SSH implementors provide a policy mechanism to control the order of methods used for host key verification. One specific scenario for having a configurable policy is where clients use unqualified host names to connect to servers. In this case, we recommend that SSH implementations check the host key against a local database before verifying the key via the fingerprint returned from DNS. This would help prevent an attacker from injecting a DNS search path into the local resolver and forcing the client to connect to a different host.",
+      "zh-CHS": "如第2.2节所述，我们建议SSH实现者提供一种策略机制来控制用于主机密钥验证的方法的顺序。具有可配置策略的一个特定场景是客户端使用非限定主机名连接到服务器。在这种情况下，我们建议SSH实现在通过DNS返回的指纹验证密钥之前，根据本地数据库检查主机密钥。这将有助于防止攻击者将DNS搜索路径注入本地解析程序，并强制客户端连接到其他主机。"
+    },
+    {
+      "indent": 3,
+      "text": "A different approach to solve the DNS search path issue would be for clients to use a trusted DNS search path, i.e., one not acquired through DHCP or other autoconfiguration mechanisms. Since there is no way with current DNS lookup APIs to tell whether a search path is from a trusted source, the entire client system would need to be configured with this trusted DNS search path.",
+      "zh-CHS": "解决DNS搜索路径问题的另一种方法是，客户端使用受信任的DNS搜索路径，即未通过DHCP或其他自动配置机制获取的路径。由于当前DNS查找API无法判断搜索路径是否来自受信任的源，因此需要使用此受信任的DNS搜索路径配置整个客户端系统。"
+    },
+    {
+      "indent": 3,
+      "text": "Another dependency is on the implementation of DNSSEC itself. As stated in Section 2.4, we mandate the use of secure methods for lookup and that SSHFP RRs are authenticated by trusted SIG RRs. This is especially important if SSHFP is to be used as a basis for host key rollover and/or revocation, as described above.",
+      "zh-CHS": "另一个依赖关系是DNSSEC本身的实现。如第2.4节所述，我们要求使用安全方法进行查找，并且SSHFP RRs由受信任的SIG RRs进行身份验证。如上所述，如果将SSHFP用作主机密钥滚动和/或撤销的基础，这一点尤为重要。"
+    },
+    {
+      "indent": 3,
+      "text": "Since DNSSEC only protects the integrity of the host key fingerprint after it is signed by the DNS zone administrator, the fingerprint must be transferred securely from the SSH host administrator to the DNS zone administrator. This could be done manually between the administrators or automatically using secure DNS dynamic update [11] between the SSH server and the nameserver. We note that this is no different from other key enrollment situations, e.g., a client sending a certificate request to a certificate authority for signing.",
+      "zh-CHS": "由于DNSSEC仅在DNS区域管理员签名后保护主机密钥指纹的完整性，因此必须将指纹从SSH主机管理员安全地传输到DNS区域管理员。这可以在管理员之间手动完成，也可以在SSH服务器和名称服务器之间使用安全DNS动态更新[11]自动完成。我们注意到，这与其他密钥注册情况没有什么不同，例如，客户端向证书颁发机构发送证书请求以进行签名。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has allocated the RR type code 44 for SSHFP from the standard RR type space.",
+      "zh-CHS": "IANA已从标准RR类型空间为SSHFP分配RR类型代码44。"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has opened a new registry for the SSHFP RR type for public key algorithms. The defined types are:",
+      "zh-CHS": "IANA为公钥算法的SSHFP RR类型打开了一个新的注册表。定义的类型包括："
+    },
+    {
+      "indent": 6,
+      "text": "0 is reserved 1 is RSA 2 is DSA",
+      "zh-CHS": "0是保留的1是RSA 2是DSA"
+    },
+    {
+      "indent": 3,
+      "text": "Adding new reservations requires IETF consensus [4].",
+      "zh-CHS": "添加新的保留要求IETF达成一致[4]。"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has opened a new registry for the SSHFP RR type for fingerprint types. The defined types are:",
+      "zh-CHS": "IANA为指纹类型的SSHFP RR类型打开了一个新的注册表。定义的类型包括："
+    },
+    {
+      "indent": 6,
+      "text": "0 is reserved 1 is SHA-1",
+      "zh-CHS": "0是保留的1是SHA-1"
+    },
+    {
+      "indent": 3,
+      "text": "Adding new reservations requires IETF consensus [4].",
+      "zh-CHS": "添加新的保留要求IETF达成一致[4]。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Normative References",
+      "section_title": true,
+      "zh-CHS": "6. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[1] Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[2] Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 10351987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[3] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[4] Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, March 2005.",
+      "zh-CHS": "[5] Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，2005年3月。"
+    },
+    {
+      "indent": 9,
+      "text": "Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"Resource Records for the DNS Security Extensions\", RFC 4034, March 2005.",
+      "zh-CHS": "Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全扩展的资源记录”，RFC 40342005年3月。"
+    },
+    {
+      "indent": 9,
+      "text": "Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"Protocol Modifications for the DNS Security Extensions\", RFC 4035, March 2005.",
+      "zh-CHS": "Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全扩展的协议修改”，RFC 4035，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Ylonen, T. and C. Lonvick, Ed., \"The Secure Shell (SSH) Protocol Architecture\", RFC 4251, January 2006.",
+      "zh-CHS": "[6] Ylonen，T.和C.Lonvick，Ed.，“安全外壳（SSH）协议架构”，RFC 4251，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Ylonen, T. and C. Lonvick, Ed., \"The Secure Shell (SSH) Transport Layer Protocol\", RFC 4253, January 2006.",
+      "zh-CHS": "[7] 《安全外壳（SSH）传输层协议》，RFC 4253，2006年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Informational References",
+      "section_title": true,
+      "zh-CHS": "7. 参考资料"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Thayer, R., Doraswamy, N., and R. Glenn, \"IP Security Document Roadmap\", RFC 2411, November 1998.",
+      "zh-CHS": "[8] R.Thayer、N.Doraswamy和R.Glenn，“IP安全文档路线图”，RFC 24111998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Vixie, P., Gudmundsson, O., Eastlake 3rd, D., and B. Wellington, \"Secret Key Transaction Authentication for DNS (TSIG)\", RFC 2845, May 2000.",
+      "zh-CHS": "[9] Vixie，P.，Gudmundsson，O.，Eastlake 3rd，D.，和B.Wellington，“DNS秘密密钥交易认证（TSIG）”，RFC 28452000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Eastlake 3rd, D., \"DNS Request and Transaction Signatures ( SIG(0)s )\", RFC 2931, September 2000.",
+      "zh-CHS": "[10] Eastlake 3rd，D.，“DNS请求和事务签名（SIG（0）s）”，RFC 29312000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Wellington, B., \"Secure Domain Name System (DNS) Dynamic Update\", RFC 3007, November 2000.",
+      "zh-CHS": "[11] 威灵顿，B.，“安全域名系统（DNS）动态更新”，RFC 3007，2000年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors gratefully acknowledge, in no particular order, the contributions of the following persons:",
+      "zh-CHS": "作者感谢以下人士的贡献，无需特别顺序："
+    },
+    {
+      "indent": 6,
+      "text": "Martin Fredriksson",
+      "zh-CHS": "马丁·弗雷德里克森"
+    },
+    {
+      "indent": 6,
+      "text": "Olafur Gudmundsson",
+      "zh-CHS": "奥拉弗尔·古德蒙松"
+    },
+    {
+      "indent": 6,
+      "text": "Edward Lewis",
+      "zh-CHS": "爱德华·刘易斯"
+    },
+    {
+      "indent": 6,
+      "text": "Bill Sommerfeld",
+      "zh-CHS": "比尔·索末菲"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Jakob Schlyter OpenSSH 812 23rd Avenue SE Calgary, Alberta T2G 1N8 Canada",
+      "zh-CHS": "Jakob Schlyter OpenSSH 812加拿大阿尔伯塔省卡尔加里东南第23大道T2G 1N8"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jakob@openssh.com\nURI:   http://www.openssh.com/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Wesley Griffin SPARTA 7075 Samuel Morse Drive Columbia, MD 21046 USA",
+      "zh-CHS": "韦斯利·格里芬斯巴达7075美国马里兰州哥伦比亚塞缪尔·莫尔斯大道21046号"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: wgriffin@sparta.com\nURI:   http://www.sparta.com/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

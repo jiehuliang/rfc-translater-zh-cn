@@ -1,0 +1,609 @@
+{
+  "title": {
+    "text": "RFC 6192: Protecting the Router Control Plane",
+    "zh-CHS": "RFC 6192"
+  },
+  "number": 6192,
+  "created_at": "2021-11-05 14:53:58.530389+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                          D. Dugal\nRequest for Comments: 6192                              Juniper Networks\nCategory: Informational                                     C. Pignataro\nISSN: 2070-1721                                                  R. Dunn\n                                                           Cisco Systems\n                                                              March 2011",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Protecting the Router Control Plane",
+      "zh-CHS": "保护路由器控制平面"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides a method for protecting a router's control plane from undesired or malicious traffic. In this approach, all legitimate router control plane traffic is identified. Once legitimate traffic has been identified, a filter is deployed in the router's forwarding plane. That filter prevents traffic not specifically identified as legitimate from reaching the router's control plane, or rate-limits such traffic to an acceptable level.",
+      "zh-CHS": "此备忘录提供了一种保护路由器控制平面不受意外或恶意流量影响的方法。在这种方法中，所有合法的路由器控制平面流量都被识别。一旦识别出合法流量，就会在路由器的转发平面中部署一个过滤器。该过滤器防止未明确标识为合法的流量到达路由器的控制平面，或速率将此类流量限制在可接受的水平。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the filters described in this memo are applied only to traffic that is destined for the router, and not to all traffic that is passing through the router.",
+      "zh-CHS": "请注意，本备忘录中描述的过滤器仅适用于目的地为路由器的流量，而不适用于通过路由器的所有流量。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6192.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6192."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2011 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2011 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal\nProvisions Relating to IETF Documents\n(http://trustee.ietf.org/license-info) in effect on the date of",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件的出版。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Applicability Statement .........................................4\n3. Method ..........................................................4\n   3.1. Legitimate Traffic .........................................5\n   3.2. Filter Design ..............................................6\n   3.3. Design Trade-Offs ..........................................7\n   3.4. Additional Protection Considerations ......................10\n4. Security Considerations ........................................10\n5. Acknowledgements ...............................................11\n6. Informative References .........................................12\nAppendix A. Configuration Examples ................................13\n   A.1. Cisco Configuration .......................................13\n   A.2. Juniper Configuration .....................................17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Modern router architecture design maintains a strict separation of forwarding and router control plane hardware and software. The router control plane supports routing and management functions. It is generally described as the router architecture hardware and software components for handling packets destined to the device itself as well as building and sending packets originated locally on the device. The forwarding plane is typically described as the router architecture hardware and software components responsible for receiving a packet on an incoming interface, performing a lookup to identify the packet's IP next hop and determine the best outgoing interface towards the destination, and forwarding the packet out through the appropriate outgoing interface.",
+      "zh-CHS": "现代路由器架构设计保持了转发和路由器控制平面硬件和软件的严格分离。路由器控制平面支持路由和管理功能。它通常被描述为路由器架构硬件和软件组件，用于处理发往设备本身的数据包，以及构建和发送在设备上本地产生的数据包。转发平面通常被描述为路由器架构硬件和软件组件，负责在传入接口上接收分组，执行查找以识别分组的IP下一跳并确定朝向目的地的最佳传出接口，以及通过适当的传出接口将分组转发出去。"
+    },
+    {
+      "indent": 3,
+      "text": "Visually, this architecture can be represented as the router's control plane hardware sitting on top of, and interfacing with, the forwarding plane hardware with interfaces connecting to other network devices. See Figure 1.",
+      "zh-CHS": "从视觉上看，该架构可以表示为路由器的控制平面硬件位于转发平面硬件之上，并与转发平面硬件接口，接口连接到其他网络设备。参见图1。"
+    },
+    {
+      "indent": 15,
+      "text": "              +----------------+\n              | Router Control |\n              |     Plane      |\n              +------+ +-------+\n                     | |\n                Router Control\n               Plane Protection\n                     | |\n              +------+ +-------+\n              |   Forwarding   |\nInterface X ==[     Plane      ]== Interface Y\n              +----------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 1: Router Control Plane Protection",
+      "zh-CHS": "图1：路由器控制平面保护"
+    },
+    {
+      "indent": 3,
+      "text": "Typically, forwarding plane functionality is realized in high-performance Application Specific Integrated Circuits (ASICs) that are capable of handling very high packet rates. By contrast, the router control plane is generally realized in software on general-purpose processors. While software instructions run on both planes, the router control plane hardware is usually not optimized for high-speed packet handling. Given their differences in packet-handling capabilities, the router's control plane hardware is more susceptible to being overwhelmed by a Denial-of-Service (DoS) attack than the forwarding plane's ASICs. It is imperative that the router control plane remain stable regardless of traffic load to and from the device because the router control plane is what drives the programming of the forwarding plane.",
+      "zh-CHS": "通常，转发平面功能在能够处理极高分组速率的高性能专用集成电路（asic）中实现。相比之下，路由器控制平面通常在通用处理器上的软件中实现。虽然软件指令在两个平面上运行，但路由器控制平面硬件通常不会针对高速数据包处理进行优化。考虑到它们在数据包处理能力上的差异，路由器的控制平面硬件比转发平面的ASIC更容易受到拒绝服务（DoS）攻击。无论进出设备的流量负载如何，路由器控制平面必须保持稳定，因为路由器控制平面驱动转发平面的编程。"
+    },
+    {
+      "indent": 3,
+      "text": "The router control plane also processes traffic destined to the router, and because of the wider range of functionality is more susceptible to security vulnerabilities and a more likely target for a DoS attack than the forwarding plane.",
+      "zh-CHS": "路由器控制平面还处理发送到路由器的流量，由于功能范围更广，因此比转发平面更容易受到安全漏洞的影响，更可能成为DoS攻击的目标。"
+    },
+    {
+      "indent": 3,
+      "text": "It is advisable to protect the router control plane by implementing mechanisms to filter completely or rate-limit traffic not required at the control plane level (i.e., unwanted traffic). \"Router control plane protection\" is the concept of filtering or rate-limiting unwanted traffic that would be diverted from the forwarding plane up to the router control plane. The closer the filters and rate limiters are to the forwarding plane and line-rate hardware, the more effective the protection is and the more resistant the system is to DoS attacks. This memo demonstrates one example of how to deploy a policy filter that satisfies a set of sample traffic-matching, filtering, and rate-limiting criteria.",
+      "zh-CHS": "建议通过实现机制来保护路由器控制平面，以完全过滤或速率限制控制平面级别不需要的流量（即不需要的流量）。“路由器控制平面保护”是过滤或速率限制将从转发平面转移到路由器控制平面的不需要的流量的概念。过滤器和速率限制器越靠近转发平面和线速率硬件，保护就越有效，系统就越能抵御DoS攻击。此备忘录演示了如何部署满足一组样本流量匹配、筛选和速率限制标准的策略筛选器的示例。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the filters described in this memo are applied only to traffic that is destined for the router, and not to all traffic that is passing through the router.",
+      "zh-CHS": "请注意，本备忘录中描述的过滤器仅适用于目的地为路由器的流量，而不适用于通过路由器的所有流量。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Applicability Statement",
+      "section_title": true,
+      "zh-CHS": "2. 适用性声明"
+    },
+    {
+      "indent": 3,
+      "text": "The method described in Section 3 and depicted in Figure 1 illustrates how to protect the router control plane from unwanted traffic. Recognizing that deployment scenarios will vary, the exact implementation is not generally applicable in all situations. The categorization of legitimate router control plane traffic is critically important in a successful implementation.",
+      "zh-CHS": "第3节中描述和图1中描述的方法说明了如何保护路由器控制平面免受不必要的通信量的影响。认识到部署场景会有所不同，因此具体的实现通常并不适用于所有情况。合法路由器控制平面流量的分类对于成功实现至关重要。"
+    },
+    {
+      "indent": 3,
+      "text": "The examples given in this memo are simplified and minimalistic, designed to illustrate the concept of protecting the router's control plane. From them, operators can extrapolate specifics based on their unique configuration and environment. This document is about semantics, and Appendix A exemplifies syntax. For additional router vendor implementations, or other converged devices, the syntax should be translated to the respective language in a manner that preserves the semantics.",
+      "zh-CHS": "本备忘录中给出的示例是简化和最小化的，旨在说明保护路由器控制平面的概念。从中，运营商可以根据其独特的配置和环境推断具体情况。本文档是关于语义的，附录A举例说明了语法。对于其他路由器供应商实现或其他聚合设备，应以保留语义的方式将语法翻译为相应的语言。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, the need to provide the router control plane with isolation, stability, and protection against rogue packets has been incorporated into router designs for some time. Consequently, there may be other vendor or implementation specific router control plane protection mechanisms that are active by default or always active. Those approaches may apply in conjunction with, or in addition to, the method described in Section 3 and illustrated in Appendices A.1 and A.2. Those implementations should be considered as part of an overall traffic management plan but are outside the scope of this document.",
+      "zh-CHS": "此外，为路由器控制平面提供隔离、稳定性和防恶意数据包保护的需要已经被纳入路由器设计中一段时间了。因此，可能存在默认情况下处于活动状态或始终处于活动状态的其他特定于供应商或实现的路由器控制平面保护机制。这些方法可与第3节所述方法结合使用，或作为附录A.1和A.2所示方法的补充。这些实施应视为整体交通管理计划的一部分，但不在本文件的范围内。"
+    },
+    {
+      "indent": 3,
+      "text": "This method is applicable for IPv4 as well as IPv6 address families, and the legitimate traffic example in Section 3.1 provides examples for both.",
+      "zh-CHS": "此方法适用于IPv4和IPv6地址系列，第3.1节中的合法流量示例提供了这两个方面的示例。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Method",
+      "section_title": true,
+      "zh-CHS": "3. 方法"
+    },
+    {
+      "indent": 3,
+      "text": "In this memo, the authors demonstrate how a filter protecting the router control plane can be deployed. In Section 3.1, a sample router is introduced, and all traffic that its control plane must process is identified. In Section 3.2, filter design concepts are discussed. Cisco (Cisco IOS software) and Juniper (JUNOS) implementations are provided in Appendices A.1 and A.2, respectively.",
+      "zh-CHS": "在这份备忘录中，作者演示了如何部署保护路由器控制平面的过滤器。在第3.1节中，介绍了一个示例路由器，并确定了其控制平面必须处理的所有流量。第3.2节讨论了过滤器的设计概念。Cisco（Cisco IOS软件）和Juniper（JUNOS）的实现分别在附录A.1和A.2中提供。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Legitimate Traffic",
+      "section_title": true,
+      "zh-CHS": "3.1. 合法交通"
+    },
+    {
+      "indent": 3,
+      "text": "In this example, the router control plane must process traffic (i.e., traffic destined to the router and not through the router) per the following criteria:",
+      "zh-CHS": "在此示例中，路由器控制平面必须按照以下标准处理通信量（即，目的地为路由器而非通过路由器的通信量）："
+    },
+    {
+      "indent": 3,
+      "text": "o Drop all IP packets that are fragments (see Section 3.3)",
+      "zh-CHS": "o 丢弃所有属于碎片的IP数据包（参见第3.3节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit ICMP and ICMPv6 traffic from any source, rate-limited to 500 kbps for each category",
+      "zh-CHS": "o 允许来自任何来源的ICMP和ICMPv6流量，每个类别的速率限制为500 kbps"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit OSPF traffic from routers within subnet 192.0.2.0/24 and OSPFv3 traffic from IPv6 Link-Local unicast addresses (fe80::/10)",
+      "zh-CHS": "o 允许来自子网192.0.2.0/24内路由器的OSPF流量和来自IPv6链路本地单播地址的OSPFv3流量（fe80:：/10）"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit internal BGP (iBGP) traffic from routers within subnets 192.0.2.0/24 and 2001:db8:1::/48",
+      "zh-CHS": "o 允许来自子网192.0.2.0/24和2001:db8:1:：/48内路由器的内部BGP（iBGP）流量"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit external BGP (eBGP) traffic from eBGP peers 198.51.100.25, 198.51.100.27, 198.51.100.29, and 198.51.100.31; and IPv6 peers 2001:db8:100::25, 2001:db8:100::27, 2001:db8:100::29, and 2001:db8:100::31",
+      "zh-CHS": "o 允许来自eBGP对等点198.51.100.25、198.51.100.27、198.51.100.29和198.51.100.31的外部BGP（eBGP）流量；IPv6对等点2001:db8:100:：252001:db8:100:：272001:db8:100:：29和2001:db8:100:：31"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit DNS traffic from DNS servers within subnet 198.51.100.0/30 and 2001:db8:100:1::/64",
+      "zh-CHS": "o 允许来自子网198.51.100.0/30和2001:db8:100:1:：/64内DNS服务器的DNS流量"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit NTP traffic from NTP servers within subnet 198.51.100.4/30 and 2001:db8:100:2::/64",
+      "zh-CHS": "o 允许子网198.51.100.4/30和2001:db8:100:2:：/64内的NTP服务器进行NTP通信"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit Secure SHell (SSH) traffic from network management stations within subnet 198.51.100.128/25 and 2001:db8:100:3::/64",
+      "zh-CHS": "o 允许来自子网198.51.100.128/25和2001:db8:100:3:：/64内的网络管理站的安全外壳（SSH）通信"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit Simple Network Management Protocol (SNMP) traffic from network management stations within subnet 198.51.100.128/25 and 2001:db8:100:3::/64",
+      "zh-CHS": "o 允许来自子网198.51.100.128/25和2001:db8:100:3:：/64内的网络管理站的简单网络管理协议（SNMP）通信"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit RADIUS authentication and accounting replies from RADIUS servers 198.51.100.9, 198.51.100.10, 2001:db8:100::9, and 2001:db8:100::10 that are listening on UDP ports 1812 and 1813 (Internet Assigned Numbers Authority (IANA) RADIUS ports). Note that this does not accommodate a server using the original UDP ports of 1645 and 1646",
+      "zh-CHS": "o 允许RADIUS服务器198.51.100.9、198.51.100.102001:db8:100:：9和2001:db8:100:：10在UDP端口1812和1813（互联网分配号码管理局（IANA）RADIUS端口）上侦听RADIUS身份验证和记帐回复。请注意，这不适用于使用原始UDP端口1645和1646的服务器"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit all other IPv4 and IPv6 traffic that was not explicitly matched in a class above, rate-limited to 500 kbps, and drop above that rate for each category",
+      "zh-CHS": "o 允许在上述类别中未显式匹配的所有其他IPv4和IPv6流量，速率限制为500 kbps，并针对每个类别降低到该速率以上"
+    },
+    {
+      "indent": 3,
+      "text": "o Permit non-IP traffic (e.g., Connectionless Network Service (CLNS), Internetwork Packet Exchange (IPX), PPP Link Control Protocol (LCP), etc.), rate-limited to 250 kbps, and drop all remaining traffic above that rate",
+      "zh-CHS": "o 允许非IP流量（例如，无连接网络服务（CLNS）、网络间数据包交换（IPX）、PPP链路控制协议（LCP）等），速率限制为250 kbps，并丢弃高于该速率的所有剩余流量"
+    },
+    {
+      "indent": 3,
+      "text": "The characteristics of legitimate traffic will vary from network to network. To illustrate this, a router implementing the DHCP relay function can rate-limit inbound DHCP traffic from clients and restrict traffic from servers to a list of known DHCP servers. The list of criteria above is provided for example only.",
+      "zh-CHS": "合法流量的特征因网络而异。为了说明这一点，实现DHCP中继功能的路由器可以对来自客户端的入站DHCP流量进行速率限制，并将来自服务器的流量限制为已知DHCP服务器的列表。上述标准列表仅作为示例提供。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Filter Design",
+      "section_title": true,
+      "zh-CHS": "3.2. 滤波器设计"
+    },
+    {
+      "indent": 3,
+      "text": "A filter is installed on the forwarding plane. This filter counts and applies the actions to the categories of traffic described in Section 3.1. Because the filter is enforced in the forwarding plane, it prevents traffic from consuming bandwidth on the interface that connects the forwarding plane to the router control plane. The counters serve as an important forensic tool for the analysis of potential attacks, and as an invaluable debugging and troubleshooting aid. By adjusting the granularity and order of the filters, more granular forensics can be performed (i.e., create a filter that matches only traffic allowed from a group of IP addresses for a given protocol followed by a filter that denies all traffic for that protocol). This would allow for counters to be monitored for the allowed protocol filter, as well as any traffic matching the specific protocol that didn't originate from the explicitly allowed hosts.",
+      "zh-CHS": "过滤器安装在转发平面上。该过滤器对第3.1节所述的流量类别进行计数并应用操作。因为过滤器是在转发平面中实施的，所以它可以防止流量消耗连接转发平面和路由器控制平面的接口上的带宽。计数器是分析潜在攻击的重要法医工具，也是宝贵的调试和故障排除辅助工具。通过调整过滤器的粒度和顺序，可以执行更细粒度的取证（即，创建一个过滤器，该过滤器仅匹配给定协议的一组IP地址中允许的流量，然后创建一个过滤器，该过滤器拒绝该协议的所有流量）。这将允许为允许的协议筛选器监视计数器，以及与特定协议匹配的、并非源自明确允许的主机的任何通信量。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the filters, rate limiters for certain classes of traffic are also installed in the forwarding plane as defined in Section 3.1. These rate limiters help further control the traffic that will reach the router control plane for each filtered class as well as all traffic not matching an explicit class. The actual rates selected for various classes are network deployment specific; analysis of the rates required for stability should be done periodically. It is important to note that the most significant factor to consider regarding the traffic profile going to the router control plane is the packets per second (pps) rate. Therefore, careful consideration must be given to determine the maximum pps rate that could be generated from a given set of packet size and bandwidth usage scenarios.",
+      "zh-CHS": "除过滤器外，第3.1节中定义的转发平面中还安装了特定类别流量的速率限制器。这些速率限制器有助于进一步控制将到达每个过滤类的路由器控制平面的流量以及不匹配显式类的所有流量。为不同类别选择的实际费率是特定于网络部署的；应定期对稳定性所需的速率进行分析。重要的是要注意，考虑到路由器控制平面的流量概况的最重要因素是每秒分组（PPS）率。因此，必须仔细考虑确定从给定的数据包大小和带宽使用场景集生成的最大pps速率。"
+    },
+    {
+      "indent": 3,
+      "text": "Syntactically, these filters explicitly define \"allowed\" traffic (including IP addresses, protocols, and ports), define acceptable actions for these acceptable traffic profiles (e.g., rate-limit or simply permit the traffic), and then discard all traffic destined to the router control plane that is not within the specifications of the policy definition.",
+      "zh-CHS": "从语法上讲，这些过滤器明确定义“允许的”流量（包括IP地址、协议和端口），为这些可接受的流量配置文件定义可接受的操作（例如，速率限制或仅允许流量），然后丢弃所有发送到路由器控制平面但不在策略定义规范范围内的流量。"
+    },
+    {
+      "indent": 3,
+      "text": "In an actual production environment, predicting a complete and exhaustive list of traffic necessary to reach the router's control plane for day-to-day operation may not be as obvious as the example described herein. One recommended method to gauge this set of traffic is to allow all traffic initially, and audit the traffic that reaches the router control plane before applying any explicit filters or rate limits. See Section 3.3 below for more discussion of this topic.",
+      "zh-CHS": "在实际生产环境中，预测到达路由器的控制平面以进行日常操作所需的完整且详尽的通信量列表可能不像本文描述的示例那样明显。衡量这组流量的一种推荐方法是，首先允许所有流量，并在应用任何明确的过滤器或速率限制之前审核到达路由器控制平面的流量。有关此主题的更多讨论，请参见下文第3.3节。"
+    },
+    {
+      "indent": 3,
+      "text": "The filter design provided in this document is intentionally limited to attachment at the local router in question (e.g., a \"service-policy\" attached to the \"control-plane\" in Cisco IOS, or a firewall filter attached to the \"lo0\" interface in JUNOS). While virtually all production environments utilize and rely heavily upon edge protection or interface filtering, these methods of router protection are beyond the intended scope of this document. Additionally, the protocols themselves that are allowed to reach the router control plane (e.g., OSPF, RSVP, TCP, SNMP, DNS, NTP, and inherently, SSH, TLS, ESP, etc.) may have cryptographic security methods applied to them, and the method of router control plane protection provided herein is not a replacement for those cryptographic methods.",
+      "zh-CHS": "本文件中提供的过滤器设计有意限制在相关本地路由器的附件上（例如，Cisco IOS中连接到“控制平面”的“服务策略”，或JUNOS中连接到“lo0”接口的防火墙过滤器）。虽然几乎所有生产环境都使用并严重依赖边缘保护或接口过滤，但这些路由器保护方法超出了本文档的预期范围。此外，允许到达路由器控制平面的协议本身（例如，OSPF、RSVP、TCP、SNMP、DNS、NTP和SSH、TLS、ESP等）可以具有应用于它们的加密安全方法，并且本文提供的路由器控制平面保护方法不是这些加密方法的替代方法。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Design Trade-Offs",
+      "section_title": true,
+      "zh-CHS": "3.3. 设计权衡"
+    },
+    {
+      "indent": 3,
+      "text": "In designing the protection method, there are two independent parts to consider: the classification of traffic (i.e., which traffic is matched by the filters), and the policy actions taken on the classified traffic (i.e., drop, permit, rate-limit, etc.).",
+      "zh-CHS": "在设计保护方法时，需要考虑两个独立的部分：流量分类（即哪些流量与过滤器匹配）和对分类流量采取的策略措施（即丢弃、许可、速率限制等）。"
+    },
+    {
+      "indent": 3,
+      "text": "There are different levels of granularity utilized for traffic classification. For example, allowing all traffic from specific source IP addresses versus allowing only a specific set of protocols from those specific source IP addresses will each affect a different subset of traffic.",
+      "zh-CHS": "有不同级别的粒度用于流量分类。例如，允许来自特定源IP地址的所有流量与仅允许来自这些特定源IP地址的一组特定协议相比，将分别影响不同的流量子集。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, the policy actions taken on the classified traffic have degrees of impact that may not become immediately obvious. For example, discarding all ICMP traffic will have a negative impact on the operational use of ICMP tools such as ping or traceroute to debug network issues or to test deployment of a new circuit. Expanding on this, in a real production network, an astute operator could define",
+      "zh-CHS": "类似地，对分类流量采取的政策措施具有一定程度的影响，可能不会立即变得明显。例如，丢弃所有ICMP通信将对ICMP工具（如ping或traceroute）的操作使用产生负面影响，以调试网络问题或测试新电路的部署。在此基础上，在实际生产网络中，精明的操作员可以定义"
+    },
+    {
+      "indent": 3,
+      "text": "varying rate limits for ICMP such that internal traffic is granted uninhibited access to the router control plane, while traffic from external addresses is rate-limited. Operators should pay special attention to the new functionality and roles that ICMPv6 has in the overall operation of IPv6 when designing the rate-limit policies. Example functions include Neighbor Discovery (ND) and Multicast Listener Discovery version 2 (MLDv2).",
+      "zh-CHS": "改变ICMP的速率限制，以便允许内部通信不受限制地访问路由器控制平面，而来自外部地址的通信是速率限制的。在设计速率限制策略时，运营商应特别注意ICMPv6在IPv6总体运行中的新功能和角色。示例功能包括邻居发现（ND）和多播侦听器发现版本2（MLDv2）。"
+    },
+    {
+      "indent": 3,
+      "text": "It is important to note that both classification and policy action decisions are accompanied by respective trade-offs. Two examples of these trade-off decisions are operational complexity at the expense of policy and statistics-gathering detail, and tighter protection at the expense of network supportability and troubleshooting ability.",
+      "zh-CHS": "必须指出的是，分类和政策行动决定都伴随着各自的权衡。这些权衡决策的两个例子是：以牺牲策略和统计数据收集细节为代价的操作复杂性，以及以牺牲网络支持能力和故障排除能力为代价的更严格的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "Two types of traffic that need special consideration are IP fragments and IP optioned packets:",
+      "zh-CHS": "需要特别考虑的两类流量是IP片段和IP可选数据包："
+    },
+    {
+      "indent": 3,
+      "text": "o For network deployments where IP fragmentation is necessary, a blanket policy of dropping all fragments destined to the router control plane may not be feasible. However, many deployments allow network configurations such that the router control plane should never see a fragmented datagram. Since many attacks rely on IP fragmentation, the example policy included herein drops all fragments destined to the router control plane.",
+      "zh-CHS": "o 对于需要IP碎片的网络部署，丢弃所有发送到路由器控制平面的碎片的一揽子策略可能不可行。然而，许多部署允许网络配置，使得路由器控制平面永远不会看到碎片数据报。由于许多攻击依赖于IP碎片，因此本文所包含的示例策略丢弃所有目的地为路由器控制平面的碎片。"
+    },
+    {
+      "indent": 3,
+      "text": "o Similarly, some deployments may choose to drop all IP optioned packets. Others may need to loosen the constraint to allow for protocols that require IP optioned packets such as the Resource Reservation Protocol (RSVP). The design trade-off is that dropping all IP optioned packets protects the router from attacks that leverage malformed options, as well as attacks that rely on the slow-path processing (i.e., software processing path) of IP optioned packets. For network deployments where the protocols do not use IP options, the filter is simpler to design in that it can drop all packets with any IP option set. However, for networks utilizing protocols relying on IP options, the filter to identify the legitimate packets is more complex. If the filter is not designed correctly, it could result in the inadvertent blackholing of traffic for those protocols. This document does not include filter configurations for IP optioned packets; additional explanations regarding the filtering of packets based on the IP options they contain can be found in [IP-OPTIONS-FILTER].",
+      "zh-CHS": "o 类似地，某些部署可能会选择丢弃所有IP可选数据包。其他人可能需要放松约束，以允许使用需要IP选项数据包的协议，如资源保留协议（RSVP）。设计权衡是，丢弃所有IP可选数据包可以保护路由器免受利用格式错误选项的攻击，以及依赖IP可选数据包的慢路径处理（即软件处理路径）的攻击。对于协议不使用IP选项的网络部署，过滤器的设计更简单，因为它可以丢弃设置了任何IP选项的所有数据包。然而，对于使用依赖于IP选项的协议的网络，识别合法数据包的过滤器更为复杂。如果过滤器设计不正确，可能会导致这些协议的通信量无意中被黑洞。本文件不包括IP可选数据包的过滤器配置；关于根据包含的IP选项过滤数据包的其他说明，请参见[IP-options-FILTER]。"
+    },
+    {
+      "indent": 3,
+      "text": "The goal of the method for protecting the router control plane is to minimize the possibility for disruptions by reducing the vulnerable surface, which is inversely proportional to the granularity of the filter design. The finer the granularity of the filter design (e.g., filtering a more targeted subset of traffic from the rest of the policed traffic, or isolating valid source addresses into a different class or classes), the smaller the probability of disruption.",
+      "zh-CHS": "保护路由器控制平面的方法的目标是通过减少易受攻击的表面（与过滤器设计的粒度成反比）来最小化中断的可能性。过滤器设计的粒度越细（例如，从其余的策略流量中筛选目标更明确的流量子集，或将有效源地址隔离到不同的一个或多个类中），中断的概率越小。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the traffic that matches explicit classes, care should be taken on the policy decision that governs the handling of traffic that would fall through the classification. Typically, that traffic is referred to as traffic that gets matched in a default class. It may also be traffic that matches a blanket protocol specific class where previous classes that have more granular classification did not match all packets for that specific protocol. The ideal policy would have explicit classes to match only the traffic specifically required at the router control plane and would drop all other traffic that does not match a predefined class. As most vendor implementations permit all traffic hitting the default class, an explicit drop action would need to be configured in the policy such that the traffic hitting that default class would be dropped, versus being permitted and delivered to the router control plane. This approach requires rigorous traffic pattern identification such that a default drop policy does not break existing device functionality. The approach defined in this document allows the default traffic and rate-limits it as opposed to dropping it. This approach was chosen as a way to give the operator time to evaluate and characterize traffic in a production scenario prior to dropping all traffic not explicitly matched and permitted. However, it is highly recommended that after monitoring the traffic matching the default class, explicit classes be defined to catch the legitimate traffic. After all legitimate traffic has been identified and explicitly allowed, the default class should be configured to drop any remaining traffic.",
+      "zh-CHS": "除了与显式类匹配的通信量外，还应注意管理通过分类的通信量处理的策略决策。通常，该流量称为在默认类中匹配的流量。它也可能是与一揽子协议特定类相匹配的通信量，其中以前具有更细粒度分类的类与该特定协议的所有数据包都不匹配。理想的策略将具有显式类，以仅匹配路由器控制平面上特定需要的通信量，并将丢弃所有与预定义类不匹配的其他通信量。由于大多数供应商的实现都允许所有到达默认类的流量，因此需要在策略中配置显式的丢弃操作，这样到达默认类的流量将被丢弃，而不是被允许并传递到路由器控制平面。这种方法需要严格的流量模式识别，以便默认的丢弃策略不会破坏现有的设备功能。本文档中定义的方法允许默认流量和速率限制，而不是放弃。选择此方法是为了在丢弃所有未明确匹配和允许的流量之前，给操作员时间评估和描述生产场景中的流量。但是，强烈建议在监控与默认类匹配的流量后，定义显式类以捕获合法流量。识别并明确允许所有合法流量后，应将默认类配置为丢弃任何剩余流量。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, the baselining and monitoring of traffic flows to the router's control plane are critical in determining both the rates and granularity of the policies being applied. It is also important to validate the existing policies and rules or update them as the network evolves and its traffic dynamics change. Some possible ways to achieve this include individual policy counters that can be exported or retrieved, for example via SNMP, and logging of filtering actions.",
+      "zh-CHS": "Additionally, the baselining and monitoring of traffic flows to the router's control plane are critical in determining both the rates and granularity of the policies being applied. It is also important to validate the existing policies and rules or update them as the network evolves and its traffic dynamics change. Some possible ways to achieve this include individual policy counters that can be exported or retrieved, for example via SNMP, and logging of filtering actions.translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the use of flow-based behavioral analysis or command-line interface (CLI) functions to identify what client/server functions a given router's control plane handles would be very useful during initial policy development phases, and certainly for ongoing forensic analysis.",
+      "zh-CHS": "最后，在初始策略开发阶段，使用基于流的行为分析或命令行界面（CLI）功能来识别给定路由器的控制平面处理的客户机/服务器功能将非常有用，当然也适用于正在进行的取证分析。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Additional Protection Considerations",
+      "section_title": true,
+      "zh-CHS": "3.4. 其他保护注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the design described in this document of defining \"allowed\" traffic (i.e., identifying traffic that the control plane must process) and limiting (e.g., rate-limiting or blocking) the rest, the router control plane protection method can be applied to thwart specific attacks. In particular, it can be used to protect against TCP SYN flooding attacks and other Denial-of-Service attacks that starve router control plane resources.",
+      "zh-CHS": "除了本文件中描述的定义“允许”流量（即，识别控制平面必须处理的流量）和限制（例如，速率限制或阻塞）其余流量的设计外，路由器控制平面保护方法还可用于阻止特定攻击。特别是，它可以用来防止TCP SYN洪泛攻击和其他使路由器控制平面资源匮乏的拒绝服务攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The filters described in this document leave the router susceptible to discovery from any host in the Internet. If network operators find this risk objectionable, they can reduce the exposure to discovery with ICMP by restricting the sub-networks from which ICMP Echo requests and potential traceroute packets (i.e., packets that would trigger an ICMP Time Exceeded reply) are accepted, and therefore to which sub-networks ICMP responses (ICMP Echo Reply and Time Exceeded) are sent. A similar concern exists for ICMPv6 traffic but on a broader level due to the additional functionalities implemented in ICMPv6. Filtering recommendations for ICMPv6 can be found in [RFC4890]. Moreover, different rate-limiting policies may be defined for internally (e.g., from the Network Operations Center (NOC)) versus externally sourced traffic. Note that this document is not targeted at the specifics of ICMP filtering or traffic filtering designed to prevent device discovery.",
+      "zh-CHS": "本文档中描述的过滤器使路由器容易被Internet上的任何主机发现。如果网络运营商发现这种风险令人反感，他们可以通过限制接受ICMP回送请求和潜在跟踪路由数据包（即，将触发ICMP超时回复的数据包）的子网，从而限制子网ICMP响应，从而减少ICMP发现的风险（ICMP回显回复和超出时间）已发送。ICMPv6流量也存在类似的问题，但由于ICMPv6中实施了附加功能，因此在更广泛的级别上存在类似问题。ICMPv6的筛选建议可在[RFC4890]中找到。此外，可能会为内部用户定义不同的速率限制策略（例如，来自网络运营中心（NOC））与外部来源的流量。请注意，本文档不针对ICMP过滤或旨在防止设备发现的流量过滤的细节。"
+    },
+    {
+      "indent": 3,
+      "text": "The filters described in this document do not block unwanted traffic having spoofed source addresses that match a defined traffic profile as discussed in Section 3.1. Network operators can mitigate this risk by preventing source address spoofing with filters applied at the network edge. Refer to Section 5.3.8 of [RFC1812] for more information regarding source address validation. Other methods also exist for limiting exposure to packet spoofing, such as the Generalized Time to Live (TTL) Security Mechanism (GTSM) [RFC5082] and Ingress Filtering [RFC2827] [RFC3704].",
+      "zh-CHS": "如第3.1节所述，本文档中描述的过滤器不会阻止具有伪造源地址且与定义的流量配置文件匹配的不需要的流量。网络运营商可以通过在网络边缘应用过滤器来防止源地址欺骗，从而降低这一风险。有关源地址验证的更多信息，请参阅[RFC1812]第5.3.8节。还存在其他方法来限制数据包欺骗的暴露，例如通用生存时间（TTL）安全机制（GTSM）[RFC5082]和入口过滤[RFC2827][RFC3704]。"
+    },
+    {
+      "indent": 3,
+      "text": "The ICMP rate limiter specified for the filters described in this document protects the router from floods of ICMP traffic; see Sections 3.1 and 3.3 for details. However, during an ICMP flood, some legitimate ICMP traffic may be dropped. Because of this, when operators discover a flood of ICMP traffic, they are highly motivated to stop it at the source where the traffic is being originated.",
+      "zh-CHS": "为本文档中描述的过滤器指定的ICMP速率限制器可保护路由器免受ICMP流量洪流的影响；详见第3.1节和第3.3节。但是，在ICMP洪水期间，可能会丢弃一些合法的ICMP流量。因此，当运营商发现大量ICMP流量时，他们会非常积极地将其停止在流量来源处。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional considerations pertaining to the usage and handling of traffic that utilizes the IP Router Alert Options can be found in [RTR-ALERT-CONS], and additional IP options filtering explanations can be found in [IP-OPTIONS-FILTER].",
+      "zh-CHS": "与使用IP路由器警报选项的流量的使用和处理相关的其他注意事项可在[RTR-Alert-CONS]中找到，其他IP选项过滤说明可在[IP-Options-FILTER]中找到。"
+    },
+    {
+      "indent": 3,
+      "text": "The treatment of exception traffic in the forwarding plane and the generation of specific messages by the router control plane also require protection from a DoS attack. Specifically, the generation of ICMP Unreachable messages by the router control plane needs to be rate-limited, either implicitly within the router's architecture or explicitly through configuration. When possible, different ICMP Destination Unreachable codes (e.g., \"fragmentation needed and DF set\") or \"Packet Too Big\" messages can receive a different rate-limiting treatment. Continuous benchmarking of router-generated ICMP traffic should be done before applying rate limits such that sufficient headroom is included to prevent inadvertent Path Maximum Transmission Unit Discovery (PMTUD) blackhole scenarios during normal operation. It is also recommended to deploy explicit rate limiters where possible to improve troubleshooting and monitoring capability. The explicit rate limiters in a class allow for monitoring tools to detect and report when these rate limiters become active (i.e., when traffic is policed). This in turn serves as an indicator that either the normal traffic rates have increased or \"out of policy\" traffic rates have been detected. More thorough analysis of the traffic flows and rate-limited traffic is needed to identify which of these two cases triggered the rate limiters. For additional information regarding specific ICMP rate-limiting, see Section 4.3.2.8 of [RFC1812].",
+      "zh-CHS": "转发平面中异常流量的处理以及路由器控制平面生成特定消息也需要防止DoS攻击。具体地说，路由器控制平面生成ICMP不可访问消息需要速率限制，或者隐式地在路由器的架构内，或者显式地通过配置。在可能的情况下，不同的ICMP目的地不可到达代码（例如，“需要碎片和DF设置”）或“数据包太大”消息可以接收不同的速率限制处理。在应用速率限制之前，应对路由器生成的ICMP通信量进行持续基准测试，以便包括足够的净空，以防止在正常运行期间出现意外路径最大传输单元发现（PMTUD）黑洞情况。还建议尽可能部署显式速率限制器，以提高故障排除和监控能力。类中的显式速率限制器允许监控工具在这些速率限制器变为活动状态时（即，当流量受到监控时）进行检测和报告。这反过来又作为一个指标，表明正常流量已增加或检测到“策略外”流量。需要对流量和速率限制流量进行更彻底的分析，以确定这两种情况中哪一种触发了速率限制器。有关特定ICMP速率限制的更多信息，请参阅[RFC1812]第4.3.2.8节。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, the handling of TTL / Hop Limit expired traffic needs protection. This traffic is not necessarily addressed to the device, but it can get sent to the router control plane to process the TTL / Hop Limit expiration. For example, rate-limiting the TTL / Hop Limit expired traffic before sending the packets to the router control plane component that will generate the ICMP error, and distributing the sending of ICMP errors to Line Card CPUs, are protection mechanisms that mitigate attacks before they can negatively affect a rate-limited router control plane component.",
+      "zh-CHS": "此外，TTL/Hop限制过期流量的处理需要保护。此通信量不一定要发送到设备，但可以发送到路由器控制平面以处理TTL/Hop限制到期。例如，在将数据包发送到将产生ICMP错误的路由器控制平面组件之前，对TTL/Hop Limit过期流量进行速率限制，并将ICMP错误的发送分发到线路卡CPU，是一种保护机制，可在攻击对速率受限的路由器控制平面组件产生负面影响之前减轻攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "5. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Ron Bonica for providing initial and ongoing review, suggestions, and valuable input. Pekka Savola, Warren Kumari, and Xu Chen provided very thorough and useful feedback that improved the document. Many thanks to John Kristoff, Christopher Morrow, and Donald Smith for a fruitful discussion around the operational and manageability aspects of router control plane protection techniques. The authors would also like to thank",
+      "zh-CHS": "作者要感谢Ron Bonica提供了初步和持续的审查、建议和宝贵的投入。Pekka Savola、Warren Kumari和Xu Chen提供了非常彻底和有用的反馈，改进了文档。非常感谢John Kristoff、Christopher Morrow和Donald Smith围绕路由器控制平面保护技术的操作和可管理性方面进行了富有成效的讨论。作者还要感谢"
+    },
+    {
+      "indent": 3,
+      "text": "Joel Jaeggli, Richard Graveman, Danny McPherson, Gregg Schudel, Eddie Parra, Seo Boon Ng, Manav Bhatia, German Martinez, Wen Zhang, Roni Even, Acee Lindem, Glen Zorn, Joe Abley, Ralph Droms, and Stewart Bryant for providing thorough review, useful suggestions, and valuable input. Assistance from Jim Bailey and Raphan Han in providing technical direction and sample configuration guidance on the IPv6 sections was also very much appreciated. Finally, the authors extend kudos to Andrew Yourtchenko for his review, comments, and willingness to present this document at IETF 78 (July 2010, Maastricht, The Netherlands) on behalf of the authors.",
+      "zh-CHS": "Joel Jaeggli、Richard Graveman、Danny McPherson、Gregg Schudel、Eddie Parra、Seo Boon Ng、Manav Bhatia、German Martinez、Wen Zhang、Roni Even、Acee Lindem、Glen Zorn、Joe Abley、Ralph Droms和Stewart Bryant感谢他们提供了全面的审查、有用的建议和宝贵的意见。Jim Bailey和Raphan Han在IPv6部分提供技术指导和示例配置指导方面提供的协助也非常感谢。最后，作者对Andrew Yourtchenko的评论表示赞赏，并愿意代表作者在IETF 78（2010年7月，荷兰马斯特里赫特）上提交本文件。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Informative References",
+      "section_title": true,
+      "zh-CHS": "6. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[IP-OPTIONS-FILTER] Gont, F. and S. Fouant, \"IP Options Filtering Recommendations\", Work in Progress, February 2010.",
+      "zh-CHS": "[IP-OPTIONS-FILTER]Gont，F.和S.Fouant，“IP选项过滤建议”，正在进行的工作，2010年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1812] Baker, F., Ed., \"Requirements for IP Version 4 Routers\", RFC 1812, June 1995.",
+      "zh-CHS": "[RFC1812]Baker，F.，Ed.，“IP版本4路由器的要求”，RFC 1812，1995年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2827] Ferguson, P. and D. Senie, \"Network Ingress Filtering: Defeating Denial of Service Attacks which employ IP Source Address Spoofing\", BCP 38, RFC 2827, May 2000.",
+      "zh-CHS": "[RFC2827]Ferguson，P.和D.Senie，“网络入口过滤：击败利用IP源地址欺骗的拒绝服务攻击”，BCP 38，RFC 2827，2000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3704] Baker, F. and P. Savola, \"Ingress Filtering for Multihomed Networks\", BCP 84, RFC 3704, March 2004.",
+      "zh-CHS": "[RFC3704]Baker，F.和P.Savola，“多宿网络的入口过滤”，BCP 84，RFC 37042004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4890] Davies, E. and J. Mohacsi, \"Recommendations for Filtering ICMPv6 Messages in Firewalls\", RFC 4890, May 2007.",
+      "zh-CHS": "[RFC4890]Davies，E.和J.Mohacsi，“防火墙中过滤ICMPv6消息的建议”，RFC 48902007年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5082] Gill, V., Heasley, J., Meyer, D., Savola, P., Ed., and C. Pignataro, \"The Generalized TTL Security Mechanism (GTSM)\", RFC 5082, October 2007.",
+      "zh-CHS": "[RFC5082]Gill，V.，Heasley，J.，Meyer，D.，Savola，P.，Ed.，和C.Pignataro，“广义TTL安全机制（GTSM）”，RFC 5082，2007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RTR-ALERT-CONS] Le Faucheur, F., Ed., \"IP Router Alert Considerations and Usage\", Work in Progress, March 2011.",
+      "zh-CHS": "[RTR-ALERT-CONS]Le Faucheur，F.，Ed.“IP路由器警报注意事项和使用”，正在进行的工作，2011年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Configuration Examples",
+      "section_title": true,
+      "zh-CHS": "附录A.配置示例"
+    },
+    {
+      "indent": 3,
+      "text": "The configurations provided below are syntactical representations of the semantics described in the document and should be treated as non-normative.",
+      "zh-CHS": "下面提供的配置是文档中描述的语义的语法表示，应视为非规范性配置。"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. Cisco Configuration",
+      "section_title": true,
+      "zh-CHS": "A.1. 思科配置"
+    },
+    {
+      "indent": 3,
+      "text": "Refer to the Control Plane Policing (CoPP) document in the Cisco IOS Software Feature Guides (available at <http://www.cisco.com/>) for more information on the syntax and options available when configuring Control Plane Policing.",
+      "zh-CHS": "请参阅Cisco IOS软件功能指南中的控制平面管理（CoPP）文档（可在<http://www.cisco.com/>)有关配置控制平面监控时可用的语法和选项的详细信息，请参阅。"
+    },
+    {
+      "indent": 3,
+      "text": "!Start: Protecting The Router Control Plane ! !Control Plane Policing (CoPP) Configuration ! !Access Control List Definitions ! ip access-list extended ICMP permit icmp any any ipv6 access-list ICMPv6 permit icmp any any ip access-list extended OSPF permit ospf 192.0.2.0 0.0.0.255 any ipv6 access-list OSPFv3 permit 89 FE80::/10 any ip access-list extended IBGP permit tcp 192.0.2.0 0.0.0.255 eq bgp any permit tcp 192.0.2.0 0.0.0.255 any eq bgp ipv6 access-list IBGPv6 permit tcp 2001:DB8:1::/48 eq bgp any permit tcp 2001:DB8:1::/48 any eq bgp ip access-list extended EBGP permit tcp host 198.51.100.25 eq bgp any permit tcp host 198.51.100.25 any eq bgp permit tcp host 198.51.100.27 eq bgp any permit tcp host 198.51.100.27 any eq bgp permit tcp host 198.51.100.29 eq bgp any permit tcp host 198.51.100.29 any eq bgp permit tcp host 198.51.100.31 eq bgp any permit tcp host 198.51.100.31 any eq bgp",
+      "zh-CHS": "!开始：保护路由器控制平面！控制平面监控（CoPP）配置！访问控制列表定义！ip访问列表扩展ICMP许可ICMP任意ipv6访问列表ICMPv6许可ICMP任意ip访问列表扩展OSPF许可OSPF 192.0.2.0.0.255任意ipv6访问列表OSPFv3许可89 FE80:：/10任意ip访问列表扩展IBGP许可tcp 192.0.0 0.0.0.255 eq bgp任意许可tcp 192.0.2.0.0.0.255任意eq bgp ipv6访问列表IBGPv6许可tcp 2001:DB8:1:：/48 eq bgp任意许可tcp 2001:DB8:1:：/48任意eq bgp ip访问列表扩展EBGP许可tcp主机198.51.100.25 eq bgp任意许可tcp主机198.51.100.25任意eq bgp许可tcp主机198.51.100.27 eq bgp任意许可tcp主机198.51.100.27任意eq bgp许可tcp主机198.51.100.29 eq bgp任意许可tcp主机198.51.100.29任意eq bgp任意许可tcp主机允许tcp主机198.51.100.31 eq bgp任何允许tcp主机198.51.100.31任何eq bgp"
+    },
+    {
+      "indent": 3,
+      "text": "ipv6 access-list EBGPv6\n permit tcp host 2001:DB8:100::25 eq bgp any\n permit tcp host 2001:DB8:100::25 any eq bgp\n permit tcp host 2001:DB8:100::27 eq bgp any\n permit tcp host 2001:DB8:100::27 any eq bgp\n permit tcp host 2001:DB8:100::29 eq bgp any\n permit tcp host 2001:DB8:100::29 any eq bgp\n permit tcp host 2001:DB8:100::31 eq bgp any\n permit tcp host 2001:DB8:100::31 any eq bgp\nip access-list extended DNS\n permit udp 198.51.100.0 0.0.0.252 eq domain any\nipv6 access-list DNSv6\n permit udp 2001:DB8:100:1::/64 eq domain any\n permit tcp 2001:DB8:100:1::/64 eq domain any\nip access-list extended NTP\n permit udp 198.51.100.4 255.255.255.252 any eq ntp\nipv6 access-list NTPv6\n permit udp 2001:DB8:100:2::/64 any eq ntp\nip access-list extended SSH\n permit tcp 198.51.100.128 0.0.0.128 any eq 22\nipv6 access-list SSHv6\n permit tcp 2001:DB8:100:3::/64 any eq 22\nip access-list extended SNMP\n permit udp 198.51.100.128 0.0.0.128 any eq snmp\nipv6 access-list SNMPv6\n permit udp 2001:DB8:100:3::/64 any eq snmp\nip access-list extended RADIUS\n permit udp host 198.51.100.9 eq 1812 any\n permit udp host 198.51.100.9 eq 1813 any\n permit udp host 198.51.100.10 eq 1812 any\n permit udp host 198.51.100.10 eq 1813 any\nipv6 access-list RADIUSv6\n permit udp host 2001:DB8:100::9 eq 1812 any\n permit udp host 2001:DB8:100::9 eq 1813 any\n permit udp host 2001:DB8:100::10 eq 1812 any\n permit udp host 2001:DB8:100::10 eq 1813 any\nip access-list extended FRAGMENTS\n permit ip any any fragments\nipv6 access-list FRAGMENTSv6\n permit ipv6 any any fragments\nip access-list extended ALLOTHERIP\n permit ip any any\nipv6 access-list ALLOTHERIPv6\n permit ipv6 any any",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "! !Class Definitions ! class-map match-any ICMP match access-group name ICMP class-map match-any ICMPv6 match access-group name ICMPv6 class-map match-any OSPF match access-group name OSPF match access-group name OSPFv3 class-map match-any IBGP match access-group name IBGP match access-group name IBGPv6 class-map match-any EBGP match access-group name EBGP match access-group name EBGPv6 class-map match-any DNS match access-group name DNS match access-group name DNSv6 class-map match-any NTP match access-group name NTP match access-group name NTPv6 class-map match-any SSH match access-group name SSH match access-group name SSHv6 class-map match-any SNMP match access-group name SNMP match access-group name SNMPv6 class-map match-any RADIUS match access-group name RADIUS match access-group name RADIUSv6 class-map match-any FRAGMENTS match access-group name FRAGMENTS match access-group name FRAGMENTSv6 class-map match-any ALLOTHERIP match access-group name ALLOTHERIP class-map match-any ALLOTHERIPv6 match access-group name ALLOTHERIPv6",
+      "zh-CHS": "! !类定义！类映射匹配任意ICMP匹配访问组名称ICMP类映射匹配任意ICMPv6匹配访问组名称ICMPv6类映射匹配任意OSPF匹配访问组名称OSPF匹配访问组名称OSPFv3类映射匹配任意IBGP匹配访问组名称IBGPv6类映射匹配任意EBGP匹配访问组名称EBGP匹配访问组名称EBGPv6类映射匹配任意DNS匹配访问组名称DNS匹配访问组名称DNSv6类映射匹配任意NTP匹配访问组名称NTP匹配访问组名称NTPv6类映射匹配任意SSH匹配访问组名称SSH匹配访问组名称SSHv6类映射匹配任意SNMP匹配访问组名称SNMP匹配访问组名称SNMPv6类映射匹配任意RADIUS匹配访问组名称RADIUS匹配访问组名称RADIUSv6类映射匹配任意片段匹配访问组名称片段匹配访问组名称片段SV6类映射匹配任意同位符IP匹配访问组名称同位符IP类映射匹配任意同位符IPv6匹配访问组名称同位符IPv6"
+    },
+    {
+      "indent": 3,
+      "text": "! !Policy Definition ! policy-map COPP class FRAGMENTS drop class ICMP police 500000 conform-action transmit exceed-action drop violate-action drop class ICMPv6 police 500000 conform-action transmit exceed-action drop violate-action drop class OSPF class IBGP class EBGP class DNS class NTP class SSH class SNMP class RADIUS class ALLOTHERIP police cir 500000 conform-action transmit exceed-action drop violate-action drop class ALLOTHERIPv6 police cir 500000 conform-action transmit exceed-action drop violate-action drop class class-default police cir 250000 conform-action transmit exceed-action drop violate-action drop ! !Control Plane Configuration ! control-plane service-policy input COPP ! !End: Protecting The Router Control Plane",
+      "zh-CHS": "! !策略定义！策略映射COPP类碎片丢弃类ICMP police 500000符合操作传输超过操作丢弃违反操作丢弃类ICMPv6 police 500000符合操作传输超过操作丢弃违反操作丢弃类OSPF类IBGP类EBGP类DNS类NTP类SSH类SNMP类RADIUS类AllocherIP police cir 500000一致操作传输超过操作删除违反操作删除类分配IPv6警察cir 500000一致操作传输超过操作删除违反操作删除类默认警察cir 250000一致操作传输超过操作删除违反操作删除！控制平面配置！控制平面服务策略输入COPP！结束：保护路由器控制平面"
+    },
+    {
+      "indent": 0,
+      "text": "A.2. Juniper Configuration",
+      "section_title": true,
+      "zh-CHS": "A.2. Juniper配置"
+    },
+    {
+      "indent": 3,
+      "text": "Refer to the Firewall Filter Configuration section of the Junos Software Policy Framework Configuration Guide (available at <http://www.juniper.net/>) for more information on the syntax and options available when configuring Junos firewall filters.",
+      "zh-CHS": "请参阅Junos软件策略框架配置指南（可从以下网址获得）中的防火墙过滤器配置部分<http://www.juniper.net/>)有关配置Junos防火墙过滤器时可用的语法和选项的更多信息。"
+    },
+    {
+      "indent": 3,
+      "text": "policy-options {\n    prefix-list IBGP-NEIGHBORS {\n        192.0.2.0/24;\n    }\n    prefix-list EBGP-NEIGHBORS {\n        198.51.100.25/32;\n        198.51.100.27/32;\n        198.51.100.29/32;\n        198.51.100.31/32;\n    }\n    prefix-list RADIUS-SERVERS {\n        198.51.100.9/32;\n        198.51.100.10/32;\n    }\n    prefix-list IBGPv6-NEIGHBORS {\n        2001:DB8:1::/48;\n    }\n    prefix-list EBGPv6-NEIGHBORS {\n        2001:DB8:100::25/128;\n        2001:DB8:100::27/128;\n        2001:DB8:100::29/128;\n        2001:DB8:100::31/128;\n    }\n    prefix-list RADIUSv6-SERVERS {\n        2001:DB8:100::9/128;\n        2001:DB8:100::10/128;\n    }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "firewall {\n    policer 500kbps {\n        if-exceeding {\n            bandwidth-limit 500k;\n            burst-size-limit 1500;\n        }\n        then discard;\n    }\n    policer 250kbps {\n        if-exceeding {\n            bandwidth-limit 250k;\n            burst-size-limit 1500;\n        }\n        then discard;\n    }\n    family inet {\n        filter protect-router-control-plane {\n            term first-frag {\n                from {\n                    first-fragment;\n                }\n                then {\n                    count frag-discards;\n                    log;\n                    discard;\n                }\n            }\n            term next-frag {\n                from {\n                    is-fragment;\n                }\n                then {\n                    count frag-discards;\n                    log;\n                    discard;\n                }\n            }\n            term icmp {\n                from {\n                    protocol icmp;\n                }\n                then {\n                    policer 500kbps;\n                    accept;\n                }\n            }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "term ospf {\n    from {\n        source-address {\n            192.0.2.0/24;\n        }\n        protocol ospf;\n    }\n    then accept;\n}\nterm ibgp-connect {\n    from {\n        source-prefix-list {\n            IBGP-NEIGHBORS;\n        }\n        protocol tcp;\n        destination-port bgp;\n    }\n    then accept;\n}\nterm ibgp-reply {\n    from {\n        source-prefix-list {\n            IBGP-NEIGHBORS;\n        }\n        protocol tcp;\n        port bgp;\n    }\n    then accept;\n}\nterm ebgp-connect {\n    from {\n        source-prefix-list {\n            EBGP-NEIGHBORS;\n        }\n        protocol tcp;\n        destination-port bgp;\n    }\n    then accept;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "term ebgp-reply {\n    from {\n        source-prefix-list {\n            EBGP-NEIGHBORS;\n        }\n        protocol tcp;\n        port bgp;\n    }\n    then accept;\n}\nterm dns {\n    from {\n        source-address {\n            198.51.100.0/30;\n        }\n        protocol udp;\n        port domain;\n    }\n    then accept;\n}\nterm ntp {\n    from {\n        source-address {\n            198.51.100.4/30;\n        }\n        protocol udp;\n        destination-port ntp;\n    }\n    then accept;\n}\nterm ssh {\n    from {\n        source-address {\n            198.51.100.128/25;\n        }\n        protocol tcp;\n        destination-port ssh;\n    }\n    then accept;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "        term snmp {\n            from {\n                source-address {\n                    198.51.100.128/25;\n                }\n                protocol udp;\n                destination-port snmp;\n            }\n            then accept;\n        }\n        term radius {\n            from {\n                source-prefix-list {\n                    RADIUS-SERVERS;\n                }\n                protocol udp;\n                port [ 1812 1813 ];\n            }\n            then accept;\n        }\n        term default-term {\n            then {\n                count copp-exceptions;\n                log;\n                policer 500kbps;\n                accept;\n            }\n        }\n    }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "family inet6 {\n    filter protect-router-control-plane-v6 {\n        term fragv6 {\n            from {\n                next-header fragment;\n            }\n            then {\n                count frag-v6-discards;\n                log;\n                discard;\n            }\n        }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "term icmpv6 {\n    from {\n        next-header icmpv6;\n    }\n    then {\n        policer 500kbps;\n        accept;\n    }\n}\nterm ospfv3 {\n    from {\n        source-address {\n            FE80::/10;\n        }\n        next-header ospf;\n    }\n    then accept;\n}\nterm ibgpv6-connect {\n    from {\n        source-prefix-list {\n            IBGPv6-NEIGHBORS;\n        }\n        next-header tcp;\n        destination-port bgp;\n    }\n    then accept;\n}\nterm ibgpv6-reply {\n    from {\n        source-prefix-list {\n            IBGPv6-NEIGHBORS;\n        }\n        next-header tcp;\n        port bgp;\n    }\n    then accept;\n}\nterm ebgpv6-connect {\n    from {\n        source-prefix-list {\n            EBGPv6-NEIGHBORS;\n        }\n        next-header tcp;\n        destination-port bgp;\n    }\n    then accept;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "term ebgpv6-reply {\n    from {\n        source-prefix-list {\n            EBGPv6-NEIGHBORS;\n        }\n        next-header tcp;\n        port bgp;\n    }\n    then accept;\n}\nterm dnsv6 {\n    from {\n        source-address {\n           2001:DB8:100:1::/64;\n           }\n        next-header [ udp tcp ];\n        port domain;\n    }\n    then accept;\n}\nterm ntpv6 {\n    from {\n        source-address {\n            2001:DB8:100:2::/64;\n        }\n        next-header udp;\n        destination-port ntp;\n    }\n    then accept;\n}\nterm sshv6 {\n    from {\n        source-address {\n            2001:DB8:100:3::/64;\n        }\n        next-header tcp;\n        destination-port ssh;\n    }\n    then accept;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "        term snmpv6 {\n            from {\n                source-address {\n                    2001:DB8:100:3::/64;\n                }\n                next-header udp;\n                destination-port snmp;\n            }\n            then accept;\n        }\n        term radiusv6 {\n            from {\n                source-prefix-list {\n                    RADIUSv6-SERVERS;\n                }\n                next-header udp;\n                port [ 1812 1813 ];\n            }\n            then accept;\n        }\n        term default-term-v6 {\n            then {\n                policer 500kbps;\n                count copp-exceptions-v6;\n                log;\n                accept;\n            }\n        }\n    }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "    family any {\n        filter protect-router-control-plane-non-ip {\n            term rate-limit-non-ip {\n                then {\n                    policer 250kbps;\n                    accept;\n                }\n            }\n        }\n    }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "interfaces {\n    lo0 {\n        unit 0 {\n            family inet {\n                filter input protect-router-control-plane;\n            }\n            family inet6 {\n                filter input protect-router-control-plane-v6;\n            }\n            family any {\n                filter input protect-router-control-plane-non-ip;\n            }\n        }\n    }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Dave Dugal Juniper Networks 10 Technology Park Drive Westford, MA 01886 US",
+      "zh-CHS": "美国马萨诸塞州韦斯特福德科技园大道10号Dave Dugal Juniper Networks美国01886"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: dave@juniper.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Carlos Pignataro Cisco Systems 7200-12 Kit Creek Road Research Triangle Park, NC 27709 US",
+      "zh-CHS": "卡洛斯·皮格纳塔罗思科系统7200-12美国北卡罗来纳州基特克里克路研究三角公园，邮编27709"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: cpignata@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Rodney Dunn Cisco Systems 7200-12 Kit Creek Road Research Triangle Park, NC 27709 US",
+      "zh-CHS": "罗德尼·邓恩思科系统7200-12美国北卡罗来纳州基特克里克路研究三角公园，邮编27709"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rodunn@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

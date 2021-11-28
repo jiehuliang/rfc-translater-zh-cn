@@ -1,0 +1,952 @@
+{
+  "title": {
+    "text": "RFC 4895: Authenticated Chunks for the Stream Control Transmission Protocol (SCTP)",
+    "zh-CHS": "RFC 4895"
+  },
+  "number": 4895,
+  "created_at": "2021-11-15 11:01:59.411996+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          M. Tuexen\nRequest for Comments: 4895            Muenster Univ. of Applied Sciences\nCategory: Standards Track                                     R. Stewart\n                                                                  P. Lei\n                                                     Cisco Systems, Inc.\n                                                             E. Rescorla\n                                                              RTFM, Inc.\n                                                             August 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": " Authenticated Chunks for the Stream Control Transmission Protocol (SCTP)",
+      "zh-CHS": "流控制传输协议（SCTP）的已验证数据块"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a new chunk type, several parameters, and procedures for the Stream Control Transmission Protocol (SCTP). This new chunk type can be used to authenticate SCTP chunks by using shared keys between the sender and receiver. The new parameters are used to establish the shared keys.",
+      "zh-CHS": "本文档描述了流控制传输协议（SCTP）的一种新块类型、几个参数和过程。这种新的区块类型可以通过使用发送方和接收方之间的共享密钥来验证SCTP区块。新参数用于建立共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3\n2.  Conventions  . . . . . . . . . . . . . . . . . . . . . . . . .  3\n3.  New Parameter Types  . . . . . . . . . . . . . . . . . . . . .  4\n  3.1.  Random Parameter (RANDOM)  . . . . . . . . . . . . . . . .  4\n  3.2.  Chunk List Parameter (CHUNKS)  . . . . . . . . . . . . . .  5\n  3.3.  Requested HMAC Algorithm Parameter (HMAC-ALGO) . . . . . .  6\n4.  New Error Cause  . . . . . . . . . . . . . . . . . . . . . . .  7\n  4.1.  Unsupported HMAC Identifier Error Cause  . . . . . . . . .  7\n5.  New Chunk Type . . . . . . . . . . . . . . . . . . . . . . . .  8\n  5.1.  Authentication Chunk (AUTH)  . . . . . . . . . . . . . . .  8\n6.  Procedures . . . . . . . . . . . . . . . . . . . . . . . . . . 10\n  6.1.  Establishment of an Association Shared Key . . . . . . . . 10\n  6.2.  Sending Authenticated Chunks . . . . . . . . . . . . . . . 11\n  6.3.  Receiving Authenticated Chunks . . . . . . . . . . . . . . 12\n7.  Examples . . . . . . . . . . . . . . . . . . . . . . . . . . . 14\n8.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 15\n  8.1.  A New Chunk Type . . . . . . . . . . . . . . . . . . . . . 15\n  8.2.  Three New Parameter Types  . . . . . . . . . . . . . . . . 15\n  8.3.  A New Error Cause  . . . . . . . . . . . . . . . . . . . . 15\n  8.4.  A New Table for HMAC Identifiers . . . . . . . . . . . . . 16\n9.  Security Considerations  . . . . . . . . . . . . . . . . . . . 16\n10. Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 17\n11. Normative References . . . . . . . . . . . . . . . . . . . . . 17",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "SCTP uses 32-bit verification tags to protect itself against blind attackers. These values are not changed during the lifetime of an SCTP association.",
+      "zh-CHS": "SCTP使用32位验证标记来保护自身免受盲目攻击者的攻击。这些值在SCTP关联的生存期内不会更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Looking at new SCTP extensions, there is the need to have a method of proving that an SCTP chunk(s) was really sent by the original peer that started the association and not by a malicious attacker.",
+      "zh-CHS": "从新的SCTP扩展来看，需要有一种方法来证明SCTP块确实是由启动关联的原始对等方发送的，而不是由恶意攻击者发送的。"
+    },
+    {
+      "indent": 3,
+      "text": "Using Transport Layer Security (TLS), as defined in RFC 3436 [6], does not help because it only secures SCTP user data.",
+      "zh-CHS": "使用RFC 3436[6]中定义的传输层安全性（TLS）没有帮助，因为它只保护SCTP用户数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, an SCTP extension that provides a mechanism for deriving shared keys for each association is presented. These association shared keys are derived from endpoint pair shared keys, which are configured and might be empty, and data that is exchanged during the SCTP association setup.",
+      "zh-CHS": "因此，提出了一个SCTP扩展，它提供了一种为每个关联派生共享密钥的机制。这些关联共享密钥来自端点对共享密钥（已配置且可能为空）和SCTP关联设置期间交换的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "The extension presented in this document allows an SCTP sender to authenticate chunks using shared keys between the sender and receiver. The receiver can then verify that the chunks are sent from the sender and not from a malicious attacker (as long as the attacker does not know an association shared key).",
+      "zh-CHS": "本文档中提供的扩展允许SCTP发送方使用发送方和接收方之间的共享密钥对数据块进行身份验证。然后，接收方可以验证数据块是从发送方发送的，而不是从恶意攻击者发送的（只要攻击者不知道关联共享密钥）。"
+    },
+    {
+      "indent": 3,
+      "text": "The extension described in this document places the result of a Hashed Message Authentication Code (HMAC) computation before the data covered by that computation. Placing it at the end of the packet would have required placing a control chunk after DATA chunks in case of authenticating DATA chunks. This would break the rule that control chunks occur before DATA chunks in SCTP packets. It should also be noted that putting the result of the HMAC computation after the data being covered would not allow sending the packet during the computation of the HMAC because the result of the HMAC computation is needed to compute the CRC32C checksum of the SCTP packet, which is placed in the common header of the SCTP packet.",
+      "zh-CHS": "本文档中描述的扩展将哈希消息身份验证码（HMAC）计算的结果放在该计算所涵盖的数据之前。如果将其放在数据包的末尾，则需要在数据块之后放置一个控制块，以防对数据块进行身份验证。这将打破SCTP数据包中控制块出现在数据块之前的规则。还应注意，将HMAC计算的结果放在覆盖的数据之后将不允许在HMAC计算期间发送分组，因为需要HMAC计算的结果来计算SCTP分组的CRC32C校验和，该校验和被放置在SCTP分组的公共报头中。"
+    },
+    {
+      "indent": 3,
+      "text": "The SCTP extension for Dynamic Address Reconfiguration (ADD-IP) requires the usage of the extension described in this document. The SCTP Partial Reliability Extension (PR-SCTP) can be used in conjunction with the extension described in this document.",
+      "zh-CHS": "用于动态地址重新配置（ADD-IP）的SCTP扩展需要使用本文档中描述的扩展。SCTP部分可靠性扩展（PR-SCTP）可与本文件所述扩展一起使用。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions",
+      "section_title": true,
+      "zh-CHS": "2. 习俗"
+    },
+    {
+      "indent": 3,
+      "text": "The keywords \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\", when they appear in this document, are to be interpreted as described in RFC 2119 [3].",
+      "zh-CHS": "本文件中出现的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”应按照RFC 2119[3]中的说明进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. New Parameter Types",
+      "section_title": true,
+      "zh-CHS": "3. 新参数类型"
+    },
+    {
+      "indent": 3,
+      "text": "This section defines the new parameter types that will be used to negotiate the authentication during association setup. Table 1 illustrates the new parameter types.",
+      "zh-CHS": "本节定义了在关联设置期间用于协商身份验证的新参数类型。表1说明了新的参数类型。"
+    },
+    {
+      "indent": 4,
+      "text": "+----------------+------------------------------------------------+\n| Parameter Type | Parameter Name                                 |\n+----------------+------------------------------------------------+\n| 0x8002         | Random Parameter (RANDOM)                      |\n| 0x8003         | Chunk List Parameter (CHUNKS)                  |\n| 0x8004         | Requested HMAC Algorithm Parameter (HMAC-ALGO) |\n+----------------+------------------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 34,
+      "text": "Table 1",
+      "zh-CHS": "表1"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the parameter format requires the receiver to ignore the parameter and continue processing if the parameter is not understood. This is accomplished (as described in RFC 2960 [5], Section 3.2.1.) by the use of the upper bits of the parameter type.",
+      "zh-CHS": "请注意，参数格式要求接收器忽略该参数，如果不理解该参数，则继续处理。这是通过使用参数类型的高位实现的（如RFC 2960[5]第3.2.1节所述）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Random Parameter (RANDOM)",
+      "section_title": true,
+      "zh-CHS": "3.1. 随机参数（随机）"
+    },
+    {
+      "indent": 3,
+      "text": "This parameter is used to carry a random number of an arbitrary length.",
+      "zh-CHS": "此参数用于携带任意长度的随机数。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Parameter Type = 0x8002   |       Parameter Length        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n\\                          Random Number                        /\n/                               +-------------------------------\\\n|                               |           Padding             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 1",
+      "zh-CHS": "图1"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Type: 2 bytes (unsigned integer) This value MUST be set to 0x8002.",
+      "zh-CHS": "参数类型：2字节（无符号整数）此值必须设置为0x8002。"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Length: 2 bytes (unsigned integer) This value is the length of the Random Number in bytes plus 4.",
+      "zh-CHS": "参数长度：2字节（无符号整数）此值是以字节为单位的随机数的长度加上4。"
+    },
+    {
+      "indent": 3,
+      "text": "Random Number: n bytes (unsigned integer) This value represents an arbitrary Random Number in network byte order.",
+      "zh-CHS": "随机数：n字节（无符号整数）此值表示网络字节顺序的任意随机数。"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 0, 1, 2, or 3 bytes (unsigned integer) If the length of the Random Number is not a multiple of 4 bytes, the sender MUST pad the parameter with all zero bytes to make the parameter 32-bit aligned. The Padding MUST NOT be longer than 3 bytes and it MUST be ignored by the receiver.",
+      "zh-CHS": "填充：0、1、2或3个字节（无符号整数）如果随机数的长度不是4个字节的倍数，则发送方必须用所有零字节填充参数，以使参数32位对齐。填充长度不得超过3个字节，并且必须被接收器忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "The RANDOM parameter MUST be included once in the INIT or INIT-ACK chunk, if the sender wants to send or receive authenticated chunks, to provide a 32-byte Random Number. For 32-byte Random Numbers, the Padding is empty.",
+      "zh-CHS": "如果发送方希望发送或接收经过身份验证的数据块，则必须在INIT或INIT-ACK数据块中包含一次随机参数，以提供32字节的随机数。对于32字节的随机数，填充为空。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Chunk List Parameter (CHUNKS)",
+      "section_title": true,
+      "zh-CHS": "3.2. 块列表参数（块）"
+    },
+    {
+      "indent": 3,
+      "text": "This parameter is used to specify which chunk types are required to be authenticated before being sent by the peer.",
+      "zh-CHS": "此参数用于指定对等方发送前需要对哪些区块类型进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Parameter Type = 0x8003   |       Parameter Length        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Chunk Type 1  | Chunk Type 2  | Chunk Type 3  | Chunk Type 4  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n/                                                               /\n\\                              ...                              \\\n/                                                               /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Chunk Type n  |                   Padding                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 2",
+      "zh-CHS": "图2"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Type: 2 bytes (unsigned integer) This value MUST be set to 0x8003.",
+      "zh-CHS": "参数类型：2字节（无符号整数）此值必须设置为0x8003。"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Length: 2 bytes (unsigned integer) This value is the number of listed Chunk Types plus 4.",
+      "zh-CHS": "参数长度：2字节（无符号整数）此值是列出的块类型数加上4。"
+    },
+    {
+      "indent": 3,
+      "text": "Chunk Type n: 1 byte (unsigned integer) Each Chunk Type listed is required to be authenticated when sent by the peer.",
+      "zh-CHS": "区块类型n:1字节（无符号整数）对等方发送时，列出的每个区块类型都需要经过身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 0, 1, 2, or 3 bytes (unsigned integer) If the number of Chunk Types is not a multiple of 4, the sender MUST pad the parameter with all zero bytes to make the parameter 32-bit aligned. The Padding MUST NOT be longer than 3 bytes and it MUST be ignored by the receiver.",
+      "zh-CHS": "填充：0、1、2或3个字节（无符号整数）如果块类型的数量不是4的倍数，则发送方必须用所有零字节填充参数，以使参数32位对齐。填充长度不得超过3个字节，并且必须被接收器忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "The CHUNKS parameter MUST be included once in the INIT or INIT-ACK chunk if the sender wants to receive authenticated chunks. Its maximum length is 260 bytes.",
+      "zh-CHS": "如果发送方希望接收经过身份验证的区块，则必须在INIT或INIT-ACK区块中包含CHUNKS参数一次。它的最大长度是260字节。"
+    },
+    {
+      "indent": 3,
+      "text": "The chunk types for INIT, INIT-ACK, SHUTDOWN-COMPLETE, and AUTH chunks MUST NOT be listed in the CHUNKS parameter. However, if a CHUNKS parameter is received then the types for INIT, INIT-ACK, SHUTDOWN-COMPLETE, and AUTH chunks MUST be ignored.",
+      "zh-CHS": "chunks参数中不得列出INIT、INIT-ACK、SHUTDOWN-COMPLETE和AUTH块的块类型。但是，如果收到CHUNKS参数，则必须忽略INIT、INIT-ACK、SHUTDOWN-COMPLETE和AUTH CHUNKS的类型。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Requested HMAC Algorithm Parameter (HMAC-ALGO)",
+      "section_title": true,
+      "zh-CHS": "3.3. 请求的HMAC算法参数（HMAC-ALGO）"
+    },
+    {
+      "indent": 3,
+      "text": "This parameter is used to list the HMAC Identifiers the peer MUST use.",
+      "zh-CHS": "此参数用于列出对等方必须使用的HMAC标识符。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|     Parameter Type = 0x8004   |       Parameter Length        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|          HMAC Identifier 1    |      HMAC Identifier 2        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n/                                                               /\n\\                              ...                              \\\n/                                                               /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        HMAC Identifier n      |           Padding             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 3",
+      "zh-CHS": "图3"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Type: 2 bytes (unsigned integer) This value MUST be set to 0x8004.",
+      "zh-CHS": "参数类型：2字节（无符号整数）此值必须设置为0x8004。"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter Length: 2 bytes (unsigned integer) This value is the number of HMAC Identifiers multiplied by 2, plus 4.",
+      "zh-CHS": "参数长度：2字节（无符号整数）此值是HMAC标识符的数量乘以2加4。"
+    },
+    {
+      "indent": 3,
+      "text": "HMAC Identifier n: 2 bytes (unsigned integer) The values expressed are a list of HMAC Identifiers that may be used by the peer. The values are listed by preference, with respect to the sender, where the first HMAC Identifier listed is the one most preferable to the sender.",
+      "zh-CHS": "HMAC标识符n:2字节（无符号整数）表示的值是对等方可能使用的HMAC标识符列表。根据发送方的偏好列出值，其中列出的第一个HMAC标识符是发送方最优选的标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 0 or 2 bytes (unsigned integer) If the number of HMAC Identifiers is not even, the sender MUST pad the parameter with all zero bytes to make the parameter 32-bit aligned. The Padding MUST be 0 or 2 bytes long and it MUST be ignored by the receiver.",
+      "zh-CHS": "填充：0或2个字节（无符号整数）如果HMAC标识符的数量不是偶数，则发送方必须使用所有零字节填充参数，以使参数32位对齐。填充长度必须为0或2字节，并且必须被接收器忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "The HMAC-ALGO parameter MUST be included once in the INIT or INIT-ACK chunk if the sender wants to send or receive authenticated chunks.",
+      "zh-CHS": "如果发送方希望发送或接收经过身份验证的数据块，则必须在INIT或INIT-ACK数据块中包含一次HMAC-ALGO参数。"
+    },
+    {
+      "indent": 3,
+      "text": "Table 2 shows the currently defined values for HMAC Identifiers.",
+      "zh-CHS": "表2显示了HMAC标识符的当前定义值。"
+    },
+    {
+      "indent": 14,
+      "text": "+-----------------+--------------------------+\n| HMAC Identifier | Message Digest Algorithm |\n+-----------------+--------------------------+\n| 0               | Reserved                 |\n| 1               | SHA-1 defined in [8]     |\n| 2               | Reserved                 |\n| 3               | SHA-256 defined in [8]   |\n+-----------------+--------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 34,
+      "text": "Table 2",
+      "zh-CHS": "表2"
+    },
+    {
+      "indent": 3,
+      "text": "Every endpoint supporting SCTP chunk authentication MUST support the HMAC based on the SHA-1 algorithm.",
+      "zh-CHS": "每个支持SCTP区块身份验证的端点都必须支持基于SHA-1算法的HMAC。"
+    },
+    {
+      "indent": 0,
+      "text": "4. New Error Cause",
+      "section_title": true,
+      "zh-CHS": "4. 新的错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "This section defines a new error cause that will be sent if an AUTH chunk is received with an unsupported HMAC Identifier. Table 3 illustrates the new error cause.",
+      "zh-CHS": "本节定义了一个新的错误原因，如果接收到带有不受支持的HMAC标识符的AUTH区块，将发送该错误原因。表3说明了新的错误原因。"
+    },
+    {
+      "indent": 15,
+      "text": "+------------+-----------------------------+\n| Cause Code | Error Cause Name            |\n+------------+-----------------------------+\n| 0x0105     | Unsupported HMAC Identifier |\n+------------+-----------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 34,
+      "text": "Table 3",
+      "zh-CHS": "表3"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Unsupported HMAC Identifier Error Cause",
+      "section_title": true,
+      "zh-CHS": "4.1. 不支持的HMAC标识符错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "This error cause is used to indicate that an AUTH chunk has been received with an unsupported HMAC Identifier.",
+      "zh-CHS": "此错误原因用于指示接收到带有不受支持的HMAC标识符的身份验证区块。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|      Cause Code = 0x0105      |       Cause Length = 6        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|         HMAC Identifier       |            Padding            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 4",
+      "zh-CHS": "图4"
+    },
+    {
+      "indent": 3,
+      "text": "Cause Code: 2 bytes (unsigned integer) This value MUST be set to 0x0105.",
+      "zh-CHS": "原因代码：2字节（无符号整数）此值必须设置为0x0105。"
+    },
+    {
+      "indent": 3,
+      "text": "Cause Length: 2 bytes (unsigned integer) This value MUST be set to 6.",
+      "zh-CHS": "原因长度：2字节（无符号整数）此值必须设置为6。"
+    },
+    {
+      "indent": 3,
+      "text": "HMAC Identifier: 2 bytes (unsigned integer) This value is the HMAC Identifier which is not supported.",
+      "zh-CHS": "HMAC标识符：2字节（无符号整数）此值是不受支持的HMAC标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 2 bytes (unsigned integer) The sender MUST pad the error cause with all zero bytes to make the cause 32-bit aligned. The Padding MUST be 2 bytes long and it MUST be ignored by the receiver.",
+      "zh-CHS": "填充：2个字节（无符号整数）发送方必须用所有零字节填充错误原因，以使原因32位对齐。填充长度必须为2字节，并且必须被接收器忽略。"
+    },
+    {
+      "indent": 0,
+      "text": "5. New Chunk Type",
+      "section_title": true,
+      "zh-CHS": "5. 新块类型"
+    },
+    {
+      "indent": 3,
+      "text": "This section defines the new chunk type that will be used to authenticate chunks. Table 4 illustrates the new chunk type.",
+      "zh-CHS": "本节定义将用于验证区块的新区块类型。表4说明了新的块类型。"
+    },
+    {
+      "indent": 15,
+      "text": "+------------+-----------------------------+\n| Chunk Type | Chunk Name                  |\n+------------+-----------------------------+\n| 0x0F       | Authentication Chunk (AUTH) |\n+------------+-----------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 34,
+      "text": "Table 4",
+      "zh-CHS": "表4"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that the AUTH-chunk format requires the receiver to ignore the chunk if it is not understood and silently discard all chunks that follow. This is accomplished (as described in RFC 2960 [5], Section 3.2.) by the use of the upper bits of the chunk type.",
+      "zh-CHS": "应该注意的是，AUTH chunk格式要求接收者忽略未理解的chunk，并静默地丢弃后面的所有chunk。这是通过使用块类型的高位实现的（如RFC 2960[5]第3.2节所述）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Authentication Chunk (AUTH)",
+      "section_title": true,
+      "zh-CHS": "5.1. 身份验证块（AUTH）"
+    },
+    {
+      "indent": 3,
+      "text": "This chunk is used to hold the result of the HMAC calculation.",
+      "zh-CHS": "此数据块用于保存HMAC计算的结果。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Type = 0x0F   |   Flags=0     |             Length            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|    Shared Key Identifier      |        HMAC Identifier        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n\\                             HMAC                              /\n/                                                               \\\n/                               +-------------------------------\\\n|                               |           Padding             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 5",
+      "zh-CHS": "图5"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 1 byte (unsigned integer) This value MUST be set to 0x0F for all AUTH-chunks.",
+      "zh-CHS": "类型：1字节（无符号整数）对于所有身份验证块，此值必须设置为0x0F。"
+    },
+    {
+      "indent": 3,
+      "text": "Flags: 1 byte (unsigned integer) SHOULD be set to zero on transmit and MUST be ignored on receipt.",
+      "zh-CHS": "标志：1字节（无符号整数）在传输时应设置为零，在接收时必须忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "Length: 2 bytes (unsigned integer) This value holds the length of the HMAC in bytes plus 8.",
+      "zh-CHS": "长度：2字节（无符号整数）此值保存HMAC的长度，单位为字节加8。"
+    },
+    {
+      "indent": 3,
+      "text": "Shared Key Identifier: 2 bytes (unsigned integer) This value describes which endpoint pair shared key is used.",
+      "zh-CHS": "共享密钥标识符：2字节（无符号整数）此值描述使用哪个端点对共享密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "HMAC Identifier: 2 bytes (unsigned integer) This value describes which message digest is being used. Table 2 shows the currently defined values.",
+      "zh-CHS": "HMAC标识符：2字节（无符号整数）此值描述正在使用的消息摘要。表2显示了当前定义的值。"
+    },
+    {
+      "indent": 3,
+      "text": "HMAC: n bytes (unsigned integer) This holds the result of the HMAC calculation.",
+      "zh-CHS": "HMAC:n字节（无符号整数）它保存HMAC计算的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 0, 1, 2, or 3 bytes (unsigned integer) If the length of the HMAC is not a multiple of 4 bytes, the sender MUST pad the chunk with all zero bytes to make the chunk 32-bit aligned. The Padding MUST NOT be longer than 3 bytes and it MUST be ignored by the receiver.",
+      "zh-CHS": "填充：0、1、2或3个字节（无符号整数）如果HMAC的长度不是4个字节的倍数，则发送方必须用所有零字节填充区块，以使区块32位对齐。填充长度不得超过3个字节，并且必须被接收器忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "The control chunk AUTH MUST NOT appear more than once in an SCTP packet. All control and data chunks that are placed after the AUTH chunk in the packet are sent in an authenticated way. Those chunks placed in a packet before the AUTH chunk are not authenticated. Please note that DATA chunks can not appear before control chunks in an SCTP packet.",
+      "zh-CHS": "控制区块身份验证在SCTP数据包中不得出现多次。数据包中位于AUTH块之后的所有控制块和数据块都以经过身份验证的方式发送。在AUTH块之前放入数据包中的那些块未经过身份验证。请注意，在SCTP数据包中，数据块不能出现在控制块之前。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Procedures",
+      "section_title": true,
+      "zh-CHS": "6. 程序"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Establishment of an Association Shared Key",
+      "section_title": true,
+      "zh-CHS": "6.1. 建立关联共享密钥"
+    },
+    {
+      "indent": 3,
+      "text": "An SCTP endpoint willing to receive or send authenticated chunks MUST send one RANDOM parameter in its INIT or INIT-ACK chunk. The RANDOM parameter MUST contain a 32-byte Random Number. The Random Number should be generated in accordance with RFC 4086 [7]. If the Random Number is not 32 bytes, the association MUST be aborted. The ABORT chunk SHOULD contain the error cause 'Protocol Violation'. In case of INIT collision, the rules governing the handling of this Random Number follow the same pattern as those for the Verification Tag, as explained in Section 5.2.4 of RFC 2960 [5]. Therefore, each endpoint knows its own Random Number and the peer's Random Number after the association has been established.",
+      "zh-CHS": "愿意接收或发送经过身份验证的数据块的SCTP端点必须在其INIT或INIT-ACK数据块中发送一个随机参数。随机参数必须包含一个32字节的随机数。应根据RFC 4086[7]生成随机数。如果随机数不是32字节，则必须中止关联。中止区块应包含错误原因“协议冲突”。如RFC 2960[5]第5.2.4节所述，在初始冲突的情况下，管理该随机数处理的规则遵循与验证标签相同的模式。因此，在建立关联后，每个端点都知道自己的随机数和对等方的随机数。"
+    },
+    {
+      "indent": 3,
+      "text": "An SCTP endpoint has a list of chunks it only accepts if they are received in an authenticated way. This list is included in the INIT and INIT-ACK, and MAY be omitted if it is empty. Since this list does not change during the lifetime of the SCTP endpoint there is no problem in case of INIT collision.",
+      "zh-CHS": "SCTP端点有一个块列表，只有以经过身份验证的方式接收时，它才会接受这些块。此列表包含在INIT和INIT-ACK中，如果为空，则可以忽略此列表。由于此列表在SCTP端点的生存期内不会更改，因此在发生初始化冲突的情况下不会出现问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Each SCTP endpoint MUST include in the INIT and INIT-ACK a HMAC-ALGO parameter containing a list of HMAC Identifiers it requests the peer to use. The receiver of an HMAC-ALGO parameter SHOULD use the first listed algorithm it supports. The HMAC algorithm based on SHA-1 MUST be supported and included in the HMAC-ALGO parameter. An SCTP endpoint MUST NOT change the parameters listed in the HMAC-ALGO parameter during the lifetime of the endpoint.",
+      "zh-CHS": "每个SCTP端点必须在INIT和INIT-ACK中包含一个HMAC-ALGO参数，该参数包含它请求对等方使用的HMAC标识符列表。HMAC-ALGO参数的接收器应使用其支持的第一个列出的算法。必须支持基于SHA-1的HMAC算法，并将其包含在HMAC-ALGO参数中。SCTP端点在其生命周期内不得更改HMAC-ALGO参数中列出的参数。"
+    },
+    {
+      "indent": 3,
+      "text": "Both endpoints of an association MAY have endpoint pair shared keys that are byte vectors and pre-configured or established by another mechanism. They are identified by the Shared Key Identifier. For each endpoint pair shared key, an association shared key is computed. If there is no endpoint pair shared key, only one association shared key is computed by using an empty byte vector as the endpoint pair shared key.",
+      "zh-CHS": "关联的两个端点都可以具有端点对共享密钥，这些密钥是字节向量，由另一种机制预先配置或建立。它们由共享密钥标识符标识。对于每个端点对共享密钥，计算关联共享密钥。如果没有端点对共享密钥，则通过使用空字节向量作为端点对共享密钥，只计算一个关联共享密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "The RANDOM parameter, the CHUNKS parameter, and the HMAC-ALGO parameter sent by each endpoint are concatenated as byte vectors. These parameters include the parameter type, parameter length, and the parameter value, but padding is omitted; all padding MUST be removed from this concatenation before proceeding with further computation of keys. Parameters that were not sent are simply omitted from the concatenation process. The resulting two vectors are called the two key vectors.",
+      "zh-CHS": "每个端点发送的随机参数、CHUNKS参数和HMAC-ALGO参数作为字节向量连接在一起。这些参数包括参数类型、参数长度和参数值，但省略了填充；在继续进一步计算键之前，必须删除此连接中的所有填充。未发送的参数只是从串联过程中省略。得到的两个向量称为两个关键向量。"
+    },
+    {
+      "indent": 3,
+      "text": "From the endpoint pair shared keys and the key vectors, the association shared keys are computed. This is performed by selecting the numerically smaller key vector and concatenating it to the endpoint pair shared key, and then concatenating the numerically larger key vector to that. If the key vectors are equal as numbers but differ in length, then the concatenation order is the endpoint shared key, followed by the shorter key vector, followed by the longer key vector. Otherwise, the key vectors are identical, and may be concatenated to the endpoint pair key in any order. The concatenation is performed on byte vectors, and all numerical comparisons use network byte order to convert the key vectors to a number. The result of the concatenation is the association shared key.",
+      "zh-CHS": "根据端点对共享密钥和密钥向量，计算关联共享密钥。这是通过选择数值较小的密钥向量并将其连接到端点对共享密钥，然后将数值较大的密钥向量连接到该端点对共享密钥来执行的。如果键向量数相等但长度不同，则连接顺序为端点共享键，后跟较短的键向量，后跟较长的键向量。否则，密钥向量是相同的，并且可以以任何顺序连接到端点对密钥。串联是在字节向量上执行的，所有数值比较都使用网络字节顺序将关键向量转换为数字。连接的结果是关联共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Sending Authenticated Chunks",
+      "section_title": true,
+      "zh-CHS": "6.2. 发送经过身份验证的块"
+    },
+    {
+      "indent": 3,
+      "text": "Endpoints MUST send all requested chunks that have been authenticated where this has been requested by the peer. The other chunks MAY be sent whether or not they have been authenticated. If endpoint pair shared keys are used, one of them MUST be selected for authentication.",
+      "zh-CHS": "端点必须发送已通过身份验证的所有请求的数据块，其中对等方已请求该数据块。无论是否已通过身份验证，都可以发送其他块。如果使用端点对共享密钥，则必须选择其中一个进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "To send chunks in an authenticated way, the sender MUST include these chunks after an AUTH chunk. This means that a sender MUST bundle chunks in order to authenticate them.",
+      "zh-CHS": "要以经过身份验证的方式发送区块，发送方必须在验证区块之后包含这些区块。这意味着发送方必须绑定块才能对其进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "If the endpoint has no endpoint pair shared key for the peer, it MUST use Shared Key Identifier zero with an empty endpoint pair shared key. If there are multiple endpoint shared keys the sender selects one and uses the corresponding Shared Key Identifier.",
+      "zh-CHS": "如果终结点没有对等点的终结点对共享密钥，则必须使用带有空终结点对共享密钥的共享密钥标识符零。如果存在多个端点共享密钥，发送方将选择一个并使用相应的共享密钥标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender MUST calculate the Message Authentication Code (MAC) (as described in RFC 2104 [2]) using the hash function H as described by the HMAC Identifier and the shared association key K based on the endpoint pair shared key described by the Shared Key Identifier. The 'data' used for the computation of the AUTH-chunk is given by the AUTH chunk with its HMAC field set to zero (as shown in Figure 6) followed by all the chunks that are placed after the AUTH chunk in the SCTP packet.",
+      "zh-CHS": "发送方必须使用HMAC标识符描述的哈希函数H和基于共享密钥标识符描述的端点对共享密钥K的共享关联密钥来计算消息认证码（MAC）（如RFC 2104[2]中所述）。用于计算AUTH区块的“数据”由AUTH区块给出，其HMAC字段设置为零（如图6所示），然后是SCTP数据包中位于AUTH区块之后的所有区块。"
+    },
+    {
+      "indent": 3,
+      "text": "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Type = 0x0F   |   Flags=0     |         Chunk Length          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|    Shared Key Identifier      |        HMAC Identifier        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n\\                               0                               /\n/                               +-------------------------------\\\n|                               |           Padding             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 33,
+      "text": "Figure 6",
+      "zh-CHS": "图6"
+    },
+    {
+      "indent": 3,
+      "text": "Please note that all fields are in network byte order and that the field that will contain the complete HMAC is filled with zeroes. The length of the field shown as zero is the length of the HMAC described by the HMAC Identifier. The padding of all chunks being authenticated MUST be included in the HMAC computation.",
+      "zh-CHS": "请注意，所有字段都是按网络字节顺序排列的，并且包含完整HMAC的字段用零填充。HMAC的长度表示为HMAC字段的长度。HMAC计算中必须包括所有经过身份验证的块的填充。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender fills the HMAC into the HMAC field and sends the packet.",
+      "zh-CHS": "发送方将HMAC填入HMAC字段并发送数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. Receiving Authenticated Chunks",
+      "section_title": true,
+      "zh-CHS": "6.3. 接收经过身份验证的块"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver has a list of chunk types that it expects to be received only after an AUTH-chunk. This list has been sent to the peer during the association setup. It MUST silently discard these chunks if they are not placed after an AUTH chunk in the packet.",
+      "zh-CHS": "接收方有一个块类型列表，它希望只有在验证块之后才能接收这些块类型。此列表已在关联设置期间发送给对等方。如果这些数据块没有放在数据包中的AUTH数据块之后，它必须悄悄地丢弃这些数据块。"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver MUST use the HMAC algorithm indicated in the HMAC Identifier field. If this algorithm was not specified by the receiver in the HMAC-ALGO parameter in the INIT or INIT-ACK chunk during association setup, the AUTH chunk and all the chunks after it MUST be discarded and an ERROR chunk SHOULD be sent with the error cause defined in Section 4.1.",
+      "zh-CHS": "接收器必须使用HMAC标识符字段中指示的HMAC算法。如果在关联设置过程中，接收方未在INIT或INIT-ACK区块的HMAC-ALGO参数中指定此算法，则必须丢弃AUTH区块及其之后的所有区块，并发送一个错误区块，其中包含第4.1节中定义的错误原因。"
+    },
+    {
+      "indent": 3,
+      "text": "If an endpoint with no shared key receives a Shared Key Identifier other than 0, it MUST silently discard all authenticated chunks. If the endpoint has at least one endpoint pair shared key for the peer, it MUST use the key specified by the Shared Key Identifier if a key has been configured for that Shared Key Identifier. If no endpoint pair shared key has been configured for that Shared Key Identifier, all authenticated chunks MUST be silently discarded.",
+      "zh-CHS": "如果没有共享密钥的端点接收到除0以外的共享密钥标识符，则它必须以静默方式放弃所有经过身份验证的区块。如果端点至少有一个用于对等方的端点对共享密钥，则如果已为该共享密钥标识符配置密钥，则必须使用该共享密钥标识符指定的密钥。如果没有为该共享密钥标识符配置端点对共享密钥，则必须以静默方式丢弃所有经过身份验证的区块。"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver now performs the same calculation as described for the sender based on Figure 6. If the result of the calculation is the",
+      "zh-CHS": "接收方现在执行与基于图6的发送方相同的计算。如果计算结果为"
+    },
+    {
+      "indent": 3,
+      "text": "same as given in the HMAC field, all the chunks following the AUTH chunk are processed. If the field does not match the result of the calculation, all the chunks following the AUTH chunk MUST be silently discarded.",
+      "zh-CHS": "与HMAC字段中给出的相同，将处理AUTH块后面的所有块。如果该字段与计算结果不匹配，则必须以静默方式放弃AUTH区块之后的所有区块。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that if the receiver wants to tear down an association in an authenticated way only, the handling of malformed packets should not result in tearing down the association.",
+      "zh-CHS": "应该注意的是，如果接收方只想以经过身份验证的方式拆除关联，那么处理格式错误的数据包不应导致拆除关联。"
+    },
+    {
+      "indent": 3,
+      "text": "An SCTP implementation has to maintain state for each SCTP association. In the following, we call this data structure the SCTP transmission control block (STCB).",
+      "zh-CHS": "SCTP实现必须维护每个SCTP关联的状态。在下文中，我们将此数据结构称为SCTP传输控制块（STCB）。"
+    },
+    {
+      "indent": 3,
+      "text": "When an endpoint requires COOKIE-ECHO chunks to be authenticated, some special procedures have to be followed because the reception of a COOKIE-ECHO chunk might result in the creation of an SCTP association. If a packet arrives containing an AUTH chunk as a first chunk, a COOKIE-ECHO chunk as the second chunk, and possibly more chunks after them, and the receiver does not have an STCB for that packet, then authentication is based on the contents of the COOKIE-ECHO chunk. In this situation, the receiver MUST authenticate the chunks in the packet by using the RANDOM parameters, CHUNKS parameters and HMAC_ALGO parameters obtained from the COOKIE-ECHO chunk, and possibly a local shared secret as inputs to the authentication procedure specified in Section 6.3. If authentication fails, then the packet is discarded. If the authentication is successful, the COOKIE-ECHO and all the chunks after the COOKIE-ECHO MUST be processed. If the receiver has an STCB, it MUST process the AUTH chunk as described above using the STCB from the existing association to authenticate the COOKIE-ECHO chunk and all the chunks after it.",
+      "zh-CHS": "当端点要求对COOKIE-ECHO块进行身份验证时，必须遵循一些特殊过程，因为接收COOKIE-ECHO块可能会导致创建SCTP关联。如果到达的数据包包含作为第一个数据块的身份验证数据块、作为第二个数据块的COOKIE-ECHO数据块以及之后可能更多的数据块，并且接收方没有该数据包的STCB，则身份验证基于COOKIE-ECHO数据块的内容。在这种情况下，接收方必须使用从COOKIE-ECHO数据块中获得的随机参数、数据块参数和HMAC_算法参数，以及可能的本地共享秘密，作为第6.3节中规定的认证过程的输入，对数据包中的数据块进行认证。如果身份验证失败，则丢弃数据包。如果身份验证成功，则必须处理COOKIE-ECHO和COOKIE-ECHO之后的所有块。如果接收器有一个STCB，它必须使用现有关联中的STCB，如上所述处理AUTH区块，以验证COOKIE-ECHO区块及其之后的所有区块。"
+    },
+    {
+      "indent": 3,
+      "text": "If the receiver does not find an STCB for a packet containing an AUTH chunk as the first chunk and does not find a COOKIE-ECHO chunk as the second chunk, it MUST use the chunks after the AUTH chunk to look up an existing association. If no association is found, the packet MUST be considered as out of the blue. The out of the blue handling MUST be based on the packet without taking the AUTH chunk into account. If an association is found, it MUST process the AUTH chunk using the STCB from the existing association as described earlier.",
+      "zh-CHS": "如果接收方没有找到包含身份验证块作为第一块的数据包的STCB，也没有找到COOKIE-ECHO块作为第二块，则必须使用身份验证块之后的块来查找现有关联。如果未找到关联，则必须将该数据包视为异常。意外处理必须基于数据包，而不考虑AUTH块。如果找到关联，它必须使用前面描述的现有关联中的STCB来处理AUTH区块。"
+    },
+    {
+      "indent": 3,
+      "text": "Requiring ABORT chunks and COOKIE-ECHO chunks to be authenticated makes it impossible for an attacker to bring down or restart an association as long as the attacker does not know the association shared key. But it should also be noted that if an endpoint accepts ABORT chunks only in an authenticated way, it may take longer to detect that the peer is no longer available. If an endpoint accepts COOKIE-ECHO chunks only in an authenticated way, the restart",
+      "zh-CHS": "要求对中止块和COOKIE-ECHO块进行身份验证，使得攻击者无法关闭或重新启动关联，只要攻击者不知道关联共享密钥。但还应注意，如果端点仅以经过身份验证的方式接受中止块，则可能需要更长的时间才能检测到对等方不再可用。如果端点仅以经过身份验证的方式接受COOKIE-ECHO块，则重新启动"
+    },
+    {
+      "indent": 3,
+      "text": "procedure does not work, because the restarting endpoint most likely does not know the association shared key of the old association to be restarted. However, if the restarting endpoint does know the old association shared key, he can successfully send the COOKIE-ECHO chunk in a way that it is accepted by the peer by using this old association shared key for the packet containing the AUTH chunk. After this operation, both endpoints have to use the new association shared key.",
+      "zh-CHS": "过程不起作用，因为重新启动端点很可能不知道要重新启动的旧关联的关联共享密钥。但是，如果重新启动的端点确实知道旧的关联共享密钥，则他可以通过使用包含AUTH区块的数据包的该旧关联共享密钥，以对等方接受的方式成功发送COOKIE-ECHO区块。在此操作之后，两个端点都必须使用新的关联共享密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "If a server has an endpoint pair shared key with some clients, it can request the COOKIE_ECHO chunk to be authenticated and can ensure that only associations from clients with a correct endpoint pair shared key are accepted.",
+      "zh-CHS": "如果服务器与某些客户端具有端点对共享密钥，它可以请求对COOKIE_ECHO区块进行身份验证，并可以确保只接受来自具有正确端点对共享密钥的客户端的关联。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, it is important that the cookie contained in an INIT-ACK chunk and in a COOKIE-ECHO chunk MUST NOT contain any endpoint pair shared keys.",
+      "zh-CHS": "此外，重要的是，INIT-ACK块和cookie-ECHO块中包含的cookie不能包含任何端点对共享密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Examples",
+      "section_title": true,
+      "zh-CHS": "7. 例子"
+    },
+    {
+      "indent": 3,
+      "text": "This section gives examples of message exchanges for association setup.",
+      "zh-CHS": "本节给出了关联设置的消息交换示例。"
+    },
+    {
+      "indent": 3,
+      "text": "The simplest way of using the extension described in this document is given by the following message exchange.",
+      "zh-CHS": "下面的消息交换给出了使用本文档中描述的扩展的最简单方法。"
+    },
+    {
+      "indent": 7,
+      "text": "---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->\n<------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------\n-------------------- COOKIE-ECHO -------------------->\n<-------------------- COOKIE-ACK ---------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Please note that the CHUNKS parameter is optional in the INIT and INIT-ACK.",
+      "zh-CHS": "请注意，CHUNKS参数在INIT和INIT-ACK中是可选的。"
+    },
+    {
+      "indent": 3,
+      "text": "If the server wants to receive DATA chunks in an authenticated way, the following message exchange is possible:",
+      "zh-CHS": "如果服务器希望以经过身份验证的方式接收数据块，则可以进行以下消息交换："
+    },
+    {
+      "indent": 7,
+      "text": "---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->\n<------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------\n--------------- COOKIE-ECHO; AUTH; DATA ------------->\n<----------------- COOKIE-ACK; SACK ------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Please note that if the endpoint pair shared key depends on the client and the server, and is only known by the upper layer, this message exchange requires an upper layer intervention between the processing of the COOKIE-ECHO chunk and the processing of the AUTH and DATA chunk at the server side. This intervention may be realized by a COMMUNICATION-UP notification followed by the presentation of",
+      "zh-CHS": "请注意，如果端点对共享密钥取决于客户端和服务器，并且只有上层知道，则此消息交换需要在服务器端处理COOKIE-ECHO区块和处理AUTH和数据区块之间进行上层干预。这种干预可以通过通信后续通知，然后呈现"
+    },
+    {
+      "indent": 3,
+      "text": "the endpoint pair shared key by the upper layer to the SCTP stack, see for example Section 10 of RFC 2960 [5]. If this intervention is not possible due to limitations of the API (for example, the socket API), the server might discard the AUTH and DATA chunk, making a retransmission of the DATA chunk necessary. If the same endpoint pair shared key is used for multiple endpoints and does not depend on the client, this intervention might not be necessary.",
+      "zh-CHS": "上层对SCTP堆栈共享的端点对密钥，例如参见RFC 2960[5]第10节。如果由于API（例如套接字API）的限制而无法进行此干预，则服务器可能会丢弃身份验证和数据块，从而需要重新传输数据块。如果同一端点对共享密钥用于多个端点，并且不依赖于客户端，则可能不需要进行此干预。"
+    },
+    {
+      "indent": 0,
+      "text": "8. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "8. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document (RFC 4895) is the reference for all registrations described in this section. All registrations need to be listed in the document available at SCTP-parameters [9]. The changes are described below.",
+      "zh-CHS": "本文件（RFC 4895）是本节所述所有注册的参考文件。所有注册需要在SCTP参数[9]提供的文件中列出。下文介绍了这些变化。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. A New Chunk Type",
+      "section_title": true,
+      "zh-CHS": "8.1. 一种新的块类型"
+    },
+    {
+      "indent": 3,
+      "text": "A chunk type for the AUTH chunk has been assigned by IANA. IANA has assigned the value (15), as given in Table 4. An additional line has been added in the \"CHUNK TYPES\" table of SCTP-parameters [9]:",
+      "zh-CHS": "IANA已为AUTH区块分配了区块类型。IANA已指定值（15），如表4所示。SCTP参数[9]的“块类型”表中增加了一行："
+    },
+    {
+      "indent": 3,
+      "text": "CHUNK TYPES",
+      "zh-CHS": "块类型"
+    },
+    {
+      "indent": 3,
+      "text": "ID Value    Chunk Type                                     Reference\n-----       ----------                                     ---------\n15          Authentication Chunk (AUTH)                    [RFC4895]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Three New Parameter Types",
+      "section_title": true,
+      "zh-CHS": "8.2. 三种新的参数类型"
+    },
+    {
+      "indent": 3,
+      "text": "Parameter types have been assigned for the RANDOM, CHUNKS, and HMAC-ALGO parameter by IANA. The values are as given in Table 1. This required two modifications to the \"CHUNK PARAMETER TYPES\" tables in SCTP-parameters [9]: the first is the addition of three new lines to the \"INIT Chunk Parameter Types\" table:",
+      "zh-CHS": "IANA为随机、块和HMAC-ALGO参数指定了参数类型。数值如表1所示。这需要对SCTP parameters[9]中的“CHUNK PARAMETER TYPES”表进行两次修改：第一次是在“INIT CHUNK PARAMETER TYPES”表中添加三行新行："
+    },
+    {
+      "indent": 3,
+      "text": "Chunk Parameter Type                       Value\n--------------------                       -----\nRandom                             32770 (0x8002)\nChunk List                         32771 (0x8003)\nRequested HMAC Algorithm Parameter 32772 (0x8004)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The second required change is the addition of the same three lines to the to the \"INIT ACK Chunk Parameter Types\" table.",
+      "zh-CHS": "第二个必需的更改是将相同的三行添加到“INIT ACK Chunk Parameter Types”表中。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3. A New Error Cause",
+      "section_title": true,
+      "zh-CHS": "8.3. 新的错误原因"
+    },
+    {
+      "indent": 3,
+      "text": "An error cause for the Unsupported HMAC Identifier error cause has been assigned. The value (261) has been assigned as in Table 3.",
+      "zh-CHS": "已为不支持的HMAC标识符错误原因分配错误原因。值（261）的分配如表3所示。"
+    },
+    {
+      "indent": 3,
+      "text": "This requires an additional line of the \"CAUSE CODES\" table in SCTP-parameters [9]:",
+      "zh-CHS": "这需要在SCTP参数[9]中增加一行“原因代码”表："
+    },
+    {
+      "indent": 3,
+      "text": "VALUE            CAUSE CODE                               REFERENCE\n-----            ----------------                         ---------\n261 (0x0105)     Unsupported HMAC Identifier              [RFC4895]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8.4. A New Table for HMAC Identifiers",
+      "section_title": true,
+      "zh-CHS": "8.4. 一个新的HMAC标识符表"
+    },
+    {
+      "indent": 3,
+      "text": "HMAC Identifiers have to be maintained by IANA. Four initial values have been assigned by IANA as described in Table 2. This required a new table \"HMAC IDENTIFIERS\" in SCTP-parameters [9]:",
+      "zh-CHS": "HMAC标识符必须由IANA维护。IANA分配了四个初始值，如表2所述。这需要SCTP参数[9]中的新表“HMAC标识符”："
+    },
+    {
+      "indent": 3,
+      "text": "HMAC Identifier      Message Digest Algorithm             REFERENCE\n---------------      ------------------------             ---------\n0                    Reserved                             [RFC4895]\n1                    SHA-1                                [RFC4895]\n2                    Reserved                             [RFC4895]\n3                    SHA-256                              [RFC4895]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "For registering a new HMAC Identifier with IANA, in this table, a request has to be made to assign such a number. This number must be unique and a message digest algorithm usable with the HMAC defined in RFC 2104 [2] MUST be specified. The \"Specification Required\" policy of RFC 2434 [4] MUST be applied.",
+      "zh-CHS": "为了向IANA注册新的HMAC标识符，在此表中，必须请求分配此类编号。该数字必须是唯一的，并且必须指定可用于RFC2104[2]中定义的HMAC的消息摘要算法。必须应用RFC 2434[4]的“要求规范”政策。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "9. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Without using endpoint shared keys, this extension only protects against modification or injection of authenticated chunks by attackers who did not capture the initial handshake setting up the SCTP association.",
+      "zh-CHS": "在不使用端点共享密钥的情况下，此扩展仅防止攻击者修改或注入未捕获设置SCTP关联的初始握手的已验证区块。"
+    },
+    {
+      "indent": 3,
+      "text": "If an endpoint pair shared key is used, even a true man in the middle cannot inject chunks, which are required to be authenticated, even if he intercepts the initial message exchange. The endpoint also knows that it is accepting authenticated chunks from a peer who knows the endpoint pair shared key.",
+      "zh-CHS": "如果使用端点对共享密钥，即使中间的真实人也无法注入需要验证的块，即使他拦截了初始消息交换。端点还知道它正在接受来自知道端点对共享密钥的对等方的经过身份验证的块。"
+    },
+    {
+      "indent": 3,
+      "text": "The establishment of endpoint pair shared keys is out of the scope of this document. Other mechanisms can be used, like using TLS or manual configuration.",
+      "zh-CHS": "端点对共享密钥的建立超出了本文档的范围。可以使用其他机制，如使用TLS或手动配置。"
+    },
+    {
+      "indent": 3,
+      "text": "When an endpoint accepts COOKIE-ECHO chunks only in an authenticated way the restart procedure does not work. Neither an attacker nor a restarted endpoint not knowing the association shared key can perform an restart. However, if the association shared key is known, it is possible to restart the association.",
+      "zh-CHS": "当端点仅以经过身份验证的方式接受COOKIE-ECHO块时，重启过程将不起作用。攻击者和不知道关联共享密钥的重启端点都不能执行重启。但是，如果已知关联共享密钥，则可以重新启动关联。"
+    },
+    {
+      "indent": 3,
+      "text": "Because SCTP already has a built-in mechanism that handles the reception of duplicated chunks, the presented solution makes use of this functionality and does not provide a method to avoid replay attacks by itself. Of course, this only works within each SCTP association. Therefore, a separate shared key is used for each SCTP association to handle replay attacks covering multiple SCTP associations.",
+      "zh-CHS": "因为SCTP已经有一个内置的机制来处理重复块的接收，所以提出的解决方案利用了这个功能，并且没有提供一种方法来避免重播攻击。当然，这只适用于每个SCTP关联。因此，每个SCTP关联使用单独的共享密钥来处理覆盖多个SCTP关联的重播攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Each endpoint presenting a list of more than one element in the HMAC-ALGO parameter must be prepared for the peer using the weakest algorithm listed.",
+      "zh-CHS": "在HMAC-ALGO参数中显示一个以上元素列表的每个端点必须使用列出的最弱算法为对等方准备。"
+    },
+    {
+      "indent": 3,
+      "text": "When an endpoint pair uses non-NULL endpoint pair shared keys and one of the endpoints still accepts a NULL key, an attacker who captured the initial handshake can still inject or modify authenticated chunks by using the NULL key.",
+      "zh-CHS": "当端点对使用非空端点对共享密钥且其中一个端点仍接受空密钥时，捕获初始握手的攻击者仍可以使用空密钥注入或修改经过身份验证的区块。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "10. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to thank David Black, Sascha Grau, Russ Housley, Ivan Arias Rodriguez, Irene Ruengeler, and Magnus Westerlund for their invaluable comments.",
+      "zh-CHS": "作者希望感谢大卫·布莱克、萨沙·格拉、罗斯·霍斯利、伊万·阿里亚斯·罗德里格斯、艾琳·朗格勒和马格纳斯·韦斯特隆德的宝贵评论。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Normative References",
+      "section_title": true,
+      "zh-CHS": "11. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Rivest, R., \"The MD5 Message-Digest Algorithm\", RFC 1321, April 1992.",
+      "zh-CHS": "[1] Rivest，R.，“MD5消息摘要算法”，RFC1321，1992年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Krawczyk, H., Bellare, M., and R. Canetti, \"HMAC: Keyed-Hashing for Message Authentication\", RFC 2104, February 1997.",
+      "zh-CHS": "[2] Krawczyk，H.，Bellare，M.和R.Canetti，“HMAC：用于消息身份验证的键控哈希”，RFC 2104，1997年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[3] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[4] Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Stewart, R., Xie, Q., Morneault, K., Sharp, C., Schwarzbauer, H., Taylor, T., Rytina, I., Kalla, M., Zhang, L., and V. Paxson, \"Stream Control Transmission Protocol\", RFC 2960, October 2000.",
+      "zh-CHS": "[5] Stewart，R.，Xie，Q.，Morneault，K.，Sharp，C.，Schwarzbauer，H.，Taylor，T.，Rytina，I.，Kalla，M.，Zhang，L.，和V.Paxson，“流控制传输协议”，RFC 29602000年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Jungmaier, A., Rescorla, E., and M. Tuexen, \"Transport Layer Security over Stream Control Transmission Protocol\", RFC 3436, December 2002.",
+      "zh-CHS": "[6] Jungmaier，A.，Rescorla，E.，和M.Tuexen，“流控制传输协议上的传输层安全”，RFC 3436，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Eastlake, D., Schiller, J., and S. Crocker, \"Randomness Requirements for Security\", BCP 106, RFC 4086, June 2005.",
+      "zh-CHS": "[7] Eastlake，D.，Schiller，J.，和S.Crocker，“安全的随机性要求”，BCP 106，RFC 40862005年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] National Institute of Standards and Technology, \"Secure Hash Standard\", FIPS PUB 180-2, August 2002, <http://csrc.nist.gov/publications/fips/fips180-2/ fips180-2.pdf>.",
+      "zh-CHS": "[8] 国家标准与技术研究所，“安全哈希标准”，FIPS PUB 180-22002年8月<http://csrc.nist.gov/publications/fips/fips180-2/ fips180-2.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[9]  <http://www.iana.org/assignments/sctp-parameters>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Michael Tuexen Muenster Univ. of Applied Sciences Stegerwaldstr. 39 48565 Steinfurt Germany",
+      "zh-CHS": "Michael Tuexen Muenster应用科学大学Stegerwaldstr。39 48565德国斯坦福德"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: tuexen@fh-muenster.de",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Randall R. Stewart Cisco Systems, Inc. 4875 Forest Drive Suite 200 Columbia, SC 29206 USA",
+      "zh-CHS": "Randall R.Stewart Cisco Systems，Inc.4875 Forest Drive Suite 200哥伦比亚，SC 29206美国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rrs@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Peter Lei Cisco Systems, Inc. 8735 West Higgins Road Suite 300 Chicago, IL 60631 USA",
+      "zh-CHS": "Peter Lei思科系统公司，地址：美国伊利诺伊州芝加哥市西希金斯路8735号300室，邮编：60631"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: EMail: peterlei@cisco.com",
+      "zh-CHS": "电话：电邮：peterlei@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Eric Rescorla RTFM, Inc. 2064 Edgewood Drive Palo Alto, CA 94303 USA",
+      "zh-CHS": "Eric Rescorla RTFM，Inc.美国加利福尼亚州帕洛阿尔托埃奇伍德大道2064号，邮编94303"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 650-320-8549\nEMail: ekr@rtfm.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

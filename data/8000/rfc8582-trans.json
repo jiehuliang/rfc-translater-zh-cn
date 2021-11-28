@@ -1,0 +1,1097 @@
+{
+  "title": {
+    "text": "RFC 8582: Diameter Overload Rate Control",
+    "zh-CHS": "RFC 8582"
+  },
+  "number": 8582,
+  "created_at": "2021-10-27 20:40:38.824868+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                   S. Donovan, Ed.\nRequest for Comments: 8582                                        Oracle\nCategory: Standards Track                                        E. Noel\nISSN: 2070-1721                                                AT&T Labs\n                                                             August 2019",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 21,
+      "text": "Diameter Overload Rate Control",
+      "zh-CHS": "直径过载率控制"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This specification documents an extension to the Diameter Overload Indication Conveyance (DOIC) base solution, which is defined in RFC 7683. This extension adds a new overload-control abatement algorithm. This abatement algorithm allows for a DOIC reporting node to specify a maximum rate at which a DOIC reacting node sends Diameter requests to the DOIC reporting node.",
+      "zh-CHS": "本规范对RFC 7683中定义的直径过载指示传输（DOIC）基本解决方案进行了扩展。此扩展添加了一个新的过载控制减轻算法。此消减算法允许DOIC报告节点指定DOIC响应节点向DOIC报告节点发送Diameter请求的最大速率。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at https://www.rfc-editor.org/info/rfc8582.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问https://www.rfc-editor.org/info/rfc8582."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2019 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权（c）2019 IETF信托基金和被确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(https://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3\n2.  Requirements  . . . . . . . . . . . . . . . . . . . . . . . .   5\n3.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . .   5\n4.  Interaction with DOIC Report Types  . . . . . . . . . . . . .   5\n5.  Capability Announcement . . . . . . . . . . . . . . . . . . .   6\n6.  Overload-Report Handling  . . . . . . . . . . . . . . . . . .   7\n  6.1.  Reporting-Node OCS  . . . . . . . . . . . . . . . . . . .   7\n  6.2.  Reacting-Node OCS . . . . . . . . . . . . . . . . . . . .   7\n  6.3.  Reporting-Node Maintenance of OCS . . . . . . . . . . . .   8\n  6.4.  Reacting-Node Maintenance of OCS  . . . . . . . . . . . .   8\n  6.5.  Reporting-Node Behavior for Rate Abatement Algorithm  . .   9\n  6.6.  Reacting-Node Behavior for Rate Abatement Algorithm . . .   9\n7.  Rate Abatement Algorithm AVPs . . . . . . . . . . . . . . . .   9\n  7.1.  OC-Supported-Features AVP . . . . . . . . . . . . . . . .   9\n    7.1.1.  OC-Feature-Vector AVP . . . . . . . . . . . . . . . .  10\n  7.2.  OC-OLR AVP  . . . . . . . . . . . . . . . . . . . . . . .  10\n    7.2.1.  OC-Maximum-Rate AVP . . . . . . . . . . . . . . . . .  10\n  7.3.  Attribute-Value Pair Flag Rules . . . . . . . . . . . . .  11\n8.  Rate Abatement Algorithm  . . . . . . . . . . . . . . . . . .  11\n  8.1.  Overview  . . . . . . . . . . . . . . . . . . . . . . . .  11\n  8.2.  Reporting-Node Behavior . . . . . . . . . . . . . . . . .  11\n  8.3.  Reacting-Node Behavior  . . . . . . . . . . . . . . . . .  13\n    8.3.1.  Default Algorithm for Rate-Based Control  . . . . . .  13\n    8.3.2.  Priority Treatment  . . . . . . . . . . . . . . . . .  16\n    8.3.3.  Optional Enhancement: Avoidance of Resonance  . . . .  17\n9.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  19\n  9.1.  OC-Supported-Features . . . . . . . . . . . . . . . . . .  19\n10. Security Considerations . . . . . . . . . . . . . . . . . . .  19\n11. References  . . . . . . . . . . . . . . . . . . . . . . . . .  19\n  11.1.  Normative References . . . . . . . . . . . . . . . . . .  19\n  11.2.  Informative References . . . . . . . . . . . . . . . . .  20\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  20\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  20",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new Diameter overload-control abatement algorithm, the \"rate\" algorithm.",
+      "zh-CHS": "本文件定义了一种新的直径过载控制减轻算法，即“速率”算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The base Diameter overload specification [RFC7683] defines the \"loss algorithm\" as the default Diameter overload loss abatement algorithm. The loss algorithm allows a reporting node (see Section 3) to instruct a reacting node (see Section 3) to reduce the amount of traffic sent to the reporting node by abating (diverting or throttling) a percentage of requests sent to the server. While this can effectively decrease the load handled by the server, it does not directly address cases where the rate of arrival of service requests changes quickly. For instance, if the service requests that result in Diameter transactions increase quickly, then the loss algorithm cannot guarantee the load presented to the server remains below a specific rate level. The loss algorithm can be slow to ensure the stability of reporting nodes when subjected to rapidly-changing loads. The \"loss\" algorithm errs both in throttling too much when there is a dip in offered load, and throttling not enough when there is a spike in offered load.",
+      "zh-CHS": "基本直径过载规范[RFC7683]将“损耗算法”定义为默认直径过载损耗消除算法。丢失算法允许报告节点（请参见第3节）指示反应节点（请参见第3节）通过减少（分流或节流）发送到服务器的请求的百分比来减少发送到报告节点的通信量。虽然这可以有效地减少服务器处理的负载，但它不能直接解决服务请求到达率快速变化的情况。例如，如果导致Diameter事务的服务请求快速增加，则丢失算法无法保证提供给服务器的负载保持在特定速率级别以下。丢失算法可能很慢，以确保报告节点在负载快速变化时的稳定性。“丢失”算法在提供的负载下降时节流过多，而在提供的负载出现峰值时节流不够。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the case where a reacting node is handling 100 service requests per second, where each of these service requests results in one Diameter transaction being sent to a reporting node. If the reporting node is approaching an overload state, or is already in an overload state, it will send a Diameter Overload report requesting a percentage reduction in traffic sent when the loss algorithm is used as a Diameter overload abatement algorithm. Assume for this discussion that the reporting node requests a 10% reduction. The reacting node will then abate (diverting or throttling) ten Diameter transactions a second, sending the remaining 90 transactions per second to the reporting node.",
+      "zh-CHS": "考虑反应节点每秒处理100个服务请求的情况，其中这些服务请求中的每一个都导致一个直径事务被发送到报告节点。如果报告节点正在接近过载状态，或已经处于过载状态，则当丢失算法用作直径过载减轻算法时，它将发送直径过载报告，请求减少发送的通信量百分比。在本次讨论中，假设报告节点请求减少10%。然后，反应节点将每秒减少（分流或节流）10个直径事务，将剩余的90个事务每秒发送到报告节点。"
+    },
+    {
+      "indent": 3,
+      "text": "Now assume that the reacting node's service requests spike to 1000 requests per second. The reacting node will continue to honor the reporting node's request for a 10% reduction in traffic. This results, in this example, in the reacting node sending 900 Diameter transactions per second, abating the remaining 100 transactions per second. This spike in traffic is significantly higher than the reporting node is expecting to handle and can result in negative impacts to the stability of the reporting node.",
+      "zh-CHS": "现在假设响应节点的服务请求达到每秒1000个请求。作出反应的节点将继续满足报告节点的流量减少10%的请求。在本例中，这将导致反应节点每秒发送900个Diameter事务，从而减少每秒剩余的100个事务。此流量峰值明显高于报告节点预期处理的流量，可能会对报告节点的稳定性造成负面影响。"
+    },
+    {
+      "indent": 3,
+      "text": "The reporting node can, and likely would, send another Overload report requesting that the reacting node abate 91% of requests to get back to the desired 90 transactions per second. However, once the spike has abated and the rate at which the reacting node handles requests has returned to 100 per second, this will result in just 9",
+      "zh-CHS": "报告节点可以并且很可能会发送另一个过载报告，请求作出反应的节点减少91%的请求，以恢复到每秒所需的90个事务。然而，一旦峰值减弱，并且响应节点处理请求的速率返回到每秒100次，这将只导致9次"
+    },
+    {
+      "indent": 3,
+      "text": "transactions per second being sent to the reporting node, requiring a new Overload report setting the reduction percentage back to 10%. This control feedback loop has the potential to make the situation worse by causing wide fluctuations in traffic on multiple nodes in the Diameter network.",
+      "zh-CHS": "每秒发送到报告节点的事务数，需要新的过载报告将减少百分比设置回10%。此控制反馈回路可能会导致Diameter网络中多个节点上的流量大幅波动，从而使情况变得更糟。"
+    },
+    {
+      "indent": 3,
+      "text": "One of the benefits of a rate-based algorithm over the loss algorithm is that it better handles spikes in traffic. Instead of sending a request to reduce traffic by a percentage, the rate approach allows the reporting node to specify the maximum number of Diameter requests per second that can be sent to the reporting node. For instance, in this example, the reporting node could send a rate-based request specifying the maximum transactions per second to be 90. The reacting node will send the 90 regardless of whether it is receiving 100 or 1000 service requests per second.",
+      "zh-CHS": "与丢失算法相比，基于速率的算法的优点之一是它可以更好地处理流量峰值。速率方法允许报告节点指定每秒可发送到报告节点的最大Diameter请求数，而不是发送请求以减少一定百分比的通信量。例如，在此示例中，报告节点可以发送基于速率的请求，指定每秒最大事务数为90。响应节点将发送90，无论其每秒接收100或1000个服务请求。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that one of the implications of the rate-based algorithm is that the reporting node needs to determine how it wants to distribute its load over the set of reacting nodes from which it is receiving traffic. For instance, if the reporting node is receiving Diameter traffic from 10 reacting nodes and has a capacity of 100 transactions per second, then the reporting node could choose to set the rate for each of the reacting nodes to 10 transactions per second. This, of course, is assuming that each of the reacting nodes has equal performance characteristics. The reporting node could also choose to have a high-capacity reacting node send 55 transactions per second and the remaining 9 low-capacity reacting nodes send 5 transactions per second. The ability of the reporting node to specify the amount of traffic on a per-reacting-node basis implies that the reporting node must maintain state for each of the reacting nodes. This state includes the current allocation of Diameter traffic to that reacting node. If the number of reacting nodes changes, either because new nodes are added, nodes are removed from service, or nodes fail, then the reporting node will need to redistribute the maximum Diameter transactions over the new set of reacting nodes.",
+      "zh-CHS": "应该注意的是，基于速率的算法的含义之一是，报告节点需要确定它希望如何将其负载分配到它从中接收流量的一组反应节点上。例如，如果报告节点正在接收来自10个反应节点的Diameter流量，并且具有每秒100个事务的容量，则报告节点可以选择将每个反应节点的速率设置为每秒10个事务。当然，这是假设每个反应节点具有相同的性能特征。报告节点还可以选择让高容量响应节点每秒发送55个事务，其余9个低容量响应节点每秒发送5个事务。报告节点在每个反应节点的基础上指定通信量的能力意味着报告节点必须保持每个反应节点的状态。此状态包括当前分配给该节点的Diameter流量。如果由于添加新节点、从服务中删除节点或节点失败而导致反应节点的数量发生变化，则报告节点将需要在新的反应节点集上重新分配最大直径事务。"
+    },
+    {
+      "indent": 3,
+      "text": "This document extends the base Diameter Overload Indication Conveyance (DOIC) solution [RFC7683] to add support for the rate abatement algorithm.",
+      "zh-CHS": "本文档扩展了基础直径过载指示传输（DOIC）解决方案[RFC7683]，以增加对速率降低算法的支持。"
+    },
+    {
+      "indent": 3,
+      "text": "This document draws heavily on work in the SIP Overload Control Working Group. The definition of the rate abatement algorithm is copied almost verbatim from the SIP Overload Control (SOC) document [RFC7415], with changes focused on making the wording consistent with the DOIC solution and the Diameter protocol.",
+      "zh-CHS": "本文件在很大程度上借鉴了SIP过载控制工作组的工作。速率降低算法的定义几乎是从SIP过载控制（SOC）文件[RFC7415]中一字不差地复制过来的，修改的重点是使措辞与DOIC解决方案和Diameter协议保持一致。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements",
+      "section_title": true,
+      "zh-CHS": "2. 要求"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14[RFC2119][RFC8174]所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Terminology",
+      "section_title": true,
+      "zh-CHS": "3. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "Diameter Node",
+      "zh-CHS": "直径节点"
+    },
+    {
+      "indent": 6,
+      "text": "A Diameter Client, Diameter Server, or Diameter Agent [RFC6733]",
+      "zh-CHS": "Diameter客户端、Diameter服务器或Diameter代理[RFC6733]"
+    },
+    {
+      "indent": 3,
+      "text": "Diameter Endpoint",
+      "zh-CHS": "直径端点"
+    },
+    {
+      "indent": 6,
+      "text": "A Diameter Client or Diameter Server [RFC6733]",
+      "zh-CHS": "Diameter客户端或Diameter服务器[RFC6733]"
+    },
+    {
+      "indent": 3,
+      "text": "DOIC Node",
+      "zh-CHS": "DOIC节点"
+    },
+    {
+      "indent": 6,
+      "text": "A Diameter node that supports the DOIC solution defined in [RFC7683]",
+      "zh-CHS": "支持[RFC7683]中定义的DOIC解决方案的Diameter节点"
+    },
+    {
+      "indent": 3,
+      "text": "Reporting Node",
+      "zh-CHS": "报告节点"
+    },
+    {
+      "indent": 6,
+      "text": "A DOIC node that sends an Overload report in a Diameter answer message",
+      "zh-CHS": "在Diameter应答消息中发送重载报告的DOIC节点"
+    },
+    {
+      "indent": 3,
+      "text": "Reacting Node",
+      "zh-CHS": "反应节点"
+    },
+    {
+      "indent": 6,
+      "text": "A DOIC node that receives and acts on a DOIC Overload report",
+      "zh-CHS": "接收DOIC重载报告并对其执行操作的DOIC节点"
+    },
+    {
+      "indent": 0,
+      "text": "4. Interaction with DOIC Report Types",
+      "section_title": true,
+      "zh-CHS": "4. 与内政部报告类型的交互"
+    },
+    {
+      "indent": 3,
+      "text": "As of the publication of this specification, there are three DOIC report types:",
+      "zh-CHS": "截至本规范发布之日，共有三种DOIC报告类型："
+    },
+    {
+      "indent": 3,
+      "text": "HOST_REPORT 0: Overload of a specific Diameter application at a specific Diameter node as defined in [RFC7683]",
+      "zh-CHS": "HOST_报告0:在[RFC7683]中定义的特定直径节点上，特定直径应用程序的重载"
+    },
+    {
+      "indent": 3,
+      "text": "REALM_REPORT 1: Overload of a specific Diameter application at a specific Diameter realm as defined in [RFC7683]",
+      "zh-CHS": "领域\\报告1：在[RFC7683]中定义的特定直径领域中重载特定直径应用程序"
+    },
+    {
+      "indent": 3,
+      "text": "PEER_REPORT 2: Overload of a specific Diameter peer as defined in [RFC8581]",
+      "zh-CHS": "PEER_报告2:[RFC8581]中定义的特定直径PEER过载"
+    },
+    {
+      "indent": 3,
+      "text": "The rate algorithm MAY be selected by reporting nodes for any of these report types.",
+      "zh-CHS": "报告节点可以为这些报告类型中的任何一种选择速率算法。"
+    },
+    {
+      "indent": 3,
+      "text": "It is expected that all report types defined in the future will indicate whether or not the rate algorithm can be used with that report type.",
+      "zh-CHS": "预计将来定义的所有报告类型都将指示是否可以将速率算法用于该报告类型。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Capability Announcement",
+      "section_title": true,
+      "zh-CHS": "5. 能力公告"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the rate abatement algorithm (referred to as \"rate\" in this document) feature. Support for the rate feature by a DOIC node will be indicated by a new value of the OC-Feature-Vector attribute-value pair (AVP), as described in Section 7.1.1, per the rules defined in [RFC7683].",
+      "zh-CHS": "本文件定义了速率衰减算法（在本文件中称为“速率”）功能。根据[RFC7683]中定义的规则，如第7.1.1节所述，DOIC节点对速率特性的支持将由OC特性向量属性值对（AVP）的新值表示。"
+    },
+    {
+      "indent": 3,
+      "text": "Since all nodes that support DOIC are required to support the loss algorithm, DOIC nodes supporting the rate feature will support both the loss and rate abatement algorithms.",
+      "zh-CHS": "由于支持DOIC的所有节点都需要支持丢失算法，因此支持速率特性的DOIC节点将同时支持丢失和速率降低算法。"
+    },
+    {
+      "indent": 3,
+      "text": "DOIC reacting nodes supporting the rate feature MUST indicate support for both the loss and rate algorithms in the OC-Feature-Vector AVP and MAY indicate support for other algorithms.",
+      "zh-CHS": "支持速率特征的DOIC响应节点必须指示对OC特征向量AVP中的丢失和速率算法的支持，并且可以指示对其他算法的支持。"
+    },
+    {
+      "indent": 3,
+      "text": "As defined in [RFC7683], a DOIC reporting node supporting the rate feature selects a single abatement algorithm in the OC-Feature-Vector AVP and OC-Peer-Algo AVP in the answer message sent to the DOIC reacting nodes.",
+      "zh-CHS": "如[RFC7683]中所定义，支持速率特征的DOIC报告节点在发送给DOIC响应节点的应答消息中，在OC特征向量AVP和OC对等算法AVP中选择单个消减算法。"
+    },
+    {
+      "indent": 3,
+      "text": "A reporting node can select one abatement algorithm to apply to Host and Realm reports, and a different algorithm to apply to peer reports.",
+      "zh-CHS": "报告节点可以选择一种消减算法应用于主机和领域报告，并选择另一种算法应用于对等报告。"
+    },
+    {
+      "indent": 3,
+      "text": "For Host or Realm reports, the selected algorithm is reflected in the OC-Feature-Vector AVP sent as part of the OC-Supported-Features AVP included in answer messages for transactions where the request contained an OC-Supported-Features AVP. This is per the procedures defined in [RFC7683].",
+      "zh-CHS": "对于主机或领域报告，所选算法反映在OC功能向量AVP中，该向量作为OC支持的功能AVP的一部分发送，该AVP包含在请求包含OC支持的功能AVP的事务的应答消息中。这是根据[RFC7683]中定义的程序进行的。"
+    },
+    {
+      "indent": 3,
+      "text": "For Peer reports, the selected algorithm is reflected in the OC-Peer-Algo AVP sent as part of the OC-Supported-Features AVP included in answer messages for transactions where the request contained an OC-Supported-Features AVP. This is per the procedures defined in [RFC8581].",
+      "zh-CHS": "对于对等报告，所选算法反映在作为OC支持的功能AVP的一部分发送的OC对等Algo AVP中，该AVP包含在请求包含OC支持的功能AVP的事务的应答消息中。这符合[RFC8581]中定义的程序。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Overload-Report Handling",
+      "section_title": true,
+      "zh-CHS": "6. 过载报告处理"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes any changes to the behavior defined in [RFC7683] for the handling of Overload reports when the rate abatement algorithm is used.",
+      "zh-CHS": "本节描述了[RFC7683]中定义的行为的任何更改，用于在使用速率降低算法时处理过载报告。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Reporting-Node OCS",
+      "section_title": true,
+      "zh-CHS": "6.1. 报告节点OCS"
+    },
+    {
+      "indent": 3,
+      "text": "A reporting node that uses the rate abatement algorithm SHOULD maintain reporting-node Overload Control State (OCS) for each reacting node to which it sends a rate Overload Report (OLR).",
+      "zh-CHS": "使用速率降低算法的报告节点应为其发送速率过载报告（OLR）的每个反应节点维护报告节点过载控制状态（OCS）。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: This is different from the behavior defined in [RFC7683] where a reporting node sends a single loss percentage to all reacting nodes.",
+      "zh-CHS": "注意：这与[RFC7683]中定义的行为不同，在[RFC7683]中，报告节点向所有响应节点发送单个丢失百分比。"
+    },
+    {
+      "indent": 3,
+      "text": "A reporting node SHOULD maintain OCS entries when using the rate abatement algorithm per supported Diameter application, per targeted reacting node and per report type.",
+      "zh-CHS": "报告节点在使用每个受支持的Diameter应用程序、每个目标反应节点和每个报告类型的速率降低算法时，应维护OCS条目。"
+    },
+    {
+      "indent": 3,
+      "text": "A rate OCS entry is identified by the tuple of Application-ID, report type, and DiameterIdentity of the target of the rate OLR.",
+      "zh-CHS": "速率OCS条目由应用程序ID、报告类型和速率OLR目标的直径的元组标识。"
+    },
+    {
+      "indent": 3,
+      "text": "The rate OCS entry SHOULD include the rate allocated to the reacting node.",
+      "zh-CHS": "速率OCS条目应包括分配给响应节点的速率。"
+    },
+    {
+      "indent": 3,
+      "text": "A reporting node that has selected the rate abatement algorithm MUST indicate the rate requested to be applied by DOIC reacting nodes in the OC-Maximum-Rate AVP included in the OC-OLR AVP.",
+      "zh-CHS": "选择了速率消减算法的报告节点必须在OC-OLR AVP中包含的OC最大速率AVP中指示DOIC反应节点请求应用的速率。"
+    },
+    {
+      "indent": 3,
+      "text": "All other elements for the OCS defined in [RFC7683] and [RFC8581] also apply to the reporting node's OCS when using the rate abatement algorithm.",
+      "zh-CHS": "[RFC7683]和[RFC8581]中定义的OCS的所有其他元素在使用费率降低算法时也适用于报告节点的OCS。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Reacting-Node OCS",
+      "section_title": true,
+      "zh-CHS": "6.2. 反应节点接触网"
+    },
+    {
+      "indent": 3,
+      "text": "A reacting node that supports the rate abatement algorithm MUST indicate rate as the selected abatement algorithm in the reacting-node OCS based on the OC-Feature-Vector AVP or the OC-Peer-Algo AVP in the received OC-Supported-Features AVP.",
+      "zh-CHS": "支持速率消减算法的反应节点必须基于接收到的OC支持的特征AVP中的OC特征向量AVP或OC对等算法AVP，在反应节点OCS中将速率指示为所选消减算法。"
+    },
+    {
+      "indent": 3,
+      "text": "A reacting node that supports the rate abatement algorithm MUST include the rate specified in the OC-Maximum-Rate AVP included in the OC-OLR AVP as an element of the abatement-algorithm-specific portion of reacting-node OCS entries.",
+      "zh-CHS": "支持速率消减算法的反应节点必须包括OC-OLR AVP中包含的OC最大速率AVP中指定的速率，作为反应节点OCS条目的消减算法特定部分的一个元素。"
+    },
+    {
+      "indent": 3,
+      "text": "All other elements for the OCS defined in [RFC7683] and [RFC8581] also apply to the reporting nodes OCS when using the rate abatement algorithm.",
+      "zh-CHS": "[RFC7683]和[RFC8581]中定义的OCS的所有其他元素在使用费率降低算法时也适用于报告节点OCS。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. Reporting-Node Maintenance of OCS",
+      "section_title": true,
+      "zh-CHS": "6.3. OCS的报告节点维护"
+    },
+    {
+      "indent": 3,
+      "text": "A reporting node that has selected the rate abatement algorithm and enters an overload condition MUST indicate rate as the abatement algorithm and MUST indicate the selected rate in the resulting reporting-node OCS entries.",
+      "zh-CHS": "选择了速率消减算法并进入过载条件的报告节点必须将速率指示为消减算法，并且必须在生成的报告节点OCS条目中指示所选速率。"
+    },
+    {
+      "indent": 3,
+      "text": "When selecting the rate algorithm in the response to a request that contained an OC-Supporting-Features AVP with an OC-Feature-Vector AVP indicating support for the rate feature, a reporting node MUST ensure that a reporting-node OCS entry exists for the target of the Overload report. The target is defined as follows:",
+      "zh-CHS": "在响应包含OC支持特征AVP（OC特征向量AVP表示支持速率特征）的请求时选择速率算法时，报告节点必须确保存在过载报告目标的报告节点OCS条目。目标定义如下："
+    },
+    {
+      "indent": 3,
+      "text": "o For Host reports, the target is the DiameterIdentity contained in the Origin-Host AVP received in the request.",
+      "zh-CHS": "o 对于主机报告，目标是请求中接收的原始主机AVP中包含的直径。"
+    },
+    {
+      "indent": 3,
+      "text": "o For Realm reports, the target is the DiameterIdentity contained in the Origin-Realm AVP received in the request.",
+      "zh-CHS": "o 对于领域报告，目标是请求中接收的原始领域AVP中包含的直径。"
+    },
+    {
+      "indent": 3,
+      "text": "o For Peer reports, the target is the DiameterIdentity of the Diameter peer from which the request was received.",
+      "zh-CHS": "o 对于对等报告，目标是接收请求的对等直径的直径。"
+    },
+    {
+      "indent": 3,
+      "text": "A reporting node that receives a capability announcement from a new reacting node, meaning a reacting node for which it does not have an OCS entry, and the reporting node that chooses the rate algorithm for that reacting node may need to recalculate the rate to be allocated to all reacting nodes. Any changed rate values will be communicated in the next OLR sent to each reacting node.",
+      "zh-CHS": "从新的反应节点接收能力公告的报告节点，意味着它没有OCS条目的反应节点，并且为该反应节点选择速率算法的报告节点可能需要重新计算要分配给所有反应节点的速率。任何更改的速率值都将在下一个OLR中传送到每个响应节点。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4. Reacting-Node Maintenance of OCS",
+      "section_title": true,
+      "zh-CHS": "6.4. 接触网的反应节点维护"
+    },
+    {
+      "indent": 3,
+      "text": "When receiving an answer message indicating that the reporting node has selected the rate algorithm, a reacting node MUST indicate the rate abatement algorithm in the reacting-node OCS entry for the reporting node.",
+      "zh-CHS": "当接收到指示报告节点已选择速率算法的应答消息时，反应节点必须在报告节点的反应节点OCS条目中指示速率降低算法。"
+    },
+    {
+      "indent": 3,
+      "text": "A reacting node receiving an Overload report for the rate abatement algorithm MUST save the rate received in the OC-Maximum-Rate AVP contained in the OC-OLR AVP in the reacting-node OCS entry.",
+      "zh-CHS": "接收速率降低算法过载报告的反应节点必须将OC-OLR AVP中包含的OC最大速率AVP中接收的速率保存在反应节点OCS条目中。"
+    },
+    {
+      "indent": 0,
+      "text": "6.5. Reporting-Node Behavior for Rate Abatement Algorithm",
+      "section_title": true,
+      "zh-CHS": "6.5. 速率衰减算法的节点行为报告"
+    },
+    {
+      "indent": 3,
+      "text": "When in an overload condition with rate selected as the overload abatement algorithm and when handling a request that contained an OC-Supported-Features AVP that indicated support for the rate abatement algorithm, a reporting node SHOULD include an OC-OLR AVP for the rate algorithm using the parameters stored in the reporting-node OCS for the target of the Overload report.",
+      "zh-CHS": "当处于过载状态且速率被选为过载消减算法时，以及当处理包含OC支持的特征AVP（表示支持速率消减算法）的请求时，报告节点应包括用于速率算法的OC-OLR AVP，该算法使用存储在过载报告目标的报告节点OCS中的参数。"
+    },
+    {
+      "indent": 6,
+      "text": "Note: It is also possible for the reporting node to send Overload reports with the rate algorithm indicated even when the reporting node is not in an overloaded state. This could be a strategy to proactively avoid entering into an overloaded state. Whether or not to do so is up to local policy.",
+      "zh-CHS": "注意：即使报告节点未处于过载状态，报告节点也可以使用指定的速率算法发送过载报告。这可能是一种主动避免进入过载状态的策略。是否这样做取决于当地政策。"
+    },
+    {
+      "indent": 3,
+      "text": "When sending an Overload report for the rate algorithm, the OC-Maximum-Rate AVP MUST be included in the OC-OLR AVP and the OC-Reduction-Percentage AVP MUST NOT be included.",
+      "zh-CHS": "发送速率算法的过载报告时，OC-OLR AVP中必须包含OC最大速率AVP，且OC减少百分比AVP不得包含在内。"
+    },
+    {
+      "indent": 0,
+      "text": "6.6. Reacting-Node Behavior for Rate Abatement Algorithm",
+      "section_title": true,
+      "zh-CHS": "6.6. 速率衰减算法中的反应节点行为"
+    },
+    {
+      "indent": 3,
+      "text": "When determining if abatement treatment should be applied to a request being sent to a reporting node that has selected the rate abatement algorithm, the reacting node can choose to use the algorithm detailed in Section 8.",
+      "zh-CHS": "当确定是否应对发送至已选择速率降低算法的报告节点的请求应用降低处理时，反应节点可选择使用第8节中详述的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Other algorithms for controlling the rate MAY be implemented by the reacting node. Any algorithm implemented MUST correctly limit the maximum rate of traffic being sent to the reporting node.",
+      "zh-CHS": "用于控制速率的其他算法可由反应节点实现。实现的任何算法都必须正确限制发送到报告节点的最大流量。"
+    },
+    {
+      "indent": 3,
+      "text": "Once a determination is made by the reacting node that an individual Diameter request is to be subjected to abatement treatment, then the procedures for throttling and diversion defined in [RFC7683] and [RFC8581] apply.",
+      "zh-CHS": "一旦反应节点确定单个直径请求将接受消减处理，则[RFC7683]和[RFC8581]中定义的节流和分流程序适用。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Rate Abatement Algorithm AVPs",
+      "section_title": true,
+      "zh-CHS": "7. 速率衰减算法"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. OC-Supported-Features AVP",
+      "section_title": true,
+      "zh-CHS": "7.1. OC支持的功能AVP"
+    },
+    {
+      "indent": 3,
+      "text": "The rate algorithm does not add any new AVPs to the OC-Supported-Features AVP.",
+      "zh-CHS": "速率算法不会向OC支持的功能AVP添加任何新的AVP。"
+    },
+    {
+      "indent": 3,
+      "text": "The rate algorithm does add a new feature bit to be carried in the OC-Feature-Vector AVP.",
+      "zh-CHS": "速率算法确实添加了一个新的特征位，以便在OC特征向量AVP中携带。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1.1. OC-Feature-Vector AVP",
+      "section_title": true,
+      "zh-CHS": "7.1.1. 特征向量"
+    },
+    {
+      "indent": 3,
+      "text": "This extension adds the following capability to the OC-Feature-Vector AVP.",
+      "zh-CHS": "此扩展将以下功能添加到OC特征向量AVP中。"
+    },
+    {
+      "indent": 3,
+      "text": "OLR_RATE_ALGORITHM (0x0000000000000004)",
+      "zh-CHS": "OLR_速率_算法（0x0000000000000004）"
+    },
+    {
+      "indent": 6,
+      "text": "This bit is assigned to the rate abatement algorithm. When this flag is set by the overload-control endpoint, it indicates that the DOIC node supports the rate abatement algorithm.",
+      "zh-CHS": "该位分配给速率降低算法。当过载控制端点设置此标志时，它表示DOIC节点支持速率降低算法。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. OC-OLR AVP",
+      "section_title": true,
+      "zh-CHS": "7.2. OC-OLR AVP"
+    },
+    {
+      "indent": 3,
+      "text": "This extension defines the OC-Maximum-Rate AVP to be an optional part of the OC-OLR AVP.",
+      "zh-CHS": "此扩展将OC最大速率AVP定义为OC-OLR AVP的可选部分。"
+    },
+    {
+      "indent": 6,
+      "text": "OC-OLR ::= < AVP Header: 623 >\n           < OC-Sequence-Number >\n           < OC-Report-Type >\n           [ OC-Reduction-Percentage ]\n           [ OC-Validity-Duration ]\n           [ SourceID ]\n           [ OC-Maximum-Rate ]\n         * [ AVP ]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This extension makes no changes to the other AVPs that are part of the OC-OLR AVP.",
+      "zh-CHS": "此扩展不更改OC-OLR AVP中的其他AVP。"
+    },
+    {
+      "indent": 3,
+      "text": "This extension does not define new Overload report types. The existing report types of HOST_REPORT and REALM_REPORT defined in [RFC7683] apply to the rate control algorithm. The report type of PEER_REPORT defined in [RFC8581] also applies to the rate control algorithm.",
+      "zh-CHS": "此扩展不定义新的重载报告类型。[RFC7683]中定义的HOST_report和REALM_report的现有报告类型适用于速率控制算法。[RFC8581]中定义的对等报告的报告类型也适用于速率控制算法。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.1. OC-Maximum-Rate AVP",
+      "section_title": true,
+      "zh-CHS": "7.2.1. 最大速率平均值"
+    },
+    {
+      "indent": 3,
+      "text": "The OC-Maximum-Rate AVP (AVP code 670) is of type Unsigned32 and describes the maximum rate that the sender is requested to send traffic. This is specified in terms of requests per second.",
+      "zh-CHS": "OC最大速率AVP（AVP代码670）的类型为Unsigned32，它描述了请求发送方发送流量的最大速率。这是以每秒请求数为单位指定的。"
+    },
+    {
+      "indent": 3,
+      "text": "A value of zero indicates that no traffic is to be sent.",
+      "zh-CHS": "值为零表示不发送任何通信量。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Attribute-Value Pair Flag Rules",
+      "section_title": true,
+      "zh-CHS": "7.3. 属性值对标志规则"
+    },
+    {
+      "indent": 3,
+      "text": "                                                          +---------+\n                                                          |AVP flag |\n                                                          |rules    |\n                                                          +----+----+\n                         AVP   Section                    |    |MUST|\n Attribute Name          Code  Defined  Value Type        |MUST| NOT|\n+---------------------------------------------------------+----+----+\n|OC-Maximum-Rate         670    7.2.1   Unsigned32        |    | V  |\n+---------------------------------------------------------+----+----+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8. Rate Abatement Algorithm",
+      "section_title": true,
+      "zh-CHS": "8. 速率衰减算法"
+    },
+    {
+      "indent": 3,
+      "text": "This section is pulled from [RFC7415] with minor changes needed to make it apply to the Diameter protocol.",
+      "zh-CHS": "本节摘自[RFC7415]，只需稍作修改即可应用于Diameter协议。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Overview",
+      "section_title": true,
+      "zh-CHS": "8.1. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "The reporting node is the one protected by the overload control algorithm defined here. The reacting node is the one that abates traffic towards the server.",
+      "zh-CHS": "报告节点是受此处定义的过载控制算法保护的节点。作出反应的节点是减少服务器流量的节点。"
+    },
+    {
+      "indent": 3,
+      "text": "Following the procedures defined in [RFC7683], the reacting node and reporting node signal their support for rate-based overload control.",
+      "zh-CHS": "按照[RFC7683]中定义的过程，反应节点和报告节点发出支持基于速率的过载控制的信号。"
+    },
+    {
+      "indent": 3,
+      "text": "Then, periodically, the reporting node relies on internal measurements (e.g., CPU utilization or queuing delay) to evaluate its overload state and estimate a target maximum Diameter request rate in number of requests per second (as opposed to target percent reduction in the case of loss-based abatement).",
+      "zh-CHS": "然后，报告节点周期性地依赖内部测量（例如，CPU利用率或排队延迟）来评估其过载状态，并以每秒请求数估计目标最大直径请求速率（与基于损失的减少情况下的目标减少百分比相反）。"
+    },
+    {
+      "indent": 3,
+      "text": "When in an overloaded state, the reporting node uses the OC-OLR AVP to inform reacting nodes of its overload state and of the target Diameter request rate.",
+      "zh-CHS": "当处于过载状态时，报告节点使用OC-OLR AVP通知反应节点其过载状态和目标直径请求速率。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receiving the Overload report with a target maximum Diameter request rate, each reacting node applies overload abatement for new Diameter requests towards the reporting node.",
+      "zh-CHS": "在接收到具有目标最大直径请求速率的过载报告后，每个反应节点对报告节点的新直径请求应用过载减轻。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Reporting-Node Behavior",
+      "section_title": true,
+      "zh-CHS": "8.2. 报告节点行为"
+    },
+    {
+      "indent": 3,
+      "text": "The actual algorithm used by the reporting node to determine its overload state and estimate a target maximum Diameter request rate is beyond the scope of this document.",
+      "zh-CHS": "报告节点用于确定其过载状态和估计目标最大直径请求速率的实际算法超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "However, the reporting node MUST periodically evaluate its overload state and estimate a target Diameter request rate beyond which it would become overloaded. The reporting node must allocate a portion of the target Diameter request rate to each of its reacting nodes. The reporting node may set the same rate for every reacting node, or may set different rates for different reacting nodes.",
+      "zh-CHS": "但是，报告节点必须定期评估其过载状态，并估计其过载的目标直径请求速率。报告节点必须将目标直径请求速率的一部分分配给其每个响应节点。报告节点可以为每个反应节点设置相同的速率，或者可以为不同的反应节点设置不同的速率。"
+    },
+    {
+      "indent": 3,
+      "text": "The maximum rate determined by the reporting node for a reacting node applies to the entire stream of Diameter requests, even though abatement may only affect a particular subset of the requests, since the reacting node might apply priority as part of its decision of which requests to abate.",
+      "zh-CHS": "报告节点为反应节点确定的最大速率适用于整个直径请求流，即使消减可能只影响请求的特定子集，因为反应节点可能应用优先级作为其决定消减哪些请求的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "When setting the maximum rate for a particular reacting node, the reporting node may need to take into account the workload (e.g., CPU load per request) of the distribution of message types from that reacting node. Furthermore, because the reacting node may prioritize the specific types of messages it sends while under overload restriction, this distribution of message types may be different from the message distribution for that reacting node under non-overload conditions (e.g., either higher or lower CPU load).",
+      "zh-CHS": "当为特定反应节点设置最大速率时，报告节点可能需要考虑来自该反应节点的消息类型分布的工作负载（例如，每个请求的CPU负载）。此外，由于反应节点可以在过载限制下优先考虑其发送的特定类型的消息，因此该消息类型的分布可能不同于非过载条件下（例如，更高或更低的CPU负载）反应节点的消息分布。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the value of OC-Maximum-Rate AVP (in request messages per second) for the rate algorithm provides a loose upper bound on the traffic sent by the reacting node to the reporting node.",
+      "zh-CHS": "请注意，速率算法的OC最大速率AVP（以每秒请求消息为单位）的值为响应节点发送到报告节点的流量提供了一个宽松的上限。"
+    },
+    {
+      "indent": 3,
+      "text": "In other words, when multiple reacting nodes are being controlled by an overloaded reporting node, at any given time, some reporting nodes may receive requests at a rate below its target maximum Diameter request rate while receiving others above that target rate. But, the resulting request rate presented to the overloaded reporting node will converge towards the target Diameter request rate or a lower rate.",
+      "zh-CHS": "换句话说，当多个反应节点在任何给定时间由过载的报告节点控制时，一些报告节点可能以低于其目标最大直径请求速率的速率接收请求，而其他节点则以高于该目标速率的速率接收请求。但是，呈现给过载报告节点的结果请求速率将收敛到目标Diameter请求速率或更低的速率。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon detection of overload, and the determination to invoke overload controls, the reporting node follows the specifications in [RFC7683] to notify its reacting nodes of the allocated target maximum Diameter request rate, and to notify them that the rate abatement is in effect.",
+      "zh-CHS": "在检测到过载并确定调用过载控制时，报告节点遵循[RFC7683]中的规范，将分配的目标最大直径请求速率通知其反应节点，并通知其速率降低已生效。"
+    },
+    {
+      "indent": 3,
+      "text": "The reporting node uses the OC-Maximum-Rate AVP defined in this specification to communicate a target maximum Diameter request rate to each of its clients.",
+      "zh-CHS": "报告节点使用本规范中定义的OC最大速率AVP将目标最大直径请求速率传送给其每个客户端。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3. Reacting-Node Behavior",
+      "section_title": true,
+      "zh-CHS": "8.3. 反应节点行为"
+    },
+    {
+      "indent": 0,
+      "text": "8.3.1. Default Algorithm for Rate-Based Control",
+      "section_title": true,
+      "zh-CHS": "8.3.1. 基于速率控制的缺省算法"
+    },
+    {
+      "indent": 3,
+      "text": "A reference algorithm is shown below.",
+      "zh-CHS": "参考算法如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that use of \"//\" below indicates a comment.",
+      "zh-CHS": "请注意，下面使用“/”表示注释。"
+    },
+    {
+      "indent": 3,
+      "text": "No priority case:",
+      "zh-CHS": "无优先权情况："
+    },
+    {
+      "indent": 8,
+      "text": "// T: inter-transmission interval, set to 1 / OC-Maximum-Rate\n// TAU: tolerance parameter\n// ta: arrival time of the most recent arrival\n// LCT: arrival time of last Diameter request that\n//      was sent to the server\n//      (initialized to the first arrival time)\n// X: current value of the leaky bucket counter (initialized to\n//    TAU0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "// After most recent arrival, calculate auxiliary variable Xp\nXp = X - (ta - LCT);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "if (Xp <= TAU) {\n  // Transmit Diameter request\n  // Update X and LCT\n  X = max (0, Xp) + T;\n  LCT = ta;\n} else {\n  // Reject Diameter request\n  // Do not update X and LCT\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In determining whether or not to transmit a specific message, the reacting node can use any algorithm that limits the message rate to the OC-Maximum-Rate AVP value in units of messages per second. For ease of discussion, we define T = 1/[OC-Maximum-Rate] as the target inter-Diameter request interval. It may be strictly deterministic, or it may be probabilistic. It may or may not have a tolerance factor, to allow for short bursts, as long as the long-term rate remains below 1/T.",
+      "zh-CHS": "在确定是否发送特定消息时，反应节点可以使用将消息速率限制为OC最大速率AVP值（以每秒消息为单位）的任何算法。为了便于讨论，我们将T=1/[OC最大速率]定义为目标内径请求间隔。它可能是严格确定的，也可能是概率的。只要长期速率保持在1/T以下，它可能有也可能没有允许短脉冲的容限系数。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm may have provisions for prioritizing traffic.",
+      "zh-CHS": "该算法可能具有对流量进行优先级排序的规定。"
+    },
+    {
+      "indent": 3,
+      "text": "If the algorithm requires other parameters (in addition to \"T\", which is 1/OC-Maximum-Rate), they may be set autonomously by the reacting node, or they may be negotiated independently between the reacting node and the reporting node.",
+      "zh-CHS": "如果算法需要其他参数（除了“T”，即1/OC最大速率），则它们可以由反应节点自主设置，或者可以在反应节点和报告节点之间独立协商。"
+    },
+    {
+      "indent": 3,
+      "text": "In either case, the coordination is out of the scope of this document. The default algorithms presented here (one with and one without provisions for prioritizing traffic) are only examples.",
+      "zh-CHS": "无论哪种情况，协调都不在本文件的范围内。这里介绍的默认算法（一个有优先流量的规定，另一个没有优先流量的规定）只是示例。"
+    },
+    {
+      "indent": 3,
+      "text": "To apply abatement treatment to new Diameter requests at the rate specified in the OC-Maximum-Rate AVP value sent by the reporting node to its reacting nodes, the reacting node MAY use the proposed default algorithm for rate-based control or any other equivalent algorithm that forward messages in conformance with the upper bound of 1/T messages per second.",
+      "zh-CHS": "以报告节点发送给其反应节点的OC最大速率AVP值中指定的速率对新直径请求应用消减处理，反应节点可使用所提出的用于基于速率的控制的默认算法或任何其他等效算法，该算法根据每秒1/T消息的上限转发消息。"
+    },
+    {
+      "indent": 3,
+      "text": "The default leaky bucket algorithm presented here is based on Appendix A.2 of [ITU-T-I.371]. The algorithm makes it possible for reacting nodes to deliver Diameter requests at a rate specified in the OC-Maximum-Rate value with tolerance parameter TAU (preferably configurable).",
+      "zh-CHS": "此处介绍的默认漏桶算法基于[ITU-T-I.371]的附录A.2。该算法使得响应节点能够以OC最大速率值中指定的速率，使用容差参数TAU（最好是可配置的）发送直径请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Conceptually, the leaky bucket algorithm can be viewed as a finite capacity bucket whose real-valued content drains out at a continuous rate of 1 unit of content per time unit and whose content increases by the increment T for each forwarded Diameter request. T is computed as the inverse of the rate specified in the OC-Maximum-Rate AVP value, namely T = 1 / OC-Maximum-Rate.",
+      "zh-CHS": "从概念上讲，漏桶算法可以被视为一个有限容量的桶，其实值内容以每时间单位1单位内容的连续速率排出，并且其内容随着每个转发直径请求的增量T而增加。T计算为OC最大速率AVP值中规定速率的倒数，即T=1/OC最大速率。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that when the OC-Maximum-Rate value is 0 with a non-zero OC-Validity-Duration, then the reacting node should apply abatement treatment to 100% of Diameter requests destined to the overloaded reporting node. However, when the OC-Validity-Duration value is 0, the reacting node should stop applying abatement treatment.",
+      "zh-CHS": "请注意，当OC最大速率值为0且OC有效期非零时，反应节点应对发送到过载报告节点的100%直径请求应用消减处理。但是，当OC有效持续时间值为0时，反应节点应停止应用消减处理。"
+    },
+    {
+      "indent": 3,
+      "text": "If, at a new Diameter request arrival, the content of the bucket is less than or equal to the limit value TAU, then the Diameter request is forwarded to the server; otherwise, the abatement treatment is applied to the Diameter request.",
+      "zh-CHS": "如果在新的直径请求到达时，桶的内容小于或等于限制值TAU，则直径请求被转发到服务器；否则，将对直径请求应用消减处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the capacity of the bucket (the upper bound of the counter) is (T + TAU).",
+      "zh-CHS": "请注意，铲斗的容量（计数器的上限）为（T+TAU）。"
+    },
+    {
+      "indent": 3,
+      "text": "The tolerance parameter TAU determines how close the long-term admitted rate is to an ideal control that would admit all Diameter requests for arrival rates less than 1/T and then admit Diameter requests precisely at the rate of 1/T for arrival rates above 1/T. In particular, at mean arrival rates close to 1/T, it determines the tolerance to deviation of the inter-arrival time from T. (The larger TAU, the more tolerance to deviations from the inter-departure interval T.)",
+      "zh-CHS": "公差参数TAU确定长期接纳率与理想控制的接近程度，理想控制将接纳到达率小于1/T的所有Diameter请求，然后以1/T的速率接纳到达率高于1/T的Diameter请求。特别是在平均到达率接近1/T时，它确定了到达间隔时间与T之间的偏差容差。（TAU越大，与出发间隔T之间的偏差容差越大。）"
+    },
+    {
+      "indent": 3,
+      "text": "This deviation from the inter-departure interval influences the admitted rate burstiness or the number of consecutive Diameter requests forwarded to the reporting node (burst size proportional to TAU over the difference between 1/T and the arrival rate).",
+      "zh-CHS": "这种偏离出发间隔的情况会影响允许的速率突发性或转发到报告节点的连续直径请求的数量（突发大小与1/T和到达速率之差上的TAU成比例）。"
+    },
+    {
+      "indent": 3,
+      "text": "In situations where reacting nodes are configured with some knowledge about the reporting node and other traffic sources (e.g., operator pre-provisioning), it can be beneficial to choose a value of TAU based on how many reacting nodes will be sending requests to the reporting node.",
+      "zh-CHS": "在反应节点配置有关于报告节点和其他流量源的一些知识（例如，操作员预配置）的情况下，根据将向报告节点发送请求的反应节点数量选择TAU值是有益的。"
+    },
+    {
+      "indent": 3,
+      "text": "Reporting nodes with a very large number of reacting nodes, each with a relatively small arrival rate, will generally benefit from a smaller value for TAU in order to limit queuing (and hence response times) at the reporting node when subjected to a sudden surge of traffic from all reacting nodes. Conversely, a reporting node with a relatively small number of reacting nodes, each with a proportionally larger arrival rate, will benefit from a larger value of TAU.",
+      "zh-CHS": "具有大量反应节点（每个节点的到达率相对较小）的报告节点通常将受益于较小的TAU值，以便在受到来自所有反应节点的流量突然激增的影响时限制报告节点处的排队（从而限制响应时间）。相反，具有相对较少数量反应节点的报告节点（每个节点的到达率按比例较大）将受益于较大的TAU值。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the control has been activated, at the arrival time of the k-th new Diameter request, ta(k), the content of the bucket is provisionally updated to the value",
+      "zh-CHS": "一旦激活控制，在第k个新直径请求ta（k）到达时，桶的内容将临时更新为该值"
+    },
+    {
+      "indent": 3,
+      "text": "X' = X - (ta(k) - LCT)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where X is the value of the leaky bucket counter after arrival of the last forwarded Diameter request, and LCT is the time at which the last Diameter request was forwarded.",
+      "zh-CHS": "其中X是最后一个转发的直径请求到达后泄漏桶计数器的值，LCT是最后一个直径请求被转发的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "If X' is less than or equal to the limit value TAU, then the new Diameter request is forwarded and the leaky bucket counter X is set to X' (or to 0 if X' is negative) plus the increment T, and LCT is set to the current time ta(k). If X' is greater than the limit value TAU, then the abatement treatment is applied to the new Diameter request, and the values of X and LCT are unchanged.",
+      "zh-CHS": "如果X'小于或等于极限值TAU，则转发新直径请求，泄漏桶计数器X设置为X'（如果X'为负，则设置为0）加上增量T，LCT设置为当前时间ta（k）。如果X'大于极限值TAU，则对新直径请求应用消减处理，并且X和LCT的值不变。"
+    },
+    {
+      "indent": 3,
+      "text": "When the first response from the reporting node has been received, indicating control activation (OC-Validity-Duration>0), LCT is set to the time of activation, and the leaky bucket counter is initialized to the parameter TAU0 (preferably configurable), which is 0 or larger but less than or equal to TAU.",
+      "zh-CHS": "当接收到来自报告节点的指示控制激活（OC有效期>0）的第一个响应时，LCT被设置为激活时间，并且泄漏桶计数器被初始化为参数TAU0（优选可配置），该参数为0或更大但小于或等于TAU。"
+    },
+    {
+      "indent": 3,
+      "text": "TAU can assume any positive real number value and is not necessarily bounded by T.",
+      "zh-CHS": "TAU可以假设任何正实数值，并且不一定以T为界。"
+    },
+    {
+      "indent": 3,
+      "text": "TAU=4*T is a reasonable compromise between burst size and abatement rate adaptation at low offered rate.",
+      "zh-CHS": "TAU=4*T是在低提供速率下突发大小和衰减速率适应之间的合理折衷。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that specification of a value for TAU, and any communication or coordination between servers, is beyond the scope of this document.",
+      "zh-CHS": "请注意，TAU值的规范以及服务器之间的任何通信或协调超出了本文档的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3.2. Priority Treatment",
+      "section_title": true,
+      "zh-CHS": "8.3.2. 优先处理"
+    },
+    {
+      "indent": 3,
+      "text": "A reference algorithm is shown below.",
+      "zh-CHS": "参考算法如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "Priority case:",
+      "zh-CHS": "优先案件："
+    },
+    {
+      "indent": 5,
+      "text": "// T: inter-transmission interval, set to 1 / OC-Maximum-Rate\n// TAU1: tolerance parameter of no priority Diameter requests\n// TAU2: tolerance parameter of priority Diameter requests\n// ta: arrival time of the most recent arrival\n// LCT: arrival time of last Diameter request that\n//      was sent to the server\n//      (initialized to the first arrival time)\n// X: current value of the leaky bucket counter (initialized to\n//    TAU0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "// After most recent arrival, calculate auxiliary variable Xp\nXp = X - (ta - LCT);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "if (AnyRequestReceived && Xp <= TAU1) || (PriorityRequestReceived &&\n Xp <= TAU2 && Xp > TAU1) {\n   // Transmit Diameter request\n   // Update X and LCT\n   X = max (0, Xp) + T;\n   LCT = ta;\n } else {\n   // Apply abatement treatment to Diameter request\n   // Do not update X and LCT\n }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The reacting node is responsible for applying message priority and for maintaining two categories of requests: request candidates for reduction, and requests not subject to reduction (except under extenuating circumstances when there aren't any messages in the first category that can be reduced).",
+      "zh-CHS": "反应节点负责应用消息优先级并维护两类请求：请求候选减少和不受减少影响的请求（第一类中没有任何消息可以减少的情有可原的情况除外）。"
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, the proposed leaky bucket implementation is modified to support priority using two thresholds for Diameter requests in the set of request candidates for reduction. With two priorities, the proposed leaky bucket requires two thresholds TAU1 < TAU2:",
+      "zh-CHS": "因此，所提议的漏桶实现被修改为使用用于减少请求候选集中的直径请求的两个阈值来支持优先级。对于两个优先级，建议的漏桶需要两个阈值TAU1<TAU2："
+    },
+    {
+      "indent": 3,
+      "text": "o All new requests would be admitted when the leaky bucket counter is at or below TAU1.",
+      "zh-CHS": "o 当漏桶计数器达到或低于TAU1时，所有新请求都将被接纳。"
+    },
+    {
+      "indent": 3,
+      "text": "o Only higher priority requests would be admitted when the leaky bucket counter is between TAU1 and TAU2.",
+      "zh-CHS": "o 当漏桶计数器介于TAU1和TAU2之间时，只允许更高优先级的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "o All requests would be rejected when the bucket counter is above TAU2.",
+      "zh-CHS": "o 当bucket计数器高于TAU2时，所有请求都将被拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "This can be generalized to n priorities using n thresholds for n>2.",
+      "zh-CHS": "对于n>2，可以使用n个阈值将其推广到n个优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "With a priority scheme that relies on two tolerance parameters (TAU2 influences the priority traffic, and TAU1 influences the non-priority traffic), always set TAU1 <= TAU2 (TAU is replaced by TAU1 and TAU2). Setting both tolerance parameters to the same value is equivalent to having no priority. TAU1 influences the admitted rate the same way as TAU does when no priority is set, and the larger the difference between TAU1 and TAU2, the closer the control is to strict priority queuing.",
+      "zh-CHS": "对于依赖于两个容差参数的优先级方案（TAU2影响优先级流量，TAU1影响非优先级流量），始终设置TAU1<=TAU2（TAU被TAU1和TAU2替换）。将两个公差参数设置为相同的值相当于没有优先级。TAU1影响接纳率的方式与TAU在未设置优先级时的影响方式相同，并且TAU1和TAU2之间的差异越大，控制就越接近严格优先级排队。"
+    },
+    {
+      "indent": 3,
+      "text": "TAU1 and TAU2 can assume any positive real number value and is not necessarily bounded by T.",
+      "zh-CHS": "TAU1和TAU2可以假设任何正实数值，并且不一定以T为界。"
+    },
+    {
+      "indent": 3,
+      "text": "Reasonable values for TAU0, TAU1, and TAU2 are:",
+      "zh-CHS": "TAU0、TAU1和TAU2的合理值为："
+    },
+    {
+      "indent": 3,
+      "text": "o TAU0 = 0,",
+      "zh-CHS": "o TAU0=0，"
+    },
+    {
+      "indent": 3,
+      "text": "o TAU1 = 1/2 * TAU2, and",
+      "zh-CHS": "o TAU1=1/2*TAU2，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o TAU2 = 10 * T.",
+      "zh-CHS": "o TAU2=10*T。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that specification of a value for TAU1 and TAU2, and any communication or coordination between servers, is beyond the scope of this document.",
+      "zh-CHS": "请注意，TAU1和TAU2的值规格以及服务器之间的任何通信或协调超出了本文档的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3.3. Optional Enhancement: Avoidance of Resonance",
+      "section_title": true,
+      "zh-CHS": "8.3.3. 可选增强：避免共振"
+    },
+    {
+      "indent": 3,
+      "text": "As the number of reacting-node sources of traffic increases and the throughput of the reporting node decreases, the maximum rate admitted by each reacting node needs to decrease, and therefore the value of T becomes larger. Under some circumstances, e.g., if the traffic arises very quickly simultaneously at many sources, the occupancies of each bucket can become synchronized, resulting in both the admissions from each source being close in time and batched, or very \"peaky\" arrivals at the reporting node. This gives rise not only to control instability, but also very poor delays and even lost messages. An appropriate term for this is \"resonance\" [Erramilli].",
+      "zh-CHS": "随着响应节点流量源的数量增加和报告节点的吞吐量降低，每个响应节点允许的最大速率需要降低，因此T的值变得更大。在某些情况下，例如，如果流量在多个源上同时非常快地出现，则每个存储桶的占用可以同步，从而导致来自每个源的接纳在时间上接近并成批进行，或者在报告节点上到达非常“峰值”。这不仅会导致控制不稳定，还会导致严重的延迟甚至消息丢失。一个合适的术语是“共振”[Erramilli]。"
+    },
+    {
+      "indent": 3,
+      "text": "If the network topology is such that resonance can occur, then a simple way to avoid resonance is to randomize the bucket occupancy at two appropriate points: at the activation of control, and whenever the bucket empties, as described below:",
+      "zh-CHS": "如果网络拓扑能够发生共振，那么避免共振的一种简单方法是在两个适当的点随机分配铲斗占用率：在控制激活时，以及铲斗清空时，如下所述："
+    },
+    {
+      "indent": 3,
+      "text": "After updating the value of the leaky bucket to X', generate a value u as follows:",
+      "zh-CHS": "将泄漏桶的值更新为X'后，生成一个值u，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "if X' > 0, then u=0",
+      "zh-CHS": "如果X'>0，那么u=0"
+    },
+    {
+      "indent": 3,
+      "text": "else, if X' <= 0, then let u be set to a random value uniformly\ndistributed between -1/2 and +1/2",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Then, (only) if the arrival is admitted, increase the bucket content by an amount T + uT, which will therefore be just T if the bucket hadn't emptied, or lie between T/2 and 3T/2 if it had.",
+      "zh-CHS": "然后，（仅）如果允许到达，则将桶内容物增加T+uT，因此，如果桶未清空，则仅为T，如果桶已清空，则介于T/2和3T/2之间。"
+    },
+    {
+      "indent": 3,
+      "text": "This randomization should also be done when control is activated, i.e., instead of simply initializing the leaky bucket counter to TAU0, initialize it to TAU0 + uT, where u is uniformly distributed as above. Since activation would have been a result of the response to a request sent by the reacting node, the second term in this expression can be interpreted as being the bucket increment following that admission.",
+      "zh-CHS": "当控制激活时，也应进行随机化，即，不是简单地将漏桶计数器初始化为TAU0，而是将其初始化为TAU0+uT，其中u如上所述均匀分布。由于激活可能是响应节点发送的请求响应的结果，因此此表达式中的第二个术语可以解释为该允许之后的桶增量。"
+    },
+    {
+      "indent": 3,
+      "text": "This method has the following characteristics:",
+      "zh-CHS": "该方法具有以下特点："
+    },
+    {
+      "indent": 3,
+      "text": "o If TAU0 is chosen to be equal to TAU and all sources activate control at the same time due to an extremely high request rate, then the time until the first request admitted by each reacting node would be uniformly distributed over [0,T];",
+      "zh-CHS": "o 如果TAU0被选择为等于TAU，并且由于极高的请求速率，所有源同时激活控制，那么直到每个反应节点接受第一个请求的时间将均匀分布在[0，T]上；"
+    },
+    {
+      "indent": 3,
+      "text": "o The maximum occupancy is TAU + (3/2)T, rather than TAU + T without randomization;",
+      "zh-CHS": "o 最大占用率为TAU+（3/2）T，而不是没有随机化的TAU+T；"
+    },
+    {
+      "indent": 3,
+      "text": "o For the special case of \"classic gapping\", where TAU=0, then the minimum time between admissions is uniformly distributed over [T/2, 3T/2], and the mean time between admissions is the same, i.e., T+1/R where R is the request arrival rate.",
+      "zh-CHS": "o 对于“经典间隙”的特殊情况，其中TAU=0，则最小两次接纳之间的时间均匀分布在[T/2，3T/2]上，两次接纳之间的平均时间相同，即T+1/R，其中R是请求到达率。"
+    },
+    {
+      "indent": 3,
+      "text": "o At high load, randomization rarely occurs. Therefore, there is no loss of precision of the admitted rate, even though the randomized \"phasing\" of the buckets remains.",
+      "zh-CHS": "o 在高负荷时，随机化很少发生。因此，即使桶的随机“相位”保持不变，也不会损失接纳率的精度。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has registered the following values in the \"Authentication, Authorization, and Accounting (AAA) Parameters\" registry:",
+      "zh-CHS": "IANA已在“身份验证、授权和记帐（AAA）参数”注册表中注册了以下值："
+    },
+    {
+      "indent": 6,
+      "text": "One new AVP code is defined in Section 7.2.1.",
+      "zh-CHS": "第7.2.1节定义了一个新的AVP代码。"
+    },
+    {
+      "indent": 6,
+      "text": "One new OC-Feature-Vector AVP value is defined in Section 7.1.1.",
+      "zh-CHS": "第7.1.1节定义了一个新的OC特征向量AVP值。"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. OC-Supported-Features",
+      "section_title": true,
+      "zh-CHS": "9.1. OC支持的功能"
+    },
+    {
+      "indent": 3,
+      "text": "As indicated in Section 7.1.1, a new allocation has been made for the OC-Feature-Vector AVP.",
+      "zh-CHS": "如第7.1.1节所示，已对OC特征向量AVP进行了新的分配。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "10. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The rate abatement mechanism is an extension to the base Diameter Overload mechanism. As such, all of the security considerations outlined in [RFC7683] apply to the rate abatement mechanism.",
+      "zh-CHS": "速率衰减机制是对基径过载机制的扩展。因此，[RFC7683]中概述的所有安全注意事项适用于费率降低机制。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, the rate algorithm could be used to handle denial-of-service (DoS) attacks more effectively than the loss algorithm.",
+      "zh-CHS": "此外，速率算法可以比丢失算法更有效地处理拒绝服务（DoS）攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "11. References",
+      "section_title": true,
+      "zh-CHS": "11. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "11.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "11.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <https://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<https://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6733] Fajardo, V., Ed., Arkko, J., Loughney, J., and G. Zorn, Ed., \"Diameter Base Protocol\", RFC 6733, DOI 10.17487/RFC6733, October 2012, <https://www.rfc-editor.org/info/rfc6733>.",
+      "zh-CHS": "[RFC6733]Fajardo，V.，Ed.，Arkko，J.，Loughney，J.，和G.Zorn，Ed.，“直径基准协议”，RFC 6733，DOI 10.17487/RFC6733，2012年10月<https://www.rfc-editor.org/info/rfc6733>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7683] Korhonen, J., Ed., Donovan, S., Ed., Campbell, B., and L. Morand, \"Diameter Overload Indication Conveyance\", RFC 7683, DOI 10.17487/RFC7683, October 2015, <https://www.rfc-editor.org/info/rfc7683>.",
+      "zh-CHS": "[RFC7683]Korhonen，J.，Ed.，Donovan，S.，Ed.，Campbell，B.，和L.Morand，“直径过载指示运输”，RFC 7683，DOI 10.17487/RFC7683，2015年10月<https://www.rfc-editor.org/info/rfc7683>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8174] Leiba, B., \"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words\", BCP 14, RFC 8174, DOI 10.17487/RFC8174, May 2017, <https://www.rfc-editor.org/info/rfc8174>.",
+      "zh-CHS": "[RFC8174]Leiba，B.，“RFC 2119关键词中大写与小写的歧义”，BCP 14，RFC 8174，DOI 10.17487/RFC8174，2017年5月<https://www.rfc-editor.org/info/rfc8174>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8581] Donovan, S., \"Diameter Agent Overload and the Peer Overload Report\", RFC 8581, DOI 10.17487/RFC8581, August 2019, <https://www.rfc-editor.org/info/rfc8581>.",
+      "zh-CHS": "[RFC8581]Donovan，S.，“直径代理超载和对等超载报告”，RFC 8581，DOI 10.17487/RFC8581，2019年8月<https://www.rfc-editor.org/info/rfc8581>."
+    },
+    {
+      "indent": 0,
+      "text": "11.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "11.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[Erramilli] Erramilli, A. and L. Forys, \"Traffic Synchronization Effects In Teletraffic Systems\", 1991.",
+      "zh-CHS": "[Erramilli]Erramilli，A.和L.Forys，“远程交通系统中的交通同步效应”，1991年。"
+    },
+    {
+      "indent": 3,
+      "text": "[ITU-T-I.371] ITU-T, \"Traffic control and congestion control in B-ISDN\", ITU-T Recommendation I.371, March 2004.",
+      "zh-CHS": "[ITU-T-I.371]ITU-T，“B-ISDN中的流量控制和拥塞控制”，ITU-T建议I.371，2004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7415] Noel, E. and P. Williams, \"Session Initiation Protocol (SIP) Rate Control\", RFC 7415, DOI 10.17487/RFC7415, February 2015, <https://www.rfc-editor.org/info/rfc7415>.",
+      "zh-CHS": "[RFC7415]Noel，E.和P.Williams，“会话启动协议（SIP）速率控制”，RFC 7415，DOI 10.17487/RFC7415，2015年2月<https://www.rfc-editor.org/info/rfc7415>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Lionel Morand for his contributions to this document.",
+      "zh-CHS": "作者要感谢Lionel Morand对本文件的贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Steve Donovan (editor) Oracle 7460 Warren Parkway, Suite 300 Frisco, Texas 75034 United States of America",
+      "zh-CHS": "史蒂夫·多诺万（编辑）美国德克萨斯州弗里斯科市沃伦公园路甲骨文7460号300室75034"
+    },
+    {
+      "indent": 3,
+      "text": "Email: srdonovan@usdonovans.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Eric Noel AT&T Labs 200s Laurel Avenue Middletown, NJ 07747 United States of America",
+      "zh-CHS": "Eric Noel AT&T实验室美国新泽西州米德尔顿劳雷尔大道200s 07747号"
+    },
+    {
+      "indent": 3,
+      "text": "Email: ecnoel@research.att.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

@@ -1,0 +1,888 @@
+{
+  "title": {
+    "text": "RFC 7348: Virtual eXtensible Local Area Network (VXLAN): A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks",
+    "zh-CHS": "RFC 7348"
+  },
+  "number": 7348,
+  "created_at": "2021-11-02 17:54:20.427108+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Independent Submission                                     M. Mahalingam\nRequest for Comments: 7348                                     Storvisor\nCategory: Informational                                          D. Dutt\nISSN: 2070-1721                                         Cumulus Networks\n                                                                 K. Duda\n                                                                  Arista\n                                                              P. Agarwal\n                                                                Broadcom\n                                                              L. Kreeger\n                                                                   Cisco\n                                                              T. Sridhar\n                                                                  VMware\n                                                              M. Bursell\n                                                                   Intel\n                                                               C. Wright\n                                                                 Red Hat\n                                                             August 2014",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": " Virtual eXtensible Local Area Network (VXLAN): A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks",
+      "zh-CHS": "虚拟可扩展局域网（VXLAN）：将虚拟化的第2层网络覆盖在第3层网络上的框架"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes Virtual eXtensible Local Area Network (VXLAN), which is used to address the need for overlay networks within virtualized data centers accommodating multiple tenants. The scheme and the related protocols can be used in networks for cloud service providers and enterprise data centers. This memo documents the deployed VXLAN protocol for the benefit of the Internet community.",
+      "zh-CHS": "本文档描述了虚拟可扩展局域网（VXLAN），用于解决虚拟化数据中心内容纳多个租户的覆盖网络需求。该方案和相关协议可用于云服务提供商和企业数据中心的网络。本备忘录记录了为互联网社区的利益而部署的VXLAN协议。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This is a contribution to the RFC Series, independently of any other RFC stream. The RFC Editor has chosen to publish this document at its discretion and makes no statement about its value for implementation or deployment. Documents approved for publication by the RFC Editor are not a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "这是对RFC系列的贡献，独立于任何其他RFC流。RFC编辑器已选择自行发布此文档，并且未声明其对实现或部署的价值。RFC编辑批准发布的文件不适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7348.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7348."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2014 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2014 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Acronyms and Definitions ...................................4\n2. Conventions Used in This Document ...............................4\n3. VXLAN Problem Statement .........................................5\n   3.1. Limitations Imposed by Spanning Tree and VLAN Ranges .......5\n   3.2. Multi-tenant Environments ..................................5\n   3.3. Inadequate Table Sizes at ToR Switch .......................6\n4. VXLAN ...........................................................6\n   4.1. Unicast VM-to-VM Communication .............................7\n   4.2. Broadcast Communication and Mapping to Multicast ...........8\n   4.3. Physical Infrastructure Requirements .......................9\n5. VXLAN Frame Format .............................................10\n6. VXLAN Deployment Scenarios .....................................14\n   6.1. Inner VLAN Tag Handling ...................................18\n7. Security Considerations ........................................18\n8. IANA Considerations ............................................19\n9. References .....................................................19\n   9.1. Normative References ......................................19\n   9.2. Informative References ....................................20\n10. Acknowledgments ...............................................21",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Server virtualization has placed increased demands on the physical network infrastructure. A physical server now has multiple Virtual Machines (VMs) each with its own Media Access Control (MAC) address. This requires larger MAC address tables in the switched Ethernet network due to potential attachment of and communication among hundreds of thousands of VMs.",
+      "zh-CHS": "服务器虚拟化对物理网络基础架构提出了更高的要求。物理服务器现在有多个虚拟机（VM），每个虚拟机都有自己的媒体访问控制（MAC）地址。这需要在交换式以太网网络中有更大的MAC地址表，因为数十万虚拟机之间可能存在连接和通信。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case when the VMs in a data center are grouped according to their Virtual LAN (VLAN), one might need thousands of VLANs to partition the traffic according to the specific group to which the VM may belong. The current VLAN limit of 4094 is inadequate in such situations.",
+      "zh-CHS": "在数据中心中的虚拟机根据其虚拟LAN（VLAN）分组的情况下，可能需要数千个VLAN来根据虚拟机所属的特定组对流量进行分区。在这种情况下，当前的VLAN限制4094是不够的。"
+    },
+    {
+      "indent": 3,
+      "text": "Data centers are often required to host multiple tenants, each with their own isolated network domain. Since it is not economical to realize this with dedicated infrastructure, network administrators opt to implement isolation over a shared network. In such scenarios, a common problem is that each tenant may independently assign MAC addresses and VLAN IDs leading to potential duplication of these on the physical network.",
+      "zh-CHS": "数据中心通常需要承载多个租户，每个租户都有自己的独立网络域。由于使用专用基础设施实现这一点并不经济，网络管理员选择在共享网络上实现隔离。在这种情况下，一个常见的问题是每个租户可能独立分配MAC地址和VLAN ID，从而导致物理网络上这些地址和VLAN ID的潜在重复。"
+    },
+    {
+      "indent": 3,
+      "text": "An important requirement for virtualized environments using a Layer 2 physical infrastructure is having the Layer 2 network scale across the entire data center or even between data centers for efficient allocation of compute, network, and storage resources. In such networks, using traditional approaches like the Spanning Tree Protocol (STP) for a loop-free topology can result in a large number of disabled links.",
+      "zh-CHS": "使用第2层物理基础架构的虚拟化环境的一个重要要求是在整个数据中心甚至在数据中心之间具有第2层网络规模，以便高效分配计算、网络和存储资源。在这样的网络中，使用诸如生成树协议（STP）之类的传统方法来实现无环拓扑可能会导致大量禁用链路。"
+    },
+    {
+      "indent": 3,
+      "text": "The last scenario is the case where the network operator prefers to use IP for interconnection of the physical infrastructure (e.g., to achieve multipath scalability through Equal-Cost Multipath (ECMP), thus avoiding disabled links). Even in such environments, there is a need to preserve the Layer 2 model for inter-VM communication.",
+      "zh-CHS": "最后一种情况是，网络运营商倾向于使用IP进行物理基础设施的互连（例如，通过等成本多路径（ECMP）实现多路径可伸缩性，从而避免禁用链路）。即使在这样的环境中，也需要保留用于VM间通信的第2层模型。"
+    },
+    {
+      "indent": 3,
+      "text": "The scenarios described above lead to a requirement for an overlay network. This overlay is used to carry the MAC traffic from the individual VMs in an encapsulated format over a logical \"tunnel\".",
+      "zh-CHS": "上述场景导致对覆盖网络的需求。该覆盖用于在逻辑“隧道”上以封装格式承载来自各个虚拟机的MAC流量。"
+    },
+    {
+      "indent": 3,
+      "text": "This document details a framework termed \"Virtual eXtensible Local Area Network (VXLAN)\" that provides such an encapsulation scheme to address the various requirements specified above. This memo documents the deployed VXLAN protocol for the benefit of the Internet community.",
+      "zh-CHS": "本文档详细介绍了一个称为“虚拟可扩展局域网（VXLAN）”的框架，该框架提供了一种封装方案，以满足上述各种要求。本备忘录记录了为互联网社区的利益而部署的VXLAN协议。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Acronyms and Definitions",
+      "section_title": true,
+      "zh-CHS": "1.1. 缩略语和定义"
+    },
+    {
+      "indent": 3,
+      "text": "ACL Access Control List",
+      "zh-CHS": "访问控制列表"
+    },
+    {
+      "indent": 3,
+      "text": "ECMP Equal-Cost Multipath",
+      "zh-CHS": "等成本多路径"
+    },
+    {
+      "indent": 3,
+      "text": "IGMP Internet Group Management Protocol",
+      "zh-CHS": "互联网组管理协议"
+    },
+    {
+      "indent": 3,
+      "text": "IHL Internet Header Length",
+      "zh-CHS": "因特网报头长度"
+    },
+    {
+      "indent": 3,
+      "text": "MTU Maximum Transmission Unit",
+      "zh-CHS": "最大传输单元"
+    },
+    {
+      "indent": 3,
+      "text": "PIM Protocol Independent Multicast",
+      "zh-CHS": "PIM协议无关多播"
+    },
+    {
+      "indent": 3,
+      "text": "SPB Shortest Path Bridging",
+      "zh-CHS": "最短路径桥接"
+    },
+    {
+      "indent": 3,
+      "text": "STP Spanning Tree Protocol",
+      "zh-CHS": "生成树协议"
+    },
+    {
+      "indent": 3,
+      "text": "ToR Top of Rack",
+      "zh-CHS": "机架顶部"
+    },
+    {
+      "indent": 3,
+      "text": "TRILL Transparent Interconnection of Lots of Links",
+      "zh-CHS": "大量链路的TRILL透明互连"
+    },
+    {
+      "indent": 3,
+      "text": "VLAN Virtual Local Area Network",
+      "zh-CHS": "虚拟局域网"
+    },
+    {
+      "indent": 3,
+      "text": "VM Virtual Machine",
+      "zh-CHS": "虚拟机"
+    },
+    {
+      "indent": 3,
+      "text": "VNI VXLAN Network Identifier (or VXLAN Segment ID)",
+      "zh-CHS": "VNI VXLAN网络标识符（或VXLAN段ID）"
+    },
+    {
+      "indent": 3,
+      "text": "VTEP VXLAN Tunnel End Point. An entity that originates and/or terminates VXLAN tunnels",
+      "zh-CHS": "VTEP VXLAN隧道终点。发起和/或终止VXLAN隧道的实体"
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN Virtual eXtensible Local Area Network",
+      "zh-CHS": "VXLAN虚拟可扩展局域网"
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN Segment VXLAN Layer 2 overlay network over which VMs communicate",
+      "zh-CHS": "VXLAN段VXLAN第2层覆盖网络，虚拟机通过其进行通信"
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN Gateway an entity that forwards traffic between VXLANs",
+      "zh-CHS": "VXLAN网关在VXLAN之间转发流量的实体"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "2. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. VXLAN Problem Statement",
+      "section_title": true,
+      "zh-CHS": "3. VXLAN问题陈述"
+    },
+    {
+      "indent": 3,
+      "text": "This section provides further details on the areas that VXLAN is intended to address. The focus is on the networking infrastructure within the data center and the issues related to them.",
+      "zh-CHS": "本节提供了VXLAN计划解决的区域的进一步详细信息。重点是数据中心内的网络基础设施及其相关问题。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Limitations Imposed by Spanning Tree and VLAN Ranges",
+      "section_title": true,
+      "zh-CHS": "3.1. 生成树和VLAN范围施加的限制"
+    },
+    {
+      "indent": 3,
+      "text": "Current Layer 2 networks use the IEEE 802.1D Spanning Tree Protocol (STP) [802.1D] to avoid loops in the network due to duplicate paths. STP blocks the use of links to avoid the replication and looping of frames. Some data center operators see this as a problem with Layer 2 networks in general, since with STP they are effectively paying for more ports and links than they can really use. In addition, resiliency due to multipathing is not available with the STP model. Newer initiatives, such as TRILL [RFC6325] and SPB [802.1aq], have been proposed to help with multipathing and surmount some of the problems with STP. STP limitations may also be avoided by configuring servers within a rack to be on the same Layer 3 network, with switching happening at Layer 3 both within the rack and between racks. However, this is incompatible with a Layer 2 model for inter-VM communication.",
+      "zh-CHS": "当前的第2层网络使用IEEE 802.1D生成树协议（STP）[802.1D]来避免由于路径重复而在网络中产生环路。STP阻止链路的使用，以避免帧的复制和循环。一些数据中心运营商通常将此视为第2层网络的一个问题，因为使用STP，他们实际支付的端口和链路比实际使用的要多。此外，STP模型不具备多路径的弹性。新的计划，如TRILL[RFC6325]和SPB[802.1aq]，已经被提出来帮助实现多路径，并克服STP的一些问题。通过将机架内的服务器配置在同一第3层网络上，并在机架内和机架之间的第3层进行切换，也可以避免STP限制。但是，这与用于VM间通信的第2层模型不兼容。"
+    },
+    {
+      "indent": 3,
+      "text": "A key characteristic of Layer 2 data center networks is their use of Virtual LANs (VLANs) to provide broadcast isolation. A 12-bit VLAN ID is used in the Ethernet data frames to divide the larger Layer 2 network into multiple broadcast domains. This has served well for many data centers that require fewer than 4094 VLANs. With the growing adoption of virtualization, this upper limit is seeing pressure. Moreover, due to STP, several data centers limit the number of VLANs that could be used. In addition, requirements for multi-tenant environments accelerate the need for larger VLAN limits, as discussed in Section 3.3.",
+      "zh-CHS": "第2层数据中心网络的一个关键特征是使用虚拟局域网（VLAN）提供广播隔离。以太网数据帧中使用12位VLAN ID将较大的第2层网络划分为多个广播域。这对于许多需要少于4094个VLAN的数据中心来说效果很好。随着虚拟化的日益普及，这一上限正面临压力。此外，由于STP，一些数据中心限制了可使用的VLAN数量。此外，如第3.3节所述，多租户环境的要求加速了对更大VLAN限制的需求。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Multi-tenant Environments",
+      "section_title": true,
+      "zh-CHS": "3.2. 多租户环境"
+    },
+    {
+      "indent": 3,
+      "text": "Cloud computing involves on-demand elastic provisioning of resources for multi-tenant environments. The most common example of cloud computing is the public cloud, where a cloud service provider offers these elastic services to multiple customers/tenants over the same physical infrastructure.",
+      "zh-CHS": "云计算涉及为多租户环境按需弹性调配资源。云计算最常见的例子是公共云，云服务提供商通过相同的物理基础设施向多个客户/租户提供这些弹性服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Isolation of network traffic by a tenant could be done via Layer 2 or Layer 3 networks. For Layer 2 networks, VLANs are often used to segregate traffic -- so a tenant could be identified by its own VLAN, for example. Due to the large number of tenants that a cloud",
+      "zh-CHS": "租户可以通过第2层或第3层网络隔离网络流量。对于第2层网络，VLAN通常用于隔离流量——例如，租户可以通过其自己的VLAN进行标识。由于云计算的租户数量众多"
+    },
+    {
+      "indent": 3,
+      "text": "provider might service, the 4094 VLAN limit is often inadequate. In addition, there is often a need for multiple VLANs per tenant, which exacerbates the issue.",
+      "zh-CHS": "供应商可能提供服务，但4094 VLAN限制通常不足。此外，每个租户通常需要多个VLAN，这加剧了问题。"
+    },
+    {
+      "indent": 3,
+      "text": "A related use case is cross-pod expansion. A pod typically consists of one or more racks of servers with associated network and storage connectivity. Tenants may start off on a pod and, due to expansion, require servers/VMs on other pods, especially in the case when tenants on the other pods are not fully utilizing all their resources. This use case requires a \"stretched\" Layer 2 environment connecting the individual servers/VMs.",
+      "zh-CHS": "一个相关的用例是跨吊舱扩展。pod通常由一个或多个具有相关网络和存储连接的服务器机架组成。租户可能从一个pod开始，由于扩展，需要在其他pod上安装服务器/vm，特别是在其他pod上的租户没有充分利用其所有资源的情况下。此用例需要一个“拉伸”的第2层环境来连接各个服务器/虚拟机。"
+    },
+    {
+      "indent": 3,
+      "text": "Layer 3 networks are not a comprehensive solution for multi-tenancy either. Two tenants might use the same set of Layer 3 addresses within their networks, which requires the cloud provider to provide isolation in some other form. Further, requiring all tenants to use IP excludes customers relying on direct Layer 2 or non-IP Layer 3 protocols for inter VM communication.",
+      "zh-CHS": "第3层网络也不是多租户的综合解决方案。两个租户可能在其网络中使用同一组第3层地址，这要求云提供商以其他形式提供隔离。此外，要求所有租户使用IP排除了依赖直接第2层或非IP第3层协议进行VM间通信的客户。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Inadequate Table Sizes at ToR Switch",
+      "section_title": true,
+      "zh-CHS": "3.3. ToR开关处的桌子尺寸不足"
+    },
+    {
+      "indent": 3,
+      "text": "Today's virtualized environments place additional demands on the MAC address tables of Top-of-Rack (ToR) switches that connect to the servers. Instead of just one MAC address per server link, the ToR now has to learn the MAC addresses of the individual VMs (which could range in the hundreds per server). This is needed because traffic to/from the VMs to the rest of the physical network will traverse the link between the server and the switch. A typical ToR switch could connect to 24 or 48 servers depending upon the number of its server-facing ports. A data center might consist of several racks, so each ToR switch would need to maintain an address table for the communicating VMs across the various physical servers. This places a much larger demand on the table capacity compared to non-virtualized environments.",
+      "zh-CHS": "今天的虚拟化环境对连接到服务器的机架顶部（ToR）交换机的MAC地址表提出了额外的要求。ToR现在必须了解各个VM的MAC地址（每个服务器可能有数百个MAC地址），而不是每个服务器链路只有一个MAC地址。这是必需的，因为从虚拟机到物理网络其余部分的通信量将穿过服务器和交换机之间的链路。典型的ToR交换机可以连接到24或48台服务器，具体取决于其面向服务器的端口数。一个数据中心可能由几个机架组成，因此每个ToR交换机都需要维护一个地址表，用于跨各种物理服务器进行通信的VM。与非虚拟化环境相比，这对表容量提出了更高的要求。"
+    },
+    {
+      "indent": 3,
+      "text": "If the table overflows, the switch may stop learning new addresses until idle entries age out, leading to significant flooding of subsequent unknown destination frames.",
+      "zh-CHS": "如果表溢出，交换机可能会停止学习新地址，直到空闲条目过期，从而导致后续未知目标帧大量溢出。"
+    },
+    {
+      "indent": 0,
+      "text": "4. VXLAN",
+      "section_title": true,
+      "zh-CHS": "4. VXLAN"
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN (Virtual eXtensible Local Area Network) addresses the above requirements of the Layer 2 and Layer 3 data center network infrastructure in the presence of VMs in a multi-tenant environment. It runs over the existing networking infrastructure and provides a means to \"stretch\" a Layer 2 network. In short, VXLAN is a Layer 2 overlay scheme on a Layer 3 network. Each overlay is termed a VXLAN segment. Only VMs within the same VXLAN segment can communicate with",
+      "zh-CHS": "VXLAN（虚拟可扩展局域网）解决了多租户环境中虚拟机存在时第2层和第3层数据中心网络基础设施的上述要求。它运行在现有的网络基础设施上，并提供了一种“扩展”第2层网络的方法。简而言之，VXLAN是第3层网络上的第2层覆盖方案。每个覆盖层称为VXLAN段。只有同一VXLAN段内的虚拟机才能与"
+    },
+    {
+      "indent": 3,
+      "text": "each other. Each VXLAN segment is identified through a 24-bit segment ID, termed the \"VXLAN Network Identifier (VNI)\". This allows up to 16 M VXLAN segments to coexist within the same administrative domain.",
+      "zh-CHS": "彼此每个VXLAN段通过一个24位段ID标识，称为“VXLAN网络标识符（VNI）”。这允许多达16 M VXLAN段在同一管理域内共存。"
+    },
+    {
+      "indent": 3,
+      "text": "The VNI identifies the scope of the inner MAC frame originated by the individual VM. Thus, you could have overlapping MAC addresses across segments but never have traffic \"cross over\" since the traffic is isolated using the VNI. The VNI is in an outer header that encapsulates the inner MAC frame originated by the VM. In the following sections, the term \"VXLAN segment\" is used interchangeably with the term \"VXLAN overlay network\".",
+      "zh-CHS": "VNI标识由单个VM发起的内部MAC帧的范围。因此，您可以跨段拥有重叠的MAC地址，但不会有流量“交叉”，因为流量是使用VNI隔离的。VNI位于封装VM发起的内部MAC帧的外部报头中。在以下章节中，术语“VXLAN段”可与术语“VXLAN覆盖网络”互换使用。"
+    },
+    {
+      "indent": 3,
+      "text": "Due to this encapsulation, VXLAN could also be called a tunneling scheme to overlay Layer 2 networks on top of Layer 3 networks. The tunnels are stateless, so each frame is encapsulated according to a set of rules. The end point of the tunnel (VXLAN Tunnel End Point or VTEP) discussed in the following sections is located within the hypervisor on the server that hosts the VM. Thus, the VNI- and VXLAN-related tunnel / outer header encapsulation are known only to the VTEP -- the VM never sees it (see Figure 1). Note that it is possible that VTEPs could also be on a physical switch or physical server and could be implemented in software or hardware. One use case where the VTEP is a physical switch is discussed in Section 6 on VXLAN deployment scenarios.",
+      "zh-CHS": "由于这种封装，VXLAN也可以称为隧道方案，将第2层网络覆盖在第3层网络之上。隧道是无状态的，因此每个帧都根据一组规则进行封装。以下章节中讨论的隧道端点（VXLAN隧道端点或VTEP）位于托管VM的服务器上的虚拟机监控程序中。因此，与VNI和VXLAN相关的隧道/外部头封装只有VTEP知道——VM从未看到它（见图1）。请注意，VTEP也可能位于物理交换机或物理服务器上，并且可以在软件或硬件中实现。VTEP是物理交换机的一个用例在第6节VXLAN部署场景中讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections discuss typical traffic flow scenarios in a VXLAN environment using one type of control scheme -- data plane learning. Here, the association of VM's MAC to VTEP's IP address is discovered via source-address learning. Multicast is used for carrying unknown destination, broadcast, and multicast frames.",
+      "zh-CHS": "以下各节讨论VXLAN环境中使用一种控制方案（数据平面学习）的典型交通流场景。这里，通过源地址学习发现VM的MAC与VTEP的IP地址之间的关联。多播用于承载未知目的地、广播和多播帧。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to a learning-based control plane, there are other schemes possible for the distribution of the VTEP IP to VM MAC mapping information. Options could include a central authority-/directory-based lookup by the individual VTEPs, distribution of this mapping information to the VTEPs by the central authority, and so on. These are sometimes characterized as push and pull models, respectively. This document will focus on the data plane learning scheme as the control plane for VXLAN.",
+      "zh-CHS": "除了基于学习的控制平面之外，还有其他方案可用于分发VTEP IP到VM MAC映射信息。选项可能包括单个VTEP基于中心权限/目录的查找、中心权限将此映射信息分发到VTEP等。这些模型有时分别被描述为推模型和拉模型。本文件将重点介绍作为VXLAN控制平面的数据平面学习方案。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Unicast VM-to-VM Communication",
+      "section_title": true,
+      "zh-CHS": "4.1. 单播虚拟机到虚拟机通信"
+    },
+    {
+      "indent": 3,
+      "text": "Consider a VM within a VXLAN overlay network. This VM is unaware of VXLAN. To communicate with a VM on a different host, it sends a MAC frame destined to the target as normal. The VTEP on the physical host looks up the VNI to which this VM is associated. It then determines if the destination MAC is on the same segment and if there",
+      "zh-CHS": "考虑VXLAN覆盖网络中的VM。此VM不知道VXLAN。要与另一台主机上的VM通信，它会像正常情况一样发送一个目的地为目标的MAC帧。物理主机上的VTEP查找与此VM关联的VNI。然后确定目标MAC是否在同一段上，以及是否存在"
+    },
+    {
+      "indent": 3,
+      "text": "is a mapping of the destination MAC address to the remote VTEP. If so, an outer header comprising an outer MAC, outer IP header, and VXLAN header (see Figure 1 in Section 5 for frame format) are prepended to the original MAC frame. The encapsulated packet is forwarded towards the remote VTEP. Upon reception, the remote VTEP verifies the validity of the VNI and whether or not there is a VM on that VNI using a MAC address that matches the inner destination MAC address. If so, the packet is stripped of its encapsulating headers and passed on to the destination VM. The destination VM never knows about the VNI or that the frame was transported with a VXLAN encapsulation.",
+      "zh-CHS": "是目标MAC地址到远程VTEP的映射。如果是这样，则将包含外部MAC、外部IP报头和VXLAN报头的外部报头（帧格式参见第5节中的图1）前置到原始MAC帧。封装的数据包被转发到远程VTEP。接收时，远程VTEP使用与内部目标MAC地址匹配的MAC地址验证VNI的有效性以及该VNI上是否存在VM。如果是这样，数据包将从其封装头中剥离并传递到目标VM。目标VM永远不知道VNI或帧是用VXLAN封装传输的。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to forwarding the packet to the destination VM, the remote VTEP learns the mapping from inner source MAC to outer source IP address. It stores this mapping in a table so that when the destination VM sends a response packet, there is no need for an \"unknown destination\" flooding of the response packet.",
+      "zh-CHS": "除了将数据包转发到目标VM之外，远程VTEP还学习从内部源MAC到外部源IP地址的映射。它将此映射存储在一个表中，以便当目标VM发送响应数据包时，不需要响应数据包的“未知目标”泛洪。"
+    },
+    {
+      "indent": 3,
+      "text": "Determining the MAC address of the destination VM prior to the transmission by the source VM is performed as with non-VXLAN environments except as described in Section 4.2. Broadcast frames are used but are encapsulated within a multicast packet, as detailed in the Section 4.2.",
+      "zh-CHS": "除第4.2节所述外，在源VM传输之前确定目标VM的MAC地址与非VXLAN环境相同。使用广播帧，但将其封装在多播数据包中，详见第4.2节。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Broadcast Communication and Mapping to Multicast",
+      "section_title": true,
+      "zh-CHS": "4.2. 广播通信与多播映射"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the VM on the source host attempting to communicate with the destination VM using IP. Assuming that they are both on the same subnet, the VM sends out an Address Resolution Protocol (ARP) broadcast frame. In the non-VXLAN environment, this frame would be sent out using MAC broadcast across all switches carrying that VLAN.",
+      "zh-CHS": "考虑源主机上的VM试图使用IP与目的地VM通信。假设它们都在同一子网中，VM会发送一个地址解析协议（ARP）广播帧。在非VXLAN环境中，该帧将使用MAC广播发送到承载该VLAN的所有交换机。"
+    },
+    {
+      "indent": 3,
+      "text": "With VXLAN, a header including the VXLAN VNI is inserted at the beginning of the packet along with the IP header and UDP header. However, this broadcast packet is sent out to the IP multicast group on which that VXLAN overlay network is realized.",
+      "zh-CHS": "对于VXLAN，包含VXLAN VNI的报头与IP报头和UDP报头一起插入到数据包的开头。然而，该广播数据包被发送到实现VXLAN覆盖网络的IP多播组。"
+    },
+    {
+      "indent": 3,
+      "text": "To effect this, we need to have a mapping between the VXLAN VNI and the IP multicast group that it will use. This mapping is done at the management layer and provided to the individual VTEPs through a management channel. Using this mapping, the VTEP can provide IGMP membership reports to the upstream switch/router to join/leave the VXLAN-related IP multicast groups as needed. This will enable pruning of the leaf nodes for specific multicast traffic addresses based on whether a member is available on this host using the specific multicast address (see [RFC4541]). In addition, use of",
+      "zh-CHS": "为此，我们需要在VXLAN VNI和它将使用的IP多播组之间建立映射。此映射在管理层完成，并通过管理通道提供给各个VTEP。使用此映射，VTEP可以向上游交换机/路由器提供IGMP成员报告，以根据需要加入/离开与VXLAN相关的IP多播组。这将根据使用特定多播地址的主机上的成员是否可用（请参阅[RFC4541]），为特定多播流量地址修剪叶节点。此外，使用"
+    },
+    {
+      "indent": 3,
+      "text": "multicast routing protocols like Protocol Independent Multicast - Sparse Mode (PIM-SM see [RFC4601]) will provide efficient multicast trees within the Layer 3 network.",
+      "zh-CHS": "多播路由协议，如协议独立多播-稀疏模式（PIM-SM参见[RFC4601]），将在第3层网络中提供高效的多播树。"
+    },
+    {
+      "indent": 3,
+      "text": "The VTEP will use (*,G) joins. This is needed as the set of VXLAN tunnel sources is unknown and may change often, as the VMs come up / go down across different hosts. A side note here is that since each VTEP can act as both the source and destination for multicast packets, a protocol like bidirectional PIM (BIDIR-PIM -- see [RFC5015]) would be more efficient.",
+      "zh-CHS": "VTEP将使用（*，G）连接。这是必要的，因为VXLAN隧道源集未知，并且可能会经常更改，因为虚拟机在不同主机之间上下移动。这里需要注意的一点是，由于每个VTEP都可以作为多播数据包的源和目的地，因此像双向PIM（BIDIR-PIM——请参见[RFC5015]）这样的协议将更有效。"
+    },
+    {
+      "indent": 3,
+      "text": "The destination VM sends a standard ARP response using IP unicast. This frame will be encapsulated back to the VTEP connecting the originating VM using IP unicast VXLAN encapsulation. This is possible since the mapping of the ARP response's destination MAC to the VXLAN tunnel end point IP was learned earlier through the ARP request.",
+      "zh-CHS": "目标VM使用IP单播发送标准ARP响应。此帧将封装回VTEP，使用IP单播VXLAN封装连接原始VM。这是可能的，因为ARP响应的目的地MAC到VXLAN隧道端点IP的映射在早些时候通过ARP请求得到。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that multicast frames and \"unknown MAC destination\" frames are also sent using the multicast tree, similar to the broadcast frames.",
+      "zh-CHS": "注意，与广播帧类似，多播帧和“未知MAC目的地”帧也使用多播树发送。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Physical Infrastructure Requirements",
+      "section_title": true,
+      "zh-CHS": "4.3. 物理基础设施要求"
+    },
+    {
+      "indent": 3,
+      "text": "When IP multicast is used within the network infrastructure, a multicast routing protocol like PIM-SM can be used by the individual Layer 3 IP routers/switches within the network. This is used to build efficient multicast forwarding trees so that multicast frames are only sent to those hosts that have requested to receive them.",
+      "zh-CHS": "当在网络基础设施中使用IP多播时，网络中的各个第3层IP路由器/交换机可以使用像PIM-SM这样的多播路由协议。这用于构建高效的多播转发树，以便只将多播帧发送给请求接收它们的主机。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, there is no requirement that the actual network connecting the source VM and destination VM should be a Layer 3 network: VXLAN can also work over Layer 2 networks. In either case, efficient multicast replication within the Layer 2 network can be achieved using IGMP snooping.",
+      "zh-CHS": "类似地，没有要求连接源VM和目标VM的实际网络应该是第3层网络：VXLAN也可以在第2层网络上工作。在任何一种情况下，都可以使用IGMP侦听在第2层网络中实现高效的多播复制。"
+    },
+    {
+      "indent": 3,
+      "text": "VTEPs MUST NOT fragment VXLAN packets. Intermediate routers may fragment encapsulated VXLAN packets due to the larger frame size. The destination VTEP MAY silently discard such VXLAN fragments. To ensure end-to-end traffic delivery without fragmentation, it is RECOMMENDED that the MTUs (Maximum Transmission Units) across the physical network infrastructure be set to a value that accommodates the larger frame size due to the encapsulation. Other techniques like Path MTU discovery (see [RFC1191] and [RFC1981]) MAY be used to address this requirement as well.",
+      "zh-CHS": "VTEP不得分割VXLAN数据包。由于较大的帧大小，中间路由器可能会对封装的VXLAN数据包进行分段。目标VTEP可能会自动丢弃此类VXLAN片段。为了确保端到端通信量的传输不会出现碎片，建议将物理网络基础设施中的MTU（最大传输单元）设置为一个值，该值可容纳由于封装而产生的较大帧大小。其他技术，如路径MTU发现（参见[RFC1191]和[RFC1981]）也可用于解决此要求。"
+    },
+    {
+      "indent": 0,
+      "text": "5. VXLAN Frame Format",
+      "section_title": true,
+      "zh-CHS": "5. VXLAN帧格式"
+    },
+    {
+      "indent": 3,
+      "text": "The VXLAN frame format is shown below. Parsing this from the bottom of the frame -- above the outer Frame Check Sequence (FCS), there is an inner MAC frame with its own Ethernet header with source, destination MAC addresses along with the Ethernet type, plus an optional VLAN. See Section 6 for further details of inner VLAN tag handling.",
+      "zh-CHS": "VXLAN帧格式如下所示。从帧的底部对其进行分析——在外部帧检查序列（FCS）的上方，有一个内部MAC帧，它有自己的以太网报头，带有源、目标MAC地址以及以太网类型，外加一个可选的VLAN。有关内部VLAN标记处理的更多详细信息，请参见第6节。"
+    },
+    {
+      "indent": 3,
+      "text": "The inner MAC frame is encapsulated with the following four headers (starting from the innermost header):",
+      "zh-CHS": "内部MAC帧由以下四个报头（从最里面的报头开始）封装："
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN Header: This is an 8-byte field that has:",
+      "zh-CHS": "VXLAN标头：这是一个8字节字段，具有："
+    },
+    {
+      "indent": 6,
+      "text": "- Flags (8 bits): where the I flag MUST be set to 1 for a valid VXLAN Network ID (VNI). The other 7 bits (designated \"R\") are reserved fields and MUST be set to zero on transmission and ignored on receipt.",
+      "zh-CHS": "- 标志（8位）：其中，对于有效的VXLAN网络ID（VNI），I标志必须设置为1。其他7位（指定为“R”）是保留字段，传输时必须设置为零，接收时忽略。"
+    },
+    {
+      "indent": 6,
+      "text": "- VXLAN Segment ID/VXLAN Network Identifier (VNI): this is a 24-bit value used to designate the individual VXLAN overlay network on which the communicating VMs are situated. VMs in different VXLAN overlay networks cannot communicate with each other.",
+      "zh-CHS": "- VXLAN段ID/VXLAN网络标识符（VNI）：这是一个24位值，用于指定通信虚拟机所在的单个VXLAN覆盖网络。不同VXLAN覆盖网络中的虚拟机无法相互通信。"
+    },
+    {
+      "indent": 6,
+      "text": "- Reserved fields (24 bits and 8 bits): MUST be set to zero on transmission and ignored on receipt.",
+      "zh-CHS": "- 保留字段（24位和8位）：传输时必须设置为零，接收时忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "Outer UDP Header: This is the outer UDP header with a source port provided by the VTEP and the destination port being a well-known UDP port.",
+      "zh-CHS": "外部UDP报头：这是外部UDP报头，其源端口由VTEP提供，目标端口为众所周知的UDP端口。"
+    },
+    {
+      "indent": 6,
+      "text": "- Destination Port: IANA has assigned the value 4789 for the VXLAN UDP port, and this value SHOULD be used by default as the destination UDP port. Some early implementations of VXLAN have used other values for the destination port. To enable interoperability with these implementations, the destination port SHOULD be configurable.",
+      "zh-CHS": "- 目标端口：IANA为VXLAN UDP端口分配了值4789，默认情况下，该值应用作目标UDP端口。VXLAN的一些早期实现为目标端口使用了其他值。为了实现与这些实现的互操作性，目标端口应该是可配置的。"
+    },
+    {
+      "indent": 6,
+      "text": "- Source Port: It is recommended that the UDP source port number be calculated using a hash of fields from the inner packet -- one example being a hash of the inner Ethernet frame's headers. This is to enable a level of entropy for the ECMP/load-balancing of the VM-to-VM traffic across the VXLAN overlay. When calculating the UDP source port number in this manner, it is RECOMMENDED that the value be in the dynamic/private port range 49152-65535 [RFC6335].",
+      "zh-CHS": "- 源端口：建议使用来自内部数据包的字段散列来计算UDP源端口号——例如内部以太网帧头的散列。这是为了在VXLAN覆盖上实现VM到VM流量的ECMP/负载平衡的熵级别。以这种方式计算UDP源端口号时，建议该值在动态/专用端口范围49152-65535[RFC6335]内。"
+    },
+    {
+      "indent": 6,
+      "text": "- UDP Checksum: It SHOULD be transmitted as zero. When a packet is received with a UDP checksum of zero, it MUST be accepted for decapsulation. Optionally, if the encapsulating end point includes a non-zero UDP checksum, it MUST be correctly calculated across the entire packet including the IP header, UDP header, VXLAN header, and encapsulated MAC frame. When a decapsulating end point receives a packet with a non-zero checksum, it MAY choose to verify the checksum value. If it chooses to perform such verification, and the verification fails, the packet MUST be dropped. If the decapsulating destination chooses not to perform the verification, or performs it successfully, the packet MUST be accepted for decapsulation.",
+      "zh-CHS": "- UDP校验和：应将其传输为零。当接收到UDP校验和为零的数据包时，必须接受该数据包进行解除封装。或者，如果封装端点包括非零UDP校验和，则必须在整个数据包（包括IP报头、UDP报头、VXLAN报头和封装的MAC帧）中正确计算该校验和。当解封装端点接收到具有非零校验和的数据包时，它可以选择验证校验和值。如果它选择执行这种验证，并且验证失败，则必须丢弃数据包。如果解封目的地选择不执行验证或成功执行验证，则必须接受数据包进行解封。"
+    },
+    {
+      "indent": 3,
+      "text": "Outer IP Header: This is the outer IP header with the source IP address indicating the IP address of the VTEP over which the communicating VM (as represented by the inner source MAC address) is running. The destination IP address can be a unicast or multicast IP address (see Sections 4.1 and 4.2). When it is a unicast IP address, it represents the IP address of the VTEP connecting the communicating VM as represented by the inner destination MAC address. For multicast destination IP addresses, please refer to the scenarios detailed in Section 4.2.",
+      "zh-CHS": "外部IP头：这是外部IP头，源IP地址指示通信VM（由内部源MAC地址表示）运行的VTEP的IP地址。目标IP地址可以是单播或多播IP地址（见第4.1和4.2节）。当它是单播IP地址时，它表示连接通信VM的VTEP的IP地址，如内部目标MAC地址所示。有关多播目标IP地址，请参阅第4.2节中详细介绍的场景。"
+    },
+    {
+      "indent": 3,
+      "text": "Outer Ethernet Header (example): Figure 1 is an example of an inner Ethernet frame encapsulated within an outer Ethernet + IP + UDP + VXLAN header. The outer destination MAC address in this frame may be the address of the target VTEP or of an intermediate Layer 3 router. The outer VLAN tag is optional. If present, it may be used for delineating VXLAN traffic on the LAN.",
+      "zh-CHS": "外部以太网报头（示例）：图1是封装在外部以太网+IP+UDP+VXLAN报头内的内部以太网帧的示例。该帧中的外部目的地MAC地址可以是目标VTEP或中间层3路由器的地址。外部VLAN标记是可选的。如果存在，可用于描绘局域网上的VXLAN流量。"
+    },
+    {
+      "indent": 4,
+      "text": "0 1 2 3 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1",
+      "zh-CHS": "0 1 2 3 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1"
+    },
+    {
+      "indent": 3,
+      "text": "Outer Ethernet Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             Outer Destination MAC Address                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Outer Destination MAC Address | Outer Source MAC Address      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                Outer Source MAC Address                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|OptnlEthtype = C-Tag 802.1Q    | Outer.VLAN Tag Information    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Ethertype = 0x0800            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Outer IPv4 Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|Version|  IHL  |Type of Service|          Total Length         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|         Identification        |Flags|      Fragment Offset    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Time to Live |Protocl=17(UDP)|   Header Checksum             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                       Outer Source IPv4 Address               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                   Outer Destination IPv4 Address              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Outer UDP Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           Source Port         |       Dest Port = VXLAN Port  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           UDP Length          |        UDP Checksum           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|R|R|R|R|I|R|R|R|            Reserved                           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                VXLAN Network Identifier (VNI) |   Reserved    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Inner Ethernet Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             Inner Destination MAC Address                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Inner Destination MAC Address | Inner Source MAC Address      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                Inner Source MAC Address                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|OptnlEthtype = C-Tag 802.1Q    | Inner.VLAN Tag Information    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Payload:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Ethertype of Original Payload |                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |\n|                                  Original Ethernet Payload    |\n|                                                               |\n|(Note that the original Ethernet Frame's FCS is not included)  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Frame Check Sequence:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   New FCS (Frame Check Sequence) for Outer Ethernet Frame     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Figure 1: VXLAN Frame Format with IPv4 Outer Header",
+      "zh-CHS": "图1:VXLAN帧格式与IPv4外部标头"
+    },
+    {
+      "indent": 3,
+      "text": "The frame format above shows tunneling of Ethernet frames using IPv4 for transport. Use of VXLAN with IPv6 transport is detailed below.",
+      "zh-CHS": "上面的帧格式显示了使用IPv4进行传输的以太网帧隧道。VXLAN与IPv6传输的使用如下所述。"
+    },
+    {
+      "indent": 4,
+      "text": "0 1 2 3 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1",
+      "zh-CHS": "0 1 2 3 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1"
+    },
+    {
+      "indent": 3,
+      "text": "Outer Ethernet Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             Outer Destination MAC Address                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Outer Destination MAC Address | Outer Source MAC Address      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                Outer Source MAC Address                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|OptnlEthtype = C-Tag 802.1Q    | Outer.VLAN Tag Information    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Ethertype = 0x86DD            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Outer IPv6 Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|Version| Traffic Class |           Flow Label                  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|         Payload Length        | NxtHdr=17(UDP)|   Hop Limit   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n+                                                               +\n|                                                               |\n+                     Outer Source IPv6 Address                 +\n|                                                               |\n+                                                               +\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n+                                                               +\n|                                                               |\n+                  Outer Destination IPv6 Address               +\n|                                                               |\n+                                                               +\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Outer UDP Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           Source Port         |       Dest Port = VXLAN Port  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           UDP Length          |        UDP Checksum           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|R|R|R|R|I|R|R|R|            Reserved                           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                VXLAN Network Identifier (VNI) |   Reserved    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Inner Ethernet Header:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|             Inner Destination MAC Address                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Inner Destination MAC Address | Inner Source MAC Address      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                Inner Source MAC Address                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|OptnlEthtype = C-Tag 802.1Q    | Inner.VLAN Tag Information    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Payload:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Ethertype of Original Payload |                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |\n|                                  Original Ethernet Payload    |\n|                                                               |\n|(Note that the original Ethernet Frame's FCS is not included)  |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Frame Check Sequence:\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   New FCS (Frame Check Sequence) for Outer Ethernet Frame     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Figure 2: VXLAN Frame Format with IPv6 Outer Header",
+      "zh-CHS": "图2：带有IPv6外部标头的VXLAN帧格式"
+    },
+    {
+      "indent": 0,
+      "text": "6. VXLAN Deployment Scenarios",
+      "section_title": true,
+      "zh-CHS": "6. VXLAN部署场景"
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN is typically deployed in data centers on virtualized hosts, which may be spread across multiple racks. The individual racks may be parts of a different Layer 3 network or they could be in a single Layer 2 network. The VXLAN segments/overlay networks are overlaid on top of these Layer 2 or Layer 3 networks.",
+      "zh-CHS": "VXLAN通常部署在虚拟主机上的数据中心中，虚拟主机可能分布在多个机架上。单个机架可以是不同的第3层网络的一部分，也可以位于单个第2层网络中。VXLAN段/覆盖网络覆盖在这些第2层或第3层网络的顶部。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider Figure 3, which depicts two virtualized servers attached to a Layer 3 infrastructure. The servers could be on the same rack, on different racks, or potentially across data centers within the same administrative domain. There are four VXLAN overlay networks identified by the VNIs 22, 34, 74, and 98. Consider the case of VM1-1 in Server 1 and VM2-4 on Server 2, which are on the same VXLAN overlay network identified by VNI 22. The VMs do not know about the overlay networks and transport method since the encapsulation and decapsulation happen transparently at the VTEPs on Servers 1 and 2. The other overlay networks and the corresponding VMs are VM1-2 on Server 1 and VM2-1 on Server 2, both on VNI 34; VM1-3 on Server 1 and VM2-2 on Server 2 on VNI 74; and finally VM1-4 on Server 1 and VM2-3 on Server 2 on VNI 98.",
+      "zh-CHS": "考虑图3，它描述了连接到第3层基础结构的两个虚拟化服务器。服务器可能位于同一机架上、不同机架上，或者可能跨同一管理域内的数据中心。VNIs 22、34、74和98标识了四个VXLAN覆盖网络。考虑服务器1上的VM1-1和服务器2上的VM2-4的情况，VM1-1位于VNI 22所标识的同一VXLAN覆盖网络上。VM不知道覆盖网络和传输方法，因为封装和解除封装在服务器1和2上的VTEP上透明地进行。其他覆盖网络和对应的vm是服务器1上的VM1-2和服务器2上的VM2-1，两者都在VNI 34上；VNI 74上服务器1上的VM1-3和服务器2上的VM2-2；最后是VNI98上服务器1上的VM1-4和服务器2上的VM2-3。"
+    },
+    {
+      "indent": 3,
+      "text": "+------------+-------------+\n|        Server 1          |\n| +----+----+  +----+----+ |\n| |VM1-1    |  |VM1-2    | |\n| |VNI 22   |  |VNI 34   | |\n| |         |  |         | |\n| +---------+  +---------+ |\n|                          |\n| +----+----+  +----+----+ |\n| |VM1-3    |  |VM1-4    | |\n| |VNI 74   |  |VNI 98   | |\n| |         |  |         | |\n| +---------+  +---------+ |\n| Hypervisor VTEP (IP1)    |\n+--------------------------+\n                      |\n                      |\n                      |\n                      |   +-------------+\n                      |   |   Layer 3   |\n                      |---|   Network   |\n                          |             |\n                          +-------------+\n                              |\n                              |\n                              +-----------+\n                                          |\n                                          |\n                                   +------------+-------------+\n                                   |        Server 2          |\n                                   | +----+----+  +----+----+ |\n                                   | |VM2-1    |  |VM2-2    | |\n                                   | |VNI 34   |  |VNI 74   | |\n                                   | |         |  |         | |\n                                   | +---------+  +---------+ |\n                                   |                          |\n                                   | +----+----+  +----+----+ |\n                                   | |VM2-3    |  |VM2-4    | |\n                                   | |VNI 98   |  |VNI 22   | |\n                                   | |         |  |         | |\n                                   | +---------+  +---------+ |\n                                   | Hypervisor VTEP (IP2)    |\n                                   +--------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "Figure 3: VXLAN Deployment - VTEPs across a Layer 3 Network",
+      "zh-CHS": "图3:VXLAN部署-跨第3层网络的VTEP"
+    },
+    {
+      "indent": 3,
+      "text": "One deployment scenario is where the tunnel termination point is a physical server that understands VXLAN. An alternate scenario is where nodes on a VXLAN overlay network need to communicate with nodes on legacy networks that could be VLAN based. These nodes may be physical nodes or virtual machines. To enable this communication, a network can include VXLAN gateways (see Figure 4 below with a switch acting as a VXLAN gateway) that forward traffic between VXLAN and non-VXLAN environments.",
+      "zh-CHS": "一种部署场景是，隧道终止点是理解VXLAN的物理服务器。另一种情况是，VXLAN覆盖网络上的节点需要与基于VLAN的传统网络上的节点通信。这些节点可以是物理节点或虚拟机。为了实现这种通信，网络可以包括VXLAN网关（参见下图4，交换机充当VXLAN网关），用于转发VXLAN和非VXLAN环境之间的通信。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider Figure 4 for the following discussion. For incoming frames on the VXLAN connected interface, the gateway strips out the VXLAN header and forwards it to a physical port based on the destination MAC address of the inner Ethernet frame. Decapsulated frames with the inner VLAN ID SHOULD be discarded unless configured explicitly to be passed on to the non-VXLAN interface. In the reverse direction, incoming frames for the non-VXLAN interfaces are mapped to a specific VXLAN overlay network based on the VLAN ID in the frame. Unless configured explicitly to be passed on in the encapsulated VXLAN frame, this VLAN ID is removed before the frame is encapsulated for VXLAN.",
+      "zh-CHS": "考虑下面讨论的图4。对于VXLAN连接接口上的传入帧，网关剥离VXLAN报头，并根据内部以太网帧的目标MAC地址将其转发到物理端口。除非明确配置为传递给非VXLAN接口，否则应丢弃具有内部VLAN ID的解封装帧。在相反方向上，非VXLAN接口的传入帧根据帧中的VLAN ID映射到特定的VXLAN覆盖网络。除非明确配置为在封装的VXLAN帧中传递，否则在为VXLAN封装帧之前会删除此VLAN ID。"
+    },
+    {
+      "indent": 3,
+      "text": "These gateways that provide VXLAN tunnel termination functions could be ToR/access switches or switches higher up in the data center network topology -- e.g., core or even WAN edge devices. The last case (WAN edge) could involve a Provider Edge (PE) router that terminates VXLAN tunnels in a hybrid cloud environment. In all these instances, note that the gateway functionality could be implemented in software or hardware.",
+      "zh-CHS": "这些提供VXLAN隧道终端功能的网关可以是ToR/访问交换机或数据中心网络拓扑中更高的交换机，例如核心设备，甚至WAN边缘设备。最后一种情况（WAN边缘）可能涉及在混合云环境中终止VXLAN隧道的提供商边缘（PE）路由器。在所有这些情况下，请注意网关功能可以在软件或硬件中实现。"
+    },
+    {
+      "indent": 3,
+      "text": "+---+-----+---+                                    +---+-----+---+\n|    Server 1 |                                    |  Non-VXLAN  |\n(VXLAN enabled)<-----+                       +---->|  server     |\n+-------------+      |                       |     +-------------+\n                     |                       |\n+---+-----+---+      |                       |     +---+-----+---+\n|Server 2     |      |                       |     |  Non-VXLAN  |\n(VXLAN enabled)<-----+   +---+-----+---+     +---->|    server   |\n+-------------+      |   |Switch acting|     |     +-------------+\n                     |---|  as VXLAN   |-----|\n+---+-----+---+      |   |   Gateway   |\n| Server 3    |      |   +-------------+\n(VXLAN enabled)<-----+\n+-------------+      |\n                     |\n+---+-----+---+      |\n| Server 4    |      |\n(VXLAN enabled)<-----+\n+-------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "Figure 4: VXLAN Deployment - VXLAN Gateway",
+      "zh-CHS": "图4:VXLAN部署-VXLAN网关"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Inner VLAN Tag Handling",
+      "section_title": true,
+      "zh-CHS": "6.1. 内部VLAN标记处理"
+    },
+    {
+      "indent": 3,
+      "text": "Inner VLAN Tag Handling in VTEP and VXLAN gateway should conform to the following:",
+      "zh-CHS": "VTEP和VXLAN网关中的内部VLAN标记处理应符合以下要求："
+    },
+    {
+      "indent": 3,
+      "text": "Decapsulated VXLAN frames with the inner VLAN tag SHOULD be discarded unless configured otherwise. On the encapsulation side, a VTEP SHOULD NOT include an inner VLAN tag on tunnel packets unless configured otherwise. When a VLAN-tagged packet is a candidate for VXLAN tunneling, the encapsulating VTEP SHOULD strip the VLAN tag unless configured otherwise.",
+      "zh-CHS": "除非另有配置，否则应丢弃带有内部VLAN标记的已解除封装的VXLAN帧。在封装方面，除非另有配置，否则VTEP不应在隧道数据包上包含内部VLAN标记。当VLAN标记的数据包是VXLAN隧道的候选数据包时，封装VTEP应去除VLAN标记，除非另有配置。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Traditionally, Layer 2 networks can only be attacked from 'within' by rogue end points -- either by having inappropriate access to a LAN and snooping on traffic, by injecting spoofed packets to 'take over' another MAC address, or by flooding and causing denial of service. A MAC-over-IP mechanism for delivering Layer 2 traffic significantly extends this attack surface. This can happen by rogues injecting themselves into the network by subscribing to one or more multicast groups that carry broadcast traffic for VXLAN segments and also by sourcing MAC-over-UDP frames into the transport network to inject spurious traffic, possibly to hijack MAC addresses.",
+      "zh-CHS": "传统上，第二层网络只能从“内部”受到流氓端点的攻击——要么通过不适当地访问局域网和窥探流量，要么通过注入伪造的数据包“接管”另一个MAC地址，要么通过泛滥和拒绝服务。用于提供第2层流量的MAC over IP机制显著扩展了这种攻击面。这可能是由于流氓通过订阅一个或多个承载VXLAN段广播流量的多播组，以及通过在传输网络中通过UDP帧寻找MAC来注入虚假流量，可能劫持MAC地址，从而将自己注入网络。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not incorporate specific measures against such attacks, relying instead on other traditional mechanisms layered on top of IP. This section, instead, sketches out some possible approaches to security in the VXLAN environment.",
+      "zh-CHS": "本文档没有包含针对此类攻击的具体措施，而是依赖于IP之上的其他传统机制。相反，本节概述了在VXLAN环境中实现安全性的一些可能方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Traditional Layer 2 attacks by rogue end points can be mitigated by limiting the management and administrative scope of who deploys and manages VMs/gateways in a VXLAN environment. In addition, such administrative measures may be augmented by schemes like 802.1X [802.1X] for admission control of individual end points. Also, the use of the UDP-based encapsulation of VXLAN enables configuration and use of the 5-tuple-based ACL (Access Control List) functionality in physical switches.",
+      "zh-CHS": "通过限制在VXLAN环境中部署和管理VM/网关的人员的管理和管理范围，可以缓解流氓端点的传统第2层攻击。此外，此类管理措施可通过诸如802.1X[802.1X]之类的方案来增强，以用于各个端点的准入控制。此外，使用基于UDP的VXLAN封装，可以在物理交换机中配置和使用基于5元组的ACL（访问控制列表）功能。"
+    },
+    {
+      "indent": 3,
+      "text": "Tunneled traffic over the IP network can be secured with traditional security mechanisms like IPsec that authenticate and optionally encrypt VXLAN traffic. This will, of course, need to be coupled with an authentication infrastructure for authorized end points to obtain and distribute credentials.",
+      "zh-CHS": "IP网络上的隧道流量可以通过传统的安全机制（如IPsec）进行安全保护，IPsec可以对VXLAN流量进行身份验证和选择性加密。当然，这需要与授权端点的身份验证基础设施相结合，以获取和分发凭据。"
+    },
+    {
+      "indent": 3,
+      "text": "VXLAN overlay networks are designated and operated over the existing LAN infrastructure. To ensure that VXLAN end points and their VTEPs are authorized on the LAN, it is recommended that a VLAN be designated for VXLAN traffic and the servers/VTEPs send VXLAN traffic over this VLAN to provide a measure of security.",
+      "zh-CHS": "VXLAN覆盖网络是在现有LAN基础设施上指定和运行的。为确保在局域网上授权VXLAN端点及其VTEP，建议为VXLAN流量指定一个VLAN，服务器/VTEP通过该VLAN发送VXLAN流量，以提供安全措施。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, VXLAN requires proper mapping of VNIs and VM membership in these overlay networks. It is expected that this mapping be done and communicated to the management entity on the VTEP and the gateways using existing secure methods.",
+      "zh-CHS": "此外，VXLAN需要在这些覆盖网络中正确映射VNI和VM成员身份。预计将使用现有的安全方法完成此映射，并将其传达给VTEP和网关上的管理实体。"
+    },
+    {
+      "indent": 0,
+      "text": "8. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "8. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "A well-known UDP port (4789) has been assigned by the IANA in the Service Name and Transport Protocol Port Number Registry for VXLAN. See Section 5 for discussion of the port number.",
+      "zh-CHS": "IANA在VXLAN的服务名称和传输协议端口号注册表中分配了一个众所周知的UDP端口（4789）。有关端口号的讨论，请参见第5节。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[802.1aq] IEEE, \"Standard for Local and metropolitan area networks -- Media Access Control (MAC) Bridges and Virtual Bridged Local Area Networks -- Amendment 20: Shortest Path Bridging\", IEEE P802.1aq-2012, 2012.",
+      "zh-CHS": "[802.1aq]IEEE，“局域网和城域网标准——媒体访问控制（MAC）网桥和虚拟桥接局域网——修改件20：最短路径桥接”，IEEE P802.1aq-2012，2012年。"
+    },
+    {
+      "indent": 3,
+      "text": "[802.1D] IEEE, \"Draft Standard for Local and Metropolitan Area Networks/ Media Access Control (MAC) Bridges\", IEEE P802.1D-2004, 2004.",
+      "zh-CHS": "[802.1D]IEEE，“局域网和城域网/媒体访问控制（MAC）网桥标准草案”，IEEE P802.1D-2004，2004年。"
+    },
+    {
+      "indent": 3,
+      "text": "[802.1X] IEEE, \"IEEE Standard for Local and metropolitan area networks -- Port-Based Network Acces Control\", IEEE Std 802.1X-2010, February 2010.",
+      "zh-CHS": "[802.1X]IEEE，“局域网和城域网的IEEE标准——基于端口的网络访问控制”，IEEE标准802.1X-2010，2010年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1191] Mogul, J. and S. Deering, \"Path MTU discovery\", RFC 1191, November 1990.",
+      "zh-CHS": "[RFC1191]Mogul，J.和S.Deering，“MTU发现路径”，RFC1191，1990年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1981] McCann, J., Deering, S., and J. Mogul, \"Path MTU Discovery for IP version 6\", RFC 1981, August 1996.",
+      "zh-CHS": "[RFC1981]McCann，J.，Deering，S.，和J.Mogul，“IP版本6的路径MTU发现”，RFC 1981，1996年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4541] Christensen, M., Kimball, K., and F. Solensky, \"Considerations for Internet Group Management Protocol (IGMP) and Multicast Listener Discovery (MLD) Snooping Switches\", RFC 4541, May 2006.",
+      "zh-CHS": "[RFC4541]Christensen，M.，Kimball，K.，和F.Solensky，“互联网组管理协议（IGMP）和多播侦听器发现（MLD）窥探交换机的注意事项”，RFC 4541，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4601] Fenner, B., Handley, M., Holbrook, H., and I. Kouvelas, \"Protocol Independent Multicast - Sparse Mode (PIM-SM): Protocol Specification (Revised)\", RFC 4601, August 2006.",
+      "zh-CHS": "[RFC4601]Fenner，B.，Handley，M.，Holbrook，H.，和I.Kouvelas，“协议独立多播-稀疏模式（PIM-SM）：协议规范（修订版）”，RFC 46012006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5015] Handley, M., Kouvelas, I., Speakman, T., and L. Vicisano, \"Bidirectional Protocol Independent Multicast (BIDIR-PIM)\", RFC 5015, October 2007.",
+      "zh-CHS": "[RFC5015]Handley，M.，Kouvelas，I.，Speakman，T.，和L.Vicisano，“双向协议独立多播（BIDIR-PIM）”，RFC 50152007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6325] Perlman, R., Eastlake 3rd, D., Dutt, D., Gai, S., and A. Ghanwani, \"Routing Bridges (RBridges): Base Protocol Specification\", RFC 6325, July 2011.",
+      "zh-CHS": "[RFC6325]帕尔曼，R.，伊斯特莱克第三，D.，杜特，D.，盖伊，S.，和A.加瓦尼，“路由桥（RBridges）：基本协议规范”，RFC6325，2011年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6335] Cotton, M., Eggert, L., Touch, J., Westerlund, M., and S. Cheshire, \"Internet Assigned Numbers Authority (IANA) Procedures for the Management of the Service Name and Transport Protocol Port Number Registry\", BCP 165, RFC 6335, August 2011.",
+      "zh-CHS": "[RFC6335]Cotton，M.，Eggert，L.，Touch，J.，Westerlund，M.，和S.Cheshire，“互联网分配号码管理局（IANA）服务名称和传输协议端口号注册管理程序”，BCP 165，RFC 63352011年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "10. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to thank: Ajit Sanzgiri for contributions to the Security Considerations section and editorial inputs; Joseph Cheng, Margaret Petrus, Milin Desai, Nial de Barra, Jeff Mandin, and Siva Kollipara for their editorial reviews, inputs, and comments.",
+      "zh-CHS": "作者希望感谢：Ajit Sanzgiri对安全考虑部分的贡献和编辑投入；Joseph Cheng、Margaret Petrus、Milin Desai、Nial de Barra、Jeff Mandin和Siva Kollipara的编辑评论、投入和评论。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Mallik Mahalingam Storvisor, Inc. 640 W. California Ave, Suite #110 Sunnyvale, CA 94086. USA",
+      "zh-CHS": "Mallik Mahalingam Storvisor，Inc.加利福尼亚州桑尼维尔110号西加利福尼亚大道640号套房，邮编94086。美国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mallik_mahalingam@yahoo.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Dinesh G. Dutt Cumulus Networks 140C S. Whisman Road Mountain View, CA 94041 USA",
+      "zh-CHS": "迪内什G.杜特积云网络140C S.惠斯曼路山景城，加利福尼亚州94041"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: ddutt.ietf@hobbesdutt.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Kenneth Duda Arista Networks 5453 Great America Parkway Santa Clara, CA 95054 USA",
+      "zh-CHS": "Kenneth Duda Arista Networks 5453美国加利福尼亚州圣克拉拉大美洲公园路95054"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: kduda@arista.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Puneet Agarwal Broadcom Corporation 3151 Zanker Road San Jose, CA 95134 USA",
+      "zh-CHS": "Puneet Agarwal Broadcom Corporation美国加利福尼亚州圣何塞市赞克路3151号，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: pagarwal@broadcom.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Lawrence Kreeger Cisco Systems, Inc. 170 W. Tasman Avenue San Jose, CA 95134 USA",
+      "zh-CHS": "劳伦斯·克雷格思科系统公司，美国加利福尼亚州圣何塞塔斯曼大道西170号，邮编95134"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: kreeger@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "T. Sridhar VMware, Inc. 3401 Hillview Palo Alto, CA 94304 USA",
+      "zh-CHS": "T.Sridhar VMware，Inc.3401 Hillview Palo Alto，加利福尼亚州，美国94304"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: tsridhar@vmware.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Mike Bursell Intel Bowyer's, North Road Great Yeldham Halstead Essex. C09 4QD UK",
+      "zh-CHS": "迈克·伯塞尔·英特尔·鲍耶，北路大耶尔达姆·霍尔斯特德·埃塞克斯。C09 4QD英国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mike.bursell@intel.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Chris Wright Red Hat, Inc. 100 East Davie Street Raleigh, NC 27601 USA",
+      "zh-CHS": "克里斯·赖特红帽公司，美国北卡罗来纳州罗利市东戴维斯街100号，邮编：27601"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: chrisw@redhat.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

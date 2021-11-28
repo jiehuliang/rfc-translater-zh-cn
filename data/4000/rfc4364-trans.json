@@ -1,0 +1,2158 @@
+{
+  "title": {
+    "text": "RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs)",
+    "zh-CHS": "RFC 4364"
+  },
+  "number": 4364,
+  "created_at": "2021-10-16 00:56:36.856122+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                           E. Rosen\nRequest for Comments: 4364                           Cisco Systems, Inc.\nObsoletes: 2547                                               Y. Rekhter\nCategory: Standards Track                         Juniper Networks, Inc.\n                                                           February 2006",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 14,
+      "text": "BGP/MPLS IP Virtual Private Networks (VPNs)",
+      "zh-CHS": "BGP/MPLS IP虚拟专用网络（VPN）"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a method by which a Service Provider may use an IP backbone to provide IP Virtual Private Networks (VPNs) for its customers. This method uses a \"peer model\", in which the customers' edge routers (CE routers) send their routes to the Service Provider's edge routers (PE routers); there is no \"overlay\" visible to the customer's routing algorithm, and CE routers at different sites do not peer with each other. Data packets are tunneled through the backbone, so that the core routers do not need to know the VPN routes.",
+      "zh-CHS": "本文档描述了一种方法，通过该方法，服务提供商可以使用IP主干为其客户提供IP虚拟专用网络（VPN）。该方法使用“对等模型”，其中客户的边缘路由器（CE路由器）将其路由发送到服务提供商的边缘路由器（PE路由器）；客户的路由算法看不到“覆盖”，不同站点的CE路由器彼此不对等。数据包通过主干网进行隧道传输，这样核心路由器就不需要知道VPN路由。"
+    },
+    {
+      "indent": 3,
+      "text": "This document obsoletes RFC 2547.",
+      "zh-CHS": "本文件废除RFC 2547。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Virtual Private Networks ...................................4\n   1.2. Customer Edge and Provider Edge ............................5\n   1.3. VPNs with Overlapping Address Spaces .......................6\n   1.4. VPNs with Different Routes to the Same System ..............7\n   1.5. SP Backbone Routers ........................................7\n   1.6. Security ...................................................8\n2. Sites and CEs ...................................................8\n3. VRFs: Multiple Forwarding Tables in PEs .........................9\n   3.1. VRFs and Attachment Circuits ...............................9\n   3.2. Associating IP Packets with VRFs ..........................10\n   3.3. Populating the VRFs .......................................11\n4. VPN Route Distribution via BGP .................................12\n   4.1. The VPN-IPv4 Address Family ...............................13\n   4.2. Encoding of Route Distinguishers ..........................14\n   4.3. Controlling Route Distribution ............................15\n        4.3.1. The Route Target Attribute .........................15\n        4.3.2. Route Distribution Among PEs by BGP ................17\n        4.3.3. Use of Route Reflectors ............................20\n        4.3.4. How VPN-IPv4 NLRI Is Carried in BGP ................22\n        4.3.5. Building VPNs Using Route Targets ..................23\n        4.3.6. Route Distribution Among VRFs in a Single PE .......23\n5. Forwarding .....................................................23\n6. Maintaining Proper Isolation of VPNs ...........................26\n7. How PEs Learn Routes from CEs ..................................27\n8. How CEs Learn Routes from PEs ..................................30\n9. Carriers' Carriers .............................................30\n10. Multi-AS Backbones ............................................32\n11. Accessing the Internet from a VPN .............................34\n12. Management VPNs ...............................................36\n13. Security Considerations .......................................37\n   13.1. Data Plane ...............................................37\n   13.2. Control Plane ............................................39\n   13.3. Security of P and PE Devices .............................39\n14. Quality of Service ............................................39\n15. Scalability ...................................................40\n16. IANA Considerations ...........................................40\n17. Acknowledgements ..............................................41\n18. Contributors ..................................................41\n19. Normative References ..........................................44\n20. Informative References ........................................45",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a method by which a Service Provider may use an IP backbone to provide IP Virtual Private Networks (VPNs) for its customers. This method uses a \"peer model\", in which the customers' edge routers (CE routers) send their routes to the Service Provider's edge routers (PE routers). Border Gateway Protocol (BGP) [BGP, BGP-MP] is then used by the Service Provider to exchange the routes of a particular VPN among the PE routers that are attached to that VPN. This is done in a way that ensures that routes from different VPNs remain distinct and separate, even if two VPNs have an overlapping address space. The PE routers distribute, to the CE routers in a particular VPN, the routes from other the CE routers in that VPN. The CE routers do not peer with each other, hence there is no \"overlay\" visible to the VPN's routing algorithm. The term \"IP\" in \"IP VPN\" is used to indicate that the PE receives IP datagrams from the CE, examines their IP headers, and routes them accordingly.",
+      "zh-CHS": "本文档描述了一种方法，通过该方法，服务提供商可以使用IP主干为其客户提供IP虚拟专用网络（VPN）。该方法使用“对等模型”，其中客户的边缘路由器（CE路由器）将其路由发送到服务提供商的边缘路由器（PE路由器）。然后，服务提供商使用边界网关协议（BGP）[BGP，BGP-MP]在连接到该VPN的PE路由器之间交换特定VPN的路由。这样做可以确保来自不同VPN的路由保持不同和分离，即使两个VPN有重叠的地址空间。PE路由器将来自该VPN中其他CE路由器的路由分配给特定VPN中的CE路由器。CE路由器彼此不对等，因此VPN的路由算法看不到“覆盖”。“IP VPN”中的术语“IP”用于指示PE从CE接收IP数据报，检查其IP报头，并相应地路由它们。"
+    },
+    {
+      "indent": 3,
+      "text": "Each route within a VPN is assigned a Multiprotocol Label Switching (MPLS) [MPLS-ARCH, MPLS-BGP, MPLS-ENCAPS] label; when BGP distributes a VPN route, it also distributes an MPLS label for that route. Before a customer data packet travels across the Service Provider's backbone, it is encapsulated with the MPLS label that corresponds, in the customer's VPN, to the route that is the best match to the packet's destination address. This MPLS packet is further encapsulated (e.g., with another MPLS label or with an IP or Generic Routing Encapsulation (GRE) tunnel header [MPLS-in-IP-GRE]) so that it gets tunneled across the backbone to the proper PE router. Thus, the backbone core routers do not need to know the VPN routes.",
+      "zh-CHS": "VPN内的每条路由都被分配一个多协议标签交换（MPLS）[MPLS-ARCH、MPLS-BGP、MPLS-ENCAPS]标签；当BGP分发VPN路由时，它还为该路由分发MPLS标签。在客户数据包穿越服务提供商的主干网之前，它被封装为MPLS标签，该标签在客户的VPN中对应于与数据包的目的地地址最匹配的路由。该MPLS数据包被进一步封装（例如，使用另一个MPLS标签或IP或通用路由封装（GRE）隧道头[IP GRE中的MPLS]），以便它通过主干隧道传输到适当的PE路由器。因此，骨干核心路由器不需要知道VPN路由。"
+    },
+    {
+      "indent": 3,
+      "text": "The primary goal of this method is to support the case in which a client obtains IP backbone services from a Service Provider or Service Providers with which it maintains contractual relationships. The client may be an enterprise, a group of enterprises that need an extranet, an Internet Service Provider, an application service provider, another VPN Service Provider that uses this same method to offer VPNs to clients of its own, etc. The method makes it very simple for the client to use the backbone services. It is also very scalable and flexible for the Service Provider, and allows the Service Provider to add value.",
+      "zh-CHS": "此方法的主要目标是支持这样的情况：客户机从一个或多个与之保持合同关系的服务提供商处获得IP主干网服务。客户端可以是一个企业、一组需要外联网的企业、一个Internet服务提供商、一个应用程序服务提供商、另一个VPN服务提供商，它们使用相同的方法向自己的客户端提供VPN，等等。该方法使客户端使用主干网服务变得非常简单。对于服务提供商来说，它也是非常可扩展和灵活的，并允许服务提供商增加价值。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Virtual Private Networks",
+      "section_title": true,
+      "zh-CHS": "1.1. 虚拟专用网络"
+    },
+    {
+      "indent": 3,
+      "text": "Consider a set of \"sites\" that are attached to a common network that we call \"the backbone\". Now apply some policy to create a number of subsets of that set, and impose the following rule: two sites may have IP interconnectivity over that backbone only if at least one of these subsets contains them both.",
+      "zh-CHS": "考虑一组连接到我们称之为“骨干”的共同网络的“站点”。现在应用一些策略来创建该集合的多个子集，并实施以下规则：只有当至少一个子集同时包含这两个站点时，这两个站点才能在该主干上具有IP互连。"
+    },
+    {
+      "indent": 3,
+      "text": "These subsets are Virtual Private Networks (VPNs). Two sites have IP connectivity over the common backbone only if there is some VPN that contains them both. Two sites that have no VPN in common have no connectivity over that backbone.",
+      "zh-CHS": "这些子集是虚拟专用网络（VPN）。只有当存在包含这两个站点的VPN时，这两个站点才在公共主干上具有IP连接。两个没有VPN的站点在该主干上没有连接。"
+    },
+    {
+      "indent": 3,
+      "text": "If all the sites in a VPN are owned by the same enterprise, the VPN may be thought of as a corporate \"intranet\". If the various sites in a VPN are owned by different enterprises, the VPN may be thought of as an \"extranet\". A site can be in more than one VPN; e.g., in an intranet and in several extranets. In general, when we use the term \"VPN\" we will not be distinguishing between intranets and extranets.",
+      "zh-CHS": "如果VPN中的所有站点都属于同一个企业，则VPN可以被视为企业“内部网”。如果VPN中的各个站点由不同的企业拥有，则VPN可被视为“外联网”。一个站点可以位于多个VPN中；e、 例如，在一个内部网和几个外部网中。一般来说，当我们使用术语“VPN”时，我们不会区分内部网和外部网。"
+    },
+    {
+      "indent": 3,
+      "text": "We refer to the owners of the sites as the \"customers\". We refer to the owners/operators of the backbone as the \"Service Providers\" (SPs). The customers obtain \"VPN service\" from the SPs.",
+      "zh-CHS": "我们称这些网站的所有者为“客户”。我们将主干网的所有者/运营商称为“服务提供商”（SP）。客户从SPs获得“VPN服务”。"
+    },
+    {
+      "indent": 3,
+      "text": "A customer may be a single enterprise, a set of enterprises, an Internet Service Provider, an Application Service Provider, another SP that offers the same kind of VPN service to its own customers, etc.",
+      "zh-CHS": "客户可以是单个企业、一组企业、Internet服务提供商、应用程序服务提供商、向其自己的客户提供同类VPN服务的另一个SP等。"
+    },
+    {
+      "indent": 3,
+      "text": "The policies that determine whether a particular collection of sites is a VPN are the policies of the customers. Some customers will want the implementation of these policies to be entirely the responsibility of the SP. Other customers may want to share with the SP the responsibility for implementing these policies. This document specifies mechanisms that can be used to implement these policies. The mechanisms we describe are general enough to allow these policies to be implemented either by the SP alone or by a VPN customer together with the SP. Most of the discussion is focused on the former case, however.",
+      "zh-CHS": "确定特定站点集合是否为VPN的策略是客户的策略。一些客户希望这些政策的实施完全由SP负责。其他客户可能希望与SP分担实施这些政策的责任。本文档指定了可用于实施这些策略的机制。我们描述的机制非常通用，允许SP单独或VPN客户与SP一起实施这些策略。但是，大多数讨论都集中在前一种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanisms discussed in this document allow the implementation of a wide range of policies. For example, within a given VPN, one can allow every site to have a direct route to every other site (\"full mesh\"). Alternatively, one can force traffic between certain pairs of sites to be routed via a third site. This can be useful, e.g., if it is desired that traffic between a pair of sites be passed through a firewall, and the firewall is located at the third site.",
+      "zh-CHS": "本文件中讨论的机制允许执行广泛的政策。例如，在给定的VPN中，可以允许每个站点都有一条到其他站点的直接路由（“完整网格”）。或者，可以强制某些站点对之间的通信通过第三站点进行路由。例如，如果期望一对站点之间的通信量通过防火墙，并且防火墙位于第三站点，则这是有用的。"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, we restrict our discussion to the case in which the customer is explicitly purchasing VPN service from an SP, or from a set of SPs that have agreed to cooperate to provide the VPN service. That is, the customer is not merely purchasing internet access from an SP, and the VPN traffic does not pass through a random collection of interconnected SP networks.",
+      "zh-CHS": "在本文档中，我们的讨论仅限于客户明确从SP或同意合作提供VPN服务的一组SP购买VPN服务的情况。也就是说，客户不仅仅是从SP购买internet访问，VPN流量也不会通过互连SP网络的随机集合。"
+    },
+    {
+      "indent": 3,
+      "text": "We also restrict our discussion to the case in which the backbone provides an IP service to the customer, rather than, e.g., a layer 2 service such as Frame Relay, Asynchronous Transfer Mode (ATM), ethernet, High Level Data Link Control (HDLC), or Point-to-Point Protocol (PPP). The customer may attach to the backbone via one of these (or other) layer 2 services, but the layer 2 service is terminated at the \"edge\" of the backbone, where the customer's IP datagrams are removed from any layer 2 encapsulation.",
+      "zh-CHS": "我们还将讨论限制在主干向客户提供IP服务的情况下，而不是第2层服务，例如帧中继、异步传输模式（ATM）、以太网、高级数据链路控制（HDLC）或点对点协议（PPP）。客户可以通过这些（或其他）第2层服务之一连接到主干网，但第2层服务在主干网的“边缘”终止，客户的IP数据报从任何第2层封装中移除。"
+    },
+    {
+      "indent": 3,
+      "text": "In the rest of this introduction, we specify some properties that VPNs should have. The remainder of this document specifies a set of mechanisms that can be deployed to provide a VPN model that has all these properties. This section also introduces some of the technical terminology used in the remainder of the document.",
+      "zh-CHS": "在本简介的其余部分中，我们将指定VPN应该具有的一些属性。本文档的其余部分指定了一组可以部署的机制，以提供具有所有这些属性的VPN模型。本节还介绍了本文件其余部分中使用的一些技术术语。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Customer Edge and Provider Edge",
+      "section_title": true,
+      "zh-CHS": "1.2. 客户优势和提供商优势"
+    },
+    {
+      "indent": 3,
+      "text": "Routers can be attached to each other, or to end systems, in a variety of different ways: PPP connections, ATM Virtual Circuits (VCs), Frame Relay VCs, ethernet interfaces, Virtual Local Area Networks (VLANs) on ethernet interfaces, GRE tunnels, Layer 2 Tunneling Protocol (L2TP) tunnels, IPsec tunnels, etc. We will use the term \"attachment circuit\" to refer generally to some such means of attaching to a router. An attachment circuit may be the sort of connection that is usually thought of as a \"data link\", or it may be a tunnel of some sort; what matters is that it be possible for two devices to be network layer peers over the attachment circuit.",
+      "zh-CHS": "路由器可以通过各种不同的方式相互连接或连接到终端系统：PPP连接、ATM虚拟电路（VCs）、帧中继VCs、以太网接口、以太网接口上的虚拟局域网（VLAN）、GRE隧道、第二层隧道协议（L2TP）隧道、IPsec隧道等。我们将使用术语“连接电路”泛指连接到路由器的一些这样的方法。连接电路可以是通常被认为是“数据链路”的连接类型，也可以是某种类型的隧道；重要的是，两个设备可能是连接电路上的网络层对等设备。"
+    },
+    {
+      "indent": 3,
+      "text": "Each VPN site must contain one or more Customer Edge (CE) devices. Each CE device is attached, via some sort of attachment circuit, to one or more Provider Edge (PE) routers.",
+      "zh-CHS": "每个VPN站点必须包含一个或多个客户边缘（CE）设备。每个CE设备通过某种连接电路连接到一个或多个提供商边缘（PE）路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "Routers in the SP's network that do not attach to CE devices are known as \"P routers\".",
+      "zh-CHS": "SP网络中未连接到CE设备的路由器称为“P路由器”。"
+    },
+    {
+      "indent": 3,
+      "text": "CE devices can be hosts or routers. In a typical case, a site contains one or more routers, some of which are attached to PE routers. The site routers that attach to the PE routers would then be the CE devices, or \"CE routers\". However, there is nothing to prevent a non-routing host from attaching directly to a PE router, in which case the host would be a CE device.",
+      "zh-CHS": "CE设备可以是主机或路由器。在典型情况下，站点包含一个或多个路由器，其中一些路由器连接到PE路由器。连接到PE路由器的站点路由器将是CE设备或“CE路由器”。但是，没有什么可以阻止非路由主机直接连接到PE路由器，在这种情况下，主机将是CE设备。"
+    },
+    {
+      "indent": 3,
+      "text": "Sometimes, what is physically attached to a PE router is a layer 2 switch. In this case, we do NOT say that the layer 2 switch is a CE device. Rather, the CE devices are the hosts and routers that communicate with the PE router through the layer 2 switch; the layer 2 infrastructure is transparent. If the layer 2 infrastructure provides a multipoint service, then multiple CE devices can be attached to the PE router over the same attachment circuit.",
+      "zh-CHS": "有时，物理连接到PE路由器的是第2层交换机。在这种情况下，我们不说第2层交换机是CE设备。相反，CE设备是通过第2层交换机与PE路由器通信的主机和路由器；第二层基础设施是透明的。如果第2层基础设施提供多点服务，则可以通过同一连接电路将多个CE设备连接到PE路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "CE devices are logically part of a customer's VPN. PE and P routers are logically part of the SP's network.",
+      "zh-CHS": "CE设备在逻辑上是客户VPN的一部分。PE和P路由器在逻辑上是SP网络的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "The attachment circuit over which a packet travels when going from CE to PE is known as that packet's \"ingress attachment circuit\", and the PE as the packet's \"ingress PE\". The attachment circuit over which a packet travels when going from PE to CE is known as that packet's \"egress attachment circuit\", and the PE as the packet's \"egress PE\".",
+      "zh-CHS": "当数据包从CE到PE时所经过的连接电路称为该数据包的“入口连接电路”，而PE称为该数据包的“入口PE”。当分组从PE到CE时所经过的连接电路称为该分组的“出口连接电路”，并且该PE称为分组的“出口PE”。"
+    },
+    {
+      "indent": 3,
+      "text": "We will say that a PE router is attached to a particular VPN if it is attached to a CE device that is in a site of that VPN. Similarly, we will say that a PE router is attached to a particular site if it is attached to a CE device that is in that site.",
+      "zh-CHS": "我们会说，如果PE路由器连接到某个VPN站点中的CE设备，则它连接到该VPN。类似地，我们会说，如果PE路由器连接到某个站点中的CE设备，则它连接到该站点。"
+    },
+    {
+      "indent": 3,
+      "text": "When the CE device is a router, it is a routing peer of the PE(s) to which it is attached, but it is NOT a routing peer of CE routers at other sites. Routers at different sites do not directly exchange routing information with each other; in fact, they do not even need to know of each other at all. As a consequence, the customer has no backbone or \"virtual backbone\" to manage, and does not have to deal with any inter-site routing issues. In other words, in the scheme described in this document, a VPN is NOT an \"overlay\" on top of the SP's network.",
+      "zh-CHS": "当CE设备是路由器时，它是其所连接的PE的路由对等方，但它不是其他站点的CE路由器的路由对等方。不同站点的路由器之间不直接交换路由信息；事实上，他们甚至根本不需要相互了解。因此，客户没有要管理的主干网或“虚拟主干网”，也不必处理任何站点间路由问题。换句话说，在本文描述的方案中，VPN不是SP网络顶部的“覆盖”。"
+    },
+    {
+      "indent": 3,
+      "text": "With respect to the management of the edge devices, clear administrative boundaries are maintained between the SP and its customers. Customers are not required to access the PE or P routers for management purposes, nor is the SP required to access the CE devices for management purposes.",
+      "zh-CHS": "关于边缘设备的管理，SP与其客户之间保持着明确的管理界限。客户无需出于管理目的访问PE或P路由器，SP也无需出于管理目的访问CE设备。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. VPNs with Overlapping Address Spaces",
+      "section_title": true,
+      "zh-CHS": "1.3. 具有重叠地址空间的VPN"
+    },
+    {
+      "indent": 3,
+      "text": "If two VPNs have no sites in common, then they may have overlapping address spaces. That is, a given address might be used in VPN V1 as the address of system S1, but in VPN V2 as the address of a completely different system S2. This is a common situation when the VPNs each use an RFC 1918 private address space. Of course, within each VPN, each address must be unambiguous.",
+      "zh-CHS": "如果两个VPN没有共同的站点，则它们可能有重叠的地址空间。也就是说，给定的地址可能在VPN V1中用作系统S1的地址，但在VPN V2中用作完全不同的系统S2的地址。当VPN各自使用RFC 1918专用地址空间时，这是一种常见情况。当然，在每个VPN中，每个地址都必须是明确的。"
+    },
+    {
+      "indent": 3,
+      "text": "Even two VPNs that do have sites in common may have overlapping address spaces, as long as there is no need for any communication between systems with such addresses and systems in the common sites.",
+      "zh-CHS": "即使两个具有共同站点的VPN也可能具有重叠的地址空间，只要具有此类地址的系统与共同站点中的系统之间不需要任何通信。"
+    },
+    {
+      "indent": 0,
+      "text": "1.4. VPNs with Different Routes to the Same System",
+      "section_title": true,
+      "zh-CHS": "1.4. 不同路由到同一系统的VPN"
+    },
+    {
+      "indent": 3,
+      "text": "Although a site may be in multiple VPNs, it is not necessarily the case that the route to a given system at that site should be the same in all the VPNs. Suppose, for example, we have an intranet consisting of sites A, B, and C, and an extranet consisting of A, B, C, and the \"foreign\" site D. Suppose that at site A there is a server, and we want clients from B, C, or D to be able to use that server. Suppose also that at site B there is a firewall. We want all the traffic from site D to the server to pass through the firewall, so that traffic from the extranet can be access controlled. However, we don't want traffic from C to pass through the firewall on the way to the server, since this is intranet traffic.",
+      "zh-CHS": "虽然一个站点可能位于多个VPN中，但在所有VPN中，到该站点的给定系统的路由不一定相同。例如，假设我们有一个由站点A、B和C组成的内部网，以及一个由A、B、C和“外部”站点D组成的外部网。假设站点A有一台服务器，我们希望来自B、C或D的客户端能够使用该服务器。还假设站点B有一个防火墙。我们希望从站点D到服务器的所有流量都通过防火墙，这样来自外部网的流量就可以被访问控制。但是，我们不希望来自C的流量在到达服务器的过程中通过防火墙，因为这是内部网流量。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible to set up two routes to the server. One route, used by sites B and C, takes the traffic directly to site A. The second route, used by site D, takes the traffic instead to the firewall at site B. If the firewall allows the traffic to pass, it then appears to be traffic coming from site B, and follows the route to site A.",
+      "zh-CHS": "可以设置到服务器的两条路由。站点B和C使用的一条路由将流量直接带到站点A。站点D使用的第二条路由将流量带到站点B的防火墙。如果防火墙允许流量通过，则看起来是来自站点B的流量，并沿着路径带到站点A。"
+    },
+    {
+      "indent": 0,
+      "text": "1.5. SP Backbone Routers",
+      "section_title": true,
+      "zh-CHS": "1.5. SP骨干路由器"
+    },
+    {
+      "indent": 3,
+      "text": "The SP's backbone consists of the PE routers, as well as other routers (\"P routers\") that do not attach to CE devices.",
+      "zh-CHS": "SP的主干网由PE路由器以及其他不连接到CE设备的路由器（“P路由器”）组成。"
+    },
+    {
+      "indent": 3,
+      "text": "If every router in an SP's backbone had to maintain routing information for all the VPNs supported by the SP, there would be severe scalability problems; the number of sites that could be supported would be limited by the amount of routing information that could be held in a single router. It is important therefore that the routing information about a particular VPN only needs to be present in the PE routers that attach to that VPN. In particular, the P routers do not need to have ANY per-VPN routing information whatsoever. (This condition may need to be relaxed somewhat when multicast routing is considered. This is not considered further in this paper, but is examined in [VPN-MCAST].)",
+      "zh-CHS": "如果SP主干网中的每个路由器都必须维护SP支持的所有VPN的路由信息，那么将存在严重的可扩展性问题；可支持的站点数量将受到单个路由器中可保存的路由信息量的限制。因此，重要的是，关于特定VPN的路由信息只需要存在于连接到该VPN的PE路由器中。特别地，P路由器不需要任何每VPN路由信息。（在考虑多播路由时，可能需要稍微放宽此条件。本文未进一步考虑此条件，但在[VPN-MCAST]中对此进行了研究。）"
+    },
+    {
+      "indent": 3,
+      "text": "So just as the VPN owners do not have a backbone or \"virtual backbone\" to administer, the SPs themselves do not have a separate backbone or \"virtual backbone\" to administer for each VPN. Site-to-site routing in the backbone is optimal (within the constraints of the policies used to form the VPNs) and is not constrained in any way by an artificial \"virtual topology\" of tunnels.",
+      "zh-CHS": "因此，正如VPN所有者没有要管理的主干网或“虚拟主干网”，SP本身也没有要为每个VPN管理的单独主干网或“虚拟主干网”。主干网中的站点到站点路由是最优的（在用于形成VPN的策略的约束范围内），并且不以任何方式受到隧道的人工“虚拟拓扑”的约束。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 10 discusses some of the special issues that arise when the backbone spans several Service Providers.",
+      "zh-CHS": "第10节讨论了主干网跨越多个服务提供商时出现的一些特殊问题。"
+    },
+    {
+      "indent": 0,
+      "text": "1.6. Security",
+      "section_title": true,
+      "zh-CHS": "1.6. 安全"
+    },
+    {
+      "indent": 3,
+      "text": "VPNs of the sort being discussed here, even without making use of cryptographic security measures, are intended to provide a level of security equivalent to that obtainable when a layer 2 backbone (e.g., Frame Relay) is used. That is, in the absence of misconfiguration or deliberate interconnection of different VPNs, it is not possible for systems in one VPN to gain access to systems in another VPN. Of course, the methods described herein do not by themselves encrypt the data for privacy, nor do they provide a way to determine whether data has been tampered with en route. If this is desired, cryptographic measures must be applied in addition. (See, e.g., [MPLS/BGP-IPsec].) Security is discussed in more detail in Section 13.",
+      "zh-CHS": "这里讨论的这类VPN，即使不使用加密安全措施，也旨在提供与使用第2层主干（例如帧中继）时可获得的安全级别相当的安全级别。也就是说，在不同VPN没有错误配置或故意互连的情况下，一个VPN中的系统不可能访问另一个VPN中的系统。当然，本文描述的方法本身并不出于隐私目的对数据进行加密，也不提供确定数据是否在途中被篡改的方法。如果需要，还必须应用加密措施。（例如，参见[MPLS/BGP IPsec]）第13节将更详细地讨论安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Sites and CEs",
+      "section_title": true,
+      "zh-CHS": "2. 网站和消费电子产品"
+    },
+    {
+      "indent": 3,
+      "text": "From the perspective of a particular backbone network, a set of IP systems may be regarded as a \"site\" if those systems have mutual IP interconnectivity that doesn't require use of the backbone. In general, a site will consist of a set of systems that are in geographic proximity. However, this is not universally true. If two geographic locations are connected via a leased line, over which Open Shortest Path First (OSPF) protocol [OSPFv2] is running, and if that line is the preferred way of communicating between the two locations, then the two locations can be regarded as a single site, even if each location has its own CE router. (This notion of \"site\" is topological, rather than geographical. If the leased line goes down, or otherwise ceases to be the preferred route, but the two geographic locations can continue to communicate by using the VPN backbone, then one site has become two.)",
+      "zh-CHS": "从特定主干网的角度来看，如果一组IP系统具有互IP互连性，而不需要使用主干网，则可以将这些系统视为“站点”。通常，一个站点将由一组地理位置相近的系统组成。然而，这并非普遍正确。如果两个地理位置通过运行开放最短路径优先（OSPF）协议[OSPFv2]的租用线路连接，并且如果该线路是两个位置之间通信的首选方式，则两个位置可以被视为一个站点，即使每个位置都有自己的CE路由器。（这种“站点”的概念是拓扑性的，而不是地理性的。如果租用线路中断或不再是首选路由，但两个地理位置可以通过VPN主干继续通信，那么一个站点就变成了两个。）"
+    },
+    {
+      "indent": 3,
+      "text": "A CE device is always regarded as being in a single site (though as we shall see in Section 3.2, a site may consist of multiple \"virtual sites\"). A site, however, may belong to multiple VPNs.",
+      "zh-CHS": "CE设备始终被视为位于单个站点中（尽管我们将在第3.2节中看到，一个站点可能由多个“虚拟站点”组成）。但是，一个站点可能属于多个VPN。"
+    },
+    {
+      "indent": 3,
+      "text": "A PE router may attach to CE devices from any number of different sites, whether those CE devices are in the same or in different VPNs. A CE device may, for robustness, attach to multiple PE routers, of the same or of different service providers. If the CE device is a router, the PE router and the CE router will appear as router adjacencies to each other.",
+      "zh-CHS": "PE路由器可以从任意数量的不同站点连接到CE设备，无论这些CE设备位于相同或不同的VPN中。为了健壮性，CE设备可以连接到相同或不同服务提供商的多个PE路由器。如果CE设备是路由器，则PE路由器和CE路由器将显示为彼此相邻的路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "While we speak mostly of \"sites\" as being the basic unit of interconnection, nothing here prevents a finer degree of granularity in the control of interconnectivity. For example, certain systems at",
+      "zh-CHS": "虽然我们主要说“站点”是互连的基本单元，但这里没有任何东西阻止互连控制中更精细的粒度。例如，在"
+    },
+    {
+      "indent": 3,
+      "text": "a site may be members of an intranet as well as members of one or more extranets, while other systems at the same site may be restricted to being members of the intranet only. However, this might require that the site have two attachment circuits to the backbone, one for the intranet and one for the extranet; it might further require that firewall functionality be applied on the extranet attachment circuit.",
+      "zh-CHS": "站点可以是内部网的成员，也可以是一个或多个外部网的成员，而同一站点上的其他系统可能仅限于内部网的成员。然而，这可能需要站点有两个连接主干的连接电路，一个用于内部网，另一个用于外部网；它可能进一步要求在外联网连接电路上应用防火墙功能。"
+    },
+    {
+      "indent": 0,
+      "text": "3. VRFs: Multiple Forwarding Tables in PEs",
+      "section_title": true,
+      "zh-CHS": "3. VRFs：PEs中的多个转发表"
+    },
+    {
+      "indent": 3,
+      "text": "Each PE router maintains a number of separate forwarding tables. One of the forwarding tables is the \"default forwarding table\". The others are \"VPN Routing and Forwarding tables\", or \"VRFs\".",
+      "zh-CHS": "每个PE路由器维护多个独立的转发表。其中一个转发表是“默认转发表”。其他的是“VPN路由和转发表”或“VRF”。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. VRFs and Attachment Circuits",
+      "section_title": true,
+      "zh-CHS": "3.1. VRF和连接电路"
+    },
+    {
+      "indent": 3,
+      "text": "Every PE/CE attachment circuit is associated, by configuration, with one or more VRFs. An attachment circuit that is associated with a VRF is known as a \"VRF attachment circuit\".",
+      "zh-CHS": "每个PE/CE连接电路通过配置与一个或多个VRF相关联。与VRF相关联的连接电路称为“VRF连接电路”。"
+    },
+    {
+      "indent": 3,
+      "text": "In the simplest case and most typical case, a PE/CE attachment circuit is associated with exactly one VRF. When an IP packet is received over a particular attachment circuit, its destination IP address is looked up in the associated VRF. The result of that lookup determines how to route the packet. The VRF used by a packet's ingress PE for routing a particular packet is known as the packet's \"ingress VRF\". (There is also the notion of a packet's \"egress VRF\", located at the packet's egress PE; this is discussed in Section 5.)",
+      "zh-CHS": "在最简单和最典型的情况下，PE/CE连接电路仅与一个VRF相关。当通过特定连接电路接收到IP数据包时，将在相关VRF中查找其目的地IP地址。该查找的结果确定如何路由数据包。分组的入口PE用于路由特定分组的VRF称为分组的“入口VRF”。（还有数据包的“出口VRF”的概念，位于数据包的出口PE处；这将在第5节中讨论。）"
+    },
+    {
+      "indent": 3,
+      "text": "If an IP packet arrives over an attachment circuit that is not associated with any VRF, the packet's destination address is looked up in the default forwarding table, and the packet is routed accordingly. Packets forwarded according to the default forwarding table include packets from neighboring P or PE routers, as well as packets from customer-facing attachment circuits that have not been associated with VRFs.",
+      "zh-CHS": "如果IP数据包通过与任何VRF无关的连接电路到达，则在默认转发表中查找该数据包的目的地地址，并相应地路由该数据包。根据默认转发表转发的数据包包括来自相邻P或PE路由器的数据包，以及来自未与VRF关联的面向客户的连接电路的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Intuitively, one can think of the default forwarding table as containing \"public routes\", and of the VRFs as containing \"private routes\". One can similarly think of VRF attachment circuits as being \"private\", and of non-VRF attachment circuits as being \"public\".",
+      "zh-CHS": "直观地说，可以将默认转发表视为包含“公共路由”，而将VRF视为包含“私有路由”。同样，可以将VRF连接电路视为“专用”，将非VRF连接电路视为“公用”。"
+    },
+    {
+      "indent": 3,
+      "text": "If a particular VRF attachment circuit connects site S to a PE router, then connectivity from S (via that attachment circuit) can be restricted by controlling the set of routes that gets entered in the corresponding VRF. The set of routes in that VRF should be limited to the set of routes leading to sites that have at least one VPN in",
+      "zh-CHS": "如果特定VRF连接电路将站点S连接到PE路由器，则可以通过控制进入相应VRF的路由集来限制从S（通过该连接电路）的连接。该VRF中的路由集应限于指向至少有一个VPN的站点的路由集"
+    },
+    {
+      "indent": 3,
+      "text": "common with S. Then a packet sent from S over a VRF attachment circuit can only be routed by the PE to another site S' if S' is in one of the same VPNs as S. That is, communication (via PE routers) is prevented between any pair of VPN sites that have no VPN in common. Communication between VPN sites and non-VPN sites is prevented by keeping the routes to the VPN sites out of the default forwarding table.",
+      "zh-CHS": "与S共用。然后，如果S与S位于同一个VPN中，则PE只能将通过VRF连接电路从S发送的数据包路由到另一个站点S。也就是说，阻止任何一对VPN站点之间的通信（通过PE路由器），这些VPN站点没有共用VPN。通过将到VPN站点的路由保留在默认转发表之外，可以阻止VPN站点和非VPN站点之间的通信。"
+    },
+    {
+      "indent": 3,
+      "text": "If there are multiple attachment circuits leading from S to one or more PE routers, then there might be multiple VRFs that could be used to route traffic from S. To properly restrict S's connectivity, the same set of routes would have to exist in all the VRFs. Alternatively, one could impose different connectivity restrictions over different attachment circuit from S. In that case, some of the VRFs associated with attachment circuits from S would contain different sets of routes than some of the others.",
+      "zh-CHS": "如果有多个连接电路从S连接到一个或多个PE路由器，则可能有多个VRF可用于从S路由流量。为了正确限制S的连接，所有VRF中必须存在相同的路由集。或者，可以对来自S的不同连接电路施加不同的连接限制。在这种情况下，与来自S的连接电路相关联的一些VRF将包含不同于其他一些的路由集。"
+    },
+    {
+      "indent": 3,
+      "text": "We allow the case in which a single attachment circuit is associated with a set of VRFs, rather than with a single VRF. This can be useful if it is desired to divide a single VPN into several \"sub-VPNs\", each with different connectivity restrictions, where some characteristic of the customer packets is used to select from among the sub-VPNs. For simplicity though, we will usually speak of an attachment circuit as being associated with a single VRF.",
+      "zh-CHS": "我们允许单个连接电路与一组VRF相关联，而不是与单个VRF相关联的情况。如果希望将单个VPN划分为多个“子VPN”，每个“子VPN”具有不同的连接限制，其中使用客户数据包的某些特征从子VPN中进行选择，则这可能非常有用。不过，为了简单起见，我们通常将连接电路称为与单个VRF关联。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Associating IP Packets with VRFs",
+      "section_title": true,
+      "zh-CHS": "3.2. 将IP数据包与VRF关联"
+    },
+    {
+      "indent": 3,
+      "text": "When a PE router receives a packet from a CE device, it must determine the attachment circuit over which the packet arrived, as this determines in turn the VRF (or set of VRFs) that can be used for forwarding that packet. In general, to determine the attachment circuit over which a packet arrived, a PE router takes note of the physical interface over which the packet arrived, and possibly also takes note of some aspect of the packet's layer 2 header. For example, if a packet's ingress attachment circuit is a Frame Relay VC, the identity of the attachment circuit can be determined from the physical Frame Relay interface over which the packet arrived, together with the Data Link Connection Identifier (DLCI) field in the packet's Frame Relay header.",
+      "zh-CHS": "当PE路由器从CE设备接收到数据包时，它必须确定数据包到达的连接电路，因为这反过来确定可用于转发该数据包的VRF（或VRF集）。通常，为了确定分组到达的连接电路，PE路由器注意分组到达的物理接口，并且可能还注意分组的第2层报头的某些方面。例如，如果分组的入口连接电路是帧中继VC，则可以从分组到达的物理帧中继接口以及分组的帧中继报头中的数据链路连接标识符（DLCI）字段确定连接电路的标识。"
+    },
+    {
+      "indent": 3,
+      "text": "Although the PE's conclusion that a particular packet arrived on a particular attachment circuit may be partially determined by the packet's layer 2 header, it must be impossible for a customer, by writing the header fields, to fool the SP into thinking that a packet that was received over one attachment circuit really arrived over a different one. In the example above, although the attachment circuit is determined partially by inspection of the DLCI field in the Frame Relay header, this field cannot be set freely by the customer.",
+      "zh-CHS": "虽然PE得出的特定分组到达特定连接电路的结论可能部分由分组的第2层报头确定，但对于客户而言，通过写入报头字段，这一定是不可能的，欺骗SP，使其认为通过一个连接电路接收的数据包实际上是通过另一个连接电路到达的。在上面的示例中，尽管通过检查帧中继报头中的DLCI字段部分确定连接电路，但客户无法自由设置该字段。"
+    },
+    {
+      "indent": 3,
+      "text": "Rather, it must be set to a value specified by the SP, or else the packet cannot arrive at the PE router.",
+      "zh-CHS": "相反，它必须设置为SP指定的值，否则数据包无法到达PE路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, a particular site may be divided by the customer into several \"virtual sites\". The SP may designate a particular set of VRFs to be used for routing packets from that site and may allow the customer to set some characteristic of the packet, which is then used for choosing a particular VRF from the set.",
+      "zh-CHS": "在某些情况下，客户可能会将特定站点划分为多个“虚拟站点”。SP可以指定用于从该站点路由分组的特定VRF集合，并且可以允许客户设置分组的一些特征，然后用于从集合中选择特定VRF。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, each virtual site might be realized as a VLAN. The SP and the customer could agree that on packets arriving from a particular CE, certain VLAN values would be used to identify certain VRFs. Of course, packets from that CE would be discarded by the PE if they carry VLAN tag values that are not in the agreed-upon set. Another way to accomplish this is to use IP source addresses. In this case, the PE uses the IP source address in a packet received from the CE, along with the interface over which the packet is received, to assign the packet to a particular VRF. Again, the customer would only be able to select from among the particular set of VRFs that that customer is allowed to use.",
+      "zh-CHS": "例如，每个虚拟站点可以实现为一个VLAN。SP和客户可以同意，对于来自特定CE的数据包，某些VLAN值将用于标识某些VRF。当然，如果来自该CE的数据包携带的VLAN标记值不在商定的集合中，则PE将丢弃这些数据包。实现这一点的另一种方法是使用IP源地址。在这种情况下，PE使用从CE接收的分组中的IP源地址以及接收分组的接口，将分组分配给特定VRF。同样，客户只能从允许其使用的特定VRF集合中进行选择。"
+    },
+    {
+      "indent": 3,
+      "text": "If it is desired to have a particular host be in multiple virtual sites, then that host must determine, for each packet, which virtual site the packet is associated with. It can do this, e.g., by sending packets from different virtual sites on different VLANs, or out different network interfaces.",
+      "zh-CHS": "如果希望特定主机位于多个虚拟站点中，则该主机必须为每个数据包确定与该数据包关联的虚拟站点。它可以做到这一点，例如，通过从不同VLAN上的不同虚拟站点发送数据包，或者从不同的网络接口发送数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Populating the VRFs",
+      "section_title": true,
+      "zh-CHS": "3.3. 填充VRF"
+    },
+    {
+      "indent": 3,
+      "text": "With what set of routes are the VRFs populated?",
+      "zh-CHS": "VRF使用哪一组路线填充？"
+    },
+    {
+      "indent": 3,
+      "text": "As an example, let PE1, PE2, and PE3 be three PE routers, and let CE1, CE2, and CE3 be three CE routers. Suppose that PE1 learns, from CE1, the routes that are reachable at CE1's site. If PE2 and PE3 are attached, respectively, to CE2 and CE3, and there is some VPN V containing CE1, CE2, and CE3, then PE1 uses BGP to distribute to PE2 and PE3 the routes that it has learned from CE1. PE2 and PE3 use these routes to populate the VRFs that they associate, respectively, with the sites of CE2 and CE3. Routes from sites that are not in VPN V do not appear in these VRFs, which means that packets from CE2 or CE3 cannot be sent to sites that are not in VPN V.",
+      "zh-CHS": "例如，假设PE1、PE2和PE3是三个PE路由器，假设CE1、CE2和CE3是三个CE路由器。假设PE1从CE1学习到在CE1的站点上可以到达的路由。如果PE2和PE3分别连接到CE2和CE3，并且有一些VPN V包含CE1、CE2和CE3，那么PE1使用BGP将从CE1学到的路由分发给PE2和PE3。PE2和PE3使用这些路线填充它们分别与CE2和CE3站点关联的VRF。来自不在VPN V中的站点的路由不会出现在这些VRF中，这意味着来自CE2或CE3的数据包无法发送到不在VPN V中的站点。"
+    },
+    {
+      "indent": 3,
+      "text": "When we speak of a PE \"learning\" routes from a CE, we are not presupposing any particular learning technique. The PE may learn routes by means of a dynamic routing algorithm, but it may also \"learn\" routes by having those routes configured (i.e., static routing). (In this case, to say that the PE \"learned\" the routes from the CE is perhaps to exercise a bit of poetic license.)",
+      "zh-CHS": "当我们从CE谈论体育“学习”路线时，我们并没有预设任何特定的学习技巧。PE可以通过动态路由算法来学习路由，但也可以通过配置这些路由来“学习”路由（即，静态路由）。（在这种情况下，说体育教育从行政长官那里“学到”了路线，或许是为了行使一点诗意的许可。）"
+    },
+    {
+      "indent": 3,
+      "text": "PEs also need to learn, from other PEs, the routes that belong to a given VPN. The procedures to be used for populating the VRFs with the proper sets of routes are specified in Section 4.",
+      "zh-CHS": "PEs还需要从其他PEs学习属于给定VPN的路由。第4节规定了用适当路线集填充VRF的程序。"
+    },
+    {
+      "indent": 3,
+      "text": "If there are multiple attachment circuits leading from a particular PE router to a particular site, they might all be mapped to the same forwarding table. But if policy dictates, they could be mapped to different forwarding tables. For instance, the policy might be that a particular attachment circuit from a site is used only for intranet traffic, while another attachment circuit from that site is used only for extranet traffic. (Perhaps, e.g., the CE attached to the extranet attachment circuit is a firewall, while the CE attached to the intranet attachment circuit is not.) In this case, the two attachment circuits would be associated with different VRFs.",
+      "zh-CHS": "如果有多个连接电路从特定PE路由器连接到特定站点，则它们可能都映射到同一转发表。但如果策略要求，它们可以映射到不同的转发表。例如，策略可能是来自某个站点的特定连接回路仅用于内部网流量，而来自该站点的另一个连接回路仅用于外部网流量。（例如，可能连接到外部网连接电路的CE是防火墙，而连接到内部网连接电路的CE不是。）在这种情况下，两个连接电路将与不同的VRF相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that if two attachment circuits are associated with the same VRF, then packets that the PE receives over one of them will be able to reach exactly the same set of destinations as packets that the PE receives over the other. So two attachment circuits cannot be associated with the same VRF unless each CE is in the exact same set of VPNs as is the other.",
+      "zh-CHS": "注意，如果两个连接电路与相同的VRF相关联，则PE通过其中一个接收的数据包将能够到达与PE通过另一个接收的数据包完全相同的目的地集。因此，两个连接电路不能与同一VRF关联，除非每个CE与另一个CE位于完全相同的VPN集中。"
+    },
+    {
+      "indent": 3,
+      "text": "If an attachment circuit leads to a site which is in multiple VPNs, the attachment circuit may still associated with a single VRF, in which case the VRF will contain routes from the full set of VPNs of which the site is a member.",
+      "zh-CHS": "如果连接电路连接到位于多个VPN中的站点，则连接电路仍可能与单个VRF关联，在这种情况下，VRF将包含来自该站点所属的全套VPN的路由。"
+    },
+    {
+      "indent": 0,
+      "text": "4. VPN Route Distribution via BGP",
+      "section_title": true,
+      "zh-CHS": "4. 基于BGP的VPN路由分配"
+    },
+    {
+      "indent": 3,
+      "text": "PE routers use BGP to distribute VPN routes to each other (more accurately, to cause VPN routes to be distributed to each other).",
+      "zh-CHS": "PE路由器使用BGP相互分配VPN路由（更准确地说，是使VPN路由相互分配）。"
+    },
+    {
+      "indent": 3,
+      "text": "We allow each VPN to have its own address space, which means that a given address may denote different systems in different VPNs. If two routes to the same IP address prefix are actually routes to different systems, it is important to ensure that BGP not treat them as comparable. Otherwise, BGP might choose to install only one of them, making the other system unreachable. Further, we must ensure that POLICY is used to determine which packets get sent on which routes; given that several such routes are installed by BGP, only one such must appear in any particular VRF.",
+      "zh-CHS": "我们允许每个VPN都有自己的地址空间，这意味着给定的地址可能表示不同VPN中的不同系统。如果到同一IP地址前缀的两条路由实际上是到不同系统的路由，则必须确保BGP不会将它们视为可比较的。否则，BGP可能会选择只安装其中一个，从而无法访问另一个系统。此外，我们必须确保使用策略来确定哪些数据包在哪些路由上被发送；鉴于BGP安装了多条此类路由，因此任何特定VRF中只能出现一条此类路由。"
+    },
+    {
+      "indent": 3,
+      "text": "We meet these goals by the use of a new address family, as specified below.",
+      "zh-CHS": "我们通过使用一个新的地址族来实现这些目标，如下所述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. The VPN-IPv4 Address Family",
+      "section_title": true,
+      "zh-CHS": "4.1. VPN-IPv4地址系列"
+    },
+    {
+      "indent": 3,
+      "text": "The BGP Multiprotocol Extensions [BGP-MP] allow BGP to carry routes from multiple \"address families\". We introduce the notion of the \"VPN-IPv4 address family\". A VPN-IPv4 address is a 12-byte quantity, beginning with an 8-byte Route Distinguisher (RD) and ending with a 4-byte IPv4 address. If several VPNs use the same IPv4 address prefix, the PEs translate these into unique VPN-IPv4 address prefixes. This ensures that if the same address is used in several different VPNs, it is possible for BGP to carry several completely different routes to that address, one for each VPN.",
+      "zh-CHS": "BGP多协议扩展[BGP-MP]允许BGP承载来自多个“地址族”的路由。我们引入了“VPN-IPv4地址族”的概念。VPN-IPv4地址是一个12字节的数量，以8字节的路由标识符（RD）开始，以4字节的IPv4地址结束。如果多个VPN使用相同的IPv4地址前缀，PEs会将其转换为唯一的VPN-IPv4地址前缀。这确保了如果在多个不同的VPN中使用相同的地址，BGP可以携带多条完全不同的路由到该地址，每个VPN一条。"
+    },
+    {
+      "indent": 3,
+      "text": "Since VPN-IPv4 addresses and IPv4 addresses are different address families, BGP never treats them as comparable addresses.",
+      "zh-CHS": "由于VPN-IPv4地址和IPv4地址是不同的地址族，BGP从不将它们视为可比较的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "An RD is simply a number, and it does not contain any inherent information; it does not identify the origin of the route or the set of VPNs to which the route is to be distributed. The purpose of the RD is solely to allow one to create distinct routes to a common IPv4 address prefix. Other means are used to determine where to redistribute the route (see Section 4.3).",
+      "zh-CHS": "RD只是一个数字，它不包含任何固有信息；它不标识路由的来源或路由要分发到的VPN集。RD的目的仅仅是允许创建到公共IPv4地址前缀的不同路由。其他方法用于确定在何处重新分配路线（见第4.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The RD can also be used to create multiple different routes to the very same system. We have already discussed a situation in which the route to a particular server should be different for intranet traffic than for extranet traffic. This can be achieved by creating two different VPN-IPv4 routes that have the same IPv4 part, but different RDs. This allows BGP to install multiple different routes to the same system, and allows policy to be used (see Section 4.3.5) to decide which packets use which route.",
+      "zh-CHS": "RD还可用于创建到同一系统的多条不同路由。我们已经讨论了一种情况，即内联网流量与外联网流量到特定服务器的路由应该不同。这可以通过创建两个具有相同IPv4部分但不同RDs的不同VPN-IPv4路由来实现。这允许BGP将多个不同的路由安装到同一系统，并允许使用策略（参见第4.3.5节）来决定哪些数据包使用哪条路由。"
+    },
+    {
+      "indent": 3,
+      "text": "The RDs are structured so that every Service Provider can administer its own \"numbering space\" (i.e., can make its own assignments of RDs), without conflicting with the RD assignments made by any other Service Provider. An RD consists of three fields: a 2-byte type field, an administrator field, and an assigned number field. The value of the type field determines the lengths of the other two fields, as well as the semantics of the administrator field. The administrator field identifies an assigned number authority, and the assigned number field contains a number that has been assigned, by the identified authority, for a particular purpose. For example, one could have an RD whose administrator field contains an Autonomous System number (ASN), and whose (4-byte) number field contains a number assigned by the SP to whom that ASN belongs (having been assigned to that SP by the appropriate authority).",
+      "zh-CHS": "RDs的结构使得每个服务提供商都可以管理自己的“编号空间”（即，可以自己分配RDs），而不会与任何其他服务提供商的RD分配发生冲突。RD由三个字段组成：2字节类型字段、管理员字段和分配号码字段。类型字段的值决定了其他两个字段的长度，以及管理员字段的语义。“管理员”字段标识已分配的编号机构，“已分配的编号”字段包含已标识的机构为特定目的分配的编号。例如，可以有一个RD，其管理员字段包含自治系统编号（ASN），其（4字节）编号字段包含该ASN所属SP分配的编号（已由相应的权限分配给该SP）。"
+    },
+    {
+      "indent": 3,
+      "text": "RDs are given this structure in order to ensure that an SP that provides VPN backbone service can always create a unique RD when it",
+      "zh-CHS": "为RD提供此结构是为了确保提供VPN主干网服务的SP在运行时始终可以创建唯一的RD"
+    },
+    {
+      "indent": 3,
+      "text": "needs to do so. However, the structure is not meaningful to BGP; when BGP compares two such address prefixes, it ignores the structure entirely.",
+      "zh-CHS": "我们必须这样做。然而，该结构对BGP没有意义；当BGP比较两个这样的地址前缀时，它完全忽略了结构。"
+    },
+    {
+      "indent": 3,
+      "text": "A PE needs to be configured such that routes that lead to a particular CE become associated with a particular RD. The configuration may cause all routes leading to the same CE to be associated with the same RD, or it may cause different routes to be associated with different RDs, even if they lead to the same CE.",
+      "zh-CHS": "PE需要配置为使通向特定CE的路由与特定RD相关联。该配置可能导致通向同一CE的所有路由与同一RD相关联，或者可能导致不同路由与不同RD相关联，即使它们通向同一CE。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Encoding of Route Distinguishers",
+      "section_title": true,
+      "zh-CHS": "4.2. 路由识别器的编码"
+    },
+    {
+      "indent": 3,
+      "text": "As stated, a VPN-IPv4 address consists of an 8-byte Route Distinguisher followed by a 4-byte IPv4 address. The RDs are encoded as follows:",
+      "zh-CHS": "如上所述，VPN-IPv4地址由8字节路由标识符和4字节IPv4地址组成。RDs编码如下："
+    },
+    {
+      "indent": 5,
+      "text": "- Type Field: 2 bytes - Value Field: 6 bytes",
+      "zh-CHS": "- 类型字段：2字节-值字段：6字节"
+    },
+    {
+      "indent": 3,
+      "text": "The interpretation of the Value field depends on the value of the type field. At the present time, three values of the type field are defined: 0, 1, and 2.",
+      "zh-CHS": "值字段的解释取决于类型字段的值。目前，定义了类型字段的三个值：0、1和2。"
+    },
+    {
+      "indent": 5,
+      "text": "- Type 0: The Value field consists of two subfields:",
+      "zh-CHS": "- 类型0:值字段由两个子字段组成："
+    },
+    {
+      "indent": 9,
+      "text": "* Administrator subfield: 2 bytes * Assigned Number subfield: 4 bytes",
+      "zh-CHS": "* 管理员子字段：2字节*分配的编号子字段：4字节"
+    },
+    {
+      "indent": 7,
+      "text": "The Administrator subfield must contain an Autonomous System number. If this ASN is from the public ASN space, it must have been assigned by the appropriate authority (use of ASN values from the private ASN space is strongly discouraged). The Assigned Number subfield contains a number from a numbering space that is administered by the enterprise to which the ASN has been assigned by an appropriate authority.",
+      "zh-CHS": "管理员子字段必须包含自治系统编号。如果此ASN来自公共ASN空间，则它必须由适当的机构分配（强烈反对使用来自私有ASN空间的ASN值）。Assigned Number（已分配编号）子字段包含来自编号空间的编号，该编号空间由ASN已由相应机构分配给的企业管理。"
+    },
+    {
+      "indent": 5,
+      "text": "- Type 1: The Value field consists of two subfields:",
+      "zh-CHS": "- 类型1：值字段由两个子字段组成："
+    },
+    {
+      "indent": 9,
+      "text": "* Administrator subfield: 4 bytes * Assigned Number subfield: 2 bytes",
+      "zh-CHS": "* 管理员子字段：4字节*分配的编号子字段：2字节"
+    },
+    {
+      "indent": 7,
+      "text": "The Administrator subfield must contain an IP address. If this IP address is from the public IP address space, it must have been assigned by an appropriate authority (use of addresses from the private IP address space is strongly discouraged). The Assigned Number subfield contains a number from a numbering space which is administered by the enterprise to which the IP address has been assigned.",
+      "zh-CHS": "管理员子字段必须包含IP地址。如果此IP地址来自公共IP地址空间，则必须由适当的机构分配（强烈建议使用来自私有IP地址空间的地址）。Assigned Number子字段包含来自编号空间的编号，该编号空间由IP地址已分配到的企业管理。"
+    },
+    {
+      "indent": 5,
+      "text": "- Type 2: The Value field consists of two subfields:",
+      "zh-CHS": "- 类型2：值字段由两个子字段组成："
+    },
+    {
+      "indent": 9,
+      "text": "* Administrator subfield: 4 bytes * Assigned Number subfield: 2 bytes",
+      "zh-CHS": "* 管理员子字段：4字节*分配的编号子字段：2字节"
+    },
+    {
+      "indent": 7,
+      "text": "The Administrator subfield must contain a 4-byte Autonomous System number [BGP-AS4]. If this ASN is from the public ASN space, it must have been assigned by the appropriate authority (use of ASN values from the private ASN space is strongly discouraged). The Assigned Number subfield contains a number from a numbering space which is administered by the enterprise to which the ASN has been assigned by an appropriate authority.",
+      "zh-CHS": "管理员子字段必须包含一个4字节的自治系统编号[BGP-AS4]。如果此ASN来自公共ASN空间，则它必须由适当的机构分配（强烈反对使用来自私有ASN空间的ASN值）。Assigned Number（已分配编号）子字段包含编号空间中的编号，该编号空间由ASN已由相关机构分配给的企业管理。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Controlling Route Distribution",
+      "section_title": true,
+      "zh-CHS": "4.3. 控制路线分布"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we discuss the way in which the distribution of the VPN-IPv4 routes is controlled.",
+      "zh-CHS": "在本节中，我们将讨论控制VPN-IPv4路由分布的方式。"
+    },
+    {
+      "indent": 3,
+      "text": "If a PE router is attached to a particular VPN (by being attached to a particular CE in that VPN), it learns some of that VPN's IP routes from the attached CE router. Routes learned from a CE routing peer over a particular attachment circuit may be installed in the VRF associated with that attachment circuit. Exactly which routes are installed in this manner is determined by the way in which the PE learns routes from the CE. In particular, when the PE and CE are routing protocol peers, this is determined by the decision process of the routing protocol; this is discussed in Section 7.",
+      "zh-CHS": "如果PE路由器连接到特定VPN（通过连接到该VPN中的特定CE），则它会从连接的CE路由器了解该VPN的一些IP路由。通过特定连接电路从CE路由对等方学习的路由可以安装在与该连接电路相关联的VRF中。以这种方式安装的确切路由由PE从CE学习路由的方式确定。特别地，当PE和CE是路由协议对等方时，这由路由协议的决策过程确定；第7节对此进行了讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "These routes are then converted to VPN-IP4 routes, and \"exported\" to BGP. If there is more than one route to a particular VPN-IP4 address prefix, BGP chooses the \"best\" one, using the BGP decision process. That route is then distributed by BGP to the set of other PEs that need to know about it. At these other PEs, BGP will again choose the best route for a particular VPN-IP4 address prefix. Then the chosen VPN-IP4 routes are converted back into IP routes, and \"imported\" into one or more VRFs. Whether they are actually installed in the VRFs depends on the decision process of the routing method used between the PE and those CEs that are associated with the VRF in question. Finally, any route installed in a VRF may be distributed to the associated CE routers.",
+      "zh-CHS": "然后将这些路由转换为VPN-IP4路由，并“导出”到BGP。如果有多条路由指向特定的VPN-IP4地址前缀，BGP将使用BGP决策过程选择“最佳”路由。然后，BGP将该路由分配给需要了解该路由的其他PE组。在这些其他PEs，BGP将再次为特定VPN-IP4地址前缀选择最佳路由。然后，选择的VPN-IP4路由被转换回IP路由，并“导入”到一个或多个VRF中。它们是否实际安装在VRF中取决于PE和与所述VRF相关联的CE之间使用的路由方法的决策过程。最后，安装在VRF中的任何路由可以被分发到相关联的CE路由器。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.1. The Route Target Attribute",
+      "section_title": true,
+      "zh-CHS": "4.3.1. 路由目标属性"
+    },
+    {
+      "indent": 3,
+      "text": "Every VRF is associated with one or more Route Target (RT) attributes.",
+      "zh-CHS": "每个VRF都与一个或多个路由目标（RT）属性相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "When a VPN-IPv4 route is created (from an IPv4 route that the PE has learned from a CE) by a PE router, it is associated with one or more",
+      "zh-CHS": "当一个VPN-IPv4路由由一个PE路由器创建（从一个PE已经从CE学习到的IPv4路由）时，它与一个或多个VPN-IPv4路由相关联"
+    },
+    {
+      "indent": 3,
+      "text": "Route Target attributes. These are carried in BGP as attributes of the route.",
+      "zh-CHS": "路由目标属性。这些在BGP中作为路由属性携带。"
+    },
+    {
+      "indent": 3,
+      "text": "Any route associated with Route Target T must be distributed to every PE router that has a VRF associated with Route Target T. When such a route is received by a PE router, it is eligible to be installed in those of the PE's VRFs that are associated with Route Target T. (Whether it actually gets installed depends upon the outcome of the BGP decision process, and upon the outcome of the decision process of the IGP (i.e., the intra-domain routing protocol) running on the PE/CE interface.)",
+      "zh-CHS": "与路由目标T相关联的任何路由必须分配给每个具有与路由目标T相关联的VRF的PE路由器。当PE路由器接收到此类路由时，它有资格安装在与路由目标T相关联的PE VRF中。（它是否实际安装取决于BGP决策过程的结果，以及在PE/CE接口上运行的IGP（即域内路由协议）决策过程的结果。）"
+    },
+    {
+      "indent": 3,
+      "text": "A Route Target attribute can be thought of as identifying a set of sites. (Though it would be more precise to think of it as identifying a set of VRFs.) Associating a particular Route Target attribute with a route allows that route to be placed in the VRFs that are used for routing traffic that is received from the corresponding sites.",
+      "zh-CHS": "路由目标属性可以被视为标识一组站点。（尽管将其视为识别一组VRF更为精确。）将特定路由目标属性与路由相关联，可将该路由放置在VRF中，用于路由从相应站点接收的流量。"
+    },
+    {
+      "indent": 3,
+      "text": "There is a set of Route Targets that a PE router attaches to a route received from site S; these may be called the \"Export Targets\". And there is a set of Route Targets that a PE router uses to determine whether a route received from another PE router could be placed in the VRF associated with site S; these may be called the \"Import Targets\". The two sets are distinct, and need not be the same. Note that a particular VPN-IPv4 route is only eligible for installation in a particular VRF if there is some Route Target that is both one of the route's Route Targets and one of the VRF's Import Targets.",
+      "zh-CHS": "存在一组路由目标，PE路由器连接到从站点S接收的路由；这些可称为“出口目标”。并且存在一组路由目标，PE路由器使用这些目标来确定从另一个PE路由器接收的路由是否可以放置在与站点S相关联的VRF中；这些可称为“进口目标”。这两个集合是不同的，不必相同。请注意，只有当某个路由目标既是路由的路由目标之一又是VRF的导入目标之一时，特定的VPN-IPv4路由才有资格安装在特定的VRF中。"
+    },
+    {
+      "indent": 3,
+      "text": "The function performed by the Route Target attribute is similar to that performed by the BGP Communities attribute. However, the format of the latter is inadequate for present purposes, since it allows only a 2-byte numbering space. It is desirable to structure the format, similar to what we have described for RDs (see Section 4.2), so that a type field defines the length of an administrator field, and the remainder of the attribute is a number from the specified administrator's numbering space. This can be done using BGP Extended Communities. The Route Targets discussed herein are encoded as BGP Extended Community Route Targets [BGP-EXTCOMM]. They are structured similarly to the RDs.",
+      "zh-CHS": "路由目标属性执行的功能与BGP社区属性执行的功能类似。然而，后者的格式不足以满足目前的目的，因为它只允许2字节的编号空间。与我们为RDs所描述的格式类似（参见第4.2节），最好构造格式，以便类型字段定义管理员字段的长度，属性的其余部分是指定管理员编号空间中的数字。这可以使用BGP扩展社区来完成。本文讨论的路由目标被编码为BGP扩展社区路由目标[BGP-EXTCOMM]。它们的结构类似于RDs。"
+    },
+    {
+      "indent": 3,
+      "text": "When a BGP speaker has received more than one route to the same VPN-IPv4 prefix, the BGP rules for route preference are used to choose which VPN-IPv4 route is installed by BGP.",
+      "zh-CHS": "当BGP扬声器接收到多条指向同一VPN-IPv4前缀的路由时，路由首选项的BGP规则用于选择BGP安装的VPN-IPv4路由。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that a route can only have one RD, but it can have multiple Route Targets. In BGP, scalability is improved if one has a single route with multiple attributes, as opposed to multiple routes. One",
+      "zh-CHS": "请注意，一条路由只能有一个RD，但它可以有多个路由目标。在BGP中，如果一个路由具有多个属性，那么相对于多个路由，可伸缩性会得到改善。一"
+    },
+    {
+      "indent": 3,
+      "text": "could eliminate the Route Target attribute by creating more routes (i.e., using more RDs), but the scaling properties would be less favorable.",
+      "zh-CHS": "可以通过创建更多路由（即，使用更多RD）来消除路由目标属性，但缩放属性不太有利。"
+    },
+    {
+      "indent": 3,
+      "text": "How does a PE determine which Route Target attributes to associate with a given route? There are a number of different possible ways. The PE might be configured to associate all routes that lead to a specified site with a specified Route Target. Or the PE might be configured to associate certain routes leading to a specified site with one Route Target, and certain with another.",
+      "zh-CHS": "PE如何确定与给定路由关联的路由目标属性？有许多不同的可能方式。PE可能被配置为将通向指定站点的所有路由与指定路由目标相关联。或者PE可能被配置为将通向指定站点的某些路由与一个路由目标关联，并将某些路由与另一个路由目标关联。"
+    },
+    {
+      "indent": 3,
+      "text": "If the PE and the CE are themselves BGP peers (see Section 7), then the SP may allow the customer, within limits, to specify how its routes are to be distributed. The SP and the customer would need to agree in advance on the set of RTs that are allowed to be attached to the customer's VPN routes. The CE could then attach one or more of those RTs to each IP route that it distributes to the PE. This gives the customer the freedom to specify in real time, within agreed-upon limits, its route distribution policies. If the CE is allowed to attach RTs to its routes, the PE MUST filter out all routes that contain RTs that the customer is not allowed to use. If the CE is not allowed to attach RTs to its routes, but does so anyway, the PE MUST remove the RT before converting the customer's route to a VPN-IPv4 route.",
+      "zh-CHS": "如果PE和CE本身是BGP对等方（参见第7节），则SP可允许客户在限制范围内指定其路由的分配方式。SP和客户需要事先就允许连接到客户VPN路由的RTs集达成一致。然后，CE可以将这些RTs中的一个或多个附加到它分配给PE的每个IP路由。这使客户可以在商定的限制范围内实时指定其路线分配策略。如果允许CE将RTs附加到其路由，则PE必须过滤掉包含不允许客户使用的RTs的所有路由。如果不允许CE将RTs附加到其路由上，但仍然如此，则PE必须在将客户的路由转换为VPN-IPv4路由之前删除RT。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.2. Route Distribution Among PEs by BGP",
+      "section_title": true,
+      "zh-CHS": "4.3.2. 基于BGP的PEs间路由分配"
+    },
+    {
+      "indent": 3,
+      "text": "If two sites of a VPN attach to PEs that are in the same Autonomous System, the PEs can distribute VPN-IPv4 routes to each other by means of an IBGP connection between them. (The term \"IBGP\" refers to the set of protocols and procedures used when there is a BGP connection between two BGP speakers in the same Autonomous System. This is distinguished from \"EBGP\", the set of procedures used between two BGP speakers in different Autonomous Systems.) Alternatively, each can have an IBGP connection to a route reflector [BGP-RR].",
+      "zh-CHS": "如果VPN的两个站点连接到同一自治系统中的PEs，则PEs可以通过它们之间的IBGP连接将VPN-IPv4路由分发给彼此。（术语“IBGP”是指在同一自治系统中的两个BGP扬声器之间存在BGP连接时使用的一组协议和过程。这与“EBGP”不同，EBGP是指在不同自治系统中的两个BGP扬声器之间使用的一组过程。）或者，每个IBGP都可以连接到路由反射器[BGP-RR]。"
+    },
+    {
+      "indent": 3,
+      "text": "When a PE router distributes a VPN-IPv4 route via BGP, it uses its own address as the \"BGP next hop\". This address is encoded as a VPN-IPv4 address with an RD of 0. ([BGP-MP] requires that the next hop address be in the same address family as the Network Layer Reachability Information (NLRI).) It also assigns and distributes an MPLS label. (Essentially, PE routers distribute not VPN-IPv4 routes, but Labeled VPN-IPv4 routes. Cf. [MPLS-BGP].) When the PE processes a received packet that has this label at the top of the stack, the PE will pop the stack, and process the packet appropriately.",
+      "zh-CHS": "当PE路由器通过BGP分发VPN-IPv4路由时，它使用自己的地址作为“BGP下一跳”。此地址编码为RD为0的VPN-IPv4地址。（[BGP-MP]要求下一跳地址与网络层可达性信息（NLRI）位于同一地址族中。）它还分配和分发MPLS标签。（本质上，PE路由器不分发VPN-IPv4路由，而是分发标记为VPN-IPv4的路由。参见[MPLS-BGP]）当PE处理在堆栈顶部具有此标签的接收数据包时，PE将弹出堆栈，并适当地处理数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "The PE may distribute the exact set of routes that appears in the VRF, or it may perform summarization and distribute aggregates of those routes, or it may do some of one and some of the other.",
+      "zh-CHS": "PE可以分发出现在VRF中的确切路由集，或者可以执行这些路由的汇总和分发聚合，或者可以执行其中的一些和另一些。"
+    },
+    {
+      "indent": 3,
+      "text": "Suppose that a PE has assigned label L to route R, and has distributed this label mapping via BGP. If R is an aggregate of a set of routes in the VRF, the PE will know that packets from the backbone that arrive with this label must have their destination addresses looked up in a VRF. When the PE looks up the label in its Label Information Base, it learns which VRF must be used. On the other hand, if R is not an aggregate, then when the PE looks up the label, it learns the egress attachment circuit, as well as the encapsulation header for the packet. In this case, no lookup in the VRF is done.",
+      "zh-CHS": "假设PE已将标签L分配给路由R，并已通过BGP分发此标签映射。如果R是VRF中一组路由的集合，则PE将知道来自主干的带有此标签的数据包必须在VRF中查找其目的地地址。当PE在其标签信息库中查找标签时，它将了解必须使用哪个VRF。另一方面，如果R不是聚合，则当PE查找标签时，它学习出口连接电路以及分组的封装报头。在这种情况下，不会在VRF中进行查找。"
+    },
+    {
+      "indent": 3,
+      "text": "We would expect that the most common case would be the case where the route is NOT an aggregate. The case where it is an aggregate can be very useful though if the VRF contains a large number of host routes (e.g., as in dial-in), or if the VRF has an associated Local Area Network (LAN) interface (where there is a different outgoing layer 2 header for each system on the LAN, but a route is not distributed for each such system).",
+      "zh-CHS": "我们预计，最常见的情况是路线不是集合的情况。如果VRF包含大量主机路由（例如拨入），或者如果VRF具有关联的局域网（LAN）接口（其中LAN上的每个系统都有不同的传出第2层报头，但没有为每个这样的系统分配路由），则它是聚合的情况可能非常有用。"
+    },
+    {
+      "indent": 3,
+      "text": "Whether or not each route has a distinct label is an implementation matter. There are a number of possible algorithms one could use to determine whether two routes get assigned the same label:",
+      "zh-CHS": "每个路由是否具有不同的标签是一个实现问题。有许多可能的算法可用于确定两条路线是否分配了相同的标签："
+    },
+    {
+      "indent": 5,
+      "text": "- One may choose to have a single label for an entire VRF, so that a single label is shared by all the routes from that VRF. Then when the egress PE receives a packet with that label, it must look up the packet's IP destination address in that VRF (the packet's \"egress VRF\"), in order to determine the packet's egress attachment circuit and the corresponding data link encapsulation.",
+      "zh-CHS": "- 可以为整个VRF选择一个标签，以便来自该VRF的所有路由共享一个标签。然后，当出口PE接收到具有该标签的分组时，它必须在该VRF（分组的“出口VRF”）中查找分组的IP目的地地址，以便确定分组的出口连接电路和相应的数据链路封装。"
+    },
+    {
+      "indent": 5,
+      "text": "- One may choose to have a single label for each attachment circuit, so that a single label is shared by all the routes with the same \"outgoing attachment circuit\". This enables one to avoid doing a lookup in the egress VRF, though some sort of lookup may need to be done in order to determine the data link encapsulation, e.g., an Address Resolution Protocol (ARP) lookup.",
+      "zh-CHS": "- 可以为每个连接回路选择一个标签，以便具有相同“输出连接回路”的所有路由共享一个标签。这使得人们能够避免在出口VRF中进行查找，尽管可能需要进行某种查找以确定数据链路封装，例如，地址解析协议（ARP）查找。"
+    },
+    {
+      "indent": 5,
+      "text": "- One may choose to have a distinct label for each route. Then if a route is potentially reachable over more than one attachment circuit, the PE/CE routing can switch the preferred path for a route from one attachment circuit to another, without there being any need to distribute new a label for that route.",
+      "zh-CHS": "- 可以为每条路线选择不同的标签。然后，如果路由可能可通过多个连接电路到达，则PE/CE路由可以将路由的首选路径从一个连接电路切换到另一个连接电路，而无需为该路由分发新标签。"
+    },
+    {
+      "indent": 3,
+      "text": "There may be other possible algorithms as well. The choice of algorithm is entirely at the discretion of the egress PE, and is otherwise transparent.",
+      "zh-CHS": "可能还有其他可能的算法。算法的选择完全由出口PE决定，并且在其他方面是透明的。"
+    },
+    {
+      "indent": 3,
+      "text": "In using BGP-distributed MPLS labels in this manner, we presuppose that an MPLS packet carrying such a label can be tunneled from the router that installs the corresponding BGP-distributed route to the router that is the BGP next hop of that route. This requires either that a label switched path exist between those two routers or else that some other tunneling technology (e.g., [MPLS-in-IP-GRE]) can be used between them.",
+      "zh-CHS": "在以这种方式使用BGP分布式MPLS标签时，我们假设携带这种标签的MPLS包可以从安装相应BGP分布式路由的路由器隧道到作为该路由的BGP下一跳的路由器。这需要在这两个路由器之间存在标签交换路径，或者可以在它们之间使用其他隧道技术（例如，[MPLS in IP GRE]）。"
+    },
+    {
+      "indent": 3,
+      "text": "This tunnel may follow a \"best effort\" route, or it may follow a traffic-engineered route. Between a given pair of routers, there may be one such tunnel, or there may be several, perhaps with different Quality of Service (QoS) characteristics. All that matters for the VPN architecture is that some such tunnel exists. To ensure interoperability among systems that implement this VPN architecture using MPLS label switched paths as the tunneling technology, all such systems MUST support Label Distribution Protocol (LDP) [MPLS-LDP]. In particular, Downstream Unsolicited mode MUST be supported on interfaces that are neither Label Controlled ATM (LC-ATM) [MPLS-ATM] nor Label Controlled Frame Relay (LC-FR) [MPLS-FR] interfaces, and Downstream on Demand mode MUST be supported on LC-ATM interfaces and LC-FR interfaces.",
+      "zh-CHS": "该隧道可能遵循“尽力”路线，也可能遵循交通工程路线。在给定的一对路由器之间，可能有一个或多个这样的隧道，可能具有不同的服务质量（QoS）特征。对于VPN架构来说，重要的是存在这样的隧道。为了确保使用MPLS标签交换路径作为隧道技术实现此VPN体系结构的系统之间的互操作性，所有此类系统必须支持标签分发协议（LDP）[MPLS-LDP]。特别是，在既不是标签控制ATM（LC-ATM）[MPLS-ATM]也不是标签控制帧中继（LC-FR）[MPLS-FR]接口的接口上必须支持下游非请求模式，并且在LC-ATM接口和LC-FR接口上必须支持下游按需模式。"
+    },
+    {
+      "indent": 3,
+      "text": "If the tunnel follows a best-effort route, then the PE finds the route to the remote endpoint by looking up its IP address in the default forwarding table.",
+      "zh-CHS": "如果隧道遵循尽力而为的路由，则PE通过在默认转发表中查找其IP地址来查找到远程端点的路由。"
+    },
+    {
+      "indent": 3,
+      "text": "A PE router, UNLESS it is a route reflector (see Section 4.3.3) or an Autonomous System Border Router (ASBR) for an inter-provider VPN (see Section 10), should not install a VPN-IPv4 route unless it has at least one VRF with an Import Target identical to one of the route's Route Target attributes. Inbound filtering should be used to cause such routes to be discarded. If a new Import Target is later added to one of the PE's VRFs (a \"VPN Join\" operation), it must then acquire the routes it may previously have discarded. This can be done using the refresh mechanism described in [BGP-RFSH]. The outbound route filtering mechanism of [BGP-ORF] can also be used to advantage to make the filtering more dynamic.",
+      "zh-CHS": "除非PE路由器是路由反射器（参见第4.3.3节）或供应商间VPN的自治系统边界路由器（ASBR）（参见第10节），否则不应安装VPN-IPv4路由，除非它至少有一个VRF，其导入目标与路由的一个路由目标属性相同。应使用入站筛选导致丢弃此类路由。如果一个新的导入目标后来被添加到PE的一个VRF（一个“VPN连接”操作）中，那么它必须获取以前可能丢弃的路由。这可以使用[BGP-RFSH]中描述的刷新机制来完成。也可以利用[BGP-ORF]的出站路由过滤机制，使过滤更加动态。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, if a particular Import Target is no longer present in any of a PE's VRFs (as a result of one or more \"VPN Prune\" operations), the PE may discard all routes that, as a result, no longer have any of the PE's VRF's Import Targets as one of their Route Target attributes.",
+      "zh-CHS": "类似地，如果特定导入目标不再存在于任何PE的VRF中（由于一个或多个“VPN修剪”操作），则PE可能会放弃所有因此不再将任何PE的VRF导入目标作为其路由目标属性之一的路由。"
+    },
+    {
+      "indent": 3,
+      "text": "A router that is not attached to any VPN and that is not a Route Reflector (i.e., a P router) never installs any VPN-IPv4 routes at all.",
+      "zh-CHS": "未连接到任何VPN且不是路由反射器的路由器（即P路由器）根本不会安装任何VPN-IPv4路由。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that VPN Join and Prune operations are non-disruptive and do not require any BGP connections to be brought down, as long as the refresh mechanism of [BGP-RFSH] is used.",
+      "zh-CHS": "请注意，只要使用[BGP-RFSH]的刷新机制，VPN加入和删除操作是无中断的，并且不需要关闭任何BGP连接。"
+    },
+    {
+      "indent": 3,
+      "text": "As a result of these distribution rules, no one PE ever needs to maintain all routes for all VPNs; this is an important scalability consideration.",
+      "zh-CHS": "由于这些分布规则，没有一个PE需要维护所有VPN的所有路由；这是一个重要的可伸缩性考虑因素。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.3. Use of Route Reflectors",
+      "section_title": true,
+      "zh-CHS": "4.3.3. 路线反射器的使用"
+    },
+    {
+      "indent": 3,
+      "text": "Rather than having a complete IBGP mesh among the PEs, it is advantageous to make use of BGP Route Reflectors [BGP-RR] to improve scalability. All the usual techniques for using route reflectors to improve scalability (e.g., route reflector hierarchies) are available.",
+      "zh-CHS": "与其在PEs之间有一个完整的IBGP网格，不如利用BGP路由反射器[BGP-RR]来提高可伸缩性。所有使用路由反射器提高可伸缩性的常用技术（例如，路由反射器层次结构）都可用。"
+    },
+    {
+      "indent": 3,
+      "text": "Route reflectors are the only systems that need to have routing information for VPNs to which they are not directly attached. However, there is no need to have any one route reflector know all the VPN-IPv4 routes for all the VPNs supported by the backbone.",
+      "zh-CHS": "路由反射器是唯一需要为其未直接连接的VPN提供路由信息的系统。但是，不需要让任何一个路由反射器知道主干支持的所有VPN的所有VPN-IPv4路由。"
+    },
+    {
+      "indent": 3,
+      "text": "We outline below two different ways to partition the set of VPN-IPv4 routes among a set of route reflectors.",
+      "zh-CHS": "我们在下面概述了在一组路由反射器之间划分VPN-IPv4路由集的两种不同方法。"
+    },
+    {
+      "indent": 6,
+      "text": "1. Each route reflector is preconfigured with a list of Route Targets. For redundancy, more than one route reflector may be preconfigured with the same list. A route reflector uses the preconfigured list of Route Targets to construct its inbound route filtering. The route reflector may use the techniques of [BGP-ORF] to install on each of its peers (regardless of whether the peer is another route reflector or a PE) the set of Outbound Route Filters (ORFs) that contains the list of its preconfigured Route Targets. Note that route reflectors should accept ORFs from other route reflectors, which means that route reflectors should advertise the ORF capability to other route reflectors.",
+      "zh-CHS": "1. 每个路由反射器都预先配置了路由目标列表。对于冗余，可以使用同一列表预先配置多个路由反射器。路由反射器使用预先配置的路由目标列表来构建其入站路由过滤。路由反射器可使用[BGP-ORF]的技术在其每个对等体（无论该对等体是另一路由反射器还是PE）上安装包含其预配置路由目标列表的出站路由过滤器（ORF）集合。注意，路线反射器应接受来自其他路线反射器的ORF，这意味着路线反射器应向其他路线反射器公布ORF能力。"
+    },
+    {
+      "indent": 9,
+      "text": "A service provider may modify the list of preconfigured Route Targets on a route reflector. When this is done, the route reflector modifies the ORFs it installs on all of its IBGP peers. To reduce the frequency of configuration changes on route reflectors, each route reflector may be preconfigured with a block of Route Targets. This way, when a new Route Target is needed for a new VPN, there is already one or more",
+      "zh-CHS": "服务提供商可以修改路由反射器上预配置路由目标的列表。完成此操作后，路由反射器将修改它在所有IBGP对等机上安装的ORF。为了减少路线反射器上配置更改的频率，每个路线反射器可以预先配置一个路线目标块。这样，当新VPN需要一个新的路由目标时，已经有一个或多个路由目标"
+    },
+    {
+      "indent": 9,
+      "text": "route reflectors that are (pre)configured with this Route Target.",
+      "zh-CHS": "使用此路由目标（预）配置的路由反射器。"
+    },
+    {
+      "indent": 9,
+      "text": "Unless a given PE is a client of all route reflectors, when a new VPN is added to the PE (\"VPN Join\"), it will need to become a client of the route reflector(s) that maintain routes for that VPN. Likewise, deleting an existing VPN from the PE (\"VPN Prune\") may result in a situation where the PE no longer needs to be a client of some route reflector(s). In either case, the Join or Prune operation is non-disruptive (as long as [BGP-RFSH] is used, and never requires a BGP connection to be brought down, only to be brought right back up.",
+      "zh-CHS": "除非给定的PE是所有路由反射器的客户端，否则在向PE添加新VPN（“VPN加入”）时，它将需要成为维护该VPN路由的路由反射器的客户端。同样，从PE中删除现有VPN（“VPN删除”）可能会导致PE不再需要是某些路由反射器的客户端的情况。在这两种情况下，连接或删除操作都是无中断的（只要使用[BGP-RFSH]，并且不需要关闭BGP连接，只需要立即恢复即可）。"
+    },
+    {
+      "indent": 9,
+      "text": "(By \"adding a new VPN to a PE\", we really mean adding a new import Route Target to one of its VRFs, or adding a new VRF with an import Route Target not had by any of the PE's other VRFs.)",
+      "zh-CHS": "（通过“向PE添加新VPN”，我们真正的意思是向其一个VRF添加新的导入路由目标，或者添加一个新的VRF，其中包含PE的任何其他VRF都没有的导入路由目标。）"
+    },
+    {
+      "indent": 6,
+      "text": "2. Another method is to have each PE be a client of some subset of the route reflectors. A route reflector is not preconfigured with the list of Route Targets, and does not perform inbound route filtering of routes received from its clients (PEs); rather, it accepts all the routes received from all of its clients (PEs). The route reflector keeps track of the set of the Route Targets carried by all the routes it receives. When the route reflector receives from its client a route with a Route Target that is not in this set, this Route Target is immediately added to the set. On the other hand, when the route reflector no longer has any routes with a particular Route Target that is in the set, the route reflector should delay (by a few hours) the deletion of this Route Target from the set.",
+      "zh-CHS": "2. 另一种方法是让每个PE成为路由反射器的某个子集的客户端。路由反射器未预先配置路由目标列表，并且不对从其客户端（PE）接收的路由执行入站路由过滤；相反，它接受从所有客户端（PE）接收的所有路由。路由反射器跟踪其接收的所有路由所承载的路由目标集。当路由反射器从其客户端接收到一条路由，且该路由目标不在此集合中时，该路由目标将立即添加到集合中。另一方面，当路由反射器不再具有具有集合中的特定路由目标的任何路由时，路由反射器应当延迟（几小时）从集合中删除该路由目标。"
+    },
+    {
+      "indent": 9,
+      "text": "The route reflector uses this set to form the inbound route filters that it applies to routes received from other route reflectors. The route reflector may also use ORFs to install the appropriate outbound route filtering on other route reflectors. Just like with the first approach, a route reflector should accept ORFs from other route reflectors. To accomplish this, a route reflector advertises ORF capability to other route reflectors.",
+      "zh-CHS": "route reflector使用此集合来形成入站路由筛选器，该筛选器应用于从其他路由reflector接收的路由。路由反射器还可以使用ORF在其他路由反射器上安装适当的出站路由过滤。与第一种方法一样，路由反射器应该接受来自其他路由反射器的ORF。为此，路由反射器向其他路由反射器宣传ORF能力。"
+    },
+    {
+      "indent": 9,
+      "text": "When the route reflector changes the set, it should immediately change its inbound route filtering. In addition, if the route reflector uses ORFs, then the ORFs have to be immediately changed to reflect the changes in the set. If the route reflector doesn't use ORFs, and a new Route Target is added to",
+      "zh-CHS": "当路由反射器更改集合时，它应立即更改其入站路由过滤。此外，如果路由反射器使用ORF，则必须立即更改ORF以反映集合中的更改。如果路由反射器不使用ORF，则会将新路由目标添加到"
+    },
+    {
+      "indent": 9,
+      "text": "the set, the route reflector, after changing its inbound route filtering, must issue BGP Refresh to other route reflectors.",
+      "zh-CHS": "路由反射器组在更改其入站路由过滤后，必须向其他路由反射器发出BGP刷新。"
+    },
+    {
+      "indent": 9,
+      "text": "The delay of \"a few hours\" mentioned above allows a route reflector to hold onto routes with a given RT, even after it loses the last of its clients that are interested in such routes. This protects against the need to reacquire all such routes if the clients' \"disappearance\" is only temporary.",
+      "zh-CHS": "上面提到的“几个小时”的延迟允许路由反射器保持具有给定RT的路由，即使它失去了对此类路由感兴趣的最后一个客户端。如果客户端的“消失”只是暂时的，这可以防止重新获取所有此类路由的需要。"
+    },
+    {
+      "indent": 9,
+      "text": "With this procedure, VPN Join and Prune operations are also non-disruptive.",
+      "zh-CHS": "通过此过程，VPN连接和删除操作也不会中断。"
+    },
+    {
+      "indent": 9,
+      "text": "Note that this technique will not work properly if some client PE has a VRF with an import Route Target that is not one of its export Route Targets.",
+      "zh-CHS": "请注意，如果某些客户端PE的VRF的导入路由目标不是其导出路由目标之一，则此技术将无法正常工作。"
+    },
+    {
+      "indent": 3,
+      "text": "In these procedures, a PE router which attaches to a particular VPN \"auto-discovers\" the other PEs that attach to the same VPN. When a new PE router is added, or when an existing PE router attaches to a new VPN, no reconfiguration of other PE routers is needed.",
+      "zh-CHS": "在这些过程中，连接到特定VPN的PE路由器“自动发现”连接到同一VPN的其他PE。当添加新的PE路由器时，或当现有PE路由器连接到新VPN时，不需要重新配置其他PE路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "Just as there is no one PE router that needs to know all the VPN-IPv4 routes supported over the backbone, these distribution rules ensure that there is no one Route Reflector (RR) that needs to know all the VPN-IPv4 routes supported over the backbone. As a result, the total number of such routes that can be supported over the backbone is not bounded by the capacity of any single device, and therefore can increase virtually without bound.",
+      "zh-CHS": "正如没有一个PE路由器需要知道主干上支持的所有VPN-IPv4路由一样，这些分发规则确保没有一个路由反射器（RR）需要知道主干上支持的所有VPN-IPv4路由。因此，主干上可支持的此类路由的总数不受任何单个设备容量的限制，因此可以在不受限制的情况下几乎增加。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.4. How VPN-IPv4 NLRI Is Carried in BGP",
+      "section_title": true,
+      "zh-CHS": "4.3.4. BGP中如何承载VPN-IPv4 NLRI"
+    },
+    {
+      "indent": 3,
+      "text": "The BGP Multiprotocol Extensions [BGP-MP] are used to encode the NLRI. If the Address Family Identifier (AFI) field is set to 1, and the Subsequent Address Family Identifier (SAFI) field is set to 128, the NLRI is an MPLS-labeled VPN-IPv4 address. AFI 1 is used since the network layer protocol associated with the NLRI is still IP. Note that this VPN architecture does not require the capability to distribute unlabeled VPN-IPv4 addresses.",
+      "zh-CHS": "BGP多协议扩展[BGP-MP]用于对NLRI进行编码。如果地址族标识符（AFI）字段设置为1，后续地址族标识符（SAFI）字段设置为128，则NLRI是标记为VPN-IPv4地址的MPLS。由于与NLRI关联的网络层协议仍然是IP，因此使用AFI 1。请注意，此VPN体系结构不需要分发未标记的VPN-IPv4地址的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "In order for two BGP speakers to exchange labeled VPN-IPv4 NLRI, they must use BGP Capabilities Advertisement to ensure that they both are capable of properly processing such NLRI. This is done as specified in [BGP-MP], by using capability code 1 (multiprotocol BGP), with an AFI of 1 and an SAFI of 128.",
+      "zh-CHS": "为了让两个BGP扬声器交换带标签的VPN-IPv4 NLRI，他们必须使用BGP功能播发，以确保他们都能够正确处理此类NLRI。这是按照[BGP-MP]中的规定完成的，使用能力代码1（多协议BGP），AFI为1，SAFI为128。"
+    },
+    {
+      "indent": 3,
+      "text": "The labeled VPN-IPv4 NLRI itself is encoded as specified in [MPLS-BGP], where the prefix consists of an 8-byte RD followed by an IPv4 prefix.",
+      "zh-CHS": "标记的VPN-IPv4 NLRI本身按照[MPLS-BGP]中的规定进行编码，其中前缀由8字节RD和IPv4前缀组成。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.5. Building VPNs Using Route Targets",
+      "section_title": true,
+      "zh-CHS": "4.3.5. 使用路由目标构建VPN"
+    },
+    {
+      "indent": 3,
+      "text": "By setting up the Import Targets and Export Targets properly, one can construct different kinds of VPNs.",
+      "zh-CHS": "通过正确设置导入目标和导出目标，可以构建不同类型的VPN。"
+    },
+    {
+      "indent": 3,
+      "text": "Suppose it is desired to create a fully meshed closed user group, i.e., a set of sites where each can send traffic directly to the other, but traffic cannot be sent to or received from other sites. Then each site is associated with a VRF, a single Route Target attribute is chosen, that Route Target is assigned to each VRF as both the Import Target and the Export Target, and that Route Target is not assigned to any other VRFs as either the Import Target or the Export Target.",
+      "zh-CHS": "假设需要创建一个完全网状的封闭用户组，即一组站点，其中每个站点可以直接向另一个站点发送流量，但无法向其他站点发送或从其他站点接收流量。然后，每个站点与一个VRF关联，选择一个路由目标属性，该路由目标作为导入目标和导出目标分配给每个VRF，该路由目标不作为导入目标或导出目标分配给任何其他VRF。"
+    },
+    {
+      "indent": 3,
+      "text": "Alternatively, suppose one desired, for whatever reason, to create a \"hub and spoke\" kind of VPN. This could be done by the use of two Route Target values, one meaning \"Hub\" and one meaning \"Spoke\". At the VRFs attached to the hub sites, \"Hub\" is the Export Target and",
+      "zh-CHS": "或者，假设有人出于任何原因想要创建一种“中心辐射式”VPN。这可以通过使用两个路线目标值来实现，一个表示“枢纽”，另一个表示“辐射”。在连接到中心站点的VRF中，“中心”是出口目标和"
+    },
+    {
+      "indent": 3,
+      "text": "\"Spoke\" is the Import Target. At the VRFs attached to the spoke site, \"Hub\" is the Import Target and \"Spoke\" is the Export Target.",
+      "zh-CHS": "“Spoke”是导入目标。在连接到分支站点的VRF中，“中心”是导入目标，“分支”是导出目标。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, the methods for controlling the distribution of routing information among various sets of sites are very flexible, which in turn provides great flexibility in constructing VPNs.",
+      "zh-CHS": "因此，控制路由信息在不同站点集之间分布的方法非常灵活，这反过来又为构建VPN提供了极大的灵活性。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.6. Route Distribution Among VRFs in a Single PE",
+      "section_title": true,
+      "zh-CHS": "4.3.6. 单个PE中VRF之间的路由分布"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible to distribute routes from one VRF to another, even if both VRFs are in the same PE, even though in this case one cannot say that the route has been distributed by BGP. Nevertheless, the decision to distribute a particular route from one VRF to another within a single PE is the same decision that would be made if the VRFs were on different PEs. That is, it depends on the Route Target attribute that is assigned to the route (or would be assigned if the route were distributed by BGP), and the import target of the second VRF.",
+      "zh-CHS": "即使两个VRF位于同一PE中，也可以将路由从一个VRF分配到另一个VRF，即使在这种情况下，不能说路由已由BGP分配。尽管如此，在单个PE内从一个VRF向另一个VRF分配特定路线的决定与VRF位于不同PE上时的决定相同。也就是说，它取决于分配给路由的路由目标属性（如果路由由BGP分发，则将分配该属性）和第二个VRF的导入目标。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Forwarding",
+      "section_title": true,
+      "zh-CHS": "5. 转发"
+    },
+    {
+      "indent": 3,
+      "text": "If the intermediate routers in the backbone do not have any information about the routes to the VPNs, how are packets forwarded from one VPN site to another?",
+      "zh-CHS": "如果主干网中的中间路由器没有任何关于到VPN的路由的信息，那么如何将数据包从一个VPN站点转发到另一个VPN站点？"
+    },
+    {
+      "indent": 3,
+      "text": "When a PE receives an IP packet from a CE device, it chooses a particular VRF in which to look up the packet's destination address. This choice is based on the packet's ingress attachment circuit.",
+      "zh-CHS": "当PE从CE设备接收到IP数据包时，它会选择一个特定的VRF来查找数据包的目的地地址。该选择基于分组的入口连接电路。"
+    },
+    {
+      "indent": 3,
+      "text": "Assume that a match is found. As a result we learn the packet's \"next hop\".",
+      "zh-CHS": "假设找到了匹配项。因此，我们学习数据包的“下一跳”。"
+    },
+    {
+      "indent": 3,
+      "text": "If the packet's next hop is reached directly over a VRF attachment circuit from this PE (i.e., the packet's egress attachment circuit is on the same PE as its ingress attachment circuit), then the packet is sent on the egress attachment circuit, and no MPLS labels are pushed onto the packet's label stack.",
+      "zh-CHS": "如果从该PE直接通过VRF连接电路到达分组的下一跳（即，分组的出口连接电路与其入口连接电路位于同一PE上），则分组在出口连接电路上发送，并且没有MPLS标签被推到分组的标签堆栈上。"
+    },
+    {
+      "indent": 3,
+      "text": "If the ingress and egress attachment circuits are on the same PE, but are associated with different VRFs, and if the route that best matches the destination address in the ingress attachment circuit's VRF is an aggregate of several routes in the egress attachment circuit's VRF, it may be necessary to look up the packet's destination address in the egress VRF as well.",
+      "zh-CHS": "如果入口和出口连接电路位于相同的PE上，但与不同的VRF相关联，并且如果与入口连接电路的VRF中的目的地地址最匹配的路由是出口连接电路的VRF中的多个路由的集合，可能还需要在出口VRF中查找数据包的目的地地址。"
+    },
+    {
+      "indent": 3,
+      "text": "If the packet's next hop is NOT reached through a VRF attachment circuit, then the packet must travel at least one hop through the backbone. The packet thus has a \"BGP Next Hop\", and the BGP Next Hop will have assigned an MPLS label for the route that best matches the packet's destination address. Call this label the \"VPN route label\". The IP packet is turned into an MPLS packet with the VPN route label as the sole label on the label stack.",
+      "zh-CHS": "如果数据包的下一个跃点没有通过VRF连接电路到达，那么数据包必须通过主干至少一个跃点。因此，数据包具有“BGP下一跳”，并且BGP下一跳将为与数据包的目的地地址最匹配的路由分配MPLS标签。将此标签称为“VPN路由标签”。IP数据包转换为MPLS数据包，VPN路由标签作为标签堆栈上的唯一标签。"
+    },
+    {
+      "indent": 3,
+      "text": "The packet must then be tunneled to the BGP Next Hop.",
+      "zh-CHS": "然后，数据包必须通过隧道传输到BGP下一跳。"
+    },
+    {
+      "indent": 3,
+      "text": "If the backbone supports MPLS, this is done as follows:",
+      "zh-CHS": "如果主干网支持MPLS，则按如下方式执行："
+    },
+    {
+      "indent": 5,
+      "text": "- The PE routers (and any Autonomous System border routers) that redistribute VPN-IPv4 addresses need to insert /32 address prefixes for themselves into the IGP routing tables of the backbone. This enables MPLS, at each node in the backbone network, to assign a label corresponding to the route to each PE router. To ensure interoperability among different implementations, it is required to support LDP for setting up the label switched paths across the backbone. However, other methods of setting up these label switched paths are also possible. (Some of these other methods may not require the presence of the /32 address prefixes in the IGP.)",
+      "zh-CHS": "- 重新分配VPN-IPv4地址的PE路由器（以及任何自治系统边界路由器）需要将/32地址前缀插入主干网的IGP路由表中。这使得主干网中每个节点上的MPLS能够将与路由对应的标签分配给每个PE路由器。为了确保不同实现之间的互操作性，需要支持LDP来设置主干上的标签交换路径。然而，设置这些标签交换路径的其他方法也是可能的。（其中一些其他方法可能不要求IGP中存在/32地址前缀。）"
+    },
+    {
+      "indent": 5,
+      "text": "- If there are any traffic engineering tunnels to the BGP next hop, and if one or more of those is available for use by the packet in question, one of these tunnels is chosen. This tunnel will be associated with an MPLS label, the \"tunnel label\". The tunnel label gets pushed on the MPLS label stack, and the packet is forwarded to the tunnel's next hop.",
+      "zh-CHS": "- 如果存在到BGP下一跳的任何流量工程隧道，并且如果其中一个或多个隧道可供所讨论的分组使用，则选择这些隧道中的一个。此隧道将与MPLS标签“隧道标签”相关联。隧道标签被推送到MPLS标签堆栈上，数据包被转发到隧道的下一跳。"
+    },
+    {
+      "indent": 5,
+      "text": "- Otherwise,",
+      "zh-CHS": "- 否则"
+    },
+    {
+      "indent": 9,
+      "text": "* The packet will have an \"IGP Next Hop\", which is the next hop along the IGP route to the BGP Next Hop.",
+      "zh-CHS": "* 数据包将有一个“IGP下一跳”，这是沿IGP路由到BGP下一跳的下一跳。"
+    },
+    {
+      "indent": 9,
+      "text": "* If the BGP Next Hop and the IGP Next Hop are the same, and if penultimate hop popping is used, the packet is then sent to the IGP Next Hop, carrying only the VPN route label.",
+      "zh-CHS": "* 如果BGP下一个跃点和IGP下一个跃点相同，并且如果使用倒数第二个跃点弹出，则数据包随后被发送到IGP下一个跃点，仅携带VPN路由标签。"
+    },
+    {
+      "indent": 9,
+      "text": "* Otherwise, the IGP Next Hop will have assigned a label for the route that best matches the address of the BGP Next Hop. Call this the \"tunnel label\". The tunnel label gets pushed on as the packet's top label. The packet is then forwarded to the IGP Next Hop.",
+      "zh-CHS": "* 否则，IGP下一跳将为路由分配一个与BGP下一跳地址最匹配的标签。称之为“隧道标签”。隧道标签作为数据包的顶部标签被推上。然后，该分组被转发到下一跳的IGP。"
+    },
+    {
+      "indent": 5,
+      "text": "- MPLS will then carry the packet across the backbone to the BGP Next Hop, where the VPN label will be examined.",
+      "zh-CHS": "- 然后，MPLS将通过主干将数据包传送到BGP下一跳，在那里将检查VPN标签。"
+    },
+    {
+      "indent": 3,
+      "text": "If the backbone does not support MPLS, the MPLS packet carrying only the VPN route label may be tunneled to the BGP Next Hop using the techniques of [MPLS-in-IP-GRE]. When the packet emerges from the tunnel, it will be at the BGP Next Hop, where the VPN route label will be examined.",
+      "zh-CHS": "如果主干网不支持MPLS，则可以使用[MPLS in IP GRE]的技术将仅携带VPN路由标签的MPLS分组通过隧道传送到BGP下一跳。当数据包从隧道中出现时，它将位于BGP下一跳，在那里将检查VPN路由标签。"
+    },
+    {
+      "indent": 3,
+      "text": "At the BGP Next Hop, the treatment of the packet depends on the VPN route label (see Section 4.3.2). In many cases, the PE will be able to determine, from this label, the attachment circuit over which the packet should be transmitted (to a CE device), as well as the proper data link layer header for that interface. In other cases, the PE may only be able to determine that the packet's destination address needs to be looked up in a particular VRF before being forwarded to a CE device. There are also intermediate cases in which the VPN route label may determine the packet's egress attachment circuit, but a lookup (e.g., ARP) still needs to be done in order to determine the packet's data link header on that attachment circuit.",
+      "zh-CHS": "在BGP下一跳，数据包的处理取决于VPN路由标签（见第4.3.2节）。在许多情况下，PE将能够从该标签确定分组应在其上传输（到CE设备）的连接电路，以及该接口的适当数据链路层报头。在其他情况下，PE可能只能确定在转发到CE设备之前需要在特定VRF中查找分组的目的地地址。还有一些中间情况，其中VPN路由标签可以确定分组的出口连接电路，但是仍然需要进行查找（例如，ARP）以确定该连接电路上分组的数据链路报头。"
+    },
+    {
+      "indent": 3,
+      "text": "Information in the MPLS header itself, and/or information associated with the label, may also be used to provide QoS on the interface to the CE.",
+      "zh-CHS": "MPLS报头本身中的信息和/或与标签相关联的信息也可用于在与CE的接口上提供QoS。"
+    },
+    {
+      "indent": 3,
+      "text": "In any event, if the packet was an unlabeled IP packet when it arrived at its ingress PE, it will again be an unlabeled packet when it leaves its egress PE.",
+      "zh-CHS": "在任何情况下，如果数据包到达其入口PE时是未标记的IP数据包，则当其离开其出口PE时，它将再次是未标记的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "The fact that packets with VPN route labels are tunneled through the backbone is what makes it possible to keep all the VPN routes out of the P routers. This is crucial to ensuring the scalability of the",
+      "zh-CHS": "带有VPN路由标签的数据包通过主干网进行隧道传输，这一事实使得所有VPN路由都不在P路由器中成为可能。这对于确保系统的可伸缩性至关重要"
+    },
+    {
+      "indent": 3,
+      "text": "scheme. The backbone does not even need to have routes to the CEs, only to the PEs.",
+      "zh-CHS": "计划主干甚至不需要到CEs的路由，只需要到PEs。"
+    },
+    {
+      "indent": 3,
+      "text": "With respect to the tunnels, it is worth noting that this specification:",
+      "zh-CHS": "关于隧道，值得注意的是，本规范："
+    },
+    {
+      "indent": 5,
+      "text": "- DOES NOT require that the tunnels be point-to-point; multipoint-to-point can be used;",
+      "zh-CHS": "- 不要求隧道是点对点的；可以使用多点对点；"
+    },
+    {
+      "indent": 5,
+      "text": "- DOES NOT require that there be any explicit setup of the tunnels, either via signaling or via manual configuration;",
+      "zh-CHS": "- 不要求通过信号或手动配置明确设置隧道；"
+    },
+    {
+      "indent": 5,
+      "text": "- DOES NOT require that there be any tunnel-specific signaling;",
+      "zh-CHS": "- 不要求有任何特定于隧道的信号；"
+    },
+    {
+      "indent": 5,
+      "text": "- DOES NOT require that there be any tunnel-specific state in the P or PE routers, beyond what is necessary to maintain the routing information and (if used) the MPLS label information.",
+      "zh-CHS": "- 除了维护路由信息和（如果使用）MPLS标签信息所必需的状态外，不要求P或PE路由器中存在任何特定于隧道的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Of course, this specification is compatible with the use of point-to-point tunnels that must be explicitly configured and/or signaled, and in some situations there may be reasons for using such tunnels.",
+      "zh-CHS": "当然，本规范与必须明确配置和/或发出信号的点对点隧道的使用兼容，在某些情况下，可能有理由使用此类隧道。"
+    },
+    {
+      "indent": 3,
+      "text": "The considerations that are relevant to choosing a particular tunneling technology are outside the scope of this specification.",
+      "zh-CHS": "与选择特定隧道技术相关的注意事项不在本规范的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Maintaining Proper Isolation of VPNs",
+      "section_title": true,
+      "zh-CHS": "6. 保持vpn的适当隔离"
+    },
+    {
+      "indent": 3,
+      "text": "To maintain proper isolation of one VPN from another, it is important that no router in the backbone accept a tunneled packet from outside the backbone, unless it is sure that both endpoints of that tunnel are outside the backbone.",
+      "zh-CHS": "为了保持一个VPN与另一个VPN的适当隔离，主干网中的路由器不接受来自主干网外部的隧道数据包是很重要的，除非它确定隧道的两个端点都在主干网外部。"
+    },
+    {
+      "indent": 3,
+      "text": "If MPLS is being used as the tunneling technology, this means that a router in the backbone MUST NOT accept a labeled packet from any adjacent non-backbone device unless the following two conditions hold:",
+      "zh-CHS": "如果MPLS被用作隧道技术，这意味着主干中的路由器不得接受来自任何相邻非主干设备的标记数据包，除非满足以下两个条件："
+    },
+    {
+      "indent": 6,
+      "text": "1. the label at the top of the label stack was actually distributed by that backbone router to that non-backbone device, and",
+      "zh-CHS": "1. 标签栈顶部的标签实际上是由主干路由器分发给非主干设备的，并且"
+    },
+    {
+      "indent": 6,
+      "text": "2. the backbone router can determine that use of that label will cause the packet to leave the backbone before any labels lower in the stack will be inspected, and before the IP header will be inspected.",
+      "zh-CHS": "2. 主干路由器可以确定，在检查堆栈中较低的任何标签之前，以及在检查IP报头之前，使用该标签将导致数据包离开主干。"
+    },
+    {
+      "indent": 3,
+      "text": "The first condition ensure that any labeled packets received from non-backbone routers have a legitimate and properly assigned label at",
+      "zh-CHS": "第一个条件是确保从非主干路由器接收到的任何带标签的数据包都具有合法且正确分配的标签"
+    },
+    {
+      "indent": 3,
+      "text": "the top of the label stack. The second condition ensures that the backbone routers will never look below that top label. Of course, the simplest way to meet these two conditions is just to have the backbone devices refuse to accept labeled packets from non-backbone devices.",
+      "zh-CHS": "标签堆栈的顶部。第二个条件确保主干路由器永远不会低于顶部标签。当然，满足这两个条件的最简单方法就是让主干设备拒绝接受来自非主干设备的标记数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "If MPLS is not being used as the tunneling technology, then filtering must be done to ensure that an MPLS-in-IP or MPLS-in-GRE packet can be accepted into the backbone only if the packet's IP destination address will cause it to be sent outside the backbone.",
+      "zh-CHS": "如果MPLS未被用作隧道技术，则必须进行过滤，以确保只有当数据包的IP目的地地址将其发送到骨干网之外时，IP中的MPLS或GRE中的MPLS数据包才能被骨干网接受。"
+    },
+    {
+      "indent": 0,
+      "text": "7. How PEs Learn Routes from CEs",
+      "section_title": true,
+      "zh-CHS": "7. PEs如何从CEs学习路线"
+    },
+    {
+      "indent": 3,
+      "text": "The PE routers that attach to a particular VPN need to know, for each attachment circuit leading to that VPN, which of the VPN's addresses should be reached over that attachment circuit.",
+      "zh-CHS": "连接到特定VPN的PE路由器需要知道，对于通向该VPN的每个连接电路，应该通过该连接电路到达哪个VPN地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The PE translates these addresses into VPN-IPv4 addresses, using a configured RD. The PE then treats these VPN-IPv4 routes as input to BGP. Routes from a VPN site are NOT leaked into the backbone's IGP.",
+      "zh-CHS": "PE使用配置的RD将这些地址转换为VPN-IPv4地址。然后，PE将这些VPN-IPv4路由视为BGP的输入。来自VPN站点的路由不会泄漏到主干网的IGP中。"
+    },
+    {
+      "indent": 3,
+      "text": "Exactly which PE/CE route distribution techniques are possible depends on whether or not a particular CE is in a \"transit VPN\". A \"transit VPN\" is one that contains a router that receives routes from a \"third party\" (i.e., from a router that is not in the VPN, but is not a PE router) and that redistributes those routes to a PE router. A VPN that is not a transit VPN is a \"stub VPN\". The vast majority of VPNs, including just about all corporate enterprise networks, would be expected to be \"stubs\" in this sense.",
+      "zh-CHS": "具体哪种PE/CE路由分配技术是可能的取决于特定CE是否在“传输VPN”中。“传输VPN”是指包含从“第三方”（即，从不在VPN中但不是PE路由器的路由器）接收路由并将这些路由重新分配到PE路由器的路由器。不是传输VPN的VPN是“存根VPN”。绝大多数VPN，包括几乎所有的企业网络，在这个意义上都是“存根”。"
+    },
+    {
+      "indent": 3,
+      "text": "The possible PE/CE distribution techniques are:",
+      "zh-CHS": "可能的PE/CE分配技术包括："
+    },
+    {
+      "indent": 6,
+      "text": "1. Static routing (i.e., configuration) may be used. (This is likely to be useful only in stub VPNs.)",
+      "zh-CHS": "1. 可以使用静态路由（即配置）。（这可能仅在存根VPN中有用。）"
+    },
+    {
+      "indent": 6,
+      "text": "2. PE and CE routers may be Routing Information Protocol (RIP) [RIP] peers, and the CE may use RIP to tell the PE router the set of address prefixes that are reachable at the CE router's site. When RIP is configured in the CE, care must be taken to ensure that address prefixes from other sites (i.e., address prefixes learned by the CE router from the PE router) are never advertised to the PE. More precisely: if a PE router, say, PE1, receives a VPN-IPv4 route R1, and as a result distributes an IPv4 route R2 to a CE, then R2 must not be distributed back from that CE's site to a PE router, say, PE2, (where PE1 and PE2 may be the same router or different routers), unless PE2 maps R2 to a VPN-IPv4 route that is different than (i.e., contains a different RD than) R1.",
+      "zh-CHS": "2. PE和CE路由器可以是路由信息协议（RIP）[RIP]对等方，并且CE可以使用RIP来告诉PE路由器可在CE路由器的站点上访问的地址前缀集。当在CE中配置RIP时，必须注意确保从不向PE播发来自其他站点的地址前缀（即CE路由器从PE路由器学习的地址前缀）。更准确地说：如果PE路由器（例如PE1）接收到VPN-IPv4路由R1，并因此将IPv4路由R2分发给CE，则R2不得从该CE的站点分发回PE路由器（例如PE2）（其中PE1和PE2可能是相同的路由器或不同的路由器），除非PE2将R2映射到与之不同的VPN-IPv4路由（即，包含与）R1不同的RD。"
+    },
+    {
+      "indent": 6,
+      "text": "3. The PE and CE routers may be OSPF peers. A PE router that is an OSPF peer of a CE router appears, to the CE router, to be an area 0 router. If a PE router is an OSPF peer of CE routers that are in distinct VPNs, the PE must of course be running multiple instances of OSPF.",
+      "zh-CHS": "3. PE和CE路由器可以是OSPF对等方。作为CE路由器的OSPF对等方的PE路由器在CE路由器看来是区域0路由器。如果PE路由器是位于不同VPN中的CE路由器的OSPF对等方，则PE当然必须运行多个OSPF实例。"
+    },
+    {
+      "indent": 9,
+      "text": "IPv4 routes that the PE learns from the CE via OSPF are redistributed into BGP as VPN-IPv4 routes. Extended Community attributes are used to carry, along with the route, all the information needed to enable the route to be distributed to other CE routers in the VPN in the proper type of OSPF Link State Advertisement (LSA). OSPF route tagging is used to ensure that routes received from the MPLS/BGP backbone are not sent back into the backbone.",
+      "zh-CHS": "PE通过OSPF从CE学习的IPv4路由作为VPN-IPv4路由重新分配到BGP中。扩展社区属性与路由一起用于携带所有所需信息，以便在适当类型的OSPF链路状态公告（LSA）中将路由分发到VPN中的其他CE路由器。OSPF路由标记用于确保从MPLS/BGP主干接收的路由不会发送回主干。"
+    },
+    {
+      "indent": 9,
+      "text": "Specification of the complete set of procedures for the use of OSPF between PE and CE can be found in [VPN-OSPF] and [OSPF-2547-DNBIT].",
+      "zh-CHS": "在[VPN-OSPF]和[OSPF-2547-DNBIT]中可以找到PE和CE之间使用OSPF的整套程序规范。"
+    },
+    {
+      "indent": 6,
+      "text": "4. The PE and CE routers may be BGP peers, and the CE router may use BGP (in particular, EBGP to tell the PE router the set of address prefixes that are at the CE router's site. (This technique can be used in stub VPNs or transit VPNs.)",
+      "zh-CHS": "4. PE和CE路由器可以是BGP对等方，CE路由器可以使用BGP（特别是EBGP来告诉PE路由器位于CE路由器站点的地址前缀集。（此技术可用于存根VPN或传输VPN。）"
+    },
+    {
+      "indent": 9,
+      "text": "This technique has a number of advantages over the others:",
+      "zh-CHS": "与其他技术相比，该技术有许多优点："
+    },
+    {
+      "indent": 12,
+      "text": "a) Unlike the IGP alternatives, this does not require the PE to run multiple routing algorithm instances in order to talk to multiple CEs.",
+      "zh-CHS": "a) 与IGP备选方案不同，这不需要PE运行多个路由算法实例来与多个CE对话。"
+    },
+    {
+      "indent": 12,
+      "text": "b) BGP is explicitly designed for just this function: passing routing information between systems run by different administrations.",
+      "zh-CHS": "b) BGP的明确设计就是为了实现这一功能：在由不同管理机构运行的系统之间传递路由信息。"
+    },
+    {
+      "indent": 12,
+      "text": "c) If the site contains \"BGP backdoors\", i.e., routers with BGP connections to routers other than PE routers, this procedure will work correctly in all circumstances. The other procedures may or may not work, depending on the precise circumstances.",
+      "zh-CHS": "c) 如果站点包含“BGP后门”，即与PE路由器以外的路由器具有BGP连接的路由器，则此过程将在所有情况下正常工作。根据具体情况，其他程序可能有效，也可能无效。"
+    },
+    {
+      "indent": 12,
+      "text": "d) Use of BGP makes it easy for the CE to pass attributes of the routes to the PE. A complete specification of the set of attributes and their use is outside the scope of this document. However, some examples of the way this may be used are the following:",
+      "zh-CHS": "d) BGP的使用使得CE可以轻松地将路由属性传递给PE。属性集及其使用的完整规范不在本文档范围内。但是，以下是一些可能使用该方法的示例："
+    },
+    {
+      "indent": 17,
+      "text": "- The CE may suggest a particular Route Target for each route, from among the Route Targets that the PE is authorized to attach to the route. The PE would then attach only the suggested Route Target, rather than the full set. This gives the CE administrator some dynamic control of the distribution of routes from the CE.",
+      "zh-CHS": "- CE可以从PE被授权连接到路由的路由目标中，为每条路由建议一个特定的路由目标。然后，PE将只附加建议的路由目标，而不是全套。这使CE管理员能够动态控制来自CE的路由分布。"
+    },
+    {
+      "indent": 17,
+      "text": "- Additional types of Extended Community attributes may be defined, where the intention is to have those attributes passed transparently (i.e., without being changed by the PE routers) from CE to CE. This would allow CE administrators to implement additional route filtering, beyond that which is done by the PEs. This additional filtering would not require coordination with the SP.",
+      "zh-CHS": "- 可以定义其他类型的扩展社区属性，其中意图是使这些属性从CE透明地传递到CE（即，不被PE路由器改变）。这将允许CE管理员实施额外的路由过滤，而不仅仅是由PEs完成的过滤。此附加筛选不需要与SP协调。"
+    },
+    {
+      "indent": 9,
+      "text": "On the other hand, using BGP may be something new for the CE administrators.",
+      "zh-CHS": "另一方面，对于CE管理员来说，使用BGP可能是一件新鲜事。"
+    },
+    {
+      "indent": 9,
+      "text": "If a site is not in a transit VPN, note that it need not have a unique Autonomous System Number (ASN). Every CE whose site is not in a transit VPN can use the same ASN. This can be chosen from the private ASN space, and it will be stripped out by the PE. Routing loops are prevented by use of the Site of Origin attribute (see below).",
+      "zh-CHS": "如果站点不在transit VPN中，请注意，它不需要具有唯一的自治系统号（ASN）。站点不在transit VPN中的每个CE都可以使用相同的ASN。这可以从专用ASN空间中选择，并由PE剥离。使用“源站点”属性可以防止路由循环（请参见下文）。"
+    },
+    {
+      "indent": 9,
+      "text": "What if a set of sites constitutes a transit VPN? This will generally be the case only if the VPN is itself an Internet Service Provider's (ISP's) network, where the ISP is itself buying backbone services from another SP. The latter SP may be called a \"carrier's carrier\". In this case, the best way to provide the VPN is to have the CE routers support MPLS, and to use the technique described in Section 9.",
+      "zh-CHS": "如果一组站点构成传输VPN怎么办？通常情况下，只有当VPN本身是Internet服务提供商（ISP）的网络时，才会出现这种情况，ISP本身从另一个SP购买主干服务。后一个SP可以称为“运营商的运营商”。在这种情况下，提供VPN的最佳方法是让CE路由器支持MPLS，并使用第9节中描述的技术。"
+    },
+    {
+      "indent": 3,
+      "text": "When we do not need to distinguish among the different ways in which a PE can be informed of the address prefixes that exist at a given site, we will simply say that the PE has \"learned\" the routes from that site. This includes the case where the PE has been manually configured with the routes.",
+      "zh-CHS": "当我们不需要区分PE可以被告知在给定站点上存在的地址前缀的不同方式时，我们将简单地说PE已经从该站点“学习”了路由。这包括PE已手动配置路由的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Before a PE can redistribute a VPN-IPv4 route learned from a site, it must assign a Route Target attribute (see Section 4.3.1) to the route, and it may assign a Site of Origin attribute to the route.",
+      "zh-CHS": "在PE可以重新分发从站点学习到的VPN-IPv4路由之前，它必须将路由目标属性（见第4.3.1节）分配给路由，并且可以将源站点属性分配给路由。"
+    },
+    {
+      "indent": 3,
+      "text": "The Site of Origin attribute, if used, is encoded as a Route Origin Extended Community [BGP-EXTCOMM]. The purpose of this attribute is to uniquely identify the set of routes learned from a particular",
+      "zh-CHS": "如果使用源站点属性，则将其编码为路由源扩展社区[BGP-EXTCOMM]。此属性的目的是唯一标识从特定路径学习的路由集"
+    },
+    {
+      "indent": 3,
+      "text": "site. This attribute is needed in some cases to ensure that a route learned from a particular site via a particular PE/CE connection is not distributed back to the site through a different PE/CE connection. It is particularly useful if BGP is being used as the PE/CE protocol, but different sites have not been assigned distinct ASNs.",
+      "zh-CHS": "地点在某些情况下需要此属性，以确保通过特定PE/CE连接从特定站点学习的路由不会通过不同的PE/CE连接分发回站点。如果BGP被用作PE/CE协议，但不同的站点没有被分配不同的ASN，那么它特别有用。"
+    },
+    {
+      "indent": 0,
+      "text": "8. How CEs Learn Routes from PEs",
+      "section_title": true,
+      "zh-CHS": "8. CEs如何从PEs学习路线"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we assume that the CE device is a router.",
+      "zh-CHS": "在本节中，我们假设CE设备是路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "If the PE places a particular route in the VRF it uses to route packets received from a particular CE, then in general, the PE may distribute that route to the CE. Of course, the PE may distribute that route to the CE only if this is permitted by the rules of the PE/CE protocol. (For example, if a particular PE/CE protocol has \"split horizon\", certain routes in the VRF cannot be redistributed back to the CE.) We add one more restriction on the distribution of routes from PE to CE: if a route's Site of Origin attribute identifies a particular site, that route must never be redistributed to any CE at that site.",
+      "zh-CHS": "如果PE将特定路由放置在其用于路由从特定CE接收的分组的VRF中，则通常，PE可以将该路由分发给CE。当然，只有在PE/CE协议的规则允许的情况下，PE才可以将该路由分配给CE。（例如，如果特定PE/CE协议具有“分割地平线”，则VRF中的某些路由无法重新分配回CE。）我们对从PE到CE的路由分配又增加了一个限制：如果路由的“源站点”属性标识特定站点，则决不能将该路由重新分配给该站点的任何CE。"
+    },
+    {
+      "indent": 3,
+      "text": "In most cases, however, it will be sufficient for the PE to simply distribute the default route to the CE. (In some cases, it may even be sufficient for the CE to be configured with a default route pointing to the PE.) This will generally work at any site that does not itself need to distribute the default route to other sites. (E.g., if one site in a corporate VPN has the corporation's access to the Internet, that site might need to have default distributed to the other site, but one could not distribute default to that site itself.)",
+      "zh-CHS": "然而，在大多数情况下，PE只需将默认路由分配给CE即可。（在某些情况下，为CE配置指向PE的默认路由可能就足够了。）这通常适用于本身不需要将默认路由分发到其他站点的任何站点。（例如，如果公司VPN中的一个站点具有公司对Internet的访问权限，则该站点可能需要将默认值分发给另一个站点，但不能将默认值分发给该站点本身。）"
+    },
+    {
+      "indent": 3,
+      "text": "Whatever procedure is used to distribute routes from CE to PE will also be used to distribute routes from PE to CE.",
+      "zh-CHS": "无论使用何种程序将路由从CE分配到PE，也将使用何种程序将路由从PE分配到CE。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Carriers' Carriers",
+      "section_title": true,
+      "zh-CHS": "9. 承运人的承运人"
+    },
+    {
+      "indent": 3,
+      "text": "Sometimes a VPN may actually be the network of an ISP, with its own peering and routing policies. Sometimes a VPN may be the network of an SP that is offering VPN services in turn to its own customers. VPNs like these can also obtain backbone service from another SP, the \"carrier's carrier\", using essentially the same methods described in this document. However, it is necessary in these cases that the CE routers support MPLS. In particular:",
+      "zh-CHS": "有时VPN实际上可能是ISP的网络，具有自己的对等和路由策略。有时，VPN可能是SP的网络，SP反过来向其自己的客户提供VPN服务。像这样的VPN也可以从另一个SP“运营商的运营商”获得主干网服务，使用与本文档中描述的方法基本相同的方法。然而，在这些情况下，CE路由器必须支持MPLS。特别地："
+    },
+    {
+      "indent": 5,
+      "text": "- The CE routers should distribute to the PE routers ONLY those routes that are internal to the VPN. This allows the VPN to be handled as a stub VPN.",
+      "zh-CHS": "- CE路由器应仅将VPN内部的路由分配给PE路由器。这允许VPN作为存根VPN处理。"
+    },
+    {
+      "indent": 5,
+      "text": "- The CE routers should support MPLS, in that they should be able to receive labels from the PE routers, and send labeled packets to the PE routers. They do not need to distribute labels of their own, though.",
+      "zh-CHS": "- CE路由器应该支持MPLS，因为它们应该能够从PE路由器接收标签，并向PE路由器发送标签数据包。不过，他们不需要分发自己的标签。"
+    },
+    {
+      "indent": 5,
+      "text": "- The PE routers should distribute, to the CE routers, labels for the routes they distribute to the CE routers.",
+      "zh-CHS": "- PE路由器应向CE路由器分发其分发给CE路由器的路由标签。"
+    },
+    {
+      "indent": 7,
+      "text": "The PE must not distribute the same label to two different CEs unless one of the following conditions holds:",
+      "zh-CHS": "PE不得将同一标签分发给两个不同的CE，除非满足以下条件之一："
+    },
+    {
+      "indent": 9,
+      "text": "* The two CEs are associated with exactly the same set of VRFs;",
+      "zh-CHS": "* 两个CE与完全相同的VRF集合相关联；"
+    },
+    {
+      "indent": 9,
+      "text": "* The PE maintains a different Incoming Label Map ([MPLS-ARCH]) for each CE.",
+      "zh-CHS": "* PE为每个CE维护不同的传入标签映射（[MPLS-ARCH]）。"
+    },
+    {
+      "indent": 7,
+      "text": "Further, when the PE receives a labeled packet from a CE, it must verify that the top label is one that was distributed to that CE.",
+      "zh-CHS": "此外，当PE从CE接收到带标签的分组时，它必须验证顶部标签是分发给该CE的标签。"
+    },
+    {
+      "indent": 5,
+      "text": "- Routers at the different sites should establish BGP connections among themselves for the purpose of exchanging external routes (i.e., routes that lead outside of the VPN).",
+      "zh-CHS": "- 不同站点的路由器应在它们之间建立BGP连接，以交换外部路由（即通向VPN外部的路由）。"
+    },
+    {
+      "indent": 5,
+      "text": "- All the external routes must be known to the CE routers.",
+      "zh-CHS": "- CE路由器必须知道所有外部路由。"
+    },
+    {
+      "indent": 3,
+      "text": "Then when a CE router looks up a packet's destination address, the routing lookup will resolve to an internal address, usually the address of the packet's BGP next hop. The CE labels the packet appropriately and sends the packet to the PE. The PE, rather than looking up the packet's IP destination address in a VRF, uses the packet's top MPLS label to select the BGP next hop. As a result, if the BGP next hop is more than one hop away, the top label will be replaced by two labels, a tunnel label and a VPN route label. If the BGP next hop is one hop away, the top label may be replaced by just the VPN route label. If the ingress PE is also the egress PE, the top label will just be popped. When the packet is sent from its egress PE to a CE, the packet will have one fewer MPLS labels than it had when it was first received by its ingress PE.",
+      "zh-CHS": "然后，当CE路由器查找数据包的目标地址时，路由查找将解析为内部地址，通常是数据包的BGP下一跳的地址。CE适当地标记分组并将分组发送到PE。PE不是在VRF中查找数据包的IP目的地地址，而是使用数据包顶部的MPLS标签来选择BGP下一跳。因此，如果BGP下一跳距离超过一跳，则顶部标签将替换为两个标签，一个隧道标签和一个VPN路由标签。如果BGP下一跳距离为一跳，则顶部标签可能仅替换为VPN路由标签。如果入口PE也是出口PE，则顶部标签将弹出。当分组从其出口PE发送到CE时，分组的MPLS标签将比其入口PE第一次接收时少一个。"
+    },
+    {
+      "indent": 3,
+      "text": "In the above procedure, the CE routers are the only routers in the VPN that need to support MPLS. If, on the other hand, all the routers at a particular VPN site support MPLS, then it is no longer required that the CE routers know all the external routes. All that is required is that the external routes be known to whatever routers are responsible for putting the label stack on a hitherto unlabeled packet and that there be label switched path that leads from those routers to their BGP peers at other sites. In this case, for each",
+      "zh-CHS": "在上述过程中，CE路由器是VPN中唯一需要支持MPLS的路由器。另一方面，如果特定VPN站点上的所有路由器都支持MPLS，则不再要求CE路由器知道所有外部路由。所需要的是，负责将标签堆栈放在迄今为止未标记的数据包上的任何路由器都知道外部路由，并且存在从这些路由器到其他站点的BGP对等点的标签交换路径。在这种情况下，对于每个"
+    },
+    {
+      "indent": 3,
+      "text": "internal route that a CE router distributes to a PE router, it must also distribute a label.",
+      "zh-CHS": "CE路由器分配给PE路由器的内部路由，还必须分配标签。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Multi-AS Backbones",
+      "section_title": true,
+      "zh-CHS": "10. 作为主干的多个"
+    },
+    {
+      "indent": 3,
+      "text": "What if two sites of a VPN are connected to different Autonomous Systems (e.g., because the sites are connected to different SPs)? The PE routers attached to that VPN will then not be able to maintain IBGP connections with each other, or with a common route reflector. Rather, there needs to be some way to use EBGP to distribute VPN-IPv4 addresses.",
+      "zh-CHS": "如果VPN的两个站点连接到不同的自治系统（例如，因为这些站点连接到不同的SP），该怎么办？连接到该VPN的PE路由器将无法彼此保持IBGP连接，或者无法与公共路由反射器保持IBGP连接。相反，需要有某种方法使用EBGP来分发VPN-IPv4地址。"
+    },
+    {
+      "indent": 3,
+      "text": "There are a number of different ways of handling this case, which we present in order of increasing scalability.",
+      "zh-CHS": "有许多不同的方法来处理这种情况，为了提高可伸缩性，我们介绍了这些方法。"
+    },
+    {
+      "indent": 6,
+      "text": "a) VRF-to-VRF connections at the AS (Autonomous System) border routers.",
+      "zh-CHS": "a) AS（自治系统）边界路由器上的VRF到VRF连接。"
+    },
+    {
+      "indent": 9,
+      "text": "In this procedure, a PE router in one AS attaches directly to a PE router in another. The two PE routers will be attached by multiple sub-interfaces, at least one for each of the VPNs whose routes need to be passed from AS to AS. Each PE will treat the other as if it were a CE router. That is, the PEs associate each such sub-interface with a VRF, and use EBGP to distribute unlabeled IPv4 addresses to each other.",
+      "zh-CHS": "在此过程中，一个AS中的PE路由器直接连接到另一个AS中的PE路由器。两个PE路由器将通过多个子接口连接，每个VPN至少有一个子接口，其路由需要从AS传递到AS。每个PE都会将另一个视为CE路由器。也就是说，PEs将每个这样的子接口与VRF相关联，并使用EBGP将未标记的IPv4地址分发给彼此。"
+    },
+    {
+      "indent": 9,
+      "text": "This is a procedure that \"just works\", and that does not require MPLS at the border between ASes. However, it does not scale as well as the other procedures discussed below.",
+      "zh-CHS": "这是一个“正常工作”的过程，在ASE之间的边界不需要MPLS。但是，它的伸缩性不如下面讨论的其他程序。"
+    },
+    {
+      "indent": 6,
+      "text": "b) EBGP redistribution of labeled VPN-IPv4 routes from AS to neighboring AS.",
+      "zh-CHS": "b) EBGP重新分配从AS到相邻AS的标记VPN-IPv4路由。"
+    },
+    {
+      "indent": 9,
+      "text": "In this procedure, the PE routers use IBGP to redistribute labeled VPN-IPv4 routes either to an Autonomous System Border Router (ASBR), or to a route reflector of which an ASBR is a client. The ASBR then uses EBGP to redistribute those labeled VPN-IPv4 routes to an ASBR in another AS, which in turn distributes them to the PE routers in that AS, or perhaps to another ASBR which in turn distributes them, and so on.",
+      "zh-CHS": "在此过程中，PE路由器使用IBGP将带标签的VPN-IPv4路由重新分发到自治系统边界路由器（ASBR）或ASBR作为客户端的路由反射器。ASBR然后使用EBGP将这些标记为VPN-IPv4的路由重新分配给另一个AS中的ASBR，后者将它们分配给该AS中的PE路由器，或者可能分配给另一个ASBR，后者将它们依次分配，依此类推。"
+    },
+    {
+      "indent": 9,
+      "text": "When using this procedure, VPN-IPv4 routes should only be accepted on EBGP connections at private peering points, as part of a trusted arrangement between SPs. VPN-IPv4 routes should neither be distributed to nor accepted from the public Internet, or from any BGP peers that are not trusted. An ASBR should never accept a labeled packet from an EBGP peer unless it has actually distributed the top label to that peer.",
+      "zh-CHS": "使用此过程时，VPN-IPv4路由应仅在专用对等点的EBGP连接上接受，作为SP之间受信任安排的一部分。VPN-IPv4路由既不能分发到公共Internet，也不能从公共Internet或任何不受信任的BGP对等方接受。ASBR不应接受来自EBGP对等方的带标签数据包，除非它实际已将顶部标签分发给该对等方。"
+    },
+    {
+      "indent": 9,
+      "text": "If there are many VPNs having sites attached to different Autonomous Systems, there does not need to be a single ASBR between those two ASes that holds all the routes for all the VPNs; there can be multiple ASBRs, each of which holds only the routes for a particular subset of the VPNs.",
+      "zh-CHS": "如果有多个VPN的站点连接到不同的自治系统，则在这两个ASE之间不需要有一个ASBR来保存所有VPN的所有路由；可以有多个ASBR，每个ASBR仅包含VPN特定子集的路由。"
+    },
+    {
+      "indent": 9,
+      "text": "This procedure requires that there be a label switched path leading from a packet's ingress PE to its egress PE. Hence the appropriate trust relationships must exist between and among the set of ASes along the path. Also, there must be agreement among the set of SPs as to which border routers need to receive routes with which Route Targets.",
+      "zh-CHS": "该过程要求存在从分组的入口PE到其出口PE的标签交换路径。因此，路径上的一组ASE之间必须存在适当的信任关系。此外，SP组之间必须就哪些边界路由器需要接收哪些路由目标的路由达成一致。"
+    },
+    {
+      "indent": 6,
+      "text": "c) Multi-hop EBGP redistribution of labeled VPN-IPv4 routes between source and destination ASes, with EBGP redistribution of labeled IPv4 routes from AS to neighboring AS.",
+      "zh-CHS": "c) 源和目标ASE之间标记的VPN-IPv4路由的多跳EBGP重新分配，以及从AS到相邻AS的标记的IPv4路由的EBGP重新分配。"
+    },
+    {
+      "indent": 9,
+      "text": "In this procedure, VPN-IPv4 routes are neither maintained nor distributed by the ASBRs. An ASBR must maintain labeled IPv4 /32 routes to the PE routers within its AS. It uses EBGP to distribute these routes to other ASes. ASBRs in any transit ASes will also have to use EBGP to pass along the labeled /32 routes. This results in the creation of a label switched path from the ingress PE router to the egress PE router. Now PE routers in different ASes can establish multi-hop EBGP connections to each other, and can exchange VPN-IPv4 routes over those connections.",
+      "zh-CHS": "在此过程中，ASBR既不维护也不分发VPN-IPv4路由。ASBR必须在其AS中维护到PE路由器的标记IPv4/32路由。它使用EBGP将这些路由分发给其他ASE。任何运输ASE中的ASBR也必须使用EBGP通过标记的/32路线。这导致创建从入口PE路由器到出口PE路由器的标签交换路径。现在，不同ASE中的PE路由器可以彼此建立多跳EBGP连接，并可以通过这些连接交换VPN-IPv4路由。"
+    },
+    {
+      "indent": 9,
+      "text": "If the /32 routes for the PE routers are made known to the P routers of each AS, everything works normally. If the /32 routes for the PE routers are NOT made known to the P routers (other than the ASBRs), then this procedure requires a packet's ingress PE to put a three-label stack on it. The bottom label is assigned by the egress PE, corresponding to the packet's destination address in a particular VRF. The middle label is assigned by the ASBR, corresponding to the /32 route to the egress PE. The top label is assigned by the ingress PE's IGP Next Hop, corresponding to the /32 route to the ASBR.",
+      "zh-CHS": "如果每个AS的P路由器都知道PE路由器的/32路由，则一切正常。如果P路由器（ASBR除外）不知道PE路由器的/32路由，则此过程要求数据包的入口PE在其上放置一个三标签堆栈。底部标签由出口PE分配，对应于特定VRF中分组的目的地地址。中间标签由ASBR分配，与出口PE的/32路线相对应。顶部标签由入口PE的IGP下一跳分配，对应于到ASBR的/32路由。"
+    },
+    {
+      "indent": 9,
+      "text": "To improve scalability, one can have the multi-hop EBGP connections exist only between a route reflector in one AS and a route reflector in another. (However, when the route reflectors distribute routes over this connection, they do not modify the BGP next hop attribute of the routes.) The actual PE routers would then only have IBGP connections to the route reflectors in their own AS.",
+      "zh-CHS": "为了提高可伸缩性，可以使多跳EBGP连接仅存在于一个AS中的路由反射器和另一个AS中的路由反射器之间。（但是，当路由反射器通过此连接分发路由时，它们不会修改路由的BGP next hop属性。）实际的PE路由器将只在其自身的AS中具有到路由反射器的IBGP连接。"
+    },
+    {
+      "indent": 9,
+      "text": "This procedure is very similar to the \"carrier's carrier\" procedures described in Section 9. Like the previous procedure, it requires that there be a label switched path leading from a packet's ingress PE to its egress PE.",
+      "zh-CHS": "该程序与第9节中描述的“承运人的承运人”程序非常相似。与前面的过程一样，它要求有一条标签交换路径从数据包的入口PE到其出口PE。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Accessing the Internet from a VPN",
+      "section_title": true,
+      "zh-CHS": "11. 从VPN访问Internet"
+    },
+    {
+      "indent": 3,
+      "text": "Many VPN sites will need to be able to access the public Internet, as well as to access other VPN sites. The following describes some of the alternative ways of doing this.",
+      "zh-CHS": "许多VPN站点需要能够访问公共互联网，以及访问其他VPN站点。下面介绍了一些替代方法。"
+    },
+    {
+      "indent": 6,
+      "text": "1. In some VPNs, one or more of the sites will obtain Internet access by means of an \"Internet gateway\" (perhaps a firewall) attached to a non-VRF interface to an ISP. The ISP may or may not be the same organization as the SP that is providing the VPN service. Traffic to/from the Internet gateway would then be routed according to the PE router's default forwarding table.",
+      "zh-CHS": "1. 在某些VPN中，一个或多个站点将通过连接到ISP的非VRF接口的“Internet网关”（可能是防火墙）获得Internet访问。ISP可能是也可能不是提供VPN服务的SP所在的组织。然后，将根据PE路由器的默认转发表路由进出Internet网关的流量。"
+    },
+    {
+      "indent": 9,
+      "text": "In this case, the sites that have Internet access may be distributing a default route to their PEs, which in turn redistribute it to other PEs and hence into other sites of the VPN. This provides Internet access for all of the VPN's sites.",
+      "zh-CHS": "在这种情况下，具有Internet访问权限的站点可能会将默认路由分配给它们的PE，而这些PE又会将其重新分配给其他PE，从而分配到VPN的其他站点。这为所有VPN站点提供了Internet访问。"
+    },
+    {
+      "indent": 9,
+      "text": "In order to properly handle traffic from the Internet, the ISP must distribute, to the Internet, routes leading to addresses that are within the VPN. This is completely independent of any of the route distribution procedures described in this document. The internal structure of the VPN will in general not be visible from the Internet; such routes would simply lead to the non-VRF interface that attaches to the VPN's Internet gateway.",
+      "zh-CHS": "为了正确处理来自Internet的流量，ISP必须向Internet分配通向VPN内地址的路由。这完全独立于本文件中描述的任何路线分配程序。VPN的内部结构通常从互联网上看不到；这样的路由只会导致连接到VPN互联网网关的非VRF接口。"
+    },
+    {
+      "indent": 9,
+      "text": "In this model, there is no exchange of routes between a PE router's default forwarding table and any of its VRFs. VPN route distribution procedures and Internet route distribution procedures are completely independent.",
+      "zh-CHS": "在此模型中，PE路由器的默认转发表与其任何VRF之间不存在路由交换。VPN路由分配程序和Internet路由分配程序完全独立。"
+    },
+    {
+      "indent": 9,
+      "text": "Note that although some sites of the VPN use a VRF interface to communicate with the Internet, ultimately all packets to/from the Internet traverse a non-VRF interface before leaving/entering the VPN, so we refer to this as \"non-VRF Internet access\".",
+      "zh-CHS": "请注意，尽管VPN的某些站点使用VRF接口与Internet进行通信，但在离开/进入VPN之前，所有进出Internet的数据包最终都会通过非VRF接口，因此我们将其称为“非VRF Internet访问”。"
+    },
+    {
+      "indent": 9,
+      "text": "Note that the PE router to which the non-VRF interface attaches does not necessarily need to maintain all the Internet routes in its default forwarding table. The default forwarding table could have as few as one route, \"default\", which leads to",
+      "zh-CHS": "请注意，非VRF接口连接的PE路由器不一定需要在其默认转发表中维护所有Internet路由。默认的转发表可能只有一条路由“default”，这将导致"
+    },
+    {
+      "indent": 9,
+      "text": "another router (probably an adjacent one) that has the Internet routes. A variation of this scheme is to tunnel packets received over the non-VRF interface from the PE router to another router, where this other router maintains the full set of Internet routes.",
+      "zh-CHS": "另一个路由器（可能是相邻的一个）有互联网路由。该方案的一个变体是将通过非VRF接口接收的数据包从PE路由器隧道到另一个路由器，该另一个路由器维护全套互联网路由。"
+    },
+    {
+      "indent": 6,
+      "text": "2. Some VPNs may obtain Internet access via a VRF interface (\"VRF Internet access\"). If a packet is received by a PE over a VRF interface, and if the packet's destination address does not match any route in the VRF, then it may be matched against the PE's default forwarding table. If a match is made there, the packet can be forwarded natively through the backbone to the Internet, instead of being forwarded by MPLS.",
+      "zh-CHS": "2. 一些VPN可通过VRF接口（“VRF互联网接入”）获得互联网接入。如果PE通过VRF接口接收到数据包，并且数据包的目的地地址与VRF中的任何路由都不匹配，则可以将其与PE的默认转发表相匹配。如果在那里进行了匹配，则数据包可以通过主干本地转发到Internet，而不是通过MPLS转发。"
+    },
+    {
+      "indent": 9,
+      "text": "In order for traffic to flow natively in the opposite direction (from Internet to VRF interface), some of the routes from the VRF must be exported to the Internet forwarding table. Needless to say, any such routes must correspond to globally unique addresses.",
+      "zh-CHS": "为了使流量以相反方向（从Internet到VRF接口）本地流动，必须将来自VRF的一些路由导出到Internet转发表。不用说，任何这样的路由都必须对应于全局唯一的地址。"
+    },
+    {
+      "indent": 9,
+      "text": "In this scheme, the default forwarding table might have the full set of Internet routes, or it might have as little as a single default route leading to another router that does have the full set of Internet routes in its default forwarding table.",
+      "zh-CHS": "在此方案中，默认转发表可能具有完整的Internet路由集，或者可能只有一条默认路由通向另一个在其默认转发表中具有完整的Internet路由集的路由器。"
+    },
+    {
+      "indent": 6,
+      "text": "3. Suppose the PE has the capability to store \"non-VPN routes\" in a VRF. If a packet's destination address matches a \"non-VPN route\", then the packet is transmitted natively, rather than being transmitted via MPLS. If the VRF contains a non-VPN default route, all packets for the public Internet will match it, and be forwarded natively to the default route's next hop. At that next hop, the packets' destination addresses will be looked up in the default forwarding table, and may match more specific routes.",
+      "zh-CHS": "3. 假设PE能够在VRF中存储“非VPN路由”。如果数据包的目的地地址与“非VPN路由”匹配，则数据包以本机方式传输，而不是通过MPLS传输。如果VRF包含非VPN默认路由，则公共互联网的所有数据包都将与之匹配，并以本机方式转发到默认路由的下一跳。在下一跳，包的目的地地址将在默认转发表中查找，并且可能匹配更具体的路由。"
+    },
+    {
+      "indent": 9,
+      "text": "This technique would only be available if none of the CE routers is distributing a default route.",
+      "zh-CHS": "只有在没有CE路由器分发默认路由的情况下，此技术才可用。"
+    },
+    {
+      "indent": 6,
+      "text": "4. It is also possible to obtain Internet access via a VRF interface by having the VRF contain the Internet routes. Compared with model 2, this eliminates the second lookup, but it has the disadvantage of requiring the Internet routes to be replicated in each such VRF.",
+      "zh-CHS": "4. 通过VRF包含互联网路由，也可以通过VRF接口访问互联网。与模型2相比，这消除了第二次查找，但其缺点是需要在每个这样的VRF中复制Internet路由。"
+    },
+    {
+      "indent": 9,
+      "text": "If this technique is used, the SP may want to make its interface to the Internet be a VRF interface, and to use the",
+      "zh-CHS": "如果使用此技术，SP可能希望将其与Internet的接口设置为VRF接口，并使用"
+    },
+    {
+      "indent": 9,
+      "text": "techniques of Section 4 to distribute Internet routes, as VPN-IPv4 routes, to other VRFs.",
+      "zh-CHS": "第4节的技术，将Internet路由（如VPN-IPv4路由）分发到其他VRF。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be clearly understood that by default, there is no exchange of routes between a VRF and the default forwarding table. This is done ONLY upon agreement between a customer and an SP, and only if it suits the customer's policies.",
+      "zh-CHS": "应该清楚地理解，默认情况下，VRF和默认转发表之间没有路由交换。只有在客户和SP之间达成协议，并且符合客户的政策时，才能执行此操作。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Management VPNs",
+      "section_title": true,
+      "zh-CHS": "12. 管理VPN"
+    },
+    {
+      "indent": 3,
+      "text": "This specification does not require that the sub-interface connecting a PE router and a CE router be a \"numbered\" interface. If it is a numbered interface, this specification allows the addresses assigned to the interface to come from either the address space of the VPN or the address space of the SP.",
+      "zh-CHS": "本规范不要求连接PE路由器和CE路由器的子接口为“编号”接口。如果是编号接口，则此规范允许分配给接口的地址来自VPN的地址空间或SP的地址空间。"
+    },
+    {
+      "indent": 3,
+      "text": "If a CE router is being managed by the Service Provider, then the Service Provider will likely have a network management system that needs to be able to communicate with the CE router. In this case, the addresses assigned to the sub-interface connecting the CE and PE routers should come from the SP's address space, and should be unique within that space. The network management system should itself connect to a PE router (more precisely, be at a site that connects to a PE router) via a VRF interface. The address of the network management system will be exported to all VRFs that are associated with interfaces to CE routers that are managed by the SP. The addresses of the CE routers will be exported to the VRF associated with the network management system, but not to any other VRFs.",
+      "zh-CHS": "如果CE路由器由服务提供商管理，则服务提供商可能具有需要能够与CE路由器通信的网络管理系统。在这种情况下，分配给连接CE和PE路由器的子接口的地址应该来自SP的地址空间，并且在该空间内应该是唯一的。网络管理系统本身应通过VRF接口连接到PE路由器（更准确地说，位于连接到PE路由器的站点）。网络管理系统的地址将导出到与SP管理的CE路由器接口相关联的所有VRF。CE路由器的地址将导出到与网络管理系统相关联的VRF，但不会导出到任何其他VRF。"
+    },
+    {
+      "indent": 3,
+      "text": "This allows communication between the CE and network management system, but does not allow any undesired communication to or among the CE routers.",
+      "zh-CHS": "这允许CE和网络管理系统之间的通信，但不允许与CE路由器之间或与CE路由器之间的任何不希望的通信。"
+    },
+    {
+      "indent": 3,
+      "text": "One way to ensure that the proper route import/exports are done is to use two Route Targets; call them T1 and T2. If a particular VRF interface attaches to a CE router that is managed by the SP, then that VRF is configured to:",
+      "zh-CHS": "确保正确路线导入/导出的一种方法是使用两个路线目标；称它们为T1和T2。如果特定VRF接口连接到SP管理的CE路由器，则该VRF配置为："
+    },
+    {
+      "indent": 5,
+      "text": "- import routes that have T1 attached to them, and",
+      "zh-CHS": "- 导入已附加T1的路由，以及"
+    },
+    {
+      "indent": 5,
+      "text": "- attach T2 to addresses assigned to each end of its VRF interfaces.",
+      "zh-CHS": "- 将T2附加到分配给其VRF接口两端的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "If a particular VRF interface attaches to the SP's network management system, then that VRF is configured to attach T1 to the address of that system, and to import routes that have T2 attached to them.",
+      "zh-CHS": "如果特定的VRF接口连接到SP的网络管理系统，则该VRF配置为将T1连接到该系统的地址，并导入已连接T2的路由。"
+    },
+    {
+      "indent": 0,
+      "text": "13. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "13. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Data Plane",
+      "section_title": true,
+      "zh-CHS": "13.1. 数据平面"
+    },
+    {
+      "indent": 3,
+      "text": "By security in the \"data plane\", we mean protection against the following possibilities:",
+      "zh-CHS": "“数据平面”中的安全性是指针对以下可能性的保护："
+    },
+    {
+      "indent": 5,
+      "text": "- Packets from within a VPN travel to a site outside the VPN, other than in a manner consistent with the policies of the VPN.",
+      "zh-CHS": "- 来自VPN内的数据包以与VPN策略一致的方式以外的方式传输到VPN外的站点。"
+    },
+    {
+      "indent": 5,
+      "text": "- Packets from outside a VPN enter one of the VPN's sites, other than in a manner consistent with the policies of the VPN.",
+      "zh-CHS": "- 来自VPN外部的数据包进入VPN的一个站点，而不是以与VPN策略一致的方式。"
+    },
+    {
+      "indent": 3,
+      "text": "Under the following conditions:",
+      "zh-CHS": "在下列情况下："
+    },
+    {
+      "indent": 6,
+      "text": "1. a backbone router does not accept labeled packets over a particular data link, unless it is known that that data link attaches only to trusted systems, or unless it is known that such packets will leave the backbone before the IP header or any labels lower in the stack will be inspected, and",
+      "zh-CHS": "1. 主干路由器不接受特定数据链路上的标记数据包，除非已知该数据链路仅连接到受信任的系统，或者已知此类数据包将在检查IP报头或堆栈中较低的任何标签之前离开主干，以及"
+    },
+    {
+      "indent": 6,
+      "text": "2. labeled VPN-IPv4 routes are not accepted from untrusted or unreliable routing peers,",
+      "zh-CHS": "2. 不接受来自不受信任或不可靠路由对等方的标记VPN-IPv4路由，"
+    },
+    {
+      "indent": 6,
+      "text": "3. no successful attacks have been mounted on the control plane,",
+      "zh-CHS": "3. 控制飞机上没有成功的攻击，"
+    },
+    {
+      "indent": 3,
+      "text": "the data plane security provided by this architecture is virtually identical to that provided to VPNs by Frame Relay or ATM backbones. If the devices under the control of the SP are properly configured, data will not enter or leave a VPN unless authorized to do so.",
+      "zh-CHS": "该体系结构提供的数据平面安全性实际上与通过帧中继或ATM主干向VPN提供的数据平面安全性相同。如果SP控制下的设备配置正确，则除非获得授权，否则数据不会进入或离开VPN。"
+    },
+    {
+      "indent": 3,
+      "text": "Condition 1 above can be stated more precisely. One should discard a labeled packet received from a particular neighbor unless one of the following two conditions holds:",
+      "zh-CHS": "可以更精确地说明上述条件1。除非以下两种情况之一成立，否则应丢弃从特定邻居接收的标记数据包："
+    },
+    {
+      "indent": 5,
+      "text": "- the packet's top label has a label value that the receiving system has distributed to that neighbor, or",
+      "zh-CHS": "- 数据包的顶部标签具有接收系统已分发给该邻居的标签值，或"
+    },
+    {
+      "indent": 5,
+      "text": "- the packet's top label has a label value that the receiving system has distributed to a system beyond that neighbor (i.e., when it is known that the path from the system to which the label was distributed to the receiving system may be via that neighbor).",
+      "zh-CHS": "- 数据包的顶部标签具有接收系统已分配给该邻居之外的系统的标签值（即，当知道从标签分配给接收系统的系统的路径可能通过该邻居时）。"
+    },
+    {
+      "indent": 3,
+      "text": "Condition 2 above is of most interest in the case of inter-provider VPNs (see Section 10). For inter-provider VPNs constructed according to scheme b) of Section 10, condition 2 is easily checked. (The issue of security when scheme (c) of Section 10 is used is for further study.)",
+      "zh-CHS": "对于提供商间VPN，上述条件2最为重要（见第10节）。对于根据第10节方案b）构建的提供商间VPN，条件2很容易检查。（使用第10条方案（c）时的担保问题有待进一步研究。）"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth noting that the use of MPLS makes it much simpler to provide data plane security than might be possible if one attempted to use some form of IP tunneling in place of the MPLS outer label. It is a simple matter to have one's border routers refuse to accept a labeled packet unless the first of the above conditions applies to it. It is rather more difficult to configure a router to refuse to accept an IP packet if that packet is an IP tunneled packet whose destination address is that of a PE router; certainly, this is not impossible to do, but it has both management and performance implications.",
+      "zh-CHS": "值得注意的是，与试图使用某种形式的IP隧道代替MPLS外部标签相比，MPLS的使用使得提供数据平面安全性变得更加简单。这是一个简单的问题，让一个人的边界路由器拒绝接受标记的数据包，除非上述第一个条件适用于它。如果IP分组是目的地地址为PE路由器的IP隧道分组，则将路由器配置为拒绝接受该IP分组相当困难；当然，这不是不可能做到的，但它对管理和绩效都有影响。"
+    },
+    {
+      "indent": 3,
+      "text": "MPLS-in-IP and MPLS-in-GRE tunneling are specified in [MPLS-in-IP-GRE]. If it is desired to use such tunnels to carry VPN packets, then the security considerations described in Section 8 of that document must be fully understood. Any implementation of BGP/MPLS IP VPNs that allows VPN packets to be tunneled as described in that document MUST contain an implementation of IPsec that can be used as therein described. If the tunnel is not secured by IPsec, then the technique of IP address filtering at the border routers, described in Section 8.2 of that document, is the only means of ensuring that a packet that exits the tunnel at a particular egress PE was actually placed in the tunnel by the proper tunnel head node (i.e., that the packet does not have a spoofed source address). Since border routers frequently filter only source addresses, packet filtering may not be effective unless the egress PE can check the IP source address of any tunneled packet it receives, and compare it to a list of IP addresses that are valid tunnel head addresses. Any implementation that allows MPLS-in-IP and/or MPLS-in-GRE tunneling to be used without IPsec MUST allow the egress PE to validate in this manner the IP source address of any tunneled packet that it receives.",
+      "zh-CHS": "[MPLS in IP GRE]中指定了IP中的MPLS和GRE隧道中的MPLS。如果希望使用此类隧道来承载VPN数据包，则必须充分理解该文件第8节中描述的安全注意事项。BGP/MPLS IP VPN的任何实现，如果允许按照该文档中所述对VPN数据包进行隧道传输，则必须包含可按照其中所述使用的IPsec实现。如果隧道不受IPsec保护，则该文件第8.2节所述的边界路由器IP地址过滤技术是确保在特定出口PE处退出隧道的数据包由适当的隧道头节点实际放置在隧道中的唯一方法（即，数据包没有伪造的源地址）。由于边界路由器经常只过滤源地址，除非出口PE能够检查其接收的任何隧道数据包的IP源地址，并将其与有效隧道头地址的IP地址列表进行比较，否则数据包过滤可能无效。允许IP中的MPLS和/或GRE隧道中的MPLS的任何实现都是有效的没有IPsec的ed必须允许出口PE以这种方式验证其接收的任何隧道数据包的IP源地址。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case where a number of CE routers attach to a PE router via a LAN interface, to ensure proper security, one of the following conditions must hold:",
+      "zh-CHS": "在多个CE路由器通过LAN接口连接到PE路由器的情况下，为确保适当的安全性，必须满足以下条件之一："
+    },
+    {
+      "indent": 6,
+      "text": "1. All the CE routers on the LAN belong to the same VPN, or",
+      "zh-CHS": "1. LAN上的所有CE路由器属于同一VPN，或"
+    },
+    {
+      "indent": 6,
+      "text": "2. A trusted and secured LAN switch divides the LAN into multiple VLANs, with each VLAN containing only systems of a single VPN; in this case, the switch will attach the appropriate VLAN tag to any packet before forwarding it to the PE router.",
+      "zh-CHS": "2. 受信任和安全的LAN交换机将LAN划分为多个VLAN，每个VLAN仅包含单个VPN的系统；在这种情况下，交换机将在将数据包转发到PE路由器之前，将适当的VLAN标记附加到任何数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Cryptographic privacy is not provided by this architecture, nor by Frame Relay or ATM VPNs. These architectures are all compatible with the use of cryptography on a CE-CE basis, if that is desired.",
+      "zh-CHS": "该体系结构、帧中继或ATM VPN均不提供加密隐私。如果需要的话，这些体系结构都与CE-CE基础上的加密技术的使用兼容。"
+    },
+    {
+      "indent": 3,
+      "text": "The use of cryptography on a PE-PE basis is for further study.",
+      "zh-CHS": "在PE-PE基础上使用密码学有待进一步研究。"
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Control Plane",
+      "section_title": true,
+      "zh-CHS": "13.2. 控制平面"
+    },
+    {
+      "indent": 3,
+      "text": "The data plane security of the previous section depends on the security of the control plane. To ensure security, neither BGP nor LDP connections should be made with untrusted peers. The TCP/IP MD5 authentication option [TCP-MD5] should be used with both these protocols. The routing protocol within the SP's network should also be secured in a similar manner.",
+      "zh-CHS": "上一节的数据平面安全性取决于控制平面的安全性。为确保安全性，BGP和LDP连接均不应与不受信任的对等方建立。TCP/IP MD5身份验证选项[TCP-MD5]应与这两个协议一起使用。SP网络中的路由协议也应以类似方式进行保护。"
+    },
+    {
+      "indent": 0,
+      "text": "13.3. Security of P and PE Devices",
+      "section_title": true,
+      "zh-CHS": "13.3. P和PE设备的安全性"
+    },
+    {
+      "indent": 3,
+      "text": "If the physical security of these devices is compromised, data plane security may also be compromised.",
+      "zh-CHS": "如果这些设备的物理安全性受损，数据平面安全性也可能受损。"
+    },
+    {
+      "indent": 3,
+      "text": "The usual steps should be taken to ensure that IP traffic from the public Internet cannot be used to modify the configuration of these devices, or to mount Denial of Service attacks on them.",
+      "zh-CHS": "应采取通常的步骤，以确保来自公共互联网的IP流量不能用于修改这些设备的配置或对其发起拒绝服务攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "14. Quality of Service",
+      "section_title": true,
+      "zh-CHS": "14. 服务质量"
+    },
+    {
+      "indent": 3,
+      "text": "Although not the focus of this paper, Quality of Service is a key component of any VPN service. In MPLS/BGP VPNs, existing L3 QoS capabilities can be applied to labeled packets through the use of the \"experimental\" bits in the shim header [MPLS-ENCAPS], or, where ATM is used as the backbone, through the use of ATM QoS capabilities. The traffic engineering work discussed in [MPLS-RSVP] is also directly applicable to MPLS/BGP VPNs. Traffic engineering could even be used to establish label switched paths with particular QoS characteristics between particular pairs of sites, if that is desirable. Where an MPLS/BGP VPN spans multiple SPs, the architecture described in [PASTE] may be useful. An SP may apply either intserv (Integrated Services) or diffserv (Differentiated Services) capabilities to a particular VPN, as appropriate.",
+      "zh-CHS": "虽然不是本文的重点，但服务质量是任何VPN服务的关键组成部分。在MPLS/BGP VPN中，现有的L3 QoS功能可通过使用垫片头[MPLS-ENCAPS]中的“实验”位，或在ATM用作主干的情况下，通过使用ATM QoS功能，应用于标记的数据包。[MPLS-RSVP]中讨论的流量工程工作也直接适用于MPLS/BGP VPN。如果需要的话，流量工程甚至可以用于在特定站点对之间建立具有特定QoS特征的标签交换路径。如果MPLS/BGP VPN跨越多个SP，[PASTE]中描述的体系结构可能有用。SP可以对特定VPN应用intserv（集成服务）或diffserv（区分服务）功能（视情况而定）。"
+    },
+    {
+      "indent": 0,
+      "text": "15. Scalability",
+      "section_title": true,
+      "zh-CHS": "15. 可伸缩性"
+    },
+    {
+      "indent": 3,
+      "text": "We have discussed scalability issues throughout this paper. In this section, we briefly summarize the main characteristics of our model with respect to scalability.",
+      "zh-CHS": "我们在本文中讨论了可伸缩性问题。在本节中，我们简要总结了模型在可伸缩性方面的主要特征。"
+    },
+    {
+      "indent": 3,
+      "text": "The Service Provider backbone network consists of (a) PE routers, (b) BGP Route Reflectors, (c) P routers (that are neither PE routers nor Route Reflectors), and, in the case of multi-provider VPNs, (d) ASBRs.",
+      "zh-CHS": "服务提供商主干网由（a）PE路由器、（b）BGP路由反射器、（c）P路由器（既不是PE路由器也不是路由反射器）以及（在多提供商VPN的情况下）ASBR组成。"
+    },
+    {
+      "indent": 3,
+      "text": "P routers do not maintain any VPN routes. In order to properly forward VPN traffic, the P routers need only maintain routes to the PE routers and the ASBRs. The use of two levels of labeling is what makes it possible to keep the VPN routes out of the P routers.",
+      "zh-CHS": "P路由器不维护任何VPN路由。为了正确转发VPN流量，P路由器只需要维护到PE路由器和ASBR的路由。使用两个级别的标签可以使VPN路由远离P路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "A PE router maintains VPN routes, but only for those VPNs to which it is directly attached.",
+      "zh-CHS": "PE路由器维护VPN路由，但仅针对其直接连接的VPN。"
+    },
+    {
+      "indent": 3,
+      "text": "Route reflectors can be partitioned among VPNs so that each partition carries routes for only a subset of the VPNs supported by the Service Provider. Thus, no single route reflector is required to maintain routes for all VPNs.",
+      "zh-CHS": "路由反射器可以在VPN之间进行分区，以便每个分区仅承载服务提供商支持的VPN子集的路由。因此，不需要单路由反射器来维护所有VPN的路由。"
+    },
+    {
+      "indent": 3,
+      "text": "For inter-provider VPNs, if the ASBRs maintain and distribute VPN-IPv4 routes, then the ASBRs can be partitioned among VPNs in a similar manner, with the result that no single ASBR is required to maintain routes for all the inter-provider VPNs. If multi-hop EBGP is used, then the ASBRs need not maintain and distribute VPN-IPv4 routes at all.",
+      "zh-CHS": "对于提供商间VPN，如果ASBR维护和分发VPN-IPv4路由，则ASBR可以以类似的方式在VPN之间进行分区，从而不需要单个ASBR来维护所有提供商间VPN的路由。如果使用多跳EBGP，则ASBR根本不需要维护和分发VPN-IPv4路由。"
+    },
+    {
+      "indent": 3,
+      "text": "As a result, no single component within the Service Provider network has to maintain all the routes for all the VPNs. So the total capacity of the network to support increasing numbers of VPNs is not limited by the capacity of any individual component.",
+      "zh-CHS": "因此，服务提供商网络中的任何单个组件都不必维护所有VPN的所有路由。因此，支持越来越多VPN的网络总容量不受任何单个组件容量的限制。"
+    },
+    {
+      "indent": 0,
+      "text": "16. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "16. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The Internet Assigned Numbers Authority (IANA) has created a new registry for the \"Route Distinguisher Type Field\" (see Section 4.2). This is a two-byte field. Types 0, 1, and 2 are defined by this document. Additional Route Distinguisher Type Field values with a high-order bit of 0 may be allocated by IANA on a \"First Come, First Served\" basis [IANA]. Values with a high-order bit of 1 may be allocated by IANA based on \"IETF consensus\" [IANA].",
+      "zh-CHS": "互联网分配号码管理局（IANA）已为“路由识别器类型字段”创建了一个新的注册表（见第4.2节）。这是一个双字节字段。类型0、1和2由本文档定义。高阶位为0的额外路由识别器类型字段值可由IANA在“先到先得”的基础上分配[IANA]。高阶位为1的值可由IANA根据“IETF共识”[IANA]进行分配。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies (see Section 4.3.4) the use of the BGP Address Family Identifier (AFI) value 1, along with the BGP Subsequent Address Family Identifier (SAFI) value 128, to represent the address family \"VPN-IPv4 Labeled Addresses\", which is defined in this document.",
+      "zh-CHS": "本文件规定（见第4.3.4节）使用BGP地址族标识符（AFI）值1以及BGP后续地址族标识符（SAFI）值128来表示本文件中定义的地址族“VPN-IPv4标记地址”。"
+    },
+    {
+      "indent": 3,
+      "text": "The use of AFI value 1 for IP is as currently specified in the IANA registry \"Address Family Identifier\", so IANA need take no action with respect to it.",
+      "zh-CHS": "IP的AFI值1的使用与IANA注册表“地址族标识符”中的当前规定相同，因此IANA无需对此采取任何行动。"
+    },
+    {
+      "indent": 3,
+      "text": "The SAFI value 128 was originally specified as \"Private Use\" in the IANA \"Subsequent Address Family Identifier\" registry. IANA has changed the SAFI value 128 from \"private use\" to \"MPLS-labeled VPN address\".",
+      "zh-CHS": "SAFI值128最初在IANA“后续地址系列标识符”注册表中指定为“专用”。IANA已将SAFI值128从“专用”更改为“标记为VPN地址的MPLS”。"
+    },
+    {
+      "indent": 0,
+      "text": "17. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "17. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The full list of contributors can be found in Section 18.",
+      "zh-CHS": "贡献者的完整列表见第18节。"
+    },
+    {
+      "indent": 3,
+      "text": "Significant contributions to this work have also been made by Ravi Chandra, Dan Tappan, and Bob Thomas.",
+      "zh-CHS": "拉维·钱德拉、丹·塔潘和鲍勃·托马斯也对这项工作做出了重大贡献。"
+    },
+    {
+      "indent": 3,
+      "text": "We also wish to thank Shantam Biswas for his review and contributions.",
+      "zh-CHS": "我们还要感谢Shantam Biswas的审查和贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "18. Contributors",
+      "section_title": true,
+      "zh-CHS": "18. 贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "Tony Bogovic Telcordia Technologies 445 South Street, Room 1A264B Morristown, NJ 07960",
+      "zh-CHS": "新泽西州莫里斯镇南大街445号1A264B室Tony Bogovic Telcordia Technologies 07960"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: tjb@research.telcordia.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Stephen John Brannon Swisscom AG Postfach 1570 CH-8301 Glattzentrum (Zuerich), Switzerland",
+      "zh-CHS": "Stephen John Brannon Swisscom AG Postfach 1570 CH-8301 Glattzentrum，瑞士"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: stephen.brannon@swisscom.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Marco Carugi Nortel Networks S.A. Parc d'activites de Magny-Les Jeunes Bois CHATEAUFORT 78928 YVELINES Cedex 9 - FRANCE",
+      "zh-CHS": "Marco Carugi Nortel Networks S.A.马尼-莱斯-琼斯-博伊斯城堡活动公园78928伊夫林-塞德克斯9号-法国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: marco.carugi@nortelnetworks.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Christopher J. Chase AT&T 200 Laurel Ave Middletown, NJ 07748 USA",
+      "zh-CHS": "克里斯托弗·蔡斯美国电话电报公司，地址：美国新泽西州米德尔顿劳雷尔大道200号，邮编：07748"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: chase@att.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Ting Wo Chung Bell Nexxia 181 Bay Street Suite 350 Toronto, Ontario M5J2T3",
+      "zh-CHS": "安大略省多伦多市湾街181号汀和钟钟楼350室M5J2T3"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: ting_wo.chung@bellnexxia.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Eric Dean",
+      "zh-CHS": "艾瑞克·迪恩"
+    },
+    {
+      "indent": 3,
+      "text": "Jeremy De Clercq Alcatel Network Strategy Group Francis Wellesplein 1 2018 Antwerp, Belgium",
+      "zh-CHS": "Jeremy De Clercq阿尔卡特网络战略集团Francis Wellesplein 1 2018比利时安特卫普"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jeremy.de_clercq@alcatel.be",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Luyuan Fang AT&T IP Backbone Architecture 200 Laurel Ave. Middletown, NJ 07748",
+      "zh-CHS": "卢元芳美国电话电报公司IP主干网架构，地址：新泽西州米德尔顿劳雷尔大道200号，邮编：07748"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: luyuanfang@att.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Paul Hitchen BT BT Adastral Park Martlesham Heath, Ipswich IP5 3RE UK",
+      "zh-CHS": "Paul Hitchen BT BT Adastral Park Martlesham Heath，英国伊普斯维奇IP5 3RE"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: paul.hitchen@bt.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Manoj Leelanivas Juniper Networks, Inc. 385 Ravendale Drive Mountain View, CA 94043 USA",
+      "zh-CHS": "Manoj Leelanivas Juniper Networks，Inc.美国加利福尼亚州拉文代尔山景大道385号，邮编94043"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: manoj@juniper.net",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Dave Marshall Worldcom 901 International Parkway Richardson, Texas 75081",
+      "zh-CHS": "戴夫·马歇尔世界通讯公司，德克萨斯州理查森国际公园路901号，邮编75081"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: dave.marshall@wcom.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Luca Martini Cisco Systems, Inc. 9155 East Nichols Avenue, Suite 400 Englewood, CO, 80112",
+      "zh-CHS": "卢卡·马蒂尼·思科系统公司，地址：科罗拉多州恩格尔伍德东尼科尔斯大道9155号400室，邮编：80112"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: lmartini@cisco.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Monique Jeanne Morrow Cisco Systems, Inc. Glatt-com, 2nd floor CH-8301 Glattzentrum, Switzerland",
+      "zh-CHS": "Monique Jeanne Morrow Cisco Systems，Inc.瑞士格拉茨岑特鲁姆CH-8301二楼格拉特公司"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mmorrow@cisco.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Ravichander Vaidyanathan Telcordia Technologies 445 South Street, Room 1C258B Morristown, NJ 07960",
+      "zh-CHS": "Ravichander Vaidyanathan Telcordia Technologies新泽西州莫里斯镇南大街445号1C258B室07960"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: vravi@research.telcordia.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Adrian Smith BT BT Adastral Park Martlesham Heath, Ipswich IP5 3RE UK",
+      "zh-CHS": "阿德里安·史密斯英国电信公司阿达斯特拉尔公园马特勒沙姆希思，英国伊普斯威奇IP5 3RE"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: adrian.ca.smith@bt.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Vijay Srinivasan 1200 Bridge Parkway Redwood City, CA 94065",
+      "zh-CHS": "维杰·斯里尼瓦桑1200桥公园路加利福尼亚州红木市94065"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: vsriniva@cosinecom.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Alain Vedrenne Equant Heraklion, 1041 route des Dolines, BP347 06906 Sophia Antipolis, Cedex, France",
+      "zh-CHS": "法国塞德克斯索菲亚安提波利斯，BP347 06906，多林路1041号，阿兰·韦德伦·埃坎特·赫拉克利翁"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Alain.Vedrenne@equant.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 0,
+      "text": "19. Normative References",
+      "section_title": true,
+      "zh-CHS": "19. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP] Rekhter, Y. and T. Li, \"A Border Gateway Protocol 4 (BGP-4)\", RFC 4271, January 2006.",
+      "zh-CHS": "[BGP]Rekhter，Y.和T.Li，“边境网关协议4（BGP-4）”，RFC 42712006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-MP] Bates, T., Rekhter, Y., Chandra, R., and D. Katz, \"Multiprotocol Extensions for BGP-4\", RFC 2858, June 2000.",
+      "zh-CHS": "[BGP-MP]Bates，T.，Rekhter，Y.，Chandra，R.，和D.Katz，“BGP-4的多协议扩展”，RFC 28582000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-EXTCOMM] Sangli, S., Tappan, D., and Y. Rekhter, \"BGP Extended Communities Attribute\", RFC 4360, February 2006.",
+      "zh-CHS": "[BGP-EXTCOMM]Sangli，S.，Tappan，D.，和Y.Rekhter，“BGP扩展社区属性”，RFC 4360，2006年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-ARCH] Rosen, E., Viswanathan, A., and R. Callon, \"Multiprotocol Label Switching Architecture\", RFC 3031, January 2001.",
+      "zh-CHS": "[MPLS-ARCH]Rosen，E.，Viswanathan，A.，和R.Callon，“多协议标签交换体系结构”，RFC 30312001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-BGP] Rekhter, Y. and E. Rosen, \"Carrying Label Information in BGP-4\", RFC 3107, May 2001.",
+      "zh-CHS": "[MPLS-BGP]Rekhter，Y.和E.Rosen，“在BGP-4中携带标签信息”，RFC 3107，2001年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-ENCAPS] Rosen, E., Tappan, D., Fedorkow, G., Rekhter, Y., Farinacci, D., Li, T., and A. Conta, \"MPLS Label Stack Encoding\", RFC 3032, January 2001.",
+      "zh-CHS": "[MPLS-ENCAPS]Rosen，E.，Tappan，D.，Fedorkow，G.，Rekhter，Y.，Farinaci，D.，Li，T.，和A.Conta，“MPLS标签堆栈编码”，RFC 3032，2001年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "20. Informative References",
+      "section_title": true,
+      "zh-CHS": "20. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-AS4] Vohra, Q. and E. Chen, \"BGP Support for Four-Octet AS Number Space\", Work in Progress, March 2004.",
+      "zh-CHS": "[BGP-AS4]Vohra，Q.和E.Chen，“BGP支持四个八位组作为数字空间”，正在进行的工作，2004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-ORF] Chen, E. and Y. Rekhter, \"Cooperative Route Filtering Capability for BGP-4\", Work in Progress, March 2004.",
+      "zh-CHS": "[BGP-ORF]Chen，E.和Y.Rekhter，“BGP-4的合作路由过滤能力”，正在进行的工作，2004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-RFSH] Chen, E., \"Route Refresh Capability for BGP-4\", RFC 2918, September 2000.",
+      "zh-CHS": "[BGP-RFSH]Chen，E.“BGP-4的路由刷新能力”，RFC 2918，2000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-RR] Bates, T., Chandra, R., and E. Chen, \"BGP Route Reflection - An Alternative to Full Mesh IBGP\", RFC 2796, April 2000.",
+      "zh-CHS": "[BGP-RR]Bates，T.，Chandra，R.，和E.Chen，“BGP路由反射-全网格IBGP的替代方案”，RFC 2796，2000年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IANA] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[IANA]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-ATM] Davie, B., Lawrence, J., McCloghrie, K., Rosen, E., Swallow, G., Rekhter, Y., and P. Doolan, \"MPLS using LDP and ATM VC Switching\", RFC 3035, January 2001.",
+      "zh-CHS": "[MPLS-ATM]Davie，B.，Lawrence，J.，McCloghrie，K.，Rosen，E.，Swallow，G.，Rekhter，Y.，和P.Doolan，“使用LDP和ATM VC交换的MPLS”，RFC 3035，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS/BGP-IPsec] Rosen, E., De Clercq, J., Paridaens, O., T'Joens, Y., and C. Sargor, \"Architecture for the Use of PE-PE IPsec Tunnels in BGP/MPLS IP VPNs\", Work in Progress, March 2004.",
+      "zh-CHS": "[MPLS/BGP IPsec]Rosen，E.，De Clercq，J.，Paridaens，O.，T'Joens，Y.，和C.Sargor，“在BGP/MPLS IP VPN中使用PE-PE IPsec隧道的体系结构”，正在进行的工作，2004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-FR] Conta, A., Doolan, P., and A. Malis, \"Use of Label Switching on Frame Relay Networks Specification\", RFC 3034, January 2001.",
+      "zh-CHS": "[MPLS-FR]Conta，A.，Doolan，P.，和A.Malis，“帧中继网络上标签切换的使用规范”，RFC 3034，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-in-IP-GRE] Worster, T., Rekhter, Y., and E. Rosen, \"Encapsulating MPLS in IP or Generic Routing Encapsulation (GRE)\", RFC 4023, March 2005.",
+      "zh-CHS": "[IP GRE中的MPLS]Worster，T.，Rekhter，Y.，和E.Rosen，“在IP中封装MPLS或通用路由封装（GRE）”，RFC 4023，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-LDP] Andersson, L., Doolan, P., Feldman, N., Fredette, A., and B. Thomas, \"LDP Specification\", RFC 3036, January 2001.",
+      "zh-CHS": "[MPLS-LDP]Andersson，L.，Doolan，P.，Feldman，N.，Fredette，A.，和B.Thomas，“LDP规范”，RFC 3036，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPLS-RSVP] Awduche, D., Berger, L., Gan, D., Li, T., Srinivasan, V., and G. Swallow, \"RSVP-TE: Extensions to RSVP for LSP Tunnels\", RFC 3209, December 2001.",
+      "zh-CHS": "[MPLS-RSVP]Awduche，D.，Berger，L.，Gan，D.，Li，T.，Srinivasan，V.，和G.Swallow，“RSVP-TE：LSP隧道RSVP的扩展”，RFC 3209，2001年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPFv2] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998.",
+      "zh-CHS": "[OSPFv2]Moy，J.，“OSPF版本2”，STD 54，RFC 23281998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[PASTE] Li, T. and Y. Rekhter, \"A Provider Architecture for Differentiated Services and Traffic Engineering (PASTE)\", RFC 2430, October 1998.",
+      "zh-CHS": "[PASTE]Li，T.和Y.Rekhter，“差异化服务和流量工程的提供商架构（PASTE）”，RFC 2430，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RIP] Malkin, G., \"RIP Version 2\", STD 56, RFC 2453, November 1998.",
+      "zh-CHS": "[RIP]Malkin，G.，“RIP版本2”，STD 56，RFC 2453，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[OSPF-2547-DNBIT] Rosen, E., Psenak, P., and P. Pillay-Esnault, \"Using an LSA Options Bit to Prevent Looping in BGP/MPLS IP VPNs\", Work in Progress, March 2004.",
+      "zh-CHS": "[OSPF-2547-DNBIT]Rosen，E.，Psenak，P.，和P.Pillay Esnault，“使用LSA选项位防止BGP/MPLS IP VPN中的循环”，正在进行的工作，2004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[TCP-MD5] Heffernan, A., \"Protection of BGP Sessions via the TCP MD5 Signature Option\", RFC 2385, August 1998.",
+      "zh-CHS": "[TCP-MD5]Heffernan，A.，“通过TCP MD5签名选项保护BGP会话”，RFC 2385，1998年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[VPN-MCAST] Rosen, E., Cai, Y., and J. Wijsnands, \"Multicast in MPLS/BGP VPNs\", Work in Progress, May 2004.",
+      "zh-CHS": "[VPN-MCAST]Rosen，E.，Cai，Y.，和J.Wijsnands，“MPLS/BGP VPN中的多播”，正在进行的工作，2004年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[VPN-OSPF] Rosen, E., Psenak, P., and P. Pillay-Esnault, \"OSPF as the PE/CE Protocol in BGP/MPLS VPNs\", Work in Progress, February 2004.",
+      "zh-CHS": "[VPN-OSPF]Rosen，E.，Psenak，P.，和P.Pillay Esnault，“OSPF作为BGP/MPLS VPN中的PE/CE协议”，正在进行的工作，2004年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Eric C. Rosen Cisco Systems, Inc. 1414 Massachusetts Avenue Boxborough, MA 01719",
+      "zh-CHS": "Eric C.Rosen Cisco Systems，Inc.马萨诸塞州伯斯堡马萨诸塞大道1414号，邮编01719"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: erosen@cisco.com",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Yakov Rekhter Juniper Networks 1194 N. Mathilda Avenue Sunnyvale, CA 94089",
+      "zh-CHS": "加利福尼亚州桑尼维尔市马蒂尔达大道北1194号雅科夫·雷克特·杜松网络公司，邮编94089"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: yakov@juniper.net",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

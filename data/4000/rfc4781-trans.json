@@ -1,0 +1,488 @@
+{
+  "title": {
+    "text": "RFC 4781: Graceful Restart Mechanism for BGP with MPLS",
+    "zh-CHS": "RFC 4781"
+  },
+  "number": 4781,
+  "created_at": "2021-10-16 01:44:29.791755+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         Y. Rekhter\nRequest for Comments: 4781                                   R. Aggarwal\nCategory: Standards Track                               Juniper Networks\n                                                            January 2007",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 14,
+      "text": "Graceful Restart Mechanism for BGP with MPLS",
+      "zh-CHS": "基于MPLS的BGP优雅重启机制"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2007).",
+      "zh-CHS": "版权所有（C）互联网协会（2007年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "A mechanism for BGP that helps minimize the negative effects on routing caused by BGP restart has already been developed and is described in a separate document (\"Graceful Restart Mechanism for BGP\"). This document extends this mechanism to minimize the negative effects on MPLS forwarding caused by the Label Switching Router's (LSR's) control plane restart, and specifically by the restart of its BGP component when BGP is used to carry MPLS labels and the LSR is capable of preserving the MPLS forwarding state across the restart.",
+      "zh-CHS": "已经开发了一种BGP机制，该机制有助于将BGP重启对路由造成的负面影响降至最低，并在单独的文档（“BGP的优雅重启机制”）中进行了描述。本文档扩展了这一机制，以最小化标签交换路由器（LSR）控制平面重启对MPLS转发造成的负面影响，特别是当BGP用于承载MPLS标签且LSR能够在重启过程中保持MPLS转发状态时，BGP组件重启对MPLS转发造成的负面影响。"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanism described in this document is agnostic with respect to the types of the addresses carried in the BGP Network Layer Reachability Information (NLRI) field. As such, it works in conjunction with any of the address families that could be carried in BGP (e.g., IPv4, IPv6, etc.).",
+      "zh-CHS": "本文档中描述的机制对于BGP网络层可达性信息（NLRI）字段中携带的地址类型是不可知的。因此，它可以与BGP中可以承载的任何地址系列（例如IPv4、IPv6等）协同工作。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Specification of Requirements ..............................3\n2. General Requirements ............................................3\n3. Capability Advertisement ........................................4\n4. Procedures for the Restarting LSR ...............................4\n   4.1. Case 1 .....................................................4\n   4.2. Case 2 .....................................................5\n   4.3. Case 3 .....................................................5\n5. Alternative Procedures for the Restarting LSR ...................6\n6. Procedures for a Neighbor of a Restarting LSR ...................6\n7. Comparison between Alternative Procedures for the\n   Restarting LSR ..................................................7\n8. Security Considerations .........................................8\n9. Acknowledgments .................................................9\n10. References .....................................................9\n   10.1. Normative References ......................................9\n   10.2. Informative References ....................................9",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "In the case where a Label Switching Router (LSR) could preserve its MPLS forwarding state across restart of its control plane, and specifically its BGP component, and BGP is used to carry MPLS labels (e.g., as specified in [RFC3107]), it may be desirable not to perturb the LSPs going through that LSR (and specifically, the LSPs established by BGP) after failure or restart of the BGP component of the control plane. In this document, we describe a mechanism that allows this goal to be accomplished. The mechanism described in this document works in conjunction with the mechanism specified in [RFC4724]. The mechanism described in this document places no restrictions on the types of addresses (address families) that it can support.",
+      "zh-CHS": "如果标签交换路由器（LSR）可以在其控制平面重启期间保持其MPLS转发状态，特别是其BGP组件，并且BGP用于携带MPLS标签（例如，如[RFC3107]中所规定），则可能希望不干扰通过该LSR的LSP（特别是由BGP建立的LSP）控制平面的BGP组件发生故障或重新启动后。在本文档中，我们描述了一种实现这一目标的机制。本文件中描述的机制与[RFC4724]中规定的机制协同工作。本文档中描述的机制对其支持的地址类型（地址族）没有任何限制。"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanism described in this document is applicable to all LSRs, both those with the ability to preserve forwarding state during BGP restart and those without it (although the latter need to implement only a subset of this mechanism). Supporting a subset of the mechanism described here by the LSRs that cannot preserve their MPLS forwarding state across the restart would not reduce the negative impact on MPLS traffic caused by their control plane restart. However, the impact would be minimized if their neighbor(s) are capable of preserving the forwarding state across the restart of their control plane, and if they implement the mechanism described here. The subset includes all the procedures described in this document, except the procedures in Sections 4.1, 4.2, 4.3, and 5.",
+      "zh-CHS": "本文档中描述的机制适用于所有LSR，包括那些能够在BGP重启期间保持转发状态的LSR和那些没有转发状态的LSR（尽管后者只需要实现该机制的一个子集）。支持LSR在重启过程中无法保持其MPLS转发状态的机制子集不会减少其控制平面重启对MPLS流量造成的负面影响。但是，如果它们的邻居能够在重新启动其控制平面时保持转发状态，并且如果它们实现此处描述的机制，则影响将最小化。子集包括本文件中描述的所有程序，第4.1、4.2、4.3和5节中的程序除外。"
+    },
+    {
+      "indent": 3,
+      "text": "For the sake of brevity, by \"MPLS forwarding state\" we mean one of\nthe following mappings:\n   <incoming label -> (outgoing label, next hop)>\n   <Forwarding Equivalence Class (FEC) -> (outgoing label, next hop)>\n   <incoming label -> label pop, next hop>\n   <incoming label, label pop>",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "In the context of this document, the forwarding state that is referred to in [RFC4724] means MPLS forwarding state, as defined above. The term \"next hop\" refers to the next hop as advertised in BGP.",
+      "zh-CHS": "在本文件的上下文中，[RFC4724]中所指的转发状态是指如上所述的MPLS转发状态。术语“下一跳”指BGP中公布的下一跳。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Specification of Requirements",
+      "section_title": true,
+      "zh-CHS": "1.1. 需求说明"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. General Requirements",
+      "section_title": true,
+      "zh-CHS": "2. 一般要求"
+    },
+    {
+      "indent": 3,
+      "text": "First of all, an LSR MUST implement the Graceful Restart Mechanism for BGP, as specified in [RFC4724]. Second, the LSR SHOULD be capable of preserving its MPLS forwarding state across the restart of its control plane (including the restart of BGP). Third, for the <Forwarding Equivalence Class (FEC) -> label> bindings distributed via BGP, the LSR SHOULD be able either (a) to reconstruct the same bindings as the LSR had prior to the restart (see Section 4), or (b) to create new <FEC -> label> bindings after restart, while temporarily maintaining MPLS forwarding state corresponding to both the bindings prior to the restart, as well as to the newly created bindings (see Section 5). Fourth, as long as the LSR retains the MPLS forwarding state that the LSR preserved across the restart, the labels from that state cannot be used to create new local label bindings (but could be used to reconstruct the existing bindings, as per procedures in Section 4). Finally, for each next hop, if the next hop is reachable via a Label Switched Path (LSP), then the restarting LSR MUST be able to preserve the MPLS forwarding state associated with that LSP across the restart.",
+      "zh-CHS": "首先，LSR必须实现[RFC4724]中规定的BGP的优雅重启机制。其次，LSR应该能够在重启其控制平面（包括重启BGP）的过程中保持其MPLS转发状态。第三，对于通过BGP分发的<Forwarding Equivalence Class（FEC）->label>绑定，LSR应该能够（a）重建与LSR在重启前相同的绑定（参见第4节），或者（b）在重启后创建新的<FEC->label>绑定，同时临时维护MPLS转发状态，该状态对应于重新启动之前的两个绑定以及新创建的绑定（请参阅第5节）。第四，只要LSR保留LSR在重启期间保留的MPLS转发状态，该状态的标签就不能用于创建新的本地标签绑定（但可以用于重建现有绑定，如第4节中的过程所述）。最后，对于每个下一跳，如果下一跳可以通过标签交换路径（LSP）到达，则重新启动的LSR必须能够在整个重新启动过程中保持与该LSP相关联的MPLS转发状态。"
+    },
+    {
+      "indent": 3,
+      "text": "In the scenario where label binding on an LSR is created/maintained not only by the BGP component of the control plane, but also by other protocol components (e.g., LDP, RSVP-TE), and where the LSR supports restart of the individual components of the control plane that create/maintain label binding (e.g., restart of BGP, but no restart of LDP), the LSR MUST be able to preserve across the restart the information about which protocol has assigned which labels.",
+      "zh-CHS": "在LSR上的标签绑定不仅由控制平面的BGP组件创建/维护，而且还由其他协议组件（例如LDP、RSVP-TE）创建/维护的场景中，并且LSR支持重新启动创建/维护标签绑定的控制平面的各个组件（例如，重新启动BGP，但不重新启动LDP），LSR必须能够在重启过程中保留关于哪个协议分配了哪些标签的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "After the LSR restarts, it MUST follow the procedures as specified in [RFC4724]. In addition, if the LSR is able to preserve its MPLS forwarding state across the restart, the LSR SHOULD advertise this to its neighbors by appropriately setting the Flag for Address Family field in the Graceful Restart Capability for all applicable AFI/SAFI pairs.",
+      "zh-CHS": "LSR重新启动后，必须遵循[RFC4724]中规定的程序。此外，如果LSR能够在重启过程中保持其MPLS转发状态，则LSR应通过在所有适用的AFI/SAFI对的优雅重启功能中适当设置地址族字段的标志，将其通告给其邻居。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Capability Advertisement",
+      "section_title": true,
+      "zh-CHS": "3. 能力广告"
+    },
+    {
+      "indent": 3,
+      "text": "An LSR that supports the mechanism described in this document advertises this to its peer by using the Graceful Restart Capability, as specified in [RFC4724]. The Subsequent Address Family Identifier (SAFI) in the advertised capability MUST indicate that the Network Layer Reachability Information (NLRI) field carries not only addressing Information, but also labels (see [RFC3107] for an example of where NLRI carries labels).",
+      "zh-CHS": "如[RFC4724]中所述，支持本文档中所述机制的LSR通过使用优雅重启功能向其对等方公布该机制。播发功能中的后续地址族标识符（SAFI）必须指示网络层可达性信息（NLRI）字段不仅包含地址信息，还包含标签（请参见[RFC3107]，了解NLRI包含标签的示例）。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Procedures for the Restarting LSR",
+      "section_title": true,
+      "zh-CHS": "4. 重新启动LSR的步骤"
+    },
+    {
+      "indent": 3,
+      "text": "Procedures in this section apply when a restarting LSR is able to reconstruct the same <FEC -> label> bindings as the LSR had prior to the restart.",
+      "zh-CHS": "当重新启动的LSR能够重建与重新启动前LSR相同的<FEC->label>绑定时，本节中的过程适用。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedures described in this section are conceptual and do not have to be implemented precisely as described, as long as the implementations support the described functionality and their externally visible behavior is the same.",
+      "zh-CHS": "本节中描述的过程是概念性的，只要实现支持所描述的功能并且它们的外部可见行为相同，就不必按照所描述的那样精确地实现。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the LSR completes its route selection (as specified in Section 4.1, \"Procedures for the Restarting Speaker\", of [RFC4724]), then in addition to the those procedures, the LSR performs one of the following:",
+      "zh-CHS": "一旦LSR完成其路线选择（如[RFC4724]第4.1节“重新启动扬声器的程序”中的规定），则除了这些程序外，LSR还执行以下操作之一："
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Case 1",
+      "section_title": true,
+      "zh-CHS": "4.1. 案例1"
+    },
+    {
+      "indent": 3,
+      "text": "The following applies when (a) the best route selected by the LSR was received with a label, (b) that label is not an Implicit NULL, and (c) the LSR advertises this route with itself as the next hop.",
+      "zh-CHS": "当（a）LSR选择的最佳路由与标签一起接收时，（b）该标签不是隐式空值，以及（c）LSR以自身作为下一跳播发该路由时，以下情况适用。"
+    },
+    {
+      "indent": 3,
+      "text": "In this case, the LSR searches its MPLS forwarding state (the one preserved across the restart) for an entry with <outgoing label, next hop> equal to the one in the received route. If such an entry is found, the LSR no longer marks the entry as stale. In addition, if the entry is of type <incoming label, (outgoing label, next hop)> rather than <Forwarding Equivalence Class (FEC), (outgoing label, next hop)>, the LSR uses the incoming label from the entry when advertising the route to its neighbors. If the found entry has no incoming label, or if no such entry is found, the LSR allocates a new",
+      "zh-CHS": "在这种情况下，LSR在其MPLS转发状态（重启期间保留的状态）中搜索<outgoing label，next hop>等于接收到的路由中的条目。如果找到这样的条目，LSR将不再将该条目标记为过时。此外，如果条目的类型为<传入标签，（传出标签，下一跳）>而不是<转发等价类（FEC），（传出标签，下一跳）>，则LSR在向其邻居公布路由时使用来自条目的传入标签。如果找到的条目没有传入标签，或者没有找到此类条目，则LSR将分配一个新的标签"
+    },
+    {
+      "indent": 3,
+      "text": "label when advertising the route to its neighbors (assuming that there are neighbors to which the LSR has to advertise the route with a label).",
+      "zh-CHS": "向其邻居公布路由时添加标签（假设存在LSR必须使用标签公布路由的邻居）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Case 2",
+      "section_title": true,
+      "zh-CHS": "4.2. 案例2"
+    },
+    {
+      "indent": 3,
+      "text": "The following applies when (a) the best route selected by the LSR was received either without a label, with an Implicit NULL label, or the route is originated by the LSR; (b) the LSR advertises this route with itself as the next hop; and (c) the LSR has to generate a (non-Implicit NULL) label for the route.",
+      "zh-CHS": "当（a）接收到LSR选择的最佳路由时，或者没有标签，或者接收到隐式空标签，或者路由是由LSR发起的，则以下情况适用；（b） LSR以自身作为下一个跃点宣传该路由；和（c）LSR必须为路由生成（非隐式空）标签。"
+    },
+    {
+      "indent": 3,
+      "text": "In this case, the LSR searches its MPLS forwarding state for an entry that indicates that the LSR has to perform label pop, and the next hop equal to the next hop of the route in consideration. If such an entry is found, then the LSR uses the incoming label from the entry when advertising the route to its neighbors. If no such entry is found, the LSR allocates a new label when advertising the route to its neighbors.",
+      "zh-CHS": "在这种情况下，LSR在其MPLS转发状态中搜索一个条目，该条目指示LSR必须执行标签pop，并且下一跳等于考虑中的路由的下一跳。如果找到这样一个条目，则LSR在向其邻居公布路由时使用该条目的传入标签。如果没有找到这样的条目，LSR在向其邻居公布路由时会分配一个新标签。"
+    },
+    {
+      "indent": 3,
+      "text": "The description in the above paragraph assumes that the LSR generates the same label for all the routes with the same next hop. If this is not the case and the LSR generates a unique label per each such route, then the LSR needs to preserve across the restart not only <incoming label, (outgoing label, next hop)> mapping, but also the Forwarding Equivalence Class (FEC) associated with this mapping. In such a case the LSR would search its MPLS forwarding state for an entry that (a) indicates label pop (means no outgoing label), (b) indicates that the next hop equal to the next hop of the route, and (c) has the same FEC as the route. If such an entry is found, then the LSR uses the incoming label from the entry when advertising the route to its neighbors. If no such entry is found, the LSR allocates a new label when advertising the route to its neighbors.",
+      "zh-CHS": "上述段落中的描述假设LSR为具有相同下一跳的所有路由生成相同的标签。如果情况并非如此，并且LSR为每个这样的路由生成一个唯一的标签，那么LSR不仅需要在重新启动过程中保留<传入标签，（传出标签，下一跳）>映射，还需要保留与该映射相关联的转发等价类（FEC）。在这种情况下，LSR将在其MPLS转发状态中搜索以下条目：（a）指示标签pop（意味着没有传出标签），（b）指示下一跳等于路由的下一跳，以及（c）具有与路由相同的FEC。如果找到这样一个条目，则LSR在向其邻居公布路由时使用该条目的传入标签。如果没有找到这样的条目，LSR在向其邻居公布路由时会分配一个新标签。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Case 3",
+      "section_title": true,
+      "zh-CHS": "4.3. 案例3"
+    },
+    {
+      "indent": 3,
+      "text": "The following applies when the LSR does not set BGP next hop to self.",
+      "zh-CHS": "当LSR未将BGP下一跳设置为self时，以下内容适用。"
+    },
+    {
+      "indent": 3,
+      "text": "In this case, the LSR, when advertising its best route for a particular NLRI, just uses the label that was received with that route. And if the route was received with no label, the LSR advertises the route with no label as well. Either way, the LSR does not allocate a label for that route.",
+      "zh-CHS": "在这种情况下，LSR在为特定NLRI宣传其最佳路由时，只使用该路由接收到的标签。如果接收到的路由没有标签，LSR也会播发没有标签的路由。无论哪种方式，LSR都不会为该路由分配标签。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Alternative Procedures for the Restarting LSR",
+      "section_title": true,
+      "zh-CHS": "5. 重新启动LSR的替代程序"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we describe an alternative to the procedures described in Section \"Procedures for the restarting LSR\".",
+      "zh-CHS": "在本节中，我们将介绍“重新启动LSR的程序”一节中所述程序的替代方案。"
+    },
+    {
+      "indent": 3,
+      "text": "Procedures in this section apply when a restarting LSR does not reconstruct the same <FEC -> label> bindings as the LSR had prior to the restart, but instead creates new <FEC -> label> bindings after restart, while temporarily maintaining MPLS forwarding state corresponding to both the bindings prior to the restart, as well as to the newly created bindings.",
+      "zh-CHS": "当重新启动的LSR没有重建与重新启动前LSR相同的<FEC->label>绑定，而是在重新启动后创建新的<FEC->label>绑定，同时临时保持与重新启动前两个绑定对应的MPLS转发状态时，本节中的过程适用，以及新创建的绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedures described in this section require that for the use by BGP graceful restart, the LSR SHOULD have (at least) as many unallocated labels as labels allocated for the <FEC -> label> bindings distributed by BGP. The latter forms the MPLS forwarding state that the LSR managed to preserve across the restart. The former is used for allocating labels after the restart.",
+      "zh-CHS": "本节中描述的过程要求，对于BGP优雅重启的使用，LSR应具有（至少）与为BGP分发的<FEC->label>绑定分配的标签数量相同的未分配标签。后者形成了LSR在重启过程中设法保持的MPLS转发状态。前者用于重新启动后分配标签。"
+    },
+    {
+      "indent": 3,
+      "text": "To create (new) local label bindings after the restart, the LSR uses unallocated labels (this is pretty much the normal procedure).",
+      "zh-CHS": "为了在重启后创建（新的）本地标签绑定，LSR使用未分配的标签（这几乎是正常的过程）。"
+    },
+    {
+      "indent": 3,
+      "text": "The LSR SHOULD retain the MPLS forwarding state that the LSR preserved across the restart at least until the LSR sends an End-of-RIB marker to all of its neighbors (by that time the LSR already completed its route selection process, and also advertised its Adj-RIB-Out to its neighbors). The LSR MAY retain the forwarding state even a bit longer (the amount of extra time MAY be controlled by configuration on the LSR), so as to allow the neighbors to receive and process the routes that have been advertised by the LSR. After that, the LSR SHOULD delete the MPLS forwarding state that it preserved across the restart.",
+      "zh-CHS": "LSR应保持LSR在重启期间保持的MPLS转发状态，至少直到LSR向其所有邻居发送RIB结束标记为止（此时LSR已完成其路由选择过程，并向其邻居公布其Adj RIB）。LSR可以保持转发状态甚至更长一点（额外的时间量可以由LSR上的配置控制），以便允许邻居接收和处理由LSR通告的路由。之后，LSR应该删除它在重启期间保留的MPLS转发状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that while an LSR is in the process of restarting, the LSR may have not one, but two local label bindings for a given BGP route -- one that was retained from prior to restart, and another that was created after the restart. Once the LSR completes its restart, the former will be deleted. However, both of these bindings would have the same outgoing label (and the same next hop).",
+      "zh-CHS": "请注意，当LSR处于重新启动过程中时，对于给定的BGP路由，LSR可能没有一个本地标签绑定，而是有两个本地标签绑定——一个是在重新启动之前保留的，另一个是在重新启动之后创建的。一旦LSR完成重启，前者将被删除。但是，这两个绑定将具有相同的传出标签（和相同的下一跳）。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Procedures for a Neighbor of a Restarting LSR",
+      "section_title": true,
+      "zh-CHS": "6. 重新启动LSR的邻居的过程"
+    },
+    {
+      "indent": 3,
+      "text": "The neighbor of a restarting LSR (the receiving router terminology used in [RFC4724]) follows the procedures specified in [RFC4724]. In addition, the neighbor treats the MPLS labels received from the restarting LSR the same way that it treats the routes received from the restarting LSR (both prior and after the restart).",
+      "zh-CHS": "重启LSR的邻居（在[RFC4724]中使用的接收路由器术语）遵循[RFC4724]中指定的程序。此外，邻居处理从重新启动的LSR接收的MPLS标签的方式与处理从重新启动的LSR接收的路由的方式相同（在重新启动之前和之后）。"
+    },
+    {
+      "indent": 3,
+      "text": "Replacing the stale routes by the routing updates received from the restarting LSR involves replacing/updating the appropriate MPLS labels.",
+      "zh-CHS": "通过从重新启动的LSR接收到的路由更新来替换陈旧的路由涉及替换/更新适当的MPLS标签。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, if the Flags in the Graceful Restart Capability received from the restarting LSR indicate that the LSR wasn't able to retain its MPLS state across the restart, the neighbor SHOULD immediately remove all the NLRI and the associated MPLS labels that it previously acquired via BGP from the restarting LSR.",
+      "zh-CHS": "此外，如果从重新启动的LSR接收到的优雅重新启动功能中的标志指示LSR无法在重新启动期间保持其MPLS状态，则邻居应立即从重新启动的LSR中删除其先前通过BGP获取的所有NLRI和相关MPLS标签。"
+    },
+    {
+      "indent": 3,
+      "text": "An LSR, once it creates a binding between a label and a Forwarding Equivalence Class (FEC), SHOULD keep the value of the label in this binding for as long as the LSR has a route to the FEC in the binding. If the route to the FEC disappears and then re-appears again later, then this may result in using a different label value, as when the route re-appears, the LSR would create a new <label, FEC> binding.",
+      "zh-CHS": "LSR在标签和转发等价类（FEC）之间创建绑定后，只要LSR在绑定中有到FEC的路由，就应该在该绑定中保留标签的值。如果到FEC的路由消失，然后稍后再次出现，则这可能会导致使用不同的标签值，因为当路由重新出现时，LSR将创建一个新的<label，FEC>绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "To minimize the potential misrouting caused by the label change, when creating a new <label, FEC> binding, the LSR SHOULD pick up the least recently used label. Once an LSR releases a label, the LSR SHALL NOT re-use this label for advertising a <label, FEC> binding to a neighbor that supports graceful restart for at least the Restart Time, as advertised by the neighbor to the LSR. This rule SHALL apply to any label release at any time.",
+      "zh-CHS": "为了最大限度地减少标签更改导致的潜在错误路由，在创建新的<label，FEC>绑定时，LSR应选择最近使用最少的标签。一旦LSR发布标签，LSR不得重复使用该标签来发布与邻居的<label，FEC>绑定，该邻居至少支持重启时间，如邻居向LSR发布的。本规则应适用于任何时候的任何标签发布。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Comparison between Alternative Procedures for the Restarting LSR",
+      "section_title": true,
+      "zh-CHS": "7. 重新启动LSR的备选程序之间的比较"
+    },
+    {
+      "indent": 3,
+      "text": "Procedures described in Section 4 involve more computational overhead on the restarting router than do the procedures described in Section 5.",
+      "zh-CHS": "第4节中描述的过程比第5节中描述的过程在重启路由器上涉及更多的计算开销。"
+    },
+    {
+      "indent": 3,
+      "text": "Procedures described in Section 5 require twice as many labels as those described in Section 4.",
+      "zh-CHS": "第5节中描述的程序需要的标签数量是第4节中描述的两倍。"
+    },
+    {
+      "indent": 3,
+      "text": "Procedures described in Section 4 cause fewer changes to the MPLS forwarding state in the neighbors of the restarting router than the procedures described in Section 5.",
+      "zh-CHS": "与第5节中描述的过程相比，第4节中描述的过程对重启路由器的邻居中的MPLS转发状态造成的更改更少。"
+    },
+    {
+      "indent": 3,
+      "text": "In principle, it is possible for an LSR to use procedures described in Section 4 for some AFI/SAFI(s) and procedures described in Section 5 for other AFI/SAFI(s).",
+      "zh-CHS": "原则上，LSR可以对某些AFI/SAFI使用第4节中描述的程序，对其他AFI/SAFI使用第5节中描述的程序。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The security considerations pertaining to the BGP protocol [RFC4271] remain relevant.",
+      "zh-CHS": "与BGP协议[RFC4271]相关的安全注意事项仍然相关。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, the mechanism described here renders LSRs that implement it vulnerable to additional denial-of-service attacks as follows:",
+      "zh-CHS": "此外，此处描述的机制使实现该机制的LSR容易受到以下其他拒绝服务攻击："
+    },
+    {
+      "indent": 6,
+      "text": "An intruder may impersonate a BGP peer in order to force a failure and reconnection of the TCP connection, where the intruder sets the Forwarding State (F) bit (as defined in [RFC4724]) to 0 on reconnection. This forces all labels received from the peer to be released.",
+      "zh-CHS": "入侵者可以模拟BGP对等方以强制TCP连接失败和重新连接，入侵者在重新连接时将转发状态（F）位（如[RFC4724]中定义）设置为0。这将强制释放从对等方接收的所有标签。"
+    },
+    {
+      "indent": 6,
+      "text": "An intruder could intercept the traffic between BGP peers and override the setting of the Forwarding State (F) bit to be set to 0. This forces all labels received from the peer to be released.",
+      "zh-CHS": "入侵者可以拦截BGP对等方之间的通信，并覆盖将转发状态（F）位设置为0的设置。这将强制释放从对等方接收的所有标签。"
+    },
+    {
+      "indent": 3,
+      "text": "All of these attacks may be countered by use of an authentication scheme between BGP peers, such as the scheme outlined in [RFC2385].",
+      "zh-CHS": "所有这些攻击都可以通过使用BGP对等方之间的身份验证方案（如[RFC2385]中概述的方案）来反击。"
+    },
+    {
+      "indent": 3,
+      "text": "As with BGP carrying labels, a security issue may exist if a BGP implementation continues to use labels after expiration of the BGP session that first caused them to be used. This may arise if the upstream LSR detects the session failure after the downstream LSR has released and re-used the label. The problem is most obvious with the platform-wide label space and could result in misrouting of data to destinations other than those intended; and it is conceivable that these behaviors may be deliberately exploited, either to obtain services without authorization or to deny services to others.",
+      "zh-CHS": "与携带标签的BGP一样，如果BGP实现在第一次使用标签的BGP会话到期后继续使用标签，则可能存在安全问题。如果上游LSR在下游LSR释放并重新使用标签后检测到会话失败，则可能会出现这种情况。该问题在整个平台的标签空间中最为明显，可能导致将数据错误路由到预期目的地以外的目的地；可以想象，这些行为可能被蓄意利用，或者未经授权获取服务，或者拒绝向他人提供服务。"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, the validity of the BGP session may be extended by the Restart Time, and the session may be re-established in this period. After the expiry of the Restart Time, the session must be considered to have failed, and the same security issue applies as described above.",
+      "zh-CHS": "在本文件中，BGP会话的有效期可延长重启时间，在此期间可重新建立会话。重启时间到期后，会话必须被视为已失败，并且如上所述，同样的安全问题也适用。"
+    },
+    {
+      "indent": 3,
+      "text": "However, the downstream LSR may declare the session as failed before the expiration of its Restart Time. This increases the period during which the downstream LSR might reallocate the label while the upstream LSR continues to transmit data using the old usage of the label. To reduce this issue, this document requires that labels are not re-used until at least the Restart Time.",
+      "zh-CHS": "但是，下游LSR可能会在会话重新启动时间到期之前将会话声明为失败。这增加了当上游LSR继续使用标签的旧用法传输数据时，下游LSR可能重新分配标签的时间段。为了减少此问题，本文档要求至少在重新启动之前不要重复使用标签。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We would like to thank Chaitanya Kodeboyina and Loa Andersson for their review and comments. The approach described in Section 5 is based on the idea suggested by Manoj Leelanivas.",
+      "zh-CHS": "我们要感谢柴坦尼亚·科德博伊纳和洛亚·安德森的审查和评论。第5节中描述的方法基于Manoj Leelanivas提出的想法。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2385] Heffernan, A., \"Protection of BGP Sessions via the TCP MD5 Signature Option\", RFC 2385, August 1998.",
+      "zh-CHS": "[RFC2385]Heffernan，A.，“通过TCP MD5签名选项保护BGP会话”，RFC 2385，1998年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4271] Rekhter, Y., Li, T., and S. Hares, \"A Border Gateway Protocol 4 (BGP-4)\", RFC 4271, January 2006.",
+      "zh-CHS": "[RFC4271]Rekhter，Y.，Li，T.，和S.Hares，“边境网关协议4（BGP-4）”，RFC 42712006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4724] Sangli, S., Chen, E., Fernando, R., Scudder, J., and Y. Rekhter, \"Graceful Restart Mechanism for BGP\", RFC 4724, January 2007.",
+      "zh-CHS": "[RFC4724]Sangli，S.，Chen，E.，Fernando，R.，Scudder，J.，和Y.Rekhter，“BGP的优雅重启机制”，RFC 47242007年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3107] Rekhter, Y. and E. Rosen, \"Carrying Label Information in BGP-4\", RFC 3107, May 2001.",
+      "zh-CHS": "[RFC3107]Rekhter，Y.和E.Rosen，“在BGP-4中携带标签信息”，RFC 3107，2001年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Yakov Rekhter Juniper Networks 1194 N.Mathilda Ave Sunnyvale, CA 94089",
+      "zh-CHS": "加利福尼亚州桑尼维尔马蒂尔达大道北1194号雅科夫·雷克特·朱尼珀网络公司，邮编94089"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: yakov@juniper.net",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "Rahul Aggarwal Juniper Networks 1194 N.Mathilda Ave Sunnyvale, CA 94089",
+      "zh-CHS": "加利福尼亚州桑尼维尔马蒂尔达大道北1194号，邮编94089"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rahul@juniper.net",
+      "raw": true,
+      "zh-CHS": "translate error, please retry"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

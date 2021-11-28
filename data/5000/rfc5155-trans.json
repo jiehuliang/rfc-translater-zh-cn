@@ -1,0 +1,2735 @@
+{
+  "title": {
+    "text": "RFC 5155: DNS Security (DNSSEC) Hashed Authenticated Denial of Existence",
+    "zh-CHS": "RFC 5155"
+  },
+  "number": 5155,
+  "created_at": "2021-11-10 08:13:45.943430+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          B. Laurie\nRequest for Comments: 5155                                     G. Sisson\nCategory: Standards Track                                      R. Arends\n                                                                 Nominet\n                                                               D. Blacka\n                                                          VeriSign, Inc.\n                                                              March 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "DNS Security (DNSSEC) Hashed Authenticated Denial of Existence",
+      "zh-CHS": "DNS安全性（DNSSEC）哈希认证拒绝存在"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Domain Name System Security (DNSSEC) Extensions introduced the NSEC resource record (RR) for authenticated denial of existence. This document introduces an alternative resource record, NSEC3, which similarly provides authenticated denial of existence. However, it also provides measures against zone enumeration and permits gradual expansion of delegation-centric zones.",
+      "zh-CHS": "域名系统安全性（DNSSEC）扩展引入了NSEC资源记录（RR），用于身份验证拒绝存在。本文档介绍了另一种资源记录NSEC3，它同样提供了经过身份验证的拒绝存在。但是，它还提供了防止区域枚举的措施，并允许逐渐扩展以委派为中心的区域。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  4\n  1.1.  Rationale  . . . . . . . . . . . . . . . . . . . . . . . .  4\n  1.2.  Requirements . . . . . . . . . . . . . . . . . . . . . . .  4\n  1.3.  Terminology  . . . . . . . . . . . . . . . . . . . . . . .  5\n2.  Backwards Compatibility  . . . . . . . . . . . . . . . . . . .  6\n3.  The NSEC3 Resource Record  . . . . . . . . . . . . . . . . . .  7\n  3.1.  RDATA Fields . . . . . . . . . . . . . . . . . . . . . . .  8\n    3.1.1.  Hash Algorithm . . . . . . . . . . . . . . . . . . . .  8\n    3.1.2.  Flags  . . . . . . . . . . . . . . . . . . . . . . . .  8\n    3.1.3.  Iterations . . . . . . . . . . . . . . . . . . . . . .  8\n    3.1.4.  Salt Length  . . . . . . . . . . . . . . . . . . . . .  8\n    3.1.5.  Salt . . . . . . . . . . . . . . . . . . . . . . . . .  8\n    3.1.6.  Hash Length  . . . . . . . . . . . . . . . . . . . . .  9\n    3.1.7.  Next Hashed Owner Name . . . . . . . . . . . . . . . .  9\n    3.1.8.  Type Bit Maps  . . . . . . . . . . . . . . . . . . . .  9\n  3.2.  NSEC3 RDATA Wire Format  . . . . . . . . . . . . . . . . .  9\n    3.2.1.  Type Bit Maps Encoding . . . . . . . . . . . . . . . . 10\n  3.3.  Presentation Format  . . . . . . . . . . . . . . . . . . . 11",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "4.  The NSEC3PARAM Resource Record . . . . . . . . . . . . . . . . 12\n  4.1.  RDATA Fields . . . . . . . . . . . . . . . . . . . . . . . 12\n    4.1.1.  Hash Algorithm . . . . . . . . . . . . . . . . . . . . 12\n    4.1.2.  Flag Fields  . . . . . . . . . . . . . . . . . . . . . 12\n    4.1.3.  Iterations . . . . . . . . . . . . . . . . . . . . . . 13\n    4.1.4.  Salt Length  . . . . . . . . . . . . . . . . . . . . . 13\n    4.1.5.  Salt . . . . . . . . . . . . . . . . . . . . . . . . . 13\n  4.2.  NSEC3PARAM RDATA Wire Format . . . . . . . . . . . . . . . 13\n  4.3.  Presentation Format  . . . . . . . . . . . . . . . . . . . 14\n5.  Calculation of the Hash  . . . . . . . . . . . . . . . . . . . 14\n6.  Opt-Out  . . . . . . . . . . . . . . . . . . . . . . . . . . . 15\n7.  Authoritative Server Considerations  . . . . . . . . . . . . . 16\n  7.1.  Zone Signing . . . . . . . . . . . . . . . . . . . . . . . 16\n  7.2.  Zone Serving . . . . . . . . . . . . . . . . . . . . . . . 17\n    7.2.1.  Closest Encloser Proof . . . . . . . . . . . . . . . . 18\n    7.2.2.  Name Error Responses . . . . . . . . . . . . . . . . . 19\n    7.2.3.  No Data Responses, QTYPE is not DS . . . . . . . . . . 19\n    7.2.4.  No Data Responses, QTYPE is DS . . . . . . . . . . . . 19\n    7.2.5.  Wildcard No Data Responses . . . . . . . . . . . . . . 19\n    7.2.6.  Wildcard Answer Responses  . . . . . . . . . . . . . . 20\n    7.2.7.  Referrals to Unsigned Subzones . . . . . . . . . . . . 20\n    7.2.8.  Responding to Queries for NSEC3 Owner Names  . . . . . 20\n    7.2.9.  Server Response to a Run-Time Collision  . . . . . . . 21\n  7.3.  Secondary Servers  . . . . . . . . . . . . . . . . . . . . 21\n  7.4.  Zones Using Unknown Hash Algorithms  . . . . . . . . . . . 21\n  7.5.  Dynamic Update . . . . . . . . . . . . . . . . . . . . . . 21\n8.  Validator Considerations . . . . . . . . . . . . . . . . . . . 23\n  8.1.  Responses with Unknown Hash Types  . . . . . . . . . . . . 23\n  8.2.  Verifying NSEC3 RRs  . . . . . . . . . . . . . . . . . . . 23\n  8.3.  Closest Encloser Proof . . . . . . . . . . . . . . . . . . 23\n  8.4.  Validating Name Error Responses  . . . . . . . . . . . . . 24\n  8.5.  Validating No Data Responses, QTYPE is not DS  . . . . . . 24\n  8.6.  Validating No Data Responses, QTYPE is DS  . . . . . . . . 24\n  8.7.  Validating Wildcard No Data Responses  . . . . . . . . . . 25\n  8.8.  Validating Wildcard Answer Responses . . . . . . . . . . . 25\n  8.9.  Validating Referrals to Unsigned Subzones  . . . . . . . . 25\n9.  Resolver Considerations  . . . . . . . . . . . . . . . . . . . 26\n  9.1.  NSEC3 Resource Record Caching  . . . . . . . . . . . . . . 26\n  9.2.  Use of the AD Bit  . . . . . . . . . . . . . . . . . . . . 26\n10. Special Considerations . . . . . . . . . . . . . . . . . . . . 26\n  10.1. Domain Name Length Restrictions  . . . . . . . . . . . . . 26\n  10.2. DNAME at the Zone Apex . . . . . . . . . . . . . . . . . . 27\n  10.3. Iterations . . . . . . . . . . . . . . . . . . . . . . . . 27\n  10.4. Transitioning a Signed Zone from NSEC to NSEC3 . . . . . . 28\n  10.5. Transitioning a Signed Zone from NSEC3 to NSEC . . . . . . 28\n11. IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 29\n12. Security Considerations  . . . . . . . . . . . . . . . . . . . 30\n  12.1. Hashing Considerations . . . . . . . . . . . . . . . . . . 30",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "    12.1.1. Dictionary Attacks . . . . . . . . . . . . . . . . . . 30\n    12.1.2. Collisions . . . . . . . . . . . . . . . . . . . . . . 31\n    12.1.3. Transitioning to a New Hash Algorithm  . . . . . . . . 31\n    12.1.4. Using High Iteration Values  . . . . . . . . . . . . . 31\n  12.2. Opt-Out Considerations . . . . . . . . . . . . . . . . . . 32\n  12.3. Other Considerations . . . . . . . . . . . . . . . . . . . 33\n13. References . . . . . . . . . . . . . . . . . . . . . . . . . . 33\n  13.1. Normative References . . . . . . . . . . . . . . . . . . . 33\n  13.2. Informative References . . . . . . . . . . . . . . . . . . 34\nAppendix A.  Example Zone  . . . . . . . . . . . . . . . . . . . . 35\nAppendix B.  Example Responses . . . . . . . . . . . . . . . . . . 40\n  B.1.  Name Error . . . . . . . . . . . . . . . . . . . . . . . . 40\n  B.2.  No Data Error  . . . . . . . . . . . . . . . . . . . . . . 42\n    B.2.1.  No Data Error, Empty Non-Terminal  . . . . . . . . . . 43\n  B.3.  Referral to an Opt-Out Unsigned Zone . . . . . . . . . . . 44\n  B.4.  Wildcard Expansion . . . . . . . . . . . . . . . . . . . . 45\n  B.5.  Wildcard No Data Error . . . . . . . . . . . . . . . . . . 46\n  B.6.  DS Child Zone No Data Error  . . . . . . . . . . . . . . . 48\nAppendix C.  Special Considerations  . . . . . . . . . . . . . . . 48\n  C.1.  Salting  . . . . . . . . . . . . . . . . . . . . . . . . . 49\n  C.2.  Hash Collision . . . . . . . . . . . . . . . . . . . . . . 49\n    C.2.1.  Avoiding Hash Collisions During Generation . . . . . . 50\n    C.2.2.  Second Preimage Requirement Analysis . . . . . . . . . 50",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Rationale",
+      "section_title": true,
+      "zh-CHS": "1.1. 根本原因"
+    },
+    {
+      "indent": 3,
+      "text": "The DNS Security Extensions included the NSEC RR to provide authenticated denial of existence. Though the NSEC RR meets the requirements for authenticated denial of existence, it introduces a side-effect in that the contents of a zone can be enumerated. This property introduces undesired policy issues.",
+      "zh-CHS": "DNS安全扩展包括NSEC RR，以提供经过身份验证的拒绝存在。尽管NSEC RR满足认证拒绝存在的要求，但它引入了一个副作用，即可以枚举区域的内容。此属性会引入不需要的策略问题。"
+    },
+    {
+      "indent": 3,
+      "text": "The enumeration is enabled by the set of NSEC records that exists inside a signed zone. An NSEC record lists two names that are ordered canonically, in order to show that nothing exists between the two names. The complete set of NSEC records lists all the names in a zone. It is trivial to enumerate the content of a zone by querying for names that do not exist.",
+      "zh-CHS": "枚举由签名区域内存在的NSEC记录集启用。NSEC记录列出两个按规范顺序排列的名称，以表明这两个名称之间不存在任何内容。NSEC记录的完整集合列出了区域中的所有名称。通过查询不存在的名称来枚举区域的内容是很简单的。"
+    },
+    {
+      "indent": 3,
+      "text": "An enumerated zone can be used, for example, as a source of probable e-mail addresses for spam, or as a key for multiple WHOIS queries to reveal registrant data that many registries may have legal obligations to protect. Many registries therefore prohibit the copying of their zone data; however, the use of NSEC RRs renders these policies unenforceable.",
+      "zh-CHS": "例如，枚举区域可以用作垃圾邮件的可能电子邮件地址的来源，或者用作多个WHOIS查询的密钥，以显示许多注册中心可能有法律义务保护的注册人数据。因此，许多登记处禁止复制其分区数据；然而，NSEC RRs的使用使得这些政策无法执行。"
+    },
+    {
+      "indent": 3,
+      "text": "A second problem is that the cost to cryptographically secure delegations to unsigned zones is high, relative to the perceived security benefit, in two cases: large, delegation-centric zones, and zones where insecure delegations will be updated rapidly. In these cases, the costs of maintaining the NSEC RR chain may be extremely high and use of the \"Opt-Out\" convention may be more appropriate (for these unsecured zones).",
+      "zh-CHS": "第二个问题是，在两种情况下，对未签名区域的授权进行加密保护的成本相对于感知的安全好处来说很高：大型、以授权为中心的区域，以及不安全的授权将被快速更新的区域。在这些情况下，维护NSEC RR链的成本可能非常高，使用“选择退出”公约可能更合适（对于这些不安全区域）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document presents the NSEC3 Resource Record which can be used as an alternative to NSEC to mitigate these issues.",
+      "zh-CHS": "本文档介绍了NSEC3资源记录，可作为NSEC的替代品，以缓解这些问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Earlier work to address these issues include [DNSEXT-NO], [RFC4956], and [DNSEXT-NSEC2v2].",
+      "zh-CHS": "解决这些问题的早期工作包括[DNSEXT-NO]、[RFC4956]和[DNSEXT-NSEC2v2]。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Requirements",
+      "section_title": true,
+      "zh-CHS": "1.2. 要求"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Terminology",
+      "section_title": true,
+      "zh-CHS": "1.3. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The reader is assumed to be familiar with the basic DNS and DNSSEC concepts described in [RFC1034], [RFC1035], [RFC4033], [RFC4034], [RFC4035], and subsequent RFCs that update them: [RFC2136], [RFC2181], and [RFC2308].",
+      "zh-CHS": "假定读者熟悉[RFC1034]、[RFC1035]、[RFC4033]、[RFC4034]、[RFC4035]中描述的基本DNS和DNSSEC概念，以及更新它们的后续RFC:[RFC2136]、[RFC2181]和[RFC2308]。"
+    },
+    {
+      "indent": 3,
+      "text": "The following terminology is used throughout this document:",
+      "zh-CHS": "本文件中使用了以下术语："
+    },
+    {
+      "indent": 3,
+      "text": "Zone enumeration: the practice of discovering the full content of a zone via successive queries. Zone enumeration was non-trivial prior to the introduction of DNSSEC.",
+      "zh-CHS": "区域枚举：通过连续查询发现区域完整内容的实践。在引入DNSSEC之前，区域枚举是非常重要的。"
+    },
+    {
+      "indent": 3,
+      "text": "Original owner name: the owner name corresponding to a hashed owner name.",
+      "zh-CHS": "原始所有者名称：与哈希所有者名称相对应的所有者名称。"
+    },
+    {
+      "indent": 3,
+      "text": "Hashed owner name: the owner name created after applying the hash function to an owner name.",
+      "zh-CHS": "哈希所有者名称：将哈希函数应用于所有者名称后创建的所有者名称。"
+    },
+    {
+      "indent": 3,
+      "text": "Hash order: the order in which hashed owner names are arranged according to their numerical value, treating the leftmost (lowest numbered) octet as the most significant octet. Note that this order is the same as the canonical DNS name order specified in [RFC4034], when the hashed owner names are in base32, encoded with an Extended Hex Alphabet [RFC4648].",
+      "zh-CHS": "散列顺序：散列所有者名称根据其数值排列的顺序，将最左边（编号最低）的八位字节视为最重要的八位字节。请注意，当哈希所有者名称为base32时，此顺序与[RFC4034]中指定的规范DNS名称顺序相同，并使用扩展的十六进制字母[RFC4648]进行编码。"
+    },
+    {
+      "indent": 3,
+      "text": "Empty non-terminal: a domain name that owns no resource records, but has one or more subdomains that do.",
+      "zh-CHS": "空的非终端域名：不拥有任何资源记录，但有一个或多个子域名可以。"
+    },
+    {
+      "indent": 3,
+      "text": "Delegation: an NS RRSet with a name different from the current zone apex (non-zone-apex), signifying a delegation to a child zone.",
+      "zh-CHS": "委派：名称不同于当前区域顶点（非区域顶点）的NS RRSet，表示委派给子区域。"
+    },
+    {
+      "indent": 3,
+      "text": "Secure delegation: a name containing a delegation (NS RRSet) and a signed DS RRSet, signifying a delegation to a signed child zone.",
+      "zh-CHS": "安全委派：包含委派（NS RRSet）和签名DS RRSet的名称，表示对签名子区域的委派。"
+    },
+    {
+      "indent": 3,
+      "text": "Insecure delegation: a name containing a delegation (NS RRSet), but lacking a DS RRSet, signifying a delegation to an unsigned child zone.",
+      "zh-CHS": "不安全的委派：包含委派（NS RRSet）但缺少DS RRSet的名称，表示委派到未签名的子区域。"
+    },
+    {
+      "indent": 3,
+      "text": "Opt-Out NSEC3 resource record: an NSEC3 resource record that has the Opt-Out flag set to 1.",
+      "zh-CHS": "选择退出NSEC3资源记录：选择退出标志设置为1的NSEC3资源记录。"
+    },
+    {
+      "indent": 3,
+      "text": "Opt-Out zone: a zone with at least one Opt-Out NSEC3 RR.",
+      "zh-CHS": "选择退出区域：至少有一个选择退出NSEC3 RR的区域。"
+    },
+    {
+      "indent": 3,
+      "text": "Closest encloser: the longest existing ancestor of a name. See also Section 3.3.1 of [RFC4592].",
+      "zh-CHS": "最近的封闭器：名称存在的最长祖先。另见[RFC4592]第3.3.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "Closest provable encloser: the longest ancestor of a name that can be proven to exist. Note that this is only different from the closest encloser in an Opt-Out zone.",
+      "zh-CHS": "最近可证明封闭器：可证明存在的名称的最长祖先。请注意，这与选择退出区域中最近的封闭器不同。"
+    },
+    {
+      "indent": 3,
+      "text": "Next closer name: the name one label longer than the closest provable encloser of a name.",
+      "zh-CHS": "下一个更接近的名称：名称比名称的最近可证明封闭符长一个标签。"
+    },
+    {
+      "indent": 3,
+      "text": "Base32: the \"Base 32 Encoding with Extended Hex Alphabet\" as specified in [RFC4648]. Note that trailing padding characters (\"=\") are not used in the NSEC3 specification.",
+      "zh-CHS": "Base32:[RFC4648]中规定的“扩展十六进制字母的Base32编码”。请注意，NSEC3规范中未使用尾随填充字符（“=”）。"
+    },
+    {
+      "indent": 3,
+      "text": "To cover: An NSEC3 RR is said to \"cover\" a name if the hash of the name or \"next closer\" name falls between the owner name and the next hashed owner name of the NSEC3. In other words, if it proves the nonexistence of the name, either directly or by proving the nonexistence of an ancestor of the name.",
+      "zh-CHS": "覆盖：如果名称或“下一个更接近者”名称的散列位于NSEC3的所有者名称和下一个散列所有者名称之间，则NSEC3 RR称为“覆盖”名称。换句话说，如果它直接或通过证明名字的祖先不存在来证明名字的不存在。"
+    },
+    {
+      "indent": 3,
+      "text": "To match: An NSEC3 RR is said to \"match\" a name if the owner name of the NSEC3 RR is the same as the hashed owner name of that name.",
+      "zh-CHS": "匹配：如果NSEC3 RR的所有者名称与该名称的哈希所有者名称相同，则称NSEC3 RR“匹配”该名称。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Backwards Compatibility",
+      "section_title": true,
+      "zh-CHS": "2. 向后兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "This specification describes a protocol change that is not generally backwards compatible with [RFC4033], [RFC4034], and [RFC4035]. In particular, security-aware resolvers that are unaware of this specification (NSEC3-unaware resolvers) may fail to validate the responses introduced by this document.",
+      "zh-CHS": "本规范描述了通常与[RFC4033]、[RFC4034]和[RFC4035]不向后兼容的协议更改。特别是，不知道本规范的安全感知解析程序（NSEC3不知道解析程序）可能无法验证本文档引入的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to aid deployment, this specification uses a signaling technique to prevent NSEC3-unaware resolvers from attempting to validate responses from NSEC3-signed zones.",
+      "zh-CHS": "为了帮助部署，本规范使用了一种信令技术来防止NSEC3非意识解析程序尝试验证来自NSEC3签名区域的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "This specification allocates two new DNSKEY algorithm identifiers for this purpose. Algorithm 6, DSA-NSEC3-SHA1 is an alias for algorithm 3, DSA. Algorithm 7, RSASHA1-NSEC3-SHA1 is an alias for algorithm 5, RSASHA1. These are not new algorithms, they are additional identifiers for the existing algorithms.",
+      "zh-CHS": "本规范为此目的分配了两个新的DNSKEY算法标识符。算法6，DSA-NSEC3-SHA1是算法3，DSA的别名。算法7，RSASHA1-NSEC3-SHA1是算法5，RSASHA1的别名。这些不是新算法，它们是现有算法的附加标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "Zones signed according to this specification MUST only use these algorithm identifiers for their DNSKEY RRs. Because these new identifiers will be unknown algorithms to existing, NSEC3-unaware resolvers, those resolvers will then treat responses from the NSEC3 signed zone as insecure, as detailed in Section 5.2 of [RFC4035].",
+      "zh-CHS": "根据本规范签署的区域必须仅为其DNSKEY RRs使用这些算法标识符。由于这些新标识符对于现有的、不知道NSEC3的解析程序来说是未知算法，因此这些解析程序将把来自NSEC3签名区域的响应视为不安全，详见[RFC4035]第5.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "These algorithm identifiers are used with the NSEC3 hash algorithm SHA1. Using other NSEC3 hash algorithms requires allocation of a new alias (see Section 12.1.3).",
+      "zh-CHS": "这些算法标识符与NSEC3哈希算法SHA1一起使用。使用其他NSEC3哈希算法需要分配新别名（请参阅第12.1.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Security aware resolvers that are aware of this specification MUST recognize the new algorithm identifiers and treat them as equivalent to the algorithms that they alias.",
+      "zh-CHS": "了解此规范的安全感知解析器必须识别新的算法标识符，并将其视为与其别名相同的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "A methodology for transitioning from a DNSSEC signed zone to a zone signed using NSEC3 is discussed in Section 10.4.",
+      "zh-CHS": "第10.4节讨论了从DNSSEC签署的区域过渡到使用NSEC3签署的区域的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "3. The NSEC3 Resource Record",
+      "section_title": true,
+      "zh-CHS": "3. NSEC3资源记录"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 Resource Record (RR) provides authenticated denial of existence for DNS Resource Record Sets.",
+      "zh-CHS": "NSEC3资源记录（RR）为DNS资源记录集提供经过身份验证的拒绝存在。"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 RR lists RR types present at the original owner name of the NSEC3 RR. It includes the next hashed owner name in the hash order of the zone. The complete set of NSEC3 RRs in a zone indicates which RRSets exist for the original owner name of the RR and form a chain of hashed owner names in the zone. This information is used to provide authenticated denial of existence for DNS data. To provide protection against zone enumeration, the owner names used in the NSEC3 RR are cryptographic hashes of the original owner name prepended as a single label to the name of the zone. The NSEC3 RR indicates which hash function is used to construct the hash, which salt is used, and how many iterations of the hash function are performed over the original owner name. The hashing technique is described fully in Section 5.",
+      "zh-CHS": "NSEC3 RR列出了NSEC3 RR的原始所有者名称中存在的RR类型。它包括区域哈希顺序中的下一个哈希所有者名称。区域中NSEC3 RRs的完整集合表示RR的原始所有者名称存在哪些RRs集合，并在区域中形成哈希所有者名称链。此信息用于为DNS数据提供经过身份验证的拒绝存在。为了防止区域枚举，NSEC3 RR中使用的所有者名称是原始所有者名称的加密哈希，作为区域名称的单个标签预先添加。NSEC3 RR指示使用哪个哈希函数构造哈希，使用哪个salt，以及在原始所有者名称上执行了多少次哈希函数迭代。散列技术在第5节中有详细描述。"
+    },
+    {
+      "indent": 3,
+      "text": "Hashed owner names of unsigned delegations may be excluded from the chain. An NSEC3 RR whose span covers the hash of an owner name or \"next closer\" name of an unsigned delegation is referred to as an Opt-Out NSEC3 RR and is indicated by the presence of a flag.",
+      "zh-CHS": "未签名委托的哈希所有者名称可能会从链中排除。NSEC3 RR的范围包括未签名委派的所有者名称或“下一个更接近者”名称的散列，该NSEC3 RR称为选择退出NSEC3 RR，并通过存在标志来指示。"
+    },
+    {
+      "indent": 3,
+      "text": "The owner name for the NSEC3 RR is the base32 encoding of the hashed owner name prepended as a single label to the name of the zone.",
+      "zh-CHS": "NSEC3 RR的所有者名称是哈希所有者名称的base32编码，作为区域名称的单个标签预先添加。"
+    },
+    {
+      "indent": 3,
+      "text": "The type value for the NSEC3 RR is 50.",
+      "zh-CHS": "NSEC3 RR的类型值为50。"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 RR RDATA format is class independent and is described below.",
+      "zh-CHS": "NSEC3 RR RDATA格式与类无关，如下所述。"
+    },
+    {
+      "indent": 3,
+      "text": "The class MUST be the same as the class of the original owner name.",
+      "zh-CHS": "该类必须与原始所有者名称的类相同。"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 RR SHOULD have the same TTL value as the SOA minimum TTL field. This is in the spirit of negative caching [RFC2308].",
+      "zh-CHS": "NSEC3 RR应具有与SOA最小TTL字段相同的TTL值。这符合负缓存[RFC2308]的精神。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. RDATA Fields",
+      "section_title": true,
+      "zh-CHS": "3.1. RDATA字段"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.1. Hash Algorithm",
+      "section_title": true,
+      "zh-CHS": "3.1.1. 散列算法"
+    },
+    {
+      "indent": 3,
+      "text": "The Hash Algorithm field identifies the cryptographic hash algorithm used to construct the hash-value.",
+      "zh-CHS": "哈希算法字段标识用于构造哈希值的加密哈希算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The values for this field are defined in the NSEC3 hash algorithm registry defined in Section 11.",
+      "zh-CHS": "该字段的值在第11节中定义的NSEC3哈希算法注册表中定义。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2. Flags",
+      "section_title": true,
+      "zh-CHS": "3.1.2. 旗帜"
+    },
+    {
+      "indent": 3,
+      "text": "The Flags field contains 8 one-bit flags that can be used to indicate different processing. All undefined flags must be zero. The only flag defined by this specification is the Opt-Out flag.",
+      "zh-CHS": "Flags字段包含8个一位标志，可用于指示不同的处理。所有未定义的标志必须为零。本规范定义的唯一标志是选择退出标志。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.2.1. Opt-Out Flag",
+      "section_title": true,
+      "zh-CHS": "3.1.2.1. 选择退出标志"
+    },
+    {
+      "indent": 3,
+      "text": "If the Opt-Out flag is set, the NSEC3 record covers zero or more unsigned delegations.",
+      "zh-CHS": "如果设置了退出标志，NSEC3记录将覆盖零个或多个未签名的委托。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Opt-Out flag is clear, the NSEC3 record covers zero unsigned delegations.",
+      "zh-CHS": "如果选择退出标志清除，则NSEC3记录覆盖零个未签名的代表团。"
+    },
+    {
+      "indent": 3,
+      "text": "The Opt-Out Flag indicates whether this NSEC3 RR may cover unsigned delegations. It is the least significant bit in the Flags field. See Section 6 for details about the use of this flag.",
+      "zh-CHS": "选择退出标志指示此NSEC3 RR是否可以覆盖未签名的授权。它是标志字段中的最低有效位。有关此标志使用的详细信息，请参见第6节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.3. Iterations",
+      "section_title": true,
+      "zh-CHS": "3.1.3. 迭代"
+    },
+    {
+      "indent": 3,
+      "text": "The Iterations field defines the number of additional times the hash function has been performed. More iterations result in greater resiliency of the hash value against dictionary attacks, but at a higher computational cost for both the server and resolver. See Section 5 for details of the use of this field, and Section 10.3 for limitations on the value.",
+      "zh-CHS": "迭代字段定义执行哈希函数的额外次数。迭代次数越多，哈希值对字典攻击的恢复能力就越强，但服务器和解析器的计算成本就越高。有关此字段使用的详细信息，请参见第5节；有关该值的限制，请参见第10.3节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.4. Salt Length",
+      "section_title": true,
+      "zh-CHS": "3.1.4. 盐长"
+    },
+    {
+      "indent": 3,
+      "text": "The Salt Length field defines the length of the Salt field in octets, ranging in value from 0 to 255.",
+      "zh-CHS": "Salt Length字段定义Salt字段的长度（以八位字节为单位），取值范围为0到255。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.5. Salt",
+      "section_title": true,
+      "zh-CHS": "3.1.5. 盐"
+    },
+    {
+      "indent": 3,
+      "text": "The Salt field is appended to the original owner name before hashing in order to defend against pre-calculated dictionary attacks. See Section 5 for details on how the salt is used.",
+      "zh-CHS": "在散列之前，Salt字段将附加到原始所有者名称，以抵御预先计算的字典攻击。有关如何使用盐的详细信息，请参见第5节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.6. Hash Length",
+      "section_title": true,
+      "zh-CHS": "3.1.6. 散列长度"
+    },
+    {
+      "indent": 3,
+      "text": "The Hash Length field defines the length of the Next Hashed Owner Name field, ranging in value from 1 to 255 octets.",
+      "zh-CHS": "哈希长度字段定义下一个哈希所有者名称字段的长度，其值范围为1到255个八位字节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.7. Next Hashed Owner Name",
+      "section_title": true,
+      "zh-CHS": "3.1.7. 下一个哈希所有者名称"
+    },
+    {
+      "indent": 3,
+      "text": "The Next Hashed Owner Name field contains the next hashed owner name in hash order. This value is in binary format. Given the ordered set of all hashed owner names, the Next Hashed Owner Name field contains the hash of an owner name that immediately follows the owner name of the given NSEC3 RR. The value of the Next Hashed Owner Name field in the last NSEC3 RR in the zone is the same as the hashed owner name of the first NSEC3 RR in the zone in hash order. Note that, unlike the owner name of the NSEC3 RR, the value of this field does not contain the appended zone name.",
+      "zh-CHS": "下一个哈希所有者名称字段按哈希顺序包含下一个哈希所有者名称。此值为二进制格式。给定所有散列所有者名称的有序集，下一个散列所有者名称字段包含紧跟给定NSEC3 RR的所有者名称之后的所有者名称的散列。区域中最后一个NSEC3 RR中的下一个哈希所有者名称字段的值与区域中第一个NSEC3 RR的哈希所有者名称（按哈希顺序）相同。请注意，与NSEC3 RR的所有者名称不同，此字段的值不包含附加的区域名称。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1.8. Type Bit Maps",
+      "section_title": true,
+      "zh-CHS": "3.1.8. 类型位图"
+    },
+    {
+      "indent": 3,
+      "text": "The Type Bit Maps field identifies the RRSet types that exist at the original owner name of the NSEC3 RR.",
+      "zh-CHS": "类型位图字段标识NSEC3 RR的原始所有者名称中存在的RRSet类型。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. NSEC3 RDATA Wire Format",
+      "section_title": true,
+      "zh-CHS": "3.2. NSEC3 RDATA有线格式"
+    },
+    {
+      "indent": 3,
+      "text": "The RDATA of the NSEC3 RR is as shown below:",
+      "zh-CHS": "NSEC3 RR的RDATA如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "                     1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   Hash Alg.   |     Flags     |          Iterations           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Salt Length  |                     Salt                      /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Hash Length  |             Next Hashed Owner Name            /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n/                         Type Bit Maps                         /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Hash Algorithm is a single octet.",
+      "zh-CHS": "哈希算法是一个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "Flags field is a single octet, the Opt-Out flag is the least significant bit, as shown below:",
+      "zh-CHS": "标志字段是一个八位字节，选择退出标志是最低有效位，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": " 0 1 2 3 4 5 6 7\n+-+-+-+-+-+-+-+-+\n|             |O|\n+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Iterations is represented as a 16-bit unsigned integer, with the most significant bit first.",
+      "zh-CHS": "迭代被表示为一个16位无符号整数，最高有效位在前。"
+    },
+    {
+      "indent": 3,
+      "text": "Salt Length is represented as an unsigned octet. Salt Length represents the length of the Salt field in octets. If the value is zero, the following Salt field is omitted.",
+      "zh-CHS": "Salt长度表示为无符号八位字节。Salt Length表示盐场的长度（以八位字节为单位）。如果该值为零，则忽略以下盐场。"
+    },
+    {
+      "indent": 3,
+      "text": "Salt, if present, is encoded as a sequence of binary octets. The length of this field is determined by the preceding Salt Length field.",
+      "zh-CHS": "盐（如果存在）被编码为二进制八位字节序列。此字段的长度由前面的盐长度字段确定。"
+    },
+    {
+      "indent": 3,
+      "text": "Hash Length is represented as an unsigned octet. Hash Length represents the length of the Next Hashed Owner Name field in octets.",
+      "zh-CHS": "哈希长度表示为无符号八位字节。哈希长度表示下一个哈希所有者名称字段的长度（以八位字节为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "The next hashed owner name is not base32 encoded, unlike the owner name of the NSEC3 RR. It is the unmodified binary hash value. It does not include the name of the containing zone. The length of this field is determined by the preceding Hash Length field.",
+      "zh-CHS": "与NSEC3 RR的所有者名称不同，下一个哈希所有者名称不是base32编码的。它是未修改的二进制哈希值。它不包括包含区域的名称。此字段的长度由前面的哈希长度字段确定。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2.1. Type Bit Maps Encoding",
+      "section_title": true,
+      "zh-CHS": "3.2.1. 类型位图编码"
+    },
+    {
+      "indent": 3,
+      "text": "The encoding of the Type Bit Maps field is the same as that used by the NSEC RR, described in [RFC4034]. It is explained and clarified here for clarity.",
+      "zh-CHS": "类型位图字段的编码与NSEC RR使用的编码相同，如[RFC4034]所述。为了清楚起见，这里对其进行了解释和澄清。"
+    },
+    {
+      "indent": 3,
+      "text": "The RR type space is split into 256 window blocks, each representing the low-order 8 bits of the 16-bit RR type space. Each block that has at least one active RR type is encoded using a single octet window number (from 0 to 255), a single octet bitmap length (from 1 to 32) indicating the number of octets used for the bitmap of the window block, and up to 32 octets (256 bits) of bitmap.",
+      "zh-CHS": "RR类型空间被分割为256个窗口块，每个窗口块表示16位RR类型空间的低位8位。每个具有至少一个活动RR类型的块使用单个八位字节窗口编号（从0到255）、单个八位字节位图长度（从1到32）进行编码，该长度指示用于窗口块位图的八位字节数，以及最多32个八位字节（256位）的位图。"
+    },
+    {
+      "indent": 3,
+      "text": "Blocks are present in the NSEC3 RR RDATA in increasing numerical order.",
+      "zh-CHS": "块以递增的数字顺序出现在NSEC3 RR RDATA中。"
+    },
+    {
+      "indent": 6,
+      "text": "Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "where \"|\" denotes concatenation.",
+      "zh-CHS": "其中“|”表示串联。"
+    },
+    {
+      "indent": 3,
+      "text": "Each bitmap encodes the low-order 8 bits of RR types within the window block, in network bit order. The first bit is bit 0. For window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds to RR type 2 (NS), and so forth. For window block 1, bit 1 corresponds to RR type 257, bit 2 to RR type 258. If a bit is set to 1, it indicates that an RRSet of that type is present for the original owner name of the NSEC3 RR. If a bit is set to 0, it indicates that no RRSet of that type is present for the original owner name of the NSEC3 RR.",
+      "zh-CHS": "每个位图以网络位顺序对窗口块内RR类型的低位8位进行编码。第一位是位0。对于窗口块0，位1对应于RR类型1（A），位2对应于RR类型2（NS），依此类推。对于窗口块1，位1对应于RR类型257，位2对应于RR类型258。如果位设置为1，则表示NSEC3 RR的原始所有者名称存在该类型的RRSet。如果位设置为0，则表示NSEC3 RR的原始所有者名称不存在该类型的RRSet。"
+    },
+    {
+      "indent": 3,
+      "text": "Since bit 0 in window block 0 refers to the non-existing RR type 0, it MUST be set to 0. After verification, the validator MUST ignore the value of bit 0 in window block 0.",
+      "zh-CHS": "由于窗口块0中的位0引用不存在的RR类型0，因此必须将其设置为0。验证后，验证器必须忽略窗口块0中位0的值。"
+    },
+    {
+      "indent": 3,
+      "text": "Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of [RFC2929] or within the range reserved for assignment only to QTYPEs and Meta-TYPEs MUST be set to 0, since they do not appear in zone data. If encountered, they must be ignored upon reading.",
+      "zh-CHS": "表示[RFC2929]第3.1节中规定的元类型或QType的位，或仅用于分配给QType和元类型的保留范围内的位，必须设置为0，因为它们不会出现在区域数据中。如果遇到，阅读时必须忽略它们。"
+    },
+    {
+      "indent": 3,
+      "text": "Blocks with no types present MUST NOT be included. Trailing zero octets in the bitmap MUST be omitted. The length of the bitmap of each block is determined by the type code with the largest numerical value, within that block, among the set of RR types present at the original owner name of the NSEC3 RR. Trailing octets not specified MUST be interpreted as zero octets.",
+      "zh-CHS": "不包括不存在类型的块。位图中尾随的零八位字节必须省略。每个块的位图长度由该块内具有最大数值的类型代码决定，该类型代码位于NSEC3 RR的原始所有者名称处的RR类型集合中。未指定的尾随八位字节必须解释为零八位字节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Presentation Format",
+      "section_title": true,
+      "zh-CHS": "3.3. 演示文稿格式"
+    },
+    {
+      "indent": 3,
+      "text": "The presentation format of the RDATA portion is as follows:",
+      "zh-CHS": "RDATA部分的表示格式如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "o The Hash Algorithm field is represented as an unsigned decimal integer. The value has a maximum of 255.",
+      "zh-CHS": "o 哈希算法字段表示为无符号十进制整数。该值的最大值为255。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Flags field is represented as an unsigned decimal integer. The value has a maximum of 255.",
+      "zh-CHS": "o 标志字段表示为无符号十进制整数。该值的最大值为255。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Iterations field is represented as an unsigned decimal integer. The value is between 0 and 65535, inclusive.",
+      "zh-CHS": "o 迭代字段表示为无符号十进制整数。该值介于0和65535之间（含0和65535）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Salt Length field is not represented.",
+      "zh-CHS": "o 未表示“盐长度”字段。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Salt field is represented as a sequence of case-insensitive hexadecimal digits. Whitespace is not allowed within the sequence. The Salt field is represented as \"-\" (without the quotes) when the Salt Length field has a value of 0.",
+      "zh-CHS": "o 盐域表示为不区分大小写的十六进制数字序列。序列中不允许有空格。当Salt长度字段的值为0时，Salt字段表示为“-”（不带引号）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Hash Length field is not represented.",
+      "zh-CHS": "o 未表示哈希长度字段。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Next Hashed Owner Name field is represented as an unpadded sequence of case-insensitive base32 digits, without whitespace.",
+      "zh-CHS": "o 下一个哈希所有者名称字段表示为未添加的不区分大小写的base32数字序列，不带空格。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Type Bit Maps field is represented as a sequence of RR type mnemonics. When the mnemonic is not known, the TYPE representation as described in Section 5 of [RFC3597] MUST be used.",
+      "zh-CHS": "o 类型位图字段表示为RR类型助记符序列。当助记符未知时，必须使用[RFC3597]第5节中所述的类型表示法。"
+    },
+    {
+      "indent": 0,
+      "text": "4. The NSEC3PARAM Resource Record",
+      "section_title": true,
+      "zh-CHS": "4. NSEC3PARAM资源记录"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3PARAM RR contains the NSEC3 parameters (hash algorithm, flags, iterations, and salt) needed by authoritative servers to calculate hashed owner names. The presence of an NSEC3PARAM RR at a zone apex indicates that the specified parameters may be used by authoritative servers to choose an appropriate set of NSEC3 RRs for negative responses. The NSEC3PARAM RR is not used by validators or resolvers.",
+      "zh-CHS": "NSEC3PARAM RR包含权威服务器计算散列所有者名称所需的NSEC3参数（散列算法、标志、迭代和salt）。区域顶点处存在NSEC3PARAM RR表示权威服务器可使用指定参数为负面响应选择一组适当的NSEC3 RR。验证程序或解析程序不使用NSEC3PARAM RR。"
+    },
+    {
+      "indent": 3,
+      "text": "If an NSEC3PARAM RR is present at the apex of a zone with a Flags field value of zero, then there MUST be an NSEC3 RR using the same hash algorithm, iterations, and salt parameters present at every hashed owner name in the zone. That is, the zone MUST contain a complete set of NSEC3 RRs with the same hash algorithm, iterations, and salt parameters.",
+      "zh-CHS": "如果标志字段值为零的区域顶点处存在NSEC3PARAM RR，则必须存在NSEC3 RR，使用相同的哈希算法、迭代次数和salt参数在区域中的每个哈希所有者名称处存在。也就是说，区域必须包含具有相同哈希算法、迭代次数和salt参数的完整NSEC3 RRs集。"
+    },
+    {
+      "indent": 3,
+      "text": "The owner name for the NSEC3PARAM RR is the name of the zone apex.",
+      "zh-CHS": "NSEC3PARAM RR的所有者名称是分区顶点的名称。"
+    },
+    {
+      "indent": 3,
+      "text": "The type value for the NSEC3PARAM RR is 51.",
+      "zh-CHS": "NSEC3PARAM RR的类型值为51。"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3PARAM RR RDATA format is class independent and is described below.",
+      "zh-CHS": "NSEC3PARAM RR RDATA格式与类无关，如下所述。"
+    },
+    {
+      "indent": 3,
+      "text": "The class MUST be the same as the NSEC3 RRs to which this RR refers.",
+      "zh-CHS": "该类必须与此RR引用的NSEC3 RRs相同。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. RDATA Fields",
+      "section_title": true,
+      "zh-CHS": "4.1. RDATA字段"
+    },
+    {
+      "indent": 3,
+      "text": "The RDATA for this RR mirrors the first four fields in the NSEC3 RR.",
+      "zh-CHS": "此RR的RDATA镜像NSEC3 RR中的前四个字段。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. Hash Algorithm",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 散列算法"
+    },
+    {
+      "indent": 3,
+      "text": "The Hash Algorithm field identifies the cryptographic hash algorithm used to construct the hash-value.",
+      "zh-CHS": "哈希算法字段标识用于构造哈希值的加密哈希算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The acceptable values are the same as the corresponding field in the NSEC3 RR.",
+      "zh-CHS": "可接受值与NSEC3 RR中的相应字段相同。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Flag Fields",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 标志字段"
+    },
+    {
+      "indent": 3,
+      "text": "The Opt-Out flag is not used and is set to zero.",
+      "zh-CHS": "不使用选择退出标志，并将其设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "All other flags are reserved for future use, and must be zero.",
+      "zh-CHS": "所有其他标志保留供将来使用，并且必须为零。"
+    },
+    {
+      "indent": 3,
+      "text": "NSEC3PARAM RRs with a Flags field value other than zero MUST be ignored.",
+      "zh-CHS": "必须忽略标志字段值不是零的NSEC3PARAM RRs。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3. Iterations",
+      "section_title": true,
+      "zh-CHS": "4.1.3. 迭代"
+    },
+    {
+      "indent": 3,
+      "text": "The Iterations field defines the number of additional times the hash is performed.",
+      "zh-CHS": "迭代字段定义执行哈希的额外次数。"
+    },
+    {
+      "indent": 3,
+      "text": "Its acceptable values are the same as the corresponding field in the NSEC3 RR.",
+      "zh-CHS": "其可接受值与NSEC3 RR中的相应字段相同。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.4. Salt Length",
+      "section_title": true,
+      "zh-CHS": "4.1.4. 盐长"
+    },
+    {
+      "indent": 3,
+      "text": "The Salt Length field defines the length of the salt in octets, ranging in value from 0 to 255.",
+      "zh-CHS": "Salt Length字段以八位字节为单位定义盐的长度，取值范围为0到255。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.5. Salt",
+      "section_title": true,
+      "zh-CHS": "4.1.5. 盐"
+    },
+    {
+      "indent": 3,
+      "text": "The Salt field is appended to the original owner name before hashing.",
+      "zh-CHS": "在散列之前，Salt字段将附加到原始所有者名称。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. NSEC3PARAM RDATA Wire Format",
+      "section_title": true,
+      "zh-CHS": "4.2. NSEC3PARAM RDATA导线格式"
+    },
+    {
+      "indent": 3,
+      "text": "The RDATA of the NSEC3PARAM RR is as shown below:",
+      "zh-CHS": "NSEC3PARAM RR的RDATA如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "                     1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   Hash Alg.   |     Flags     |          Iterations           |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Salt Length  |                     Salt                      /\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Hash Algorithm is a single octet.",
+      "zh-CHS": "哈希算法是一个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "Flags field is a single octet.",
+      "zh-CHS": "标志字段是一个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "Iterations is represented as a 16-bit unsigned integer, with the most significant bit first.",
+      "zh-CHS": "迭代被表示为一个16位无符号整数，最高有效位在前。"
+    },
+    {
+      "indent": 3,
+      "text": "Salt Length is represented as an unsigned octet. Salt Length represents the length of the following Salt field in octets. If the value is zero, the Salt field is omitted.",
+      "zh-CHS": "Salt长度表示为无符号八位字节。Salt Length表示以下盐场的长度（以八位字节为单位）。如果该值为零，则忽略盐场。"
+    },
+    {
+      "indent": 3,
+      "text": "Salt, if present, is encoded as a sequence of binary octets. The length of this field is determined by the preceding Salt Length field.",
+      "zh-CHS": "盐（如果存在）被编码为二进制八位字节序列。此字段的长度由前面的盐长度字段确定。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Presentation Format",
+      "section_title": true,
+      "zh-CHS": "4.3. 演示文稿格式"
+    },
+    {
+      "indent": 3,
+      "text": "The presentation format of the RDATA portion is as follows:",
+      "zh-CHS": "RDATA部分的表示格式如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "o The Hash Algorithm field is represented as an unsigned decimal integer. The value has a maximum of 255.",
+      "zh-CHS": "o 哈希算法字段表示为无符号十进制整数。该值的最大值为255。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Flags field is represented as an unsigned decimal integer. The value has a maximum value of 255.",
+      "zh-CHS": "o 标志字段表示为无符号十进制整数。该值的最大值为255。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Iterations field is represented as an unsigned decimal integer. The value is between 0 and 65535, inclusive.",
+      "zh-CHS": "o 迭代字段表示为无符号十进制整数。该值介于0和65535之间（含0和65535）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Salt Length field is not represented.",
+      "zh-CHS": "o 未表示“盐长度”字段。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Salt field is represented as a sequence of case-insensitive hexadecimal digits. Whitespace is not allowed within the sequence. This field is represented as \"-\" (without the quotes) when the Salt Length field is zero.",
+      "zh-CHS": "o 盐域表示为不区分大小写的十六进制数字序列。序列中不允许有空格。当Salt Length字段为零时，此字段表示为“-”（不带引号）。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Calculation of the Hash",
+      "section_title": true,
+      "zh-CHS": "5. 散列的计算"
+    },
+    {
+      "indent": 3,
+      "text": "The hash calculation uses three of the NSEC3 RDATA fields: Hash Algorithm, Salt, and Iterations.",
+      "zh-CHS": "哈希计算使用三个NSEC3 RDATA字段：哈希算法、Salt和迭代。"
+    },
+    {
+      "indent": 3,
+      "text": "Define H(x) to be the hash of x using the Hash Algorithm selected by the NSEC3 RR, k to be the number of Iterations, and || to indicate concatenation. Then define:",
+      "zh-CHS": "使用NSEC3 RR选择的哈希算法将H（x）定义为x的哈希，k表示迭代次数，| |表示串联。然后定义："
+    },
+    {
+      "indent": 6,
+      "text": "IH(salt, x, 0) = H(x || salt), and",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "IH(salt, x, k) = H(IH(salt, x, k-1) || salt), if k > 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Then the calculated hash of an owner name is",
+      "zh-CHS": "然后，所有者名称的计算哈希为"
+    },
+    {
+      "indent": 6,
+      "text": "IH(salt, owner name, iterations),",
+      "zh-CHS": "IH（salt、所有者名称、迭代次数），"
+    },
+    {
+      "indent": 3,
+      "text": "where the owner name is in the canonical form, defined as:",
+      "zh-CHS": "其中，所有者名称采用规范形式，定义为："
+    },
+    {
+      "indent": 3,
+      "text": "The wire format of the owner name where:",
+      "zh-CHS": "所有者名称的导线格式，其中："
+    },
+    {
+      "indent": 3,
+      "text": "1. The owner name is fully expanded (no DNS name compression) and fully qualified;",
+      "zh-CHS": "1. 所有者名称完全扩展（无DNS名称压缩）并完全限定；"
+    },
+    {
+      "indent": 3,
+      "text": "2. All uppercase US-ASCII letters are replaced by the corresponding lowercase US-ASCII letters;",
+      "zh-CHS": "2. 所有大写US-ASCII字母均替换为相应的小写US-ASCII字母；"
+    },
+    {
+      "indent": 3,
+      "text": "3. If the owner name is a wildcard name, the owner name is in its original unexpanded form, including the \"*\" label (no wildcard substitution);",
+      "zh-CHS": "3. 如果所有者名称为通配符名称，则所有者名称为其原始未展开形式，包括“*”标签（无通配符替换）；"
+    },
+    {
+      "indent": 3,
+      "text": "This form is as defined in Section 6.2 of [RFC4034].",
+      "zh-CHS": "本表格的定义见[RFC4034]第6.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "The method to calculate the Hash is based on [RFC2898].",
+      "zh-CHS": "计算散列的方法基于[RFC2898]。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Opt-Out",
+      "section_title": true,
+      "zh-CHS": "6. 选择退出"
+    },
+    {
+      "indent": 3,
+      "text": "In this specification, as in [RFC4033], [RFC4034] and [RFC4035], NS RRSets at delegation points are not signed and may be accompanied by a DS RRSet. With the Opt-Out bit clear, the security status of the child zone is determined by the presence or absence of this DS RRSet, cryptographically proven by the signed NSEC3 RR at the hashed owner name of the delegation. Setting the Opt-Out flag modifies this by allowing insecure delegations to exist within the signed zone without a corresponding NSEC3 RR at the hashed owner name of the delegation.",
+      "zh-CHS": "在本规范中，与[RFC4033]、[RFC4034]和[RFC4035]中一样，委托点处的NS RRSet没有签名，并且可能伴随DS RRSet。在选择退出位清除的情况下，子区域的安全状态由该DS RRSet的存在或不存在来确定，该DS RRSet通过授权的哈希所有者名称处签名的NSEC3 RR进行加密验证。设置Opt-Out标志可以通过允许不安全的委托存在于已签名区域中，而在委托的哈希所有者名称处没有相应的NSEC3 RR来修改此设置。"
+    },
+    {
+      "indent": 3,
+      "text": "An Opt-Out NSEC3 RR is said to cover a delegation if the hash of the owner name or \"next closer\" name of the delegation is between the owner name of the NSEC3 RR and the next hashed owner name.",
+      "zh-CHS": "如果委托的所有者名称或“下一个更接近者”名称的散列值介于NSEC3 RR的所有者名称和下一个散列的所有者名称之间，则称选择退出NSEC3 RR涵盖委托。"
+    },
+    {
+      "indent": 3,
+      "text": "An Opt-Out NSEC3 RR does not assert the existence or non-existence of the insecure delegations that it may cover. This allows for the addition or removal of these delegations without recalculating or re-signing RRs in the NSEC3 RR chain. However, Opt-Out NSEC3 RRs do assert the (non)existence of other, authoritative RRSets.",
+      "zh-CHS": "选择退出NSEC3 RR并不表明其可能涵盖的不安全授权的存在或不存在。这允许添加或删除这些委托，而无需重新计算或重新签署NSEC3 RR链中的RRs。然而，选择退出NSEC3 RRs确实断言（不）存在其他权威RRs集。"
+    },
+    {
+      "indent": 3,
+      "text": "An Opt-Out NSEC3 RR MAY have the same original owner name as an insecure delegation. In this case, the delegation is proven insecure by the lack of a DS bit in the type map and the signed NSEC3 RR does assert the existence of the delegation.",
+      "zh-CHS": "选择退出NSEC3 RR可能与不安全的委派具有相同的原始所有者名称。在这种情况下，由于类型映射中缺少DS位，委托被证明是不安全的，并且有符号的NSEC3 RR确实断言委托的存在。"
+    },
+    {
+      "indent": 3,
+      "text": "Zones using Opt-Out MAY contain a mixture of Opt-Out NSEC3 RRs and non-Opt-Out NSEC3 RRs. If an NSEC3 RR is not Opt-Out, there MUST NOT be any hashed owner names of insecure delegations (nor any other RRs) between it and the name indicated by the next hashed owner name in the NSEC3 RDATA. If it is Opt-Out, it MUST only cover hashed owner names or hashed \"next closer\" names of insecure delegations.",
+      "zh-CHS": "使用选择退出的区域可能包含选择退出NSEC3 RRs和非选择退出NSEC3 RRs的混合。如果NSEC3 RR未选择退出，则其与NSEC3 RDATA中下一个哈希所有者名称指示的名称之间不得存在任何不安全委派的哈希所有者名称（或任何其他RRs）。如果它是Opt-Out，那么它必须只覆盖散列的所有者名称或不安全委托的散列“next closer”名称。"
+    },
+    {
+      "indent": 3,
+      "text": "The effects of the Opt-Out flag on signing, serving, and validating responses are covered in following sections.",
+      "zh-CHS": "以下部分介绍了选择退出标志对签名、服务和验证响应的影响。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Authoritative Server Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 权威服务器注意事项"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Zone Signing",
+      "section_title": true,
+      "zh-CHS": "7.1. 区域标志"
+    },
+    {
+      "indent": 3,
+      "text": "Zones using NSEC3 must satisfy the following properties:",
+      "zh-CHS": "使用NSEC3的区域必须满足以下属性："
+    },
+    {
+      "indent": 3,
+      "text": "o Each owner name within the zone that owns authoritative RRSets MUST have a corresponding NSEC3 RR. Owner names that correspond to unsigned delegations MAY have a corresponding NSEC3 RR. However, if there is not a corresponding NSEC3 RR, there MUST be an Opt-Out NSEC3 RR that covers the \"next closer\" name to the delegation. Other non-authoritative RRs are not represented by NSEC3 RRs.",
+      "zh-CHS": "o 区域内拥有权威RRSET的每个所有者名称必须具有相应的NSEC3 RR。与未签名委托相对应的所有者名称可能具有相应的NSEC3 RR。但是，如果没有相应的NSEC3 RR，则必须有一个选择退出NSEC3 RR，该RR涵盖委托的“下一个更接近者”名称。NSEC3 RRs不代表其他非权威RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "o Each empty non-terminal MUST have a corresponding NSEC3 RR, unless the empty non-terminal is only derived from an insecure delegation covered by an Opt-Out NSEC3 RR.",
+      "zh-CHS": "o 每个空的非终端必须具有相应的NSEC3 RR，除非空的非终端仅来自由选择退出NSEC3 RR覆盖的不安全委派。"
+    },
+    {
+      "indent": 3,
+      "text": "o The TTL value for any NSEC3 RR SHOULD be the same as the minimum TTL value field in the zone SOA RR.",
+      "zh-CHS": "o 任何NSEC3 RR的TTL值应与区域SOA RR中的最小TTL值字段相同。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Type Bit Maps field of every NSEC3 RR in a signed zone MUST indicate the presence of all types present at the original owner name, except for the types solely contributed by an NSEC3 RR itself. Note that this means that the NSEC3 type itself will never be present in the Type Bit Maps.",
+      "zh-CHS": "o 签名区域中每个NSEC3 RR的类型位图字段必须指示原始所有者名称中存在的所有类型，但仅由NSEC3 RR本身贡献的类型除外。注意，这意味着NSEC3类型本身永远不会出现在类型位图中。"
+    },
+    {
+      "indent": 3,
+      "text": "The following steps describe a method of proper construction of NSEC3 RRs. This is not the only such possible method.",
+      "zh-CHS": "以下步骤描述了正确构造NSEC3 RRs的方法。这不是唯一可能的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "1. Select the hash algorithm and the values for salt and iterations.",
+      "zh-CHS": "1. 选择哈希算法以及salt和迭代的值。"
+    },
+    {
+      "indent": 3,
+      "text": "2. For each unique original owner name in the zone add an NSEC3 RR.",
+      "zh-CHS": "2. 对于区域中每个唯一的原始所有者名称，添加一个NSEC3 RR。"
+    },
+    {
+      "indent": 7,
+      "text": "* If Opt-Out is being used, owner names of unsigned delegations MAY be excluded.",
+      "zh-CHS": "* 如果使用“选择退出”，则未签署授权的所有者姓名可能被排除在外。"
+    },
+    {
+      "indent": 7,
+      "text": "* The owner name of the NSEC3 RR is the hash of the original owner name, prepended as a single label to the zone name.",
+      "zh-CHS": "* NSEC3 RR的所有者名称是原始所有者名称的哈希，作为区域名称的单个标签放在前面。"
+    },
+    {
+      "indent": 7,
+      "text": "* The Next Hashed Owner Name field is left blank for the moment.",
+      "zh-CHS": "* 下一个哈希所有者名称字段暂时留空。"
+    },
+    {
+      "indent": 7,
+      "text": "* If Opt-Out is being used, set the Opt-Out bit to one.",
+      "zh-CHS": "* 如果正在使用选择退出，请将选择退出位设置为1。"
+    },
+    {
+      "indent": 7,
+      "text": "* For collision detection purposes, optionally keep track of the original owner name with the NSEC3 RR.",
+      "zh-CHS": "* 出于冲突检测目的，可以选择使用NSEC3 RR跟踪原始所有者名称。"
+    },
+    {
+      "indent": 7,
+      "text": "* Additionally, for collision detection purposes, optionally create an additional NSEC3 RR corresponding to the original owner name with the asterisk label prepended (i.e., as if a wildcard existed as a child of this owner name) and keep track of this original owner name. Mark this NSEC3 RR as temporary.",
+      "zh-CHS": "* 此外，出于冲突检测的目的，可以选择创建一个附加的NSEC3 RR，该RR对应于原始所有者名称，并在其前面加上星号标签（即，就好像此所有者名称的子项存在通配符一样），并跟踪此原始所有者名称。将此NSEC3 RR标记为临时。"
+    },
+    {
+      "indent": 3,
+      "text": "3. For each RRSet at the original owner name, set the corresponding bit in the Type Bit Maps field.",
+      "zh-CHS": "3. 对于原始所有者名称处的每个RRSet，在类型位图字段中设置相应的位。"
+    },
+    {
+      "indent": 3,
+      "text": "4. If the difference in number of labels between the apex and the original owner name is greater than 1, additional NSEC3 RRs need to be added for every empty non-terminal between the apex and the original owner name. This process may generate NSEC3 RRs with duplicate hashed owner names. Optionally, for collision detection, track the original owner names of these NSEC3 RRs and create temporary NSEC3 RRs for wildcard collisions in a similar fashion to step 1.",
+      "zh-CHS": "4. 如果apex和原始所有者名称之间的标签数量差异大于1，则需要为apex和原始所有者名称之间的每个空非终端添加额外的NSEC3 RRs。此过程可能会生成具有重复哈希所有者名称的NSEC3 RRs。（可选）对于冲突检测，跟踪这些NSEC3 RRs的原始所有者名称，并以与步骤1类似的方式为通配符冲突创建临时NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Sort the set of NSEC3 RRs into hash order.",
+      "zh-CHS": "5. 将NSEC3 RRs集按哈希顺序排序。"
+    },
+    {
+      "indent": 3,
+      "text": "6. Combine NSEC3 RRs with identical hashed owner names by replacing them with a single NSEC3 RR with the Type Bit Maps field consisting of the union of the types represented by the set of NSEC3 RRs. If the original owner name was tracked, then collisions may be detected when combining, as all of the matching NSEC3 RRs should have the same original owner name. Discard any possible temporary NSEC3 RRs.",
+      "zh-CHS": "6. 通过将NSEC3 RR替换为单个NSEC3 RR，将NSEC3 RR与相同的散列所有者名称组合在一起，类型位图字段由NSEC3 RR集合表示的类型的并集组成。如果跟踪了原始所有者名称，则在组合时可能会检测到冲突，因为所有匹配的NSEC3 RRs应具有相同的原始所有者名称。丢弃任何可能的临时NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "7. In each NSEC3 RR, insert the next hashed owner name by using the value of the next NSEC3 RR in hash order. The next hashed owner name of the last NSEC3 RR in the zone contains the value of the hashed owner name of the first NSEC3 RR in the hash order.",
+      "zh-CHS": "7. 在每个NSEC3 RR中，按哈希顺序使用下一个NSEC3 RR的值插入下一个哈希所有者名称。区域中最后一个NSEC3 RR的下一个哈希所有者名称包含哈希顺序中第一个NSEC3 RR的哈希所有者名称的值。"
+    },
+    {
+      "indent": 3,
+      "text": "8. Finally, add an NSEC3PARAM RR with the same Hash Algorithm, Iterations, and Salt fields to the zone apex.",
+      "zh-CHS": "8. 最后，使用相同的哈希算法、迭代和盐场向区域顶点添加NSEC3PARAM RR。"
+    },
+    {
+      "indent": 3,
+      "text": "If a hash collision is detected, then a new salt has to be chosen, and the signing process restarted.",
+      "zh-CHS": "如果检测到哈希冲突，则必须选择新的salt，并重新启动签名过程。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Zone Serving",
+      "section_title": true,
+      "zh-CHS": "7.2. 区域发球"
+    },
+    {
+      "indent": 3,
+      "text": "This specification modifies DNSSEC-enabled DNS responses generated by authoritative servers. In particular, it replaces the use of NSEC RRs in such responses with NSEC3 RRs.",
+      "zh-CHS": "此规范修改权威服务器生成的启用DNSSEC的DNS响应。特别是，它用NSEC3 RRs替代了此类响应中NSEC RRs的使用。"
+    },
+    {
+      "indent": 3,
+      "text": "In the following response cases, the NSEC RRs dictated by DNSSEC [RFC4035] are replaced with NSEC3 RRs that prove the same facts. Responses that would not contain NSEC RRs are unchanged by this specification.",
+      "zh-CHS": "在以下响应案例中，DNSSEC[RFC4035]规定的NSEC RRs替换为证明相同事实的NSEC3 RRs。不包含NSEC RRs的响应不受本规范的影响。"
+    },
+    {
+      "indent": 3,
+      "text": "When returning responses containing multiple NSEC3 RRs, all of the NSEC3 RRs MUST use the same hash algorithm, iteration, and salt values. The Flags field value MUST be either zero or one.",
+      "zh-CHS": "当返回包含多个NSEC3 RRs的响应时，所有NSEC3 RRs必须使用相同的哈希算法、迭代和salt值。Flags字段值必须为零或一。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.1. Closest Encloser Proof",
+      "section_title": true,
+      "zh-CHS": "7.2.1. 最近封闭证明"
+    },
+    {
+      "indent": 3,
+      "text": "For many NSEC3 responses a proof of the closest encloser is required. This is a proof that some ancestor of the QNAME is the closest encloser of QNAME.",
+      "zh-CHS": "对于许多NSEC3响应，需要提供最近封闭器的证明。这证明了QNAME的某个祖先是QNAME最接近的封闭者。"
+    },
+    {
+      "indent": 3,
+      "text": "This proof consists of (up to) two different NSEC3 RRs:",
+      "zh-CHS": "此证明由（最多）两个不同的NSEC3 RRs组成："
+    },
+    {
+      "indent": 3,
+      "text": "o An NSEC3 RR that matches the closest (provable) encloser.",
+      "zh-CHS": "o 与最近（可证明）封闭器匹配的NSEC3 RR。"
+    },
+    {
+      "indent": 3,
+      "text": "o An NSEC3 RR that covers the \"next closer\" name to the closest encloser.",
+      "zh-CHS": "o NSEC3 RR，覆盖距离最近封闭器的“下一个更近者”名称。"
+    },
+    {
+      "indent": 3,
+      "text": "The first NSEC3 RR essentially proposes a possible closest encloser, and proves that the particular encloser does, in fact, exist. The second NSEC3 RR proves that the possible closest encloser is the closest, and proves that the QNAME (and any ancestors between QNAME and the closest encloser) does not exist.",
+      "zh-CHS": "第一个NSEC3 RR本质上提出了一个可能的最近封闭器，并证明了特定封闭器确实存在。第二个NSEC3 RR证明可能的最近封闭器是最近的，并证明QNAME（以及QNAME和最近封闭器之间的任何祖先）不存在。"
+    },
+    {
+      "indent": 3,
+      "text": "These NSEC3 RRs are collectively referred to as the \"closest encloser proof\" in the subsequent descriptions.",
+      "zh-CHS": "在随后的描述中，这些NSEC3 RRs统称为“最接近的封闭证明”。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, the closest encloser proof for the nonexistent \"alpha.beta.gamma.example.\" owner name might prove that \"gamma.example.\" is the closest encloser. This response would contain the NSEC3 RR that matches \"gamma.example.\", and would also contain the NSEC3 RR that covers \"beta.gamma.example.\" (which is the \"next closer\" name).",
+      "zh-CHS": "例如，不存在的“alpha.beta.gamma.example.”所有者名称的最近封闭器证明可能会证明“gamma.example.”是最近的封闭器。此响应将包含与“gamma.example.”匹配的NSEC3 RR，还将包含涵盖“beta.gamma.example.”的NSEC3 RR（即“下一个更接近的”名称）。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible, when using Opt-Out (Section 6), to not be able to prove the actual closest encloser because it is, or is part of an insecure delegation covered by an Opt-Out span. In this case, instead of proving the actual closest encloser, the closest provable encloser is used. That is, the closest enclosing authoritative name is used instead. In this case, the set of NSEC3 RRs used for this proof is referred to as the \"closest provable encloser proof\".",
+      "zh-CHS": "当使用选择退出（第6节）时，可能无法证明实际的最近封闭者，因为它是或是选择退出范围所涵盖的不安全委托的一部分。在这种情况下，使用最近的可证明封闭器，而不是证明实际的最近封闭器。也就是说，使用最接近的封闭权威名称。在这种情况下，用于此证明的NSEC3 RRs集被称为“最近可证明封闭器证明”。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.2. Name Error Responses",
+      "section_title": true,
+      "zh-CHS": "7.2.2. 名称错误响应"
+    },
+    {
+      "indent": 3,
+      "text": "To prove the nonexistence of QNAME, a closest encloser proof and an NSEC3 RR covering the (nonexistent) wildcard RR at the closest encloser MUST be included in the response. This collection of (up to) three NSEC3 RRs proves both that QNAME does not exist and that a wildcard that could have matched QNAME also does not exist.",
+      "zh-CHS": "为了证明QNAME的不存在，响应中必须包含最近封闭器证明和覆盖最近封闭器处（不存在）通配符RR的NSEC3 RR。这三个NSEC3 RRs的集合（最多）证明QNAME不存在，并且可能与QNAME匹配的通配符也不存在。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, if \"gamma.example.\" is the closest provable encloser to QNAME, then an NSEC3 RR covering \"*.gamma.example.\" is included in the authority section of the response.",
+      "zh-CHS": "例如，如果“gamma.example.”是距离QNAME最近的可证明封闭符，则响应的权限部分中包含一个覆盖“*.gamma.example.”的NSEC3 RR。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.3. No Data Responses, QTYPE is not DS",
+      "section_title": true,
+      "zh-CHS": "7.2.3. 无数据响应，QTYPE不是DS"
+    },
+    {
+      "indent": 3,
+      "text": "The server MUST include the NSEC3 RR that matches QNAME. This NSEC3 RR MUST NOT have the bits corresponding to either the QTYPE or CNAME set in its Type Bit Maps field.",
+      "zh-CHS": "服务器必须包含与QNAME匹配的NSEC3 RR。此NSEC3 RR不得在其类型位图字段中设置与QTYPE或CNAME对应的位。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.4. No Data Responses, QTYPE is DS",
+      "section_title": true,
+      "zh-CHS": "7.2.4. 无数据响应，QTYPE为DS"
+    },
+    {
+      "indent": 3,
+      "text": "If there is an NSEC3 RR that matches QNAME, the server MUST return it in the response. The bits corresponding with DS and CNAME MUST NOT be set in the Type Bit Maps field of this NSEC3 RR.",
+      "zh-CHS": "如果存在与QNAME匹配的NSEC3 RR，服务器必须在响应中返回它。不得在此NSEC3 RR的类型位图字段中设置与DS和CNAME对应的位。"
+    },
+    {
+      "indent": 3,
+      "text": "If no NSEC3 RR matches QNAME, the server MUST return a closest provable encloser proof for QNAME. The NSEC3 RR that covers the \"next closer\" name MUST have the Opt-Out bit set (note that this is true by definition -- if the Opt-Out bit is not set, something has gone wrong).",
+      "zh-CHS": "如果没有NSEC3 RR与QNAME匹配，则服务器必须为QNAME返回最接近的可证明封闭器证明。覆盖“下一个closer”名称的NSEC3 RR必须设置Opt-Out位（请注意，根据定义，这是正确的——如果未设置Opt-Out位，则表示出现了问题）。"
+    },
+    {
+      "indent": 3,
+      "text": "If a server is authoritative for both sides of a zone cut at QNAME, the server MUST return the proof from the parent side of the zone cut.",
+      "zh-CHS": "如果服务器在QNAME上对分区切割的两侧都具有权威性，则服务器必须从分区切割的父侧返回证据。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.5. Wildcard No Data Responses",
+      "section_title": true,
+      "zh-CHS": "7.2.5. 通配符无数据响应"
+    },
+    {
+      "indent": 3,
+      "text": "If there is a wildcard match for QNAME, but QTYPE is not present at that name, the response MUST include a closest encloser proof for QNAME and MUST include the NSEC3 RR that matches the wildcard. This combination proves both that QNAME itself does not exist and that a wildcard that matches QNAME does exist. Note that the closest encloser to QNAME MUST be the immediate ancestor of the wildcard RR (if this is not the case, then something has gone wrong).",
+      "zh-CHS": "如果QNAME存在通配符匹配，但该名称处不存在QTYPE，则响应必须包含QNAME的最接近封闭器证明，并且必须包含与通配符匹配的NSEC3 RR。这种组合证明了QNAME本身不存在，并且与QNAME匹配的通配符确实存在。请注意，距离QNAME最近的封闭符必须是通配符RR的直接祖先（如果不是这种情况，则说明出现了问题）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.6. Wildcard Answer Responses",
+      "section_title": true,
+      "zh-CHS": "7.2.6. 通配符应答"
+    },
+    {
+      "indent": 3,
+      "text": "If there is a wildcard match for QNAME and QTYPE, then, in addition to the expanded wildcard RRSet returned in the answer section of the response, proof that the wildcard match was valid must be returned.",
+      "zh-CHS": "如果QNAME和QTYPE存在通配符匹配，则除了响应的应答部分中返回的扩展通配符RRSet外，还必须返回通配符匹配有效的证明。"
+    },
+    {
+      "indent": 3,
+      "text": "This proof is accomplished by proving that both QNAME does not exist and that the closest encloser of the QNAME and the immediate ancestor of the wildcard are the same (i.e., the correct wildcard matched).",
+      "zh-CHS": "这个证明是通过证明QNAME不存在，并且QNAME的最近封闭符和通配符的直接祖先是相同的（即，匹配的正确通配符）来完成的。"
+    },
+    {
+      "indent": 3,
+      "text": "To this end, the NSEC3 RR that covers the \"next closer\" name of the immediate ancestor of the wildcard MUST be returned. It is not necessary to return an NSEC3 RR that matches the closest encloser, as the existence of this closest encloser is proven by the presence of the expanded wildcard in the response.",
+      "zh-CHS": "为此，必须返回包含通配符直接祖先的“下一个更接近者”名称的NSEC3 RR。不必返回与最近封闭符匹配的NSEC3 RR，因为响应中存在扩展通配符证明了此最近封闭符的存在。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.7. Referrals to Unsigned Subzones",
+      "section_title": true,
+      "zh-CHS": "7.2.7. 转介到未签名的子区域"
+    },
+    {
+      "indent": 3,
+      "text": "If there is an NSEC3 RR that matches the delegation name, then that NSEC3 RR MUST be included in the response. The DS bit in the type bit maps of the NSEC3 RR MUST NOT be set.",
+      "zh-CHS": "如果存在与委派名称匹配的NSEC3 RR，则该NSEC3 RR必须包含在响应中。不得设置NSEC3 RR类型位图中的DS位。"
+    },
+    {
+      "indent": 3,
+      "text": "If the zone is Opt-Out, then there may not be an NSEC3 RR corresponding to the delegation. In this case, the closest provable encloser proof MUST be included in the response. The included NSEC3 RR that covers the \"next closer\" name for the delegation MUST have the Opt-Out flag set to one. (Note that this will be the case unless something has gone wrong).",
+      "zh-CHS": "如果区域选择退出，则可能没有与委派相对应的NSEC3 RR。在这种情况下，响应中必须包含最接近的可证明封闭证明。包含代表团“下一个更接近者”名称的NSEC3 RR必须将选择退出标志设置为1。（请注意，除非出现问题，否则情况将如此）。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.8. Responding to Queries for NSEC3 Owner Names",
+      "section_title": true,
+      "zh-CHS": "7.2.8. 响应有关NSEC3所有者名称的查询"
+    },
+    {
+      "indent": 3,
+      "text": "The owner names of NSEC3 RRs are not represented in the NSEC3 RR chain like other owner names. As a result, each NSEC3 owner name is covered by another NSEC3 RR, effectively negating the existence of the NSEC3 RR. This is a paradox, since the existence of an NSEC3 RR can be proven by its RRSIG RRSet.",
+      "zh-CHS": "NSEC3 RR的所有者名称与其他所有者名称不同，不在NSEC3 RR链中表示。因此，每个NSEC3所有者名称都被另一个NSEC3 RR覆盖，从而有效地否定了NSEC3 RR的存在。这是一个悖论，因为NSEC3 RR的存在可以通过其RRSIG RRSet来证明。"
+    },
+    {
+      "indent": 3,
+      "text": "If the following conditions are all true:",
+      "zh-CHS": "如果以下条件均为真："
+    },
+    {
+      "indent": 3,
+      "text": "o the QNAME equals the owner name of an existing NSEC3 RR, and",
+      "zh-CHS": "o QNAME等于现有NSEC3 RR的所有者名称，并且"
+    },
+    {
+      "indent": 3,
+      "text": "o no RR types exist at the QNAME, nor at any descendant of QNAME,",
+      "zh-CHS": "o QNAME上不存在RR类型，QNAME的任何后代也不存在RR类型，"
+    },
+    {
+      "indent": 3,
+      "text": "then the response MUST be constructed as a Name Error response (Section 7.2.2). Or, in other words, the authoritative name server will act as if the owner name of the NSEC3 RR did not exist.",
+      "zh-CHS": "然后，必须将响应构造为名称错误响应（第7.2.2节）。或者，换句话说，权威名称服务器将充当NSEC3 RR的所有者名称不存在的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that NSEC3 RRs are returned as a result of an AXFR or IXFR query.",
+      "zh-CHS": "请注意，NSEC3 RRs作为AXFR或IXFR查询的结果返回。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2.9. Server Response to a Run-Time Collision",
+      "section_title": true,
+      "zh-CHS": "7.2.9. 服务器对运行时冲突的响应"
+    },
+    {
+      "indent": 3,
+      "text": "If the hash of a non-existing QNAME collides with the owner name of an existing NSEC3 RR, then the server will be unable to return a response that proves that QNAME does not exist. In this case, the server MUST return a response with an RCODE of 2 (server failure).",
+      "zh-CHS": "如果不存在的QNAME的哈希与现有NSEC3 RR的所有者名称冲突，则服务器将无法返回证明QNAME不存在的响应。在这种情况下，服务器必须返回RCODE为2的响应（服务器故障）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that with the hash algorithm specified in this document, SHA-1, such collisions are highly unlikely.",
+      "zh-CHS": "请注意，使用本文档中指定的哈希算法SHA-1，此类冲突极不可能发生。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Secondary Servers",
+      "section_title": true,
+      "zh-CHS": "7.3. 辅助服务器"
+    },
+    {
+      "indent": 3,
+      "text": "Secondary servers (and perhaps other entities) need to reliably determine which NSEC3 parameters (i.e., hash, salt, and iterations) are present at every hashed owner name, in order to be able to choose an appropriate set of NSEC3 RRs for negative responses. This is indicated by an NSEC3PARAM RR present at the zone apex.",
+      "zh-CHS": "辅助服务器（可能还有其他实体）需要可靠地确定每个哈希所有者名称中存在哪些NSEC3参数（即哈希、salt和迭代），以便能够为否定响应选择一组适当的NSEC3 RRs。这由区域顶点处存在的NSEC3PARAM RR表示。"
+    },
+    {
+      "indent": 3,
+      "text": "If there are multiple NSEC3PARAM RRs present, there are multiple valid NSEC3 chains present. The server must choose one of them, but may use any criteria to do so.",
+      "zh-CHS": "如果存在多个NSEC3参数RRs，则存在多个有效的NSEC3链。服务器必须选择其中一个，但可以使用任何条件进行选择。"
+    },
+    {
+      "indent": 0,
+      "text": "7.4. Zones Using Unknown Hash Algorithms",
+      "section_title": true,
+      "zh-CHS": "7.4. 使用未知哈希算法的区域"
+    },
+    {
+      "indent": 3,
+      "text": "Zones that are signed according to this specification, but are using an unrecognized NSEC3 hash algorithm value, cannot be effectively served. Such zones SHOULD be rejected when loading. Servers SHOULD respond with RCODE=2 (server failure) responses when handling queries that would fall under such zones.",
+      "zh-CHS": "根据本规范签名但使用无法识别的NSEC3哈希算法值的区域无法有效服务。装载时应拒绝此类区域。在处理属于此类区域的查询时，服务器应使用RCODE=2（服务器故障）响应。"
+    },
+    {
+      "indent": 0,
+      "text": "7.5. Dynamic Update",
+      "section_title": true,
+      "zh-CHS": "7.5. 动态更新"
+    },
+    {
+      "indent": 3,
+      "text": "A zone signed using NSEC3 may accept dynamic updates [RFC2136]. However, NSEC3 introduces some special considerations for dynamic updates.",
+      "zh-CHS": "使用NSEC3签名的区域可以接受动态更新[RFC2136]。但是，NSEC3为动态更新引入了一些特殊注意事项。"
+    },
+    {
+      "indent": 3,
+      "text": "Adding and removing names in a zone MUST account for the creation or removal of empty non-terminals.",
+      "zh-CHS": "在区域中添加和删除名称必须考虑空非端子的创建或删除。"
+    },
+    {
+      "indent": 3,
+      "text": "o When removing a name with a corresponding NSEC3 RR, any NSEC3 RRs corresponding to empty non-terminals created by that name MUST be removed. Note that more than one name may be asserting the existence of a particular empty non-terminal.",
+      "zh-CHS": "o 删除具有相应NSEC3 RR的名称时，必须删除与该名称创建的空非端子对应的任何NSEC3 RR。请注意，可能有多个名称断言存在特定的空非终结符。"
+    },
+    {
+      "indent": 3,
+      "text": "o When adding a name that requires adding an NSEC3 RR, NSEC3 RRs MUST also be added for any empty non-terminals that are created. That is, if there is not an existing NSEC3 RR matching an empty non-terminal, it must be created and added.",
+      "zh-CHS": "o 添加需要添加NSEC3 RR的名称时，还必须为创建的任何空非终端添加NSEC3 RRs。也就是说，如果没有与空的非终端匹配的现有NSEC3 RR，则必须创建并添加它。"
+    },
+    {
+      "indent": 3,
+      "text": "The presence of Opt-Out in a zone means that some additions or delegations of names will not require changes to the NSEC3 RRs in a zone.",
+      "zh-CHS": "区域中存在选择退出意味着某些名称的添加或授权将不需要更改区域中的NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "o When removing a delegation RRSet, if that delegation does not have a matching NSEC3 RR, then it was opted out. In this case, nothing further needs to be done.",
+      "zh-CHS": "o 删除委派RRSet时，如果该委派没有匹配的NSEC3 RR，则该委派被选中。在这种情况下，不需要做更多的事情。"
+    },
+    {
+      "indent": 3,
+      "text": "o When adding a delegation RRSet, if the \"next closer\" name of the delegation is covered by an existing Opt-Out NSEC3 RR, then the delegation MAY be added without modifying the NSEC3 RRs in the zone.",
+      "zh-CHS": "o 添加委派RRSet时，如果委派的“下一个更近者”名称包含在现有的选择退出NSEC3 RR中，则可以添加委派，而无需修改分区中的NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "The presence of Opt-Out in a zone means that when adding or removing NSEC3 RRs, the value of the Opt-Out flag that should be set in new or modified NSEC3 RRs is ambiguous. Servers SHOULD follow this set of basic rules to resolve the ambiguity.",
+      "zh-CHS": "区域中存在选择退出意味着在添加或删除NSEC3 RRs时，应在新的或修改的NSEC3 RRs中设置的选择退出标志的值不明确。服务器应该遵循这组基本规则来解决歧义。"
+    },
+    {
+      "indent": 3,
+      "text": "The central concept to these rules is that the state of the Opt-Out flag of the covering NSEC3 RR is preserved.",
+      "zh-CHS": "这些规则的核心概念是保留覆盖NSEC3 RR的选择退出标志的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "o When removing an NSEC3 RR, the value of the Opt-Out flag for the previous NSEC3 RR (the one whose next hashed owner name is modified) should not be changed.",
+      "zh-CHS": "o 删除NSEC3 RR时，不应更改前一个NSEC3 RR（其下一个哈希所有者名称已修改的NSEC3 RR）的退出标志值。"
+    },
+    {
+      "indent": 3,
+      "text": "o When adding an NSEC3 RR, the value of the Opt-Out flag is set to the value of the Opt-Out flag of the NSEC3 RR that previously covered the owner name of the NSEC3 RR. That is, the now previous NSEC3 RR.",
+      "zh-CHS": "o 添加NSEC3 RR时，选择退出标志的值设置为先前覆盖NSEC3 RR所有者名称的NSEC3 RR的选择退出标志的值。也就是说，现在以前的NSEC3 RR。"
+    },
+    {
+      "indent": 3,
+      "text": "If the zone in question is consistent with its use of the Opt-Out flag (that is, all NSEC3 RRs in the zone have the same value for the flag) then these rules will retain that consistency. If the zone is not consistent in the use of the flag (i.e., a partially Opt-Out zone), then these rules will not retain the same pattern of use of the Opt-Out flag.",
+      "zh-CHS": "如果所述区域与其选择退出标志的使用一致（即，该区域中的所有NSEC3 RRs具有相同的标志值），则这些规则将保持该一致性。如果区域在使用标志时不一致（即，部分选择退出区域），则这些规则将不会保留选择退出标志的相同使用模式。"
+    },
+    {
+      "indent": 3,
+      "text": "For zones that partially use the Opt-Out flag, if there is a logical pattern for that use, the pattern could be maintained by using a local policy on the server.",
+      "zh-CHS": "对于部分使用Opt-Out标志的区域，如果存在用于该用途的逻辑模式，则可以使用服务器上的本地策略来维护该模式。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Validator Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 验证器注意事项"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Responses with Unknown Hash Types",
+      "section_title": true,
+      "zh-CHS": "8.1. 具有未知哈希类型的响应"
+    },
+    {
+      "indent": 3,
+      "text": "A validator MUST ignore NSEC3 RRs with unknown hash types. The practical result of this is that responses containing only such NSEC3 RRs will generally be considered bogus.",
+      "zh-CHS": "验证程序必须忽略具有未知哈希类型的NSEC3 RRs。这样做的实际结果是，仅包含此类NSEC3 RRs的响应通常被认为是虚假的。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Verifying NSEC3 RRs",
+      "section_title": true,
+      "zh-CHS": "8.2. 验证NSEC3 RRs"
+    },
+    {
+      "indent": 3,
+      "text": "A validator MUST ignore NSEC3 RRs with a Flag fields value other than zero or one.",
+      "zh-CHS": "验证程序必须忽略标志字段值不是零或一的NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "A validator MAY treat a response as bogus if the response contains NSEC3 RRs that contain different values for hash algorithm, iterations, or salt from each other for that zone.",
+      "zh-CHS": "如果响应包含NSEC3 RRs，其中包含该区域的哈希算法、迭代或salt的不同值，则验证器可能会将响应视为伪响应。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3. Closest Encloser Proof",
+      "section_title": true,
+      "zh-CHS": "8.3. 最近封闭证明"
+    },
+    {
+      "indent": 3,
+      "text": "In order to verify a closest encloser proof, the validator MUST find the longest name, X, such that",
+      "zh-CHS": "为了验证最近的封闭证明，验证器必须找到最长的名称X，以便"
+    },
+    {
+      "indent": 3,
+      "text": "o X is an ancestor of QNAME that is matched by an NSEC3 RR present in the response. This is a candidate for the closest encloser, and",
+      "zh-CHS": "o X是QNAME的祖先，与响应中存在的NSEC3 RR相匹配。这是最近封闭器的候选项，并且"
+    },
+    {
+      "indent": 3,
+      "text": "o The name one label longer than X (but still an ancestor of -- or equal to -- QNAME) is covered by an NSEC3 RR present in the response.",
+      "zh-CHS": "o 响应中存在的NSEC3 RR覆盖了长度大于X的名称一个标签（但仍然是--或等于--QNAME的祖先）。"
+    },
+    {
+      "indent": 3,
+      "text": "One possible algorithm for verifying this proof is as follows:",
+      "zh-CHS": "验证该证明的一种可能算法如下："
+    },
+    {
+      "indent": 3,
+      "text": "1. Set SNAME=QNAME. Clear the flag.",
+      "zh-CHS": "1. 设置SNAME=QNAME。清除旗帜。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Check whether SNAME exists:",
+      "zh-CHS": "2. 检查SNAME是否存在："
+    },
+    {
+      "indent": 7,
+      "text": "* If there is no NSEC3 RR in the response that matches SNAME (i.e., an NSEC3 RR whose owner name is the same as the hash of SNAME, prepended as a single label to the zone name), clear the flag.",
+      "zh-CHS": "* 如果响应中没有与SNAME匹配的NSEC3 RR（即，所有者名称与SNAME哈希相同的NSEC3 RR，作为区域名称的单个标签放在前面），请清除该标志。"
+    },
+    {
+      "indent": 7,
+      "text": "* If there is an NSEC3 RR in the response that covers SNAME, set the flag.",
+      "zh-CHS": "* 如果在覆盖SNAME的响应中存在NSEC3 RR，请设置该标志。"
+    },
+    {
+      "indent": 7,
+      "text": "* If there is a matching NSEC3 RR in the response and the flag was set, then the proof is complete, and SNAME is the closest encloser.",
+      "zh-CHS": "* 如果响应中有匹配的NSEC3 RR，并且设置了标志，那么证明就完成了，SNAME是最近的封闭器。"
+    },
+    {
+      "indent": 7,
+      "text": "* If there is a matching NSEC3 RR in the response, but the flag is not set, then the response is bogus.",
+      "zh-CHS": "* 如果响应中存在匹配的NSEC3 RR，但未设置标志，则响应是虚假的。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Truncate SNAME by one label from the left, go to step 2.",
+      "zh-CHS": "3. 将SNAME从左侧截断一个标签，转到步骤2。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the closest encloser has been discovered, the validator MUST check that the NSEC3 RR that has the closest encloser as the original owner name is from the proper zone. The DNAME type bit must not be set and the NS type bit may only be set if the SOA type bit is set. If this is not the case, it would be an indication that an attacker is using them to falsely deny the existence of RRs for which the server is not authoritative.",
+      "zh-CHS": "一旦发现最近的封闭器，验证程序必须检查将最近的封闭器作为原始所有者名称的NSEC3 RR是否来自正确的区域。不能设置DNAME类型位，只有在设置了SOA类型位的情况下才能设置NS类型位。如果情况并非如此，则表明攻击者正在使用它们错误地拒绝存在服务器未授权的RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "In the following descriptions, the phrase \"a closest (provable) encloser proof for X\" means that the algorithm above (or an equivalent algorithm) proves that X does not exist by proving that an ancestor of X is its closest encloser.",
+      "zh-CHS": "在以下描述中，短语“X的最近（可证明）封闭器证明”意味着上述算法（或等效算法）通过证明X的祖先是其最近封闭器来证明X不存在。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4. Validating Name Error Responses",
+      "section_title": true,
+      "zh-CHS": "8.4. 验证名称错误响应"
+    },
+    {
+      "indent": 3,
+      "text": "A validator MUST verify that there is a closest encloser proof for QNAME present in the response and that there is an NSEC3 RR that covers the wildcard at the closest encloser (i.e., the name formed by prepending the asterisk label to the closest encloser).",
+      "zh-CHS": "验证器必须验证响应中是否存在QNAME的最近封闭符证明，以及是否存在覆盖最近封闭符处通配符的NSEC3 RR（即，通过将星号标签前置到最近封闭符形成的名称）。"
+    },
+    {
+      "indent": 0,
+      "text": "8.5. Validating No Data Responses, QTYPE is not DS",
+      "section_title": true,
+      "zh-CHS": "8.5. 正在验证无数据响应，QTYPE不是DS"
+    },
+    {
+      "indent": 3,
+      "text": "The validator MUST verify that an NSEC3 RR that matches QNAME is present and that both the QTYPE and the CNAME type are not set in its Type Bit Maps field.",
+      "zh-CHS": "验证器必须验证是否存在与QNAME匹配的NSEC3 RR，以及是否未在其类型位图字段中设置QTYPE和CNAME类型。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this test also covers the case where the NSEC3 RR exists because it corresponds to an empty non-terminal, in which case the NSEC3 RR will have an empty Type Bit Maps field.",
+      "zh-CHS": "注意，该测试还包括NSEC3 RR存在的情况，因为它对应于空的非终端，在这种情况下，NSEC3 RR将具有空类型位图字段。"
+    },
+    {
+      "indent": 0,
+      "text": "8.6. Validating No Data Responses, QTYPE is DS",
+      "section_title": true,
+      "zh-CHS": "8.6. 正在验证无数据响应，QTYPE为DS"
+    },
+    {
+      "indent": 3,
+      "text": "If there is an NSEC3 RR that matches QNAME present in the response, then that NSEC3 RR MUST NOT have the bits corresponding to DS and CNAME set in its Type Bit Maps field.",
+      "zh-CHS": "如果响应中存在与QNAME匹配的NSEC3 RR，则该NSEC3 RR不得在其类型位图字段中设置与DS和CNAME对应的位。"
+    },
+    {
+      "indent": 3,
+      "text": "If there is no such NSEC3 RR, then the validator MUST verify that a closest provable encloser proof for QNAME is present in the response, and that the NSEC3 RR that covers the \"next closer\" name has the Opt-Out bit set.",
+      "zh-CHS": "如果不存在此类NSEC3 RR，则验证程序必须验证响应中是否存在QNAME的最接近可证明封闭器证明，以及覆盖“下一个更接近者”名称的NSEC3 RR是否设置了选择退出位。"
+    },
+    {
+      "indent": 0,
+      "text": "8.7. Validating Wildcard No Data Responses",
+      "section_title": true,
+      "zh-CHS": "8.7. 验证通配符无数据响应"
+    },
+    {
+      "indent": 3,
+      "text": "The validator MUST verify a closest encloser proof for QNAME and MUST find an NSEC3 RR present in the response that matches the wildcard name generated by prepending the asterisk label to the closest encloser. Furthermore, the bits corresponding to both QTYPE and CNAME MUST NOT be set in the wildcard matching NSEC3 RR.",
+      "zh-CHS": "验证器必须验证QNAME的最近封闭器证明，并且必须找到响应中存在的NSEC3 RR，该NSEC3 RR与通过将星号标签前置到最近封闭器而生成的通配符名称相匹配。此外，不得在匹配NSEC3 RR的通配符中设置与QTYPE和CNAME对应的位。"
+    },
+    {
+      "indent": 0,
+      "text": "8.8. Validating Wildcard Answer Responses",
+      "section_title": true,
+      "zh-CHS": "8.8. 验证通配符应答"
+    },
+    {
+      "indent": 3,
+      "text": "The verified wildcard answer RRSet in the response provides the validator with a (candidate) closest encloser for QNAME. This closest encloser is the immediate ancestor to the generating wildcard.",
+      "zh-CHS": "响应中的已验证通配符应答RRSet为验证器提供QNAME的（候选）最近封闭符。这个最近的封闭符是生成通配符的直接祖先。"
+    },
+    {
+      "indent": 3,
+      "text": "Validators MUST verify that there is an NSEC3 RR that covers the \"next closer\" name to QNAME present in the response. This proves that QNAME itself did not exist and that the correct wildcard was used to generate the response.",
+      "zh-CHS": "验证器必须验证是否有NSEC3 RR覆盖响应中QNAME的“下一个更接近”名称。这证明QNAME本身不存在，并且使用了正确的通配符来生成响应。"
+    },
+    {
+      "indent": 0,
+      "text": "8.9. Validating Referrals to Unsigned Subzones",
+      "section_title": true,
+      "zh-CHS": "8.9. 验证对未签名子区域的引用"
+    },
+    {
+      "indent": 3,
+      "text": "The delegation name in a referral is the owner name of the NS RRSet present in the authority section of the referral response.",
+      "zh-CHS": "转介中的委托名称是转介响应的权限部分中存在的NS RRSet的所有者名称。"
+    },
+    {
+      "indent": 3,
+      "text": "If there is an NSEC3 RR present in the response that matches the delegation name, then the validator MUST ensure that the NS bit is set and that the DS bit is not set in the Type Bit Maps field of the NSEC3 RR. The validator MUST also ensure that the NSEC3 RR is from the correct (i.e., parent) zone. This is done by ensuring that the SOA bit is not set in the Type Bit Maps field of this NSEC3 RR.",
+      "zh-CHS": "如果响应中存在与委派名称匹配的NSEC3 RR，则验证器必须确保在NSEC3 RR的类型位图字段中设置了NS位，并且未设置DS位。验证器还必须确保NSEC3 RR来自正确的（即父）区域。这是通过确保未在此NSEC3 RR的类型位图字段中设置SOA位来实现的。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the presence of an NS bit implies the absence of a DNAME bit, so there is no need to check for the DNAME bit in the Type Bit Maps field of the NSEC3 RR.",
+      "zh-CHS": "请注意，NS位的存在意味着没有DNAME位，因此无需在NSEC3 RR的类型位图字段中检查DNAME位。"
+    },
+    {
+      "indent": 3,
+      "text": "If there is no NSEC3 RR present that matches the delegation name, then the validator MUST verify a closest provable encloser proof for the delegation name. The validator MUST verify that the Opt-Out bit is set in the NSEC3 RR that covers the \"next closer\" name to the delegation name.",
+      "zh-CHS": "如果不存在与委派名称匹配的NSEC3 RR，则验证器必须验证委派名称的最近可证明封闭器证明。验证器必须验证是否在NSEC3 RR中设置了Opt Out位，该位覆盖委托名称的“下一个更接近”名称。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Resolver Considerations",
+      "section_title": true,
+      "zh-CHS": "9. 分解器注意事项"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. NSEC3 Resource Record Caching",
+      "section_title": true,
+      "zh-CHS": "9.1. NSEC3资源记录缓存"
+    },
+    {
+      "indent": 3,
+      "text": "Caching resolvers MUST be able to retrieve the appropriate NSEC3 RRs when returning responses that contain them. In DNSSEC [RFC4035], in many cases it is possible to find the correct NSEC RR to return in a response by name (e.g., when returning a referral, the NSEC RR will always have the same owner name as the delegation). With this specification, that will not be true, nor will a cache be able to calculate the name(s) of the appropriate NSEC3 RR(s). Implementations may need to use new methods for caching and retrieving NSEC3 RRs.",
+      "zh-CHS": "当返回包含NSEC3 RRs的响应时，缓存解析程序必须能够检索相应的NSEC3 RRs。在DNSSEC[RFC4035]中，在许多情况下，可以通过名称在响应中找到要返回的正确NSEC RR（例如，当返回转介时，NSEC RR将始终与委托具有相同的所有者名称）。根据此规范，这将不正确，缓存也无法计算相应NSEC3 RR的名称。实现可能需要使用新方法来缓存和检索NSEC3 RRs。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Use of the AD Bit",
+      "section_title": true,
+      "zh-CHS": "9.2. 广告位的使用"
+    },
+    {
+      "indent": 3,
+      "text": "The AD bit, as defined by [RFC4035], MUST NOT be set when returning a response containing a closest (provable) encloser proof in which the NSEC3 RR that covers the \"next closer\" name has the Opt-Out bit set.",
+      "zh-CHS": "[RFC4035]定义的AD位在返回包含最近（可证明）封闭器证明的响应时不得设置，其中覆盖“下一个闭合器”名称的NSEC3 RR设置了选择退出位。"
+    },
+    {
+      "indent": 3,
+      "text": "This rule is based on what this closest encloser proof actually proves: names that would be covered by the Opt-Out NSEC3 RR may or may not exist as insecure delegations. As such, not all the data in responses containing such closest encloser proofs will have been cryptographically verified, so the AD bit cannot be set.",
+      "zh-CHS": "这条规则是基于这个最接近的封闭证明所实际证明的：选择退出NSEC3 RR所涵盖的名称可能作为不安全的委托存在，也可能不存在。因此，并非所有包含最近封闭证明的响应中的数据都经过加密验证，因此无法设置AD位。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Special Considerations",
+      "section_title": true,
+      "zh-CHS": "10. 特别注意事项"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Domain Name Length Restrictions",
+      "section_title": true,
+      "zh-CHS": "10.1. 域名长度限制"
+    },
+    {
+      "indent": 3,
+      "text": "Zones signed using this specification have additional domain name length restrictions imposed upon them. In particular, zones with names that, when converted into hashed owner names exceed the 255 octet length limit imposed by [RFC1035], cannot use this specification.",
+      "zh-CHS": "使用此规范签名的区域具有附加的域名长度限制。特别是，名称转换为哈希所有者名称时超过[RFC1035]规定的255个八位字节长度限制的区域不能使用此规范。"
+    },
+    {
+      "indent": 3,
+      "text": "The actual maximum length of a domain name in a particular zone depends on both the length of the zone name (versus the whole domain name) and the particular hash function used.",
+      "zh-CHS": "特定区域中域名的实际最大长度取决于区域名称的长度（相对于整个域名）和使用的特定哈希函数。"
+    },
+    {
+      "indent": 3,
+      "text": "As an example, SHA-1 produces a hash of 160 bits. The base-32 encoding of 160 bits results in 32 characters. The 32 characters are prepended to the name of the zone as a single label, which includes a length field of a single octet. The maximum length of the zone name, when using SHA-1, is 222 octets (255 - 33).",
+      "zh-CHS": "例如，SHA-1产生160位的散列。160位的base-32编码产生32个字符。32个字符作为一个标签放在分区名称的前面，该标签包含一个八位字节的长度字段。使用SHA-1时，区域名称的最大长度为222个八位字节（255-33）。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. DNAME at the Zone Apex",
+      "section_title": true,
+      "zh-CHS": "10.2. 区域顶点的DNAME"
+    },
+    {
+      "indent": 3,
+      "text": "The DNAME specification in Section 3 of [RFC2672] has a 'no-descendants' limitation. If a DNAME RR is present at node N, there MUST be no data at any descendant of N.",
+      "zh-CHS": "[RFC2672]第3节中的DNAME规范有“无后代”限制。如果节点N上存在DNAME RR，则N的任何子代上都不得有数据。"
+    },
+    {
+      "indent": 3,
+      "text": "If N is the apex of the zone, there will be NSEC3 and RRSIG types present at descendants of N. This specification updates the DNAME specification to allow NSEC3 and RRSIG types at descendants of the apex regardless of the existence of DNAME at the apex.",
+      "zh-CHS": "如果N是分区的顶点，则N的后代将存在NSEC3和RRSIG类型。本规范更新了DNAME规范，以允许顶点的后代存在NSEC3和RRSIG类型，而不管顶点是否存在DNAME。"
+    },
+    {
+      "indent": 0,
+      "text": "10.3. Iterations",
+      "section_title": true,
+      "zh-CHS": "10.3. 迭代"
+    },
+    {
+      "indent": 3,
+      "text": "Setting the number of iterations used allows the zone owner to choose the cost of computing a hash, and therefore the cost of generating a dictionary. Note that this is distinct from the effect of salt, which prevents the use of a single precomputed dictionary for all time.",
+      "zh-CHS": "设置使用的迭代次数允许区域所有者选择计算哈希的成本，从而选择生成字典的成本。请注意，这与salt的效果不同，salt阻止始终使用单个预计算字典。"
+    },
+    {
+      "indent": 3,
+      "text": "Obviously the number of iterations also affects the zone owner's cost of signing and serving the zone as well as the validator's cost of verifying responses from the zone. We therefore impose an upper limit on the number of iterations. We base this on the number of iterations that approximates the cost of verifying an RRSet.",
+      "zh-CHS": "显然，迭代次数也会影响区域所有者签署和服务该区域的成本，以及验证程序验证来自该区域的响应的成本。因此，我们对迭代次数施加上限。我们将其基于迭代次数，迭代次数近似于验证RRSet的成本。"
+    },
+    {
+      "indent": 3,
+      "text": "The limits, therefore, are based on the size of the smallest zone signing key, rounded up to the nearest table value (or rounded down if the key is larger than the largest table value).",
+      "zh-CHS": "因此，限制基于最小区域签名键的大小，向上舍入到最近的表值（如果键大于最大表值，则向下舍入）。"
+    },
+    {
+      "indent": 3,
+      "text": "A zone owner MUST NOT use a value higher than shown in the table below for iterations for the given key size. A resolver MAY treat a response with a higher value as insecure, after the validator has verified that the signature over the NSEC3 RR is correct.",
+      "zh-CHS": "对于给定密钥大小的迭代，区域所有者不得使用高于下表所示的值。在验证程序验证NSEC3 RR上的签名是否正确后，解析程序可能会将具有更高值的响应视为不安全。"
+    },
+    {
+      "indent": 25,
+      "text": "+----------+------------+\n| Key Size | Iterations |\n+----------+------------+\n| 1024     | 150        |\n| 2048     | 500        |\n| 4096     | 2,500      |\n+----------+------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This table is based on an approximation of the ratio between the cost of an SHA-1 calculation and the cost of an RSA verification for keys of size 1024 bits (150 to 1), 2048 bits (500 to 1), and 4096 bits (2500 to 1).",
+      "zh-CHS": "此表基于大小为1024位（150比1）、2048位（500比1）和4096位（2500比1）的密钥的SHA-1计算成本和RSA验证成本之间的近似比率。"
+    },
+    {
+      "indent": 3,
+      "text": "The ratio between SHA-1 calculation and DSA verification is higher (1500 to 1 for keys of size 1024). A higher iteration count degrades performance, while DSA verification is already more expensive than RSA for the same key size. Therefore the values in the table MUST be used independent of the key algorithm.",
+      "zh-CHS": "SHA-1计算和DSA验证之间的比率更高（大小为1024的密钥为1500:1）。较高的迭代次数会降低性能，而对于相同的密钥大小，DSA验证已经比RSA昂贵。因此，表中的值必须独立于密钥算法使用。"
+    },
+    {
+      "indent": 0,
+      "text": "10.4. Transitioning a Signed Zone from NSEC to NSEC3",
+      "section_title": true,
+      "zh-CHS": "10.4. 将签名区域从NSEC转换为NSEC3"
+    },
+    {
+      "indent": 3,
+      "text": "When transitioning an already signed and trusted zone to this specification, care must be taken to prevent client validation failures during the process.",
+      "zh-CHS": "将已签名和受信任的区域转换到此规范时，必须注意防止在此过程中客户端验证失败。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic procedure is as follows:",
+      "zh-CHS": "基本程序如下："
+    },
+    {
+      "indent": 3,
+      "text": "1. Transition all DNSKEYs to DNSKEYs using the algorithm aliases described in Section 2. The actual method for safely and securely changing the DNSKEY RRSet of the zone is outside the scope of this specification. However, the end result MUST be that all DS RRs in the parent use the specified algorithm aliases.",
+      "zh-CHS": "1. 使用第2节中描述的算法别名将所有DNSKEY转换为DNSKEY。安全可靠地更改区域DNSKEY RRSet的实际方法不在本规范的范围内。但是，最终结果必须是父级中的所有DS RRs使用指定的算法别名。"
+    },
+    {
+      "indent": 7,
+      "text": "After this transition is complete, all NSEC3-unaware clients will treat the zone as insecure. At this point, the authoritative server still returns negative and wildcard responses that contain NSEC RRs.",
+      "zh-CHS": "完成此转换后，所有NSEC3未意识到的客户端都会将该区域视为不安全。此时，权威服务器仍然返回包含NSEC RRs的否定和通配符响应。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Add signed NSEC3 RRs to the zone, either incrementally or all at once. If adding incrementally, then the last RRSet added MUST be the NSEC3PARAM RRSet.",
+      "zh-CHS": "2. 将已签名的NSEC3 RRs增量或一次性添加到区域。如果以增量方式添加，则最后添加的RRSet必须是NSEC3PARAM RRSet。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Upon the addition of the NSEC3PARAM RRSet, the server switches to serving negative and wildcard responses with NSEC3 RRs according to this specification.",
+      "zh-CHS": "3. 添加NSEC3PARAM RRSet后，服务器根据本规范切换到使用NSEC3 RRs提供否定和通配符响应。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Remove the NSEC RRs either incrementally or all at once.",
+      "zh-CHS": "4. 增量或一次性删除NSEC RRs。"
+    },
+    {
+      "indent": 0,
+      "text": "10.5. Transitioning a Signed Zone from NSEC3 to NSEC",
+      "section_title": true,
+      "zh-CHS": "10.5. 将签名区域从NSEC3转换为NSEC"
+    },
+    {
+      "indent": 3,
+      "text": "To safely transition back to a DNSSEC [RFC4035] signed zone, simply reverse the procedure above:",
+      "zh-CHS": "要安全地转换回DNSSEC[RFC4035]签名区域，只需颠倒上述过程："
+    },
+    {
+      "indent": 3,
+      "text": "1. Add NSEC RRs incrementally or all at once.",
+      "zh-CHS": "1. 增量或一次性添加NSEC RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Remove the NSEC3PARAM RRSet. This will signal the server to use the NSEC RRs for negative and wildcard responses.",
+      "zh-CHS": "2. 卸下NSEC3PARAM RRSet。这将通知服务器使用NSEC RRs进行否定和通配符响应。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Remove the NSEC3 RRs either incrementally or all at once.",
+      "zh-CHS": "3. 增量或一次性删除NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Transition all of the DNSKEYs to DNSSEC algorithm identifiers. After this transition is complete, all NSEC3-unaware clients will treat the zone as secure.",
+      "zh-CHS": "4. 将所有DNSKEY转换为DNSSEC算法标识符。完成此转换后，所有NSEC3未意识到的客户端都会将该区域视为安全的。"
+    },
+    {
+      "indent": 0,
+      "text": "11. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "11. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Although the NSEC3 and NSEC3PARAM RR formats include a hash algorithm parameter, this document does not define a particular mechanism for safely transitioning from one NSEC3 hash algorithm to another. When specifying a new hash algorithm for use with NSEC3, a transition mechanism MUST also be defined.",
+      "zh-CHS": "尽管NSEC3和NSEC3PARAM RR格式包含散列算法参数，但本文档并未定义从一个NSEC3散列算法安全过渡到另一个的特定机制。在指定用于NSEC3的新哈希算法时，还必须定义转换机制。"
+    },
+    {
+      "indent": 3,
+      "text": "This document updates the IANA registry \"DOMAIN NAME SYSTEM PARAMETERS\" (http://www.iana.org/assignments/dns-parameters) in sub-registry \"TYPES\", by defining two new types. Section 3 defines the NSEC3 RR type 50. Section 4 defines the NSEC3PARAM RR type 51.",
+      "zh-CHS": "本文档更新IANA注册表“域名系统参数”(http://www.iana.org/assignments/dns-parameters)在子注册表“类型”中，通过定义两个新类型。第3节定义了NSEC3 RR类型50。第4节定义了NSEC3PARAM RR类型51。"
+    },
+    {
+      "indent": 3,
+      "text": "This document updates the IANA registry \"DNS SECURITY ALGORITHM NUMBERS -- per [RFC4035]\" (http://www.iana.org/assignments/dns-sec-alg-numbers). Section 2 defines the aliases DSA-NSEC3-SHA1 (6) and RSASHA1-NSEC3-SHA1 (7) for respectively existing registrations DSA and RSASHA1 in combination with NSEC3 hash algorithm SHA1.",
+      "zh-CHS": "本文档更新IANA注册表“DNS安全算法编号——依据[RFC4035]”(http://www.iana.org/assignments/dns-sec-alg-numbers). 第2节结合NSEC3哈希算法SHA1，分别为现有注册DSA和RSASHA1定义别名DSA-NSEC3-SHA1（6）和RSASHA1-NSEC3-SHA1（7）。"
+    },
+    {
+      "indent": 3,
+      "text": "Since these algorithm numbers are aliases for existing DNSKEY algorithm numbers, the flags that exist for the original algorithm are valid for the alias algorithm.",
+      "zh-CHS": "由于这些算法编号是现有DNSKEY算法编号的别名，因此原始算法的标志对别名算法有效。"
+    },
+    {
+      "indent": 3,
+      "text": "This document creates a new IANA registry for NSEC3 flags. This registry is named \"DNSSEC NSEC3 Flags\". The initial contents of this registry are:",
+      "zh-CHS": "本文档为NSEC3标志创建一个新的IANA注册表。此注册表名为“DNSSEC NSEC3标志”。此注册表的初始内容包括："
+    },
+    {
+      "indent": 3,
+      "text": "  0   1   2   3   4   5   6   7\n+---+---+---+---+---+---+---+---+\n|   |   |   |   |   |   |   |Opt|\n|   |   |   |   |   |   |   |Out|\n+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "bit 7 is the Opt-Out flag.",
+      "zh-CHS": "第7位是选择退出标志。"
+    },
+    {
+      "indent": 6,
+      "text": "bits 0 - 6 are available for assignment.",
+      "zh-CHS": "位0-6可用于赋值。"
+    },
+    {
+      "indent": 3,
+      "text": "Assignment of additional NSEC3 Flags in this registry requires IETF Standards Action [RFC2434].",
+      "zh-CHS": "在该注册表中分配额外的NSEC3标志需要IETF标准操作[RFC2434]。"
+    },
+    {
+      "indent": 3,
+      "text": "This document creates a new IANA registry for NSEC3PARAM flags. This registry is named \"DNSSEC NSEC3PARAM Flags\". The initial contents of this registry are:",
+      "zh-CHS": "本文档为NSEC3PARAM标志创建一个新的IANA注册表。此注册表名为“DNSSEC NSEC3PARAM Flags”。此注册表的初始内容包括："
+    },
+    {
+      "indent": 3,
+      "text": "  0   1   2   3   4   5   6   7\n+---+---+---+---+---+---+---+---+\n|   |   |   |   |   |   |   | 0 |\n+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "bit 7 is reserved and must be 0.",
+      "zh-CHS": "位7是保留的，必须为0。"
+    },
+    {
+      "indent": 6,
+      "text": "bits 0 - 6 are available for assignment.",
+      "zh-CHS": "位0-6可用于赋值。"
+    },
+    {
+      "indent": 3,
+      "text": "Assignment of additional NSEC3PARAM Flags in this registry requires IETF Standards Action [RFC2434].",
+      "zh-CHS": "在此注册表中分配额外的NSEC3PARAM标志需要IETF标准操作[RFC2434]。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, this document creates a new IANA registry for NSEC3 hash algorithms. This registry is named \"DNSSEC NSEC3 Hash Algorithms\". The initial contents of this registry are:",
+      "zh-CHS": "最后，本文为NSEC3哈希算法创建了一个新的IANA注册表。该注册表名为“DNSSEC NSEC3哈希算法”。此注册表的初始内容包括："
+    },
+    {
+      "indent": 6,
+      "text": "0 is Reserved.",
+      "zh-CHS": "0是保留的。"
+    },
+    {
+      "indent": 6,
+      "text": "1 is SHA-1.",
+      "zh-CHS": "1是SHA-1。"
+    },
+    {
+      "indent": 6,
+      "text": "2-255 Available for assignment.",
+      "zh-CHS": "2-255可供分配。"
+    },
+    {
+      "indent": 3,
+      "text": "Assignment of additional NSEC3 hash algorithms in this registry requires IETF Standards Action [RFC2434].",
+      "zh-CHS": "在该注册表中分配额外的NSEC3哈希算法需要IETF标准操作[RFC2434]。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "12. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "12.1. Hashing Considerations",
+      "section_title": true,
+      "zh-CHS": "12.1. 散列注意事项"
+    },
+    {
+      "indent": 0,
+      "text": "12.1.1. Dictionary Attacks",
+      "section_title": true,
+      "zh-CHS": "12.1.1. 字典攻击"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 RRs are still susceptible to dictionary attacks (i.e., the attacker retrieves all the NSEC3 RRs, then calculates the hashes of all likely domain names, comparing against the hashes found in the NSEC3 RRs, and thus enumerating the zone). These are substantially more expensive than enumerating the original NSEC RRs would have been, and in any case, such an attack could also be used directly against the name server itself by performing queries for all likely names, though this would obviously be more detectable. The expense of this off-line attack can be chosen by setting the number of iterations in the NSEC3 RR.",
+      "zh-CHS": "NSEC3 RRs仍然容易受到字典攻击（即，攻击者检索所有NSEC3 RRs，然后计算所有可能域名的哈希值，与NSEC3 RRs中的哈希值进行比较，从而枚举区域）。这比枚举原始NSEC RRs的成本要高很多，而且在任何情况下，这种攻击也可以通过对所有可能的名称执行查询来直接针对名称服务器本身，尽管这显然更容易检测到。可以通过设置NSEC3 RR中的迭代次数来选择此离线攻击的费用。"
+    },
+    {
+      "indent": 3,
+      "text": "Zones are also susceptible to a pre-calculated dictionary attack -- that is, a list of hashes for all likely names is computed once, then NSEC3 RR is scanned periodically and compared against the precomputed hashes. This attack is prevented by changing the salt on a regular basis.",
+      "zh-CHS": "区域也容易受到预先计算的字典攻击——也就是说，所有可能名称的哈希列表计算一次，然后定期扫描NSEC3 RR并与预先计算的哈希进行比较。通过定期更换盐可以防止这种攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The salt SHOULD be at least 64 bits long and unpredictable, so that an attacker cannot anticipate the value of the salt and compute the next set of dictionaries before the zone is published.",
+      "zh-CHS": "salt的长度应至少为64位且不可预测，因此攻击者无法在区域发布之前预测salt的值并计算下一组字典。"
+    },
+    {
+      "indent": 0,
+      "text": "12.1.2. Collisions",
+      "section_title": true,
+      "zh-CHS": "12.1.2. 碰撞"
+    },
+    {
+      "indent": 3,
+      "text": "Hash collisions between QNAME and the owner name of an NSEC3 RR may occur. When they do, it will be impossible to prove the non-existence of the colliding QNAME. However, with SHA-1, this is highly unlikely (on the order of 1 in 2^160). Note that DNSSEC already relies on the presumption that a cryptographic hash function is second pre-image resistant, since these hash functions are used for generating and validating signatures and DS RRs.",
+      "zh-CHS": "NSEC3 RR的QNAME和所有者名称之间可能发生哈希冲突。当他们这样做时，就不可能证明碰撞QNAME的不存在。然而，对于SHA-1，这是极不可能的（在2^160中为1）。注意，DNSSEC已经依赖于加密哈希函数是第二预映像抵抗的假设，因为这些哈希函数用于生成和验证签名和DS RRs。"
+    },
+    {
+      "indent": 0,
+      "text": "12.1.3. Transitioning to a New Hash Algorithm",
+      "section_title": true,
+      "zh-CHS": "12.1.3. 过渡到新的哈希算法"
+    },
+    {
+      "indent": 3,
+      "text": "Although the NSEC3 and NSEC3PARAM RR formats include a hash algorithm parameter, this document does not define a particular mechanism for safely transitioning from one NSEC3 hash algorithm to another. When specifying a new hash algorithm for use with NSEC3, a transition mechanism MUST also be defined. It is possible that the only practical and palatable transition mechanisms may require an intermediate transition to an insecure state, or to a state that uses NSEC records instead of NSEC3.",
+      "zh-CHS": "尽管NSEC3和NSEC3PARAM RR格式包含散列算法参数，但本文档并未定义从一个NSEC3散列算法安全过渡到另一个的特定机制。在指定用于NSEC3的新哈希算法时，还必须定义转换机制。唯一实用且令人满意的过渡机制可能需要过渡到不安全状态，或过渡到使用NSEC记录而不是NSEC3的状态。"
+    },
+    {
+      "indent": 0,
+      "text": "12.1.4. Using High Iteration Values",
+      "section_title": true,
+      "zh-CHS": "12.1.4. 使用高迭代值"
+    },
+    {
+      "indent": 3,
+      "text": "Since validators should treat responses containing NSEC3 RRs with high iteration values as insecure, presence of just one signed NSEC3 RR with a high iteration value in a zone provides attackers with a possible downgrade attack.",
+      "zh-CHS": "由于验证器应将包含具有高迭代值的NSEC3 RR的响应视为不安全响应，因此区域中仅存在一个具有高迭代值的已签名NSEC3 RR会为攻击者提供可能的降级攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The attack is simply to remove any existing NSEC3 RRs from a response, and replace or add a single (or multiple) NSEC3 RR that uses a high iterations value to the response. Validators will then be forced to treat the response as insecure. This attack would be effective only when all of following conditions are met:",
+      "zh-CHS": "攻击只是从响应中删除任何现有NSEC3 RR，并替换或添加单个（或多个）NSEC3 RR，该NSEC3 RR使用高迭代次数值进行响应。然后，验证器将被迫将响应视为不安全的。此攻击只有在满足以下所有条件时才有效："
+    },
+    {
+      "indent": 3,
+      "text": "o There is at least one signed NSEC3 RR that uses a high iterations value present in the zone.",
+      "zh-CHS": "o 区域中至少存在一个使用高迭代次数值的有符号NSEC3 RR。"
+    },
+    {
+      "indent": 3,
+      "text": "o The attacker has access to one or more of these NSEC3 RRs. This is trivially true when the NSEC3 RRs with high iteration values are being returned in typical responses, but may also be true if the attacker can access the zone via AXFR or IXFR queries, or any other methodology.",
+      "zh-CHS": "o 攻击者可以访问一个或多个NSEC3 RRs。当在典型响应中返回具有高迭代值的NSEC3 RRs时，这种情况非常常见，但如果攻击者可以通过AXFR或IXFR查询或任何其他方法访问该区域，这种情况也可能存在。"
+    },
+    {
+      "indent": 3,
+      "text": "Using a high number of iterations also introduces an additional denial-of-service opportunity against servers, since servers must calculate several hashes per negative or wildcard response.",
+      "zh-CHS": "使用大量迭代也会对服务器带来额外的拒绝服务机会，因为服务器必须为每个否定或通配符响应计算几个哈希。"
+    },
+    {
+      "indent": 0,
+      "text": "12.2. Opt-Out Considerations",
+      "section_title": true,
+      "zh-CHS": "12.2. 选择退出考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The Opt-Out Flag (O) allows for unsigned names, in the form of delegations to unsigned zones, to exist within an otherwise signed zone. All unsigned names are, by definition, insecure, and their validity or existence cannot be cryptographically proven.",
+      "zh-CHS": "选择退出标志（O）允许未签名的名称以授权给未签名区域的形式存在于其他签名区域内。根据定义，所有未签名的名称都是不安全的，并且它们的有效性或存在性无法通过密码验证。"
+    },
+    {
+      "indent": 3,
+      "text": "In general:",
+      "zh-CHS": "一般来说："
+    },
+    {
+      "indent": 3,
+      "text": "o Resource records with unsigned names (whether existing or not) suffer from the same vulnerabilities as RRs in an unsigned zone. These vulnerabilities are described in more detail in [RFC3833] (note in particular Section 2.3, \"Name Chaining\" and Section 2.6, \"Authenticated Denial of Domain Names\").",
+      "zh-CHS": "o 具有未签名名称（无论是否存在）的资源记录与未签名区域中的RRs具有相同的漏洞。这些漏洞在[RFC3833]中有更详细的描述（请特别注意第2.3节“名称链接”和第2.6节“经验证的域名拒绝”）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Resource records with signed names have the same security whether or not Opt-Out is used.",
+      "zh-CHS": "o 无论是否使用Opt-Out，具有签名名称的资源记录都具有相同的安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that with or without Opt-Out, an insecure delegation may be undetectably altered by an attacker. Because of this, the primary difference in security when using Opt-Out is the loss of the ability to prove the existence or nonexistence of an insecure delegation within the span of an Opt-Out NSEC3 RR.",
+      "zh-CHS": "请注意，无论是否选择退出，攻击者都可能无法检测到不安全的委派。因此，在使用Opt-Out时，安全性方面的主要区别是无法在Opt-Out NSEC3 RR的范围内证明存在或不存在不安全的委托。"
+    },
+    {
+      "indent": 3,
+      "text": "In particular, this means that a malicious entity may be able to insert or delete RRs with unsigned names. These RRs are normally NS RRs, but this also includes signed wildcard expansions (while the wildcard RR itself is signed, its expanded name is an unsigned name).",
+      "zh-CHS": "特别是，这意味着恶意实体可能能够插入或删除具有未签名名称的RRs。这些RRs通常是NS RRs，但也包括有符号通配符扩展（虽然通配符RR本身是有符号的，但其扩展名是无符号名称）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that being able to add a delegation is functionally equivalent to being able to add any RR type: an attacker merely has to forge a delegation to name server under his/her control and place whatever RRs needed at the subzone apex.",
+      "zh-CHS": "请注意，能够添加委派在功能上等同于能够添加任何RR类型：攻击者只需伪造委派，将其控制下的名称服务器命名，并在子区域顶点放置所需的RRs即可。"
+    },
+    {
+      "indent": 3,
+      "text": "While in particular cases, this issue may not present a significant security problem, in general it should not be lightly dismissed. Therefore, it is strongly RECOMMENDED that Opt-Out be used sparingly. In particular, zone signing tools SHOULD NOT default to using Opt-Out, and MAY choose to not support Opt-Out at all.",
+      "zh-CHS": "虽然在某些情况下，这一问题可能不会造成重大的安全问题，但总的来说，不应轻视这一问题。因此，强烈建议谨慎使用选择退出。特别是，区域签名工具不应默认使用选择退出，并且可能选择根本不支持选择退出。"
+    },
+    {
+      "indent": 0,
+      "text": "12.3. Other Considerations",
+      "section_title": true,
+      "zh-CHS": "12.3. 其他考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Walking the NSEC3 RRs will reveal the total number of RRs in the zone (plus empty non-terminals), and also what types there are. This could be mitigated by adding dummy entries, but certainly an upper limit can always be found.",
+      "zh-CHS": "行走NSEC3 RRs将显示区域中RRs的总数（加上空的非终端），以及RRs的类型。这可以通过添加虚拟条目来缓解，但肯定可以找到上限。"
+    },
+    {
+      "indent": 0,
+      "text": "13. References",
+      "section_title": true,
+      "zh-CHS": "13. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "13.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1034] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[RFC1034]Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1035] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[RFC1035]Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 1035，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2136] Vixie, P., Thomson, S., Rekhter, Y., and J. Bound, \"Dynamic Updates in the Domain Name System (DNS UPDATE)\", RFC 2136, April 1997.",
+      "zh-CHS": "[RFC2136]Vixie，P.，Thomson，S.，Rekhter，Y.，和J.Bound，“域名系统中的动态更新（DNS更新）”，RFC 21361997年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2181] Elz, R. and R. Bush, \"Clarifications to the DNS Specification\", RFC 2181, July 1997.",
+      "zh-CHS": "[RFC2181]Elz，R.和R.Bush，“DNS规范的澄清”，RFC 21811997年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2308] Andrews, M., \"Negative Caching of DNS Queries (DNS NCACHE)\", RFC 2308, March 1998.",
+      "zh-CHS": "[RFC2308]Andrews，M.，“DNS查询的反向缓存（DNS NCACHE）”，RFC 2308，1998年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2434] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[RFC2434]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2929] Eastlake, D., Brunner-Williams, E., and B. Manning, \"Domain Name System (DNS) IANA Considerations\", BCP 42, RFC 2929, September 2000.",
+      "zh-CHS": "[RFC2929]Eastlake，D.，Brunner Williams，E.，和B.Manning，“域名系统（DNS）IANA注意事项”，BCP 42，RFC 29292000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3597] Gustafsson, A., \"Handling of Unknown DNS Resource Record (RR) Types\", RFC 3597, September 2003.",
+      "zh-CHS": "[RFC3597]Gustafsson，A.，“未知DNS资源记录（RR）类型的处理”，RFC3597，2003年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4033] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, March 2005.",
+      "zh-CHS": "[RFC4033]Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4034] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"Resource Records for the DNS Security Extensions\", RFC 4034, March 2005.",
+      "zh-CHS": "[RFC4034]Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全扩展的资源记录”，RFC 40342005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4035] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"Protocol Modifications for the DNS Security Extensions\", RFC 4035, March 2005.",
+      "zh-CHS": "[RFC4035]Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全扩展的协议修改”，RFC 4035，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4648] Josefsson, S., \"The Base16, Base32, and Base64 Data Encodings\", RFC 4648, October 2006.",
+      "zh-CHS": "[RFC4648]Josefsson，S.，“Base16、Base32和Base64数据编码”，RFC4648，2006年10月。"
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "13.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[DNSEXT-NO] Josefsson, S., \"Authenticating Denial of Existence in DNS with Minimum Disclosure\", Work in Progress, July 2000.",
+      "zh-CHS": "[DNSEXT-NO]Josefsson，S.，“在DNS中以最低限度的披露验证拒绝存在”，正在进行的工作，2000年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[DNSEXT-NSEC2v2] Laurie, B., \"DNSSEC NSEC2 Owner and RDATA Format\", Work in Progress, December 2004.",
+      "zh-CHS": "[DNSEXT-NSEC2v2]Laurie，B.，“DNSSEC NSEC2所有者和RDATA格式”，正在进行的工作，2004年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2672] Crawford, M., \"Non-Terminal DNS Name Redirection\", RFC 2672, August 1999.",
+      "zh-CHS": "[RFC2672]克劳福德，M.，“非终端DNS名称重定向”，RFC 26721999年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2898] Kaliski, B., \"PKCS #5: Password-Based Cryptography Specification Version 2.0\", RFC 2898, September 2000.",
+      "zh-CHS": "[RFC2898]Kaliski，B.，“PKCS#5：基于密码的加密规范版本2.0”，RFC 28982000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3833] Atkins, D. and R. Austein, \"Threat Analysis of the Domain Name System (DNS)\", RFC 3833, August 2004.",
+      "zh-CHS": "[RFC3833]Atkins，D.和R.Austein，“域名系统（DNS）的威胁分析”，RFC 38332004年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4592] Lewis, E., \"The Role of Wildcards in the Domain Name System\", RFC 4592, July 2006.",
+      "zh-CHS": "[RFC4592]Lewis，E.，“通配符在域名系统中的作用”，RFC4592，2006年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4956] Arends, R., Kosters, M., and D. Blacka, \"DNS Security (DNSSEC) Opt-In\", RFC 4956, July 2007.",
+      "zh-CHS": "[RFC4956]Arends，R.，Kosters，M.，和D.Blacka，“DNS安全（DNSSEC）选择加入”，RFC 49562007年7月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Example Zone",
+      "section_title": true,
+      "zh-CHS": "附录A.示范区"
+    },
+    {
+      "indent": 3,
+      "text": "This is a zone showing its NSEC3 RRs. They can also be used as test vectors for the hash algorithm.",
+      "zh-CHS": "这是一个显示其NSEC3 RRs的区域。它们也可以用作哈希算法的测试向量。"
+    },
+    {
+      "indent": 3,
+      "text": "The overall TTL and class are specified in the SOA RR, and are subsequently omitted for clarity.",
+      "zh-CHS": "总体TTL和类在SOARR中指定，为了清晰起见，随后省略了它们。"
+    },
+    {
+      "indent": 3,
+      "text": "The zone is preceded by a list that contains the hashes of the original ownernames.",
+      "zh-CHS": "区域前面有一个列表，其中包含原始所有者名称的哈希。"
+    },
+    {
+      "indent": 3,
+      "text": "; H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom\n; H(a.example)     = 35mthgpgcu1qg68fab165klnsnk3dpvl\n; H(ai.example)    = gjeqe526plbf1g8mklp59enfd789njgi\n; H(ns1.example)   = 2t7b4g4vsa5smi47k61mv5bv1a22bojr\n; H(ns2.example)   = q04jkcevqvmu85r014c7dkba38o0ji5r\n; H(w.example)     = k8udemvp1j2f7eg6jebps17vp3n8i58h\n; H(*.w.example)   = r53bq7cc2uvmubfu5ocmm6pers9tk9en\n; H(x.w.example)   = b4um86eghhds6nea196smvmlo4ors995\n; H(y.w.example)   = ji6neoaepv8b5o6k4ev33abha8ht9fgc\n; H(x.y.w.example) = 2vptu5timamqttgl4luu9kg21e0aor3s\n; H(xx.example)    = t644ebqk9bibcna874givr6joj62mlhv\n; H(2t7b4g4vsa5smi47k61mv5bv1a22bojr.example)\n;                  = kohar7mbb8dc2ce8a9qvl8hon4k53uhi\nexample. 3600  IN SOA  ns1.example. bugs.x.w.example. 1 3600 300 (\n                       3600000 3600 )\n               RRSIG   SOA 7 1 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i\n                       q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd\n                       VI2LmKusbZsT0Q== )\n               NS      ns1.example.\n               NS      ns2.example.\n               RRSIG   NS 7 1 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       PVOgtMK1HHeSTau+HwDWC8Ts+6C8qtqd4pQJ\n                       qOtdEVgg+MA+ai4fWDEhu3qHJyLcQ9tbD2vv\n                       CnMXjtz6SyObxA== )\n               MX      1 xx.example.\n               RRSIG   MX 7 1 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       GgQ1A9xs47k42VPvpL/a1BWUz/6XsnHkjotw\n                       9So8MQtZtl2wJBsnOQsaoHrRCrRbyriEl/GZ\n                       n9Mto/Kx+wBo+w== )\n               DNSKEY  256 3 7 AwEAAaetidLzsKWUt4swWR8yu0wPHPiUi8LU (\n                       sAD0QPWU+wzt89epO6tHzkMBVDkC7qphQO2h\n                       TY4hHn9npWFRw5BYubE= )",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": " DNSKEY 257 3 7 AwEAAcUlFV1vhmqx6NSOUOq2R/dsR7Xm3upJ ( j7IommWSpJABVfW8Q0rOvXdM6kzt+TAu92L9 AbsUdblMFin8CVF3n4s= ) RRSIG DNSKEY 7 1 3600 20150420235959 ( 20051021000000 12708 example. AuU4juU9RaxescSmStrQks3Gh9FblGBlVU31 uzMZ/U/FpsUb8aC6QZS+sTsJXnLnz7flGOsm MGQZf3bH+QsCtg== ) NSEC3PARAM 1 0 12 aabbccdd RRSIG NSEC3PARAM 7 1 3600 20150420235959 ( 20051021000000 40430 example. C1Gl8tPZNtnjlrYWDeeUV/sGLCyy/IHie2re rN05XSA3Pq0U3+4VvGWYWdUMfflOdxqnXHwJ TLQsjlkynhG6Cg== ) 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. NSEC3 1 1 12 aabbccdd ( 2t7b4g4vsa5smi47k61mv5bv1a22bojr MX DNSKEY NS SOA NSEC3PARAM RRSIG ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA== ) 2t7b4g4vsa5smi47k61mv5bv1a22bojr.example. A 192.0.2.127 RRSIG A 7 2 3600 20150420235959 20051021000000 ( 40430 example. h6c++bzhRuWWt2bykN6mjaTNBcXNq5UuL5Ed K+iDP4eY8I0kSiKaCjg3tC1SQkeloMeub2GW k8p6xHMPZumXlw== ) NSEC3 1 1 12 aabbccdd ( 2vptu5timamqttgl4luu9kg21e0aor3s A RRSIG ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. OmBvJ1Vgg1hCKMXHFiNeIYHK9XVW0iLDLwJN 4TFoNxZuP03gAXEI634YwOc4YBNITrj413iq NI6mRk/r1dOSUw== ) 2vptu5timamqttgl4luu9kg21e0aor3s.example. NSEC3 1 1 12 aabbccdd ( 35mthgpgcu1qg68fab165klnsnk3dpvl MX RRSIG ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. KL1V2oFYghNV0Hm7Tf2vpJjM6l+0g1JCcVYG VfI0lKrhPmTsOA96cLEACgo1x8I7kApJX+ob TuktZ+sdsZPY1w== ) 35mthgpgcu1qg68fab165klnsnk3dpvl.example. NSEC3 1 1 12 aabbccdd ( b4um86eghhds6nea196smvmlo4ors995 NS DS RRSIG )",
+      "zh-CHS": "DNSKEY 257 3 3 AwEAAcUlFV1vhmqx6NSOUOq2R/dsR7Xm3upJ（J7IOMMWPJJVW8Q0ROVXDM6KZT+TAu92L9 AbsUdblMFin8CVF3n4s=）RRSIG DNSKEY 3600 2015042035959（2005102100000012708示例。AUU4JU9RAXESCSSTRKS3GH9FBLGBLVUZMZ/U/FpsUb8aC6QZS+STSJXNZ7FLGOSM MGZF3BH+QsCtg=）12 CFC3359（20051021000000 40430示例。C1Gl8tPZNtnjlrYWDeeUV/sGLCyy/IHie2re rN05XSA3Pq0U3+4vvgwwwwwydumflodxqnxhwj tlqjlkynhg6cg==）0p9mHaveqvm6t7vbl5lop2u3t2rp3rp3tom.示例。NSEC3 1 12 aabbccdd（2T7B4G4VSA5SMI47K61MV5BV12BOJr MX DNSKEY NSEC3参数RRSIG）RRSIG NSEC3 3600 201504235959 2005100000（40430示例。OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA=）2t7b4g4vsa5smi47k61mv5bv1a22bojr。示例。A 192.0.2.127 RRSIG A 723600 2015040220235959 20051021000000（2vptu5timamqttgl4luu9kg21e0aor3s A RRSIG）RRSIG NSEC3 7 2 3600 2015042035959 20051021000000RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430例。KL1V2oFYghNV0Hm7Tf2vpJjM6l+0g1JCcVYG VfI0lKrhPmTsOA96cLEACgo1x8I7kApJX+ob TuktZ+sdsZPY1w==）35mthgpgcu1qg68fab165klnsnk3dpvl例。NSEC3 1 12 aabbccdd（B4UM86EGHHDS6 196SMVMLO4ORS995 NS RRSIG）"
+    },
+    {
+      "indent": 3,
+      "text": " RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. g6jPUUpduAJKRljUsN8gB4UagAX0NxY9shwQ Aynzo8EUWH+z6hEIBlUTPGj15eZll6VhQqgZ XtAIR3chwgW+SA== ) a.example. NS ns1.a.example. NS ns2.a.example. DS 58470 5 1 ( 3079F1593EBAD6DC121E202A8B766A6A4837206C ) RRSIG DS 7 2 3600 20150420235959 20051021000000 ( 40430 example. XacFcQVHLVzdoc45EJhN616zQ4mEXtE8FzUh M2KWjfy1VfRKD9r1MeVGwwoukOKgJxBPFsWo o722vZ4UZ2dIdA== ) ns1.a.example. A 192.0.2.5 ns2.a.example. A 192.0.2.6 ai.example. A 192.0.2.9 RRSIG A 7 2 3600 20150420235959 20051021000000 ( 40430 example. hVe+wKYMlObTRPhX0NL67GxeZfdxqr/QeR6F tfdAj5+FgYxyzPEjIzvKWy00hWIl6wD3Vws+ rznEn8sQ64UdqA== ) HINFO \"KLH-10\" \"ITS\" RRSIG HINFO 7 2 3600 20150420235959 20051021000000 ( 40430 example. Yi42uOq43eyO6qXHNvwwfFnIustWgV5urFcx enkLvs6pKRh00VBjODmf3Z4nMO7IOl6nHSQ1 v0wLHpEZG7Xj2w== ) AAAA 2001:db8:0:0:0:0:f00:baa9 RRSIG AAAA 7 2 3600 20150420235959 20051021000000 ( 40430 example. LcdxKaCB5bGZwPDg+3JJ4O02zoMBrjxqlf6W uaHQZZfTUpb9Nf2nxFGe2XRPfR5tpJT6GdRG cHueLuXkMjBArQ== ) b4um86eghhds6nea196smvmlo4ors995.example. NSEC3 1 1 12 aabbccdd ( gjeqe526plbf1g8mklp59enfd789njgi MX RRSIG ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. ZkPG3M32lmoHM6pa3D6gZFGB/rhL//Bs3Omh 5u4m/CUiwtblEVOaAKKZd7S959OeiX43aLX3 pOv0TSTyiTxIZg== ) c.example. NS ns1.c.example. NS ns2.c.example. ns1.c.example. A 192.0.2.7 ns2.c.example. A 192.0.2.8 gjeqe526plbf1g8mklp59enfd789njgi.example. NSEC3 1 1 12 aabbccdd ( ji6neoaepv8b5o6k4ev33abha8ht9fgc HINFO A AAAA RRSIG )",
+      "zh-CHS": "RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430示例。g6jPUUpduAJKRljUsN8gB4UagAX0NxY9shwQ Aynzo8EUWH+z6hEIBlUTPGj15eZll6VhQqgZ XtAIR3chwgW+SA==）一个示例。NS ns1.a.示例。NS ns2.a.示例。DS 58470 5 1（3079F1593EBAD6DC121E202A8B766A4837206C）RRSIG DS 7 2 3600 2015042035959 20051021000000（40430例。XacFcQVHLVzdoc45EJhN616zQ4mEXtE8FzUh m2kwjfy1vfrkd9r1mevgwoukjpfswo o722vZ4UZ2dIdA==）ns1.a.示例。192.0.2.5 ns2.A.示例。192.0.2.6人工智能示例。A 192.0.2.9 RRSIG A 7 2 3600 201504020235959 20051021000000（40430例：hVe+WKYMLOBTRPH0NL67GXEZFDXQR/QeR6F tfdAj5+FgYxyzPEjIzvKWy00hWIl6wD3Vws+rznEn8sQ64UdqA=）HINFO“KLH-10”ITS“RRSIG HINFO 7 3600 201504020235959 20051021000000AAAA 2001:db8:0:0:0:0:f00:baa9 RRSIG AAAA 7 2 3600 20150402035959 20051021000000（40430示例。LcdxKaCB5bGZwPDg+3J4O02ZOMBRJXQLF6W uaHQZZfTUpb9Nf2nxFGe2XRPfR5tpJT6GdRG cHueLuXkMjBArQ==）B4UM86EGHHDS6NE196SMVMLO4ORS995.示例。NSEC3 1 12 aabbccdd（gjeqe526plbf1g8mklp59enfd789njgi MX RRSIG）RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430示例。ZKPG32Mohm6PA3D6GZFGB/rhL//Bs3Omh 5u4m/CuitblevoakKZD7S959OEIX43ALX3 pOv0TSTyiTxIZg==）c.示例。NS ns1.c.示例。NS ns2.c.示例。ns1.c.示例。192.0.2.7 ns2.c.示例。A 192.0.2.8 gjeqe526plbf1g8mklp59enfd789njgi.example。NSEC3 1 12 aabbccdd（ji6neoaepv8b5o6k4ev33abha8ht9fgc HINFO A AAAA RRSIG）"
+    },
+    {
+      "indent": 3,
+      "text": " RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. IVnezTJ9iqblFF97vPSmfXZ5Zozngx3KX3by LTZC4QBH2dFWhf6scrGFZB980AfCxoD9qbbK Dy+rdGIeRSVNyw== ) ji6neoaepv8b5o6k4ev33abha8ht9fgc.example. NSEC3 1 1 12 aabbccdd ( k8udemvp1j2f7eg6jebps17vp3n8i58h ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. gPkFp1s2QDQ6wQzcg1uSebZ61W33rUBDcTj7 2F3kQ490fEdp7k1BUIfbcZtPbX3YCpE+sIt0 MpzVSKfTwx4uYA== ) k8udemvp1j2f7eg6jebps17vp3n8i58h.example. NSEC3 1 1 12 aabbccdd ( kohar7mbb8dc2ce8a9qvl8hon4k53uhi ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. FtXGbvF0+wf8iWkyo73enAuVx03klN+pILBK S6qCcftVtfH4yVzsEZquJ27NHR7ruxJWDNMt Otx7w9WfcIg62A== ) kohar7mbb8dc2ce8a9qvl8hon4k53uhi.example. NSEC3 1 1 12 aabbccdd ( q04jkcevqvmu85r014c7dkba38o0ji5r A RRSIG ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. VrDXs2uVW21N08SyQIz88zml+y4ZCInTwgDr 6zz43yAg+LFERjOrj3Ojct51ac7Dp4eZbf9F QJazmASFKGxGXg== ) ns1.example. A 192.0.2.1 RRSIG A 7 2 3600 20150420235959 20051021000000 ( 40430 example. bu6kx73n6XEunoVGuRfAgY7EF/AJqHy7hj0j kiqJjB0dOrx3wuz9SaBeGfqWIdn/uta3SavN 4FRvZR9SCFHF5Q== ) ns2.example. A 192.0.2.2 RRSIG A 7 2 3600 20150420235959 20051021000000 ( 40430 example. ktQ3TqE0CfRfki0Rb/Ip5BM0VnxelbuejCC4 zpLbFKA/7eD7UNAwxMgxJPtbdST+syjYSJaj 4IHfeX6n8vfoGA== ) q04jkcevqvmu85r014c7dkba38o0ji5r.example. NSEC3 1 1 12 aabbccdd ( r53bq7cc2uvmubfu5ocmm6pers9tk9en A RRSIG ) RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 ( 40430 example. hV5I89b+4FHJDATp09g4bbN0R1F845CaXpL3 ZxlMKimoPAyqletMlEWwLfFia7sdpSzn+ZlN NlkxWcLsIlMmUg== )",
+      "zh-CHS": "RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430示例。LTZC4QBH2DFHF6SCRGFZB980AFCxOD9QBBK Dy+rdGIeRSVNyw==）的IVNEZTJ9IQBLFF97VPSMFXZ5ZOZZZZZNGX3KX3）ji6neoaepv8b5o6k4ev33abha8ht9fgc示例。NSEC3 1 12 aabbccdd（k8udemvp1j2f7eg6jebps17vp3n8i58h）RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430示例。GPKFP1S2QDQ6WZCG1USEBZ61W33RUBDCTJ7 2F3KQ490FEDP7K1BUIBCZTPBX3YCPE+SIT0MPZVSKFTWX4UYA==）K8UDEMVP1S2QD6EG6JEBP7VP3N8I58H.示例。NSEC3 1 12 aabbccdd（kohar7mbb8dc2ce8a9qvl8hon4k53uhi）RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430示例。FtXGbvF0+wf8iWkyo73enAuVx03klN+pILBK S6QCCFTVTFH4YVZZEZQUJ27NHR7RUXJWDNMT Otx7w9WfcIg62A=）kohar7mbb8dc2ce8a9qvl8hon4k53uhi.示例。NSEC3 1 12 aabbccdd（q04jkcevqvmu85r014c7dkba38o0ji5r A RRSIG）RRSIG NSEC3 7 3600 2015042035959 20051021000000（40430示例。VrDXs2uVW21N08SyQIz88zml+y4ZCInTwgDr 6ZZZ43YAG+LFERJ3OJCT51AC7DP4EZBF9F QJazmASFKGxGXg==）ns1.示例。A 192.0.2.1 RRSIG A 7 2 3600 201504020235959 20051021000000（40430示例。bu6kx73n6XEunoVGuRfAgY7EF/AJqHy7hj0j kiqJjB0dOrx3wuz9SaBeGfqWIdn/uta3SavN 4FRVZR9SCF5Q==）ns2.示例。A 192.0.2.2 RRSIG A 7 2 3600 201504020235959 20051021000000（40430示例。ktQ3TqE0CfRfki0Rb/Ip5BM0VnxelbuejCC4 zpLbFKA/7eD7UNAwxMgxJPtbdST+syjYSJaj 4IHfeX6n8vfoGA==）Q04JKCEVMQVMU85R014C7DKBA38OJI5R示例。NSEC3 1 12 aabbccdd（r53bq7cc2uvmubfu5ocmm6pers9tk9en A RRSIG）RRSIG NSEC3 7 2 3600 2015042035959 20051021000000（40430例，hV5I89b+4FHJDATp09g4bbN0R1F845CaXpL3 ZXLMKIMOPAYQLETWLFI7SDPSZN+ZlN NLKWCLSILMMUG=）"
+    },
+    {
+      "indent": 3,
+      "text": "r53bq7cc2uvmubfu5ocmm6pers9tk9en.example. NSEC3 1 1 12 aabbccdd (\n                       t644ebqk9bibcna874givr6joj62mlhv MX RRSIG )\n               RRSIG   NSEC3 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       aupviViruXs4bDg9rCbezzBMf9h1ZlDvbW/C\n                       ZFKulIGXXLj8B/fsDJarXVDA9bnUoRhEbKp+\n                       HF1FWKW7RIJdtQ== )\nt644ebqk9bibcna874givr6joj62mlhv.example. NSEC3 1 1 12 aabbccdd (\n                       0p9mhaveqvm6t7vbl5lop2u3t2rp3tom HINFO A AAAA\n                       RRSIG )\n               RRSIG   NSEC3 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       RAjGECB8P7O+F4Pa4Dx3tC0M+Z3KmlLKImca\n                       fb9XWwx+NWUNz7NBEDBQHivIyKPVDkChcePI\n                       X1xPl1ATNa+8Dw== )\n*.w.example.   MX      1 ai.example.\n               RRSIG   MX 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       CikebjQwGQPwijVcxgcZcSJKtfynugtlBiKb\n                       9FcBTrmOoyQ4InoWVudhCWsh/URX3lc4WRUM\n                       ivEBP6+4KS3ldA== )\nx.w.example.   MX      1 xx.example.\n               RRSIG   MX 7 3 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       IrK3tq/tHFIBF0scHiE/1IwMAvckS/55hAVv\n                       QyxTFbkAdDloP3NbZzu+yoSsr3b3OX6qbBpY\n                       7WCtwwekLKRAwQ== )\nx.y.w.example. MX      1 xx.example.\n               RRSIG   MX 7 4 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       MqSt5HqJIN8+SLlzTOImrh5h9Xa6gDvAW/Gn\n                       nbdPc6Z7nXvCpLPJj/5lCwx3VuzVOjkbvXze\n                       8/8Ccl2Zn2hbug== )\nxx.example.    A       192.0.2.10\n               RRSIG   A 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       T35hBWEZ017VC5u2c4OriKyVn/pu+fVK4AlX\n                       YOxJ6iQylfV2HQIKjv6b7DzINB3aF/wjJqgX\n                       pQvhq+Ac6+ZiFg== )\n               HINFO   \"KLH-10\" \"TOPS-20\"\n               RRSIG   HINFO 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       KimG+rDd+7VA1zRsu0ITNAQUTRlpnsmqWrih\n                       FRnU+bRa93v2e5oFNFYCs3Rqgv62K93N7AhW\n                       6Jfqj/8NzWjvKg== )\n               AAAA    2001:db8:0:0:0:0:f00:baaa",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "RRSIG AAAA 7 2 3600 20150420235959 20051021000000 ( 40430 example. IXBcXORITNwd8h3gNwyxtYFvAupS/CYWufVe uBUX0O25ivBCULjZjpDxFSxfohb/KA7YRdxE NzYfMItpILl/Xw== )",
+      "zh-CHS": "RRSIG AAAA 7 2 3600 2015042035959 20051021000000"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Example Responses",
+      "section_title": true,
+      "zh-CHS": "附录B.答复示例"
+    },
+    {
+      "indent": 3,
+      "text": "The examples in this section show response messages using the signed zone example in Appendix A.",
+      "zh-CHS": "本节中的示例使用附录A中的签名区域示例显示响应消息。"
+    },
+    {
+      "indent": 0,
+      "text": "B.1. Name Error",
+      "section_title": true,
+      "zh-CHS": "B.1. 名称错误"
+    },
+    {
+      "indent": 3,
+      "text": "An authoritative name error. The NSEC3 RRs prove that the name does not exist and that there is no wildcard RR that should have been expanded.",
+      "zh-CHS": "权威名称错误。NSEC3 RRs证明该名称不存在，并且不存在本应展开的通配符RR。"
+    },
+    {
+      "indent": 0,
+      "text": ";; Header: QR AA DO RCODE=3\n;;\n;; Question\na.c.x.w.example.         IN A",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": ";; Answer\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": ";; Authority",
+      "zh-CHS": ";; 权威"
+    },
+    {
+      "indent": 0,
+      "text": "example. SOA ns1.example. bugs.x.w.example. 1 3600 300 ( 3600000 3600 ) example. RRSIG SOA 7 1 3600 20150420235959 20051021000000 ( 40430 example. Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q== )",
+      "zh-CHS": "实例SOA ns1.1示例。bugs.x.w.示例。1 3600 300（3600000 3600）示例。RRSIG SOA 7 1 3600 2015042035959 20051021000000（40430示例：Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; NSEC3 RR that covers the \"next closer\" name (c.x.w.example)\n;; H(c.x.w.example) = 0va5bpr2ou0vk0lbqeeljri88laipsfh",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. NSEC3 1 1 12 aabbccdd ( 2t7b4g4vsa5smi47k61mv5bv1a22bojr MX DNSKEY NS SOA NSEC3PARAM RRSIG ) 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA== )",
+      "zh-CHS": "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example。NSEC3 1 12 aabbccdd（2T7B4G4VSA5SMI47K61MV5BV12BOJR MX DNSKEY NS SOA NSEC3参数RRSIG）0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; NSEC3 RR that matches the closest encloser (x.w.example)\n;; H(x.w.example) = b4um86eghhds6nea196smvmlo4ors995",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "b4um86eghhds6nea196smvmlo4ors995.example. NSEC3 1 1 12 aabbccdd ( gjeqe526plbf1g8mklp59enfd789njgi MX RRSIG ) b4um86eghhds6nea196smvmlo4ors995.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. ZkPG3M32lmoHM6pa3D6gZFGB/rhL//Bs3Omh 5u4m/CUiwtblEVOaAKKZd7S959OeiX43aLX3 pOv0TSTyiTxIZg== )",
+      "zh-CHS": "b4um86eghhds6nea196smvmlo4ors995.example。NSEC3 1 12 aabbccdd（gjeqe526plbf1g8mklp59enfd789njgi MX RRSIG）b4um86eghhds6nea196smvmlo4ors995.示例。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。ZKPG332LMOHM6PA3D6GZFGB/rhL//Bs3Omh 5u4m/CuitblevoaaKKZD7S959OEIX43ALX3 pOv0TSTyiTxIZg==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; NSEC3 RR that covers wildcard at the closest encloser (*.x.w.example)\n;; H(*.x.w.example) = 92pqneegtaue7pjatc3l3qnk738c6v5m",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "35mthgpgcu1qg68fab165klnsnk3dpvl.example. NSEC3 1 1 12 aabbccdd ( b4um86eghhds6nea196smvmlo4ors995 NS DS RRSIG ) 35mthgpgcu1qg68fab165klnsnk3dpvl.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. g6jPUUpduAJKRljUsN8gB4UagAX0NxY9shwQ Aynzo8EUWH+z6hEIBlUTPGj15eZll6VhQqgZ XtAIR3chwgW+SA== )",
+      "zh-CHS": "35mthgpgcu1qg68fab165klnsnk3dpvl.example。NSEC3 1 12 aabbccdd（b4um86eghhds6nea196smvmlo4ors995 NS DS RRSIG）35mthgpgcu1qg68fab165klnsnk3dpvl.示例。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。g6jPUUpduAJKRljUsN8gB4UagAX0NxY9shwQ Aynzo8EUWH+z6hEIBlUTPGj15eZll6VhQqgZ XtAIR3chwgW+SA==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; Additional\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The query returned three NSEC3 RRs that prove that the requested data does not exist and that no wildcard expansion applies. The negative response is authenticated by verifying the NSEC3 RRs. The corresponding RRSIGs indicate that the NSEC3 RRs are signed by an \"example\" DNSKEY of algorithm 7 and with key tag 40430. The resolver needs the corresponding DNSKEY RR in order to authenticate this answer.",
+      "zh-CHS": "查询返回了三个NSEC3 RRs，证明请求的数据不存在，并且没有应用通配符扩展。通过验证NSEC3 RRs验证否定响应。相应的RRSIG表示NSEC3 RRs由算法7的“示例”DNSKEY签名，密钥标签40430。解析程序需要相应的DNSKEY RR来验证此答案。"
+    },
+    {
+      "indent": 3,
+      "text": "One of the owner names of the NSEC3 RRs matches the closest encloser. One of the NSEC3 RRs prove that there exists no longer name. One of the NSEC3 RRs prove that there exists no wildcard RRSets that should have been expanded. The closest encloser can be found by applying the algorithm in Section 8.3.",
+      "zh-CHS": "NSEC3 RRs的所有者名称之一与最近的封闭器匹配。其中一个NSEC3 RRs证明不再存在名称。其中一个NSEC3 RRs证明不存在本应扩展的通配符RRSET。可通过应用第8.3节中的算法找到最近的封闭体。"
+    },
+    {
+      "indent": 3,
+      "text": "In the above example, the name 'x.w.example' hashes to 'b4um86eghhds6nea196smvmlo4ors995'. This indicates that this might be the closest encloser. To prove that 'c.x.w.example' and '*.x.w.example' do not exist, these names are hashed to, respectively, '0va5bpr2ou0vk0lbqeeljri88laipsfh' and '92pqneegtaue7pjatc3l3qnk738c6v5m'. The first and last NSEC3 RRs prove that these hashed owner names do not exist.",
+      "zh-CHS": "在上面的示例中，名称“x.w.example”散列为“b4um86eghhds6nea196smvmlo4ors995”。这表示这可能是最近的封闭器。为了证明“c.x.w.example”和“*.x.w.example”不存在，将这些名称分别散列为“0va5bpr2ou0vk0lbqeeljri88laipsfh”和“92pqneegtaue7pjatc3l3qnk738c6v5m”。第一个和最后一个NSEC3 RRs证明这些散列所有者名称不存在。"
+    },
+    {
+      "indent": 0,
+      "text": "B.2. No Data Error",
+      "section_title": true,
+      "zh-CHS": "B.2. 没有数据错误"
+    },
+    {
+      "indent": 3,
+      "text": "A \"no data\" response. The NSEC3 RR proves that the name exists and that the requested RR type does not.",
+      "zh-CHS": "“无数据”响应。NSEC3 RR证明名称存在，而请求的RR类型不存在。"
+    },
+    {
+      "indent": 0,
+      "text": ";; Header: QR AA DO RCODE=0\n;;\n;; Question\nns1.example.        IN MX",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": ";; Answer\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": ";; Authority example. SOA ns1.example. bugs.x.w.example. 1 3600 300 ( 3600000 3600 ) example. RRSIG SOA 7 1 3600 20150420235959 20051021000000 ( 40430 example. Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q== )",
+      "zh-CHS": ";; 权威的例子。SOA ns1.1示例。bugs.x.w.示例。1 3600 300（3600000 3600）示例。RRSIG SOA 7 1 3600 2015042035959 20051021000000（40430示例：Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; NSEC3 RR matches the QNAME and shows that the MX type bit is not set.",
+      "zh-CHS": ";; NSEC3 RR与QNAME匹配，并显示未设置MX类型位。"
+    },
+    {
+      "indent": 0,
+      "text": "2t7b4g4vsa5smi47k61mv5bv1a22bojr.example. NSEC3 1 1 12 aabbccdd ( 2vptu5timamqttgl4luu9kg21e0aor3s A RRSIG ) 2t7b4g4vsa5smi47k61mv5bv1a22bojr.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. OmBvJ1Vgg1hCKMXHFiNeIYHK9XVW0iLDLwJN 4TFoNxZuP03gAXEI634YwOc4YBNITrj413iq NI6mRk/r1dOSUw== ) ;; Additional ;; (empty)",
+      "zh-CHS": "2t7b4g4vsa5smi47k61mv5bv1a22bojr.示例。NSEC3 1 12 aabbccdd（2VPTU5TIMAMQTTGL4LUU9KG21E0AOR3为RRSIG）2t7b4g4vsa5smi47k61mv5bv1a22bojr。示例。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。OMBVJ1VGG1HCKMxFineiHK9XVW0ILDLWJN 4TFoNxZuP03gAXEI634YwOc4YBNITrj413iq NI6mRk/r1dOSUw==）；；附加的（空）"
+    },
+    {
+      "indent": 3,
+      "text": "The query returned an NSEC3 RR that proves that the requested name exists (\"ns1.example.\" hashes to \"2t7b4g4vsa5smi47k61mv5bv1a22bojr\"), but the requested RR type does not exist (type MX is absent in the type code list of the NSEC3 RR), and was not a CNAME (type CNAME is also absent in the type code list of the NSEC3 RR).",
+      "zh-CHS": "查询返回了一个NSEC3 RR，证明请求的名称存在（“ns1.example.”散列到“2t7b4g4vsa5smi47k61mv5bv1a22bojr”），但请求的RR类型不存在（NSEC3 RR的类型代码列表中不存在类型MX），并且不是CNAME（NSEC3 RR的类型代码列表中也不存在类型CNAME）。"
+    },
+    {
+      "indent": 0,
+      "text": "B.2.1. No Data Error, Empty Non-Terminal",
+      "section_title": true,
+      "zh-CHS": "B.2.1. 无数据错误，非终端为空"
+    },
+    {
+      "indent": 3,
+      "text": "A \"no data\" response because of an empty non-terminal. The NSEC3 RR proves that the name exists and that the requested RR type does not.",
+      "zh-CHS": "由于非终端为空，“无数据”响应。NSEC3 RR证明名称存在，而请求的RR类型不存在。"
+    },
+    {
+      "indent": 1,
+      "text": ";; Header: QR AA DO RCODE=0\n;;\n;; Question\ny.w.example.        IN A",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": ";; Answer\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": ";; Authority example. SOA ns1.example. bugs.x.w.example. 1 3600 300 ( 3600000 3600 ) example. RRSIG SOA 7 1 3600 20150420235959 20051021000000 ( 40430 example. Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q== )",
+      "zh-CHS": ";; 权威的例子。SOA ns1.1示例。bugs.x.w.示例。1 3600 300（3600000 3600）示例。RRSIG SOA 7 1 3600 2015042035959 20051021000000（40430示例：Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q==）"
+    },
+    {
+      "indent": 1,
+      "text": ";; NSEC3 RR matches the QNAME and shows that the A type bit is not set.",
+      "zh-CHS": ";; NSEC3 RR与QNAME匹配，并显示未设置A类型位。"
+    },
+    {
+      "indent": 1,
+      "text": "ji6neoaepv8b5o6k4ev33abha8ht9fgc.example. NSEC3 1 1 12 aabbccdd ( k8udemvp1j2f7eg6jebps17vp3n8i58h ) ji6neoaepv8b5o6k4ev33abha8ht9fgc.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. gPkFp1s2QDQ6wQzcg1uSebZ61W33rUBDcTj7 2F3kQ490fEdp7k1BUIfbcZtPbX3YCpE+sIt0 MpzVSKfTwx4uYA== )",
+      "zh-CHS": "ji6neoaepv8b5o6k4ev33abha8ht9fgc.示例。NSEC3 1 12 aabbccdd（k8udemvp1j2f7eg6jebps17vp3n8i58h）ji6neoaepv8b5o6k4ev33abha8ht9fgc.示例。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。gPkFp1s2QDQ6wQzcg1uSebZ61W33rUBDcTj7 2F3KQ490FEDP7K1BUIBCZTPBX3YCPE+sIt0 MpzVSKfTwx4uYA==）"
+    },
+    {
+      "indent": 1,
+      "text": ";; Additional\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The query returned an NSEC3 RR that proves that the requested name exists (\"y.w.example.\" hashes to \"ji6neoaepv8b5o6k4ev33abha8ht9fgc\"), but the requested RR type does not exist (Type A is absent in the Type Bit Maps field of the NSEC3 RR). Note that, unlike an empty non-terminal proof using NSECs, this is identical to a No Data Error. This example is solely mentioned to be complete.",
+      "zh-CHS": "查询返回一个NSEC3 RR，证明请求的名称存在（“y.w.example.”散列为“ji6neoaepv8b5o6k4ev33abha8ht9fgc”），但请求的RR类型不存在（NSEC3 RR的类型位图字段中不存在类型A）。请注意，与使用NSECs的空非终端证明不同，这与无数据错误相同。仅提及此示例是为了使其完整。"
+    },
+    {
+      "indent": 0,
+      "text": "B.3. Referral to an Opt-Out Unsigned Zone",
+      "section_title": true,
+      "zh-CHS": "B.3. 转介到选择退出未签名区域"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 RRs prove that nothing for this delegation was signed. There is no proof that the unsigned delegation exists.",
+      "zh-CHS": "NSEC3 RRs证明该代表团未签署任何文件。没有证据表明存在未签名的委托。"
+    },
+    {
+      "indent": 3,
+      "text": ";; Header: QR DO RCODE=0\n;;\n;; Question\nmc.c.example.       IN MX",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ";; Answer\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ";; Authority c.example. NS ns1.c.example. NS ns2.c.example.",
+      "zh-CHS": ";; 权威c.举例说明。NS ns1.c.示例。NS ns2.c.示例。"
+    },
+    {
+      "indent": 3,
+      "text": ";; NSEC3 RR that covers the \"next closer\" name (c.example)\n;; H(c.example) = 4g6p9u5gvfshp30pqecj98b3maqbn1ck",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "35mthgpgcu1qg68fab165klnsnk3dpvl.example. NSEC3 1 1 12 aabbccdd ( b4um86eghhds6nea196smvmlo4ors995 NS DS RRSIG ) 35mthgpgcu1qg68fab165klnsnk3dpvl.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. g6jPUUpduAJKRljUsN8gB4UagAX0NxY9shwQ Aynzo8EUWH+z6hEIBlUTPGj15eZll6VhQqgZ XtAIR3chwgW+SA== )",
+      "zh-CHS": "35mthgpgcu1qg68fab165klnsnk3dpvl.example。NSEC3 1 12 aabbccdd（b4um86eghhds6nea196smvmlo4ors995 NS DS RRSIG）35mthgpgcu1qg68fab165klnsnk3dpvl.示例。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。g6jPUUpduAJKRljUsN8gB4UagAX0NxY9shwQ Aynzo8EUWH+z6hEIBlUTPGj15eZll6VhQqgZ XtAIR3chwgW+SA==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; NSEC3 RR that matches the closest encloser (example)\n;; H(example) = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. NSEC3 1 1 12 aabbccdd ( 2t7b4g4vsa5smi47k61mv5bv1a22bojr MX DNSKEY NS SOA NSEC3PARAM RRSIG ) 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA== )",
+      "zh-CHS": "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example。NSEC3 1 12 aabbccdd（2T7B4G4VSA5SMI47K61MV5BV12BOJR MX DNSKEY NS SOA NSEC3参数RRSIG）0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; Additional ns1.c.example. A 192.0.2.7 ns2.c.example. A 192.0.2.8",
+      "zh-CHS": ";; 附加ns1.c.示例。192.0.2.7 ns2.c.示例。A 192.0.2.8"
+    },
+    {
+      "indent": 3,
+      "text": "The query returned a referral to the unsigned \"c.example.\" zone. The response contains the closest provable encloser of \"c.example\" to be \"example\", since the hash of \"c.example\"",
+      "zh-CHS": "查询返回了对未签名的“c.example.”区域的引用。响应包含“c.example”的最近可证明封闭符为“example”，因为“c.example”的散列"
+    },
+    {
+      "indent": 3,
+      "text": "(\"4g6p9u5gvfshp30pqecj98b3maqbn1ck\") is covered by the first NSEC3 RR and its Opt-Out bit is set.",
+      "zh-CHS": "（“4g6p9u5gvfshp30pqecj98b3maqbn1ck”）由第一个NSEC3 RR覆盖，并设置其选择退出位。"
+    },
+    {
+      "indent": 0,
+      "text": "B.4. Wildcard Expansion",
+      "section_title": true,
+      "zh-CHS": "B.4. 通配符扩展"
+    },
+    {
+      "indent": 3,
+      "text": "A query that was answered with a response containing a wildcard expansion. The label count in the RRSIG RRSet in the answer section indicates that a wildcard RRSet was expanded to produce this response, and the NSEC3 RR proves that no \"next closer\" name exists in the zone.",
+      "zh-CHS": "用包含通配符扩展的响应回答的查询。应答部分中RRSIG RRSet中的标签计数表示扩展了通配符RRSet以生成此响应，NSEC3 RR证明区域中不存在“下一个更接近者”名称。"
+    },
+    {
+      "indent": 3,
+      "text": ";; Header: QR AA DO RCODE=0\n;;\n;; Question\na.z.w.example. IN MX",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ";; Answer a.z.w.example. MX 1 ai.example. a.z.w.example. RRSIG MX 7 2 3600 20150420235959 20051021000000 ( 40430 example. CikebjQwGQPwijVcxgcZcSJKtfynugtlBiKb 9FcBTrmOoyQ4InoWVudhCWsh/URX3lc4WRUM ivEBP6+4KS3ldA== )",
+      "zh-CHS": ";; 回答a.z.w.的例子。mx1ai.example。a、 z.w.举例说明。RRSIG MX 7 2 3600 2015042035959 20051021000000（40430示例。CikebjQwGQPwijVcxgcZcSJKtfynugtlBiKb 9FcBTrmOoyQ4InoWVudhCWsh/URX3lc4WRUM ivEBP6+4KS3ldA==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; Authority example. NS ns1.example. example. NS ns2.example. example. RRSIG NS 7 1 3600 20150420235959 20051021000000 ( 40430 example. PVOgtMK1HHeSTau+HwDWC8Ts+6C8qtqd4pQJ qOtdEVgg+MA+ai4fWDEhu3qHJyLcQ9tbD2vv CnMXjtz6SyObxA== )",
+      "zh-CHS": ";; 权威的例子。NS ns1.1示例。实例NS ns2.1示例。实例RRSIG NS 7 1 3600 2015042035959 20051021000000（40430示例：PVOgtMK1HHeSTau+HwDWC8Ts+6C8qtqd4pQJ qOtdEVgg+MA+ai4fWDEhu3qHJyLcQ9tbD2vv CnMXjtz6SyObxA==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; NSEC3 RR that covers the \"next closer\" name (z.w.example)\n;; H(z.w.example) = qlu7gtfaeh0ek0c05ksfhdpbcgglbe03",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "q04jkcevqvmu85r014c7dkba38o0ji5r.example. NSEC3 1 1 12 aabbccdd ( r53bq7cc2uvmubfu5ocmm6pers9tk9en A RRSIG ) q04jkcevqvmu85r014c7dkba38o0ji5r.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. hV5I89b+4FHJDATp09g4bbN0R1F845CaXpL3 ZxlMKimoPAyqletMlEWwLfFia7sdpSzn+ZlN NlkxWcLsIlMmUg== )",
+      "zh-CHS": "q04jkcevqvmu85r014c7dkba38o0ji5r.示例。NSEC3 1 12 aabbccdd（r53bq7cc2uvmubfu5ocmm6pers9tk9en A RRSIG）q04jkcevqvmu85r014c7dkba38o0ji5r.示例。RRSIG NSEC3 7 2 3600（201504220235959 20051021000000 40430示例。hV5I89b+4FHJDATp09g4bbN0R1F845CaXpL3 ZXLMKIMOPAYQLETTMLEWLFIFI7SDPSZN+ZlN NLXWCLSILMMUG==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; Additional\nai.example.    A       192.0.2.9\nai.example.    RRSIG   A 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       hVe+wKYMlObTRPhX0NL67GxeZfdxqr/QeR6F\n                       tfdAj5+FgYxyzPEjIzvKWy00hWIl6wD3Vws+\n                       rznEn8sQ64UdqA== )\nai.example.    AAAA    2001:db8:0:0:0:0:f00:baa9\nai.example.    RRSIG   AAAA 7 2 3600 20150420235959 20051021000000 (\n                       40430 example.\n                       LcdxKaCB5bGZwPDg+3JJ4O02zoMBrjxqlf6W\n                       uaHQZZfTUpb9Nf2nxFGe2XRPfR5tpJT6GdRG\n                       cHueLuXkMjBArQ== )",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The query returned an answer that was produced as a result of a wildcard expansion. The answer section contains a wildcard RRSet expanded as it would be in a traditional DNS response. The RRSIG Labels field value of 2 indicates that the answer is the result of a wildcard expansion, as the \"a.z.w.example\" name contains 4 labels. This also shows that \"w.example\" exists, so there is no need for an NSEC3 RR that matches the closest encloser.",
+      "zh-CHS": "查询返回的答案是由于通配符扩展而产生的。应答部分包含一个通配符RRSet，它在传统DNS响应中进行了扩展。RRSIG标签字段值为2表示答案是通配符扩展的结果，因为“a.z.w.example”名称包含4个标签。这还表明存在“w.example”，因此不需要与最近的封闭器匹配的NSEC3 RR。"
+    },
+    {
+      "indent": 3,
+      "text": "The NSEC3 RR proves that no closer match could have been used to answer this query.",
+      "zh-CHS": "NSEC3 RR证明不可能使用更接近的匹配来回答此查询。"
+    },
+    {
+      "indent": 0,
+      "text": "B.5. Wildcard No Data Error",
+      "section_title": true,
+      "zh-CHS": "B.5. 通配符无数据错误"
+    },
+    {
+      "indent": 3,
+      "text": "A \"no data\" response for a name covered by a wildcard. The NSEC3 RRs prove that the matching wildcard name does not have any RRs of the requested type and that no closer match exists in the zone.",
+      "zh-CHS": "通配符包含的名称的“无数据”响应。NSEC3 RRs证明匹配的通配符名称没有任何请求类型的RRs，并且区域中不存在更接近的匹配。"
+    },
+    {
+      "indent": 3,
+      "text": ";; Header: QR AA DO RCODE=0\n;;\n;; Question\na.z.w.example.      IN AAAA",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ";; Answer\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": ";; Authority example. SOA ns1.example. bugs.x.w.example. 1 3600 300 ( 3600000 3600 ) example. RRSIG SOA 7 1 3600 20150420235959 20051021000000 ( 40430 example. Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q== )",
+      "zh-CHS": ";; 权威的例子。SOA ns1.1示例。bugs.x.w.示例。1 3600 300（3600000 3600）示例。RRSIG SOA 7 1 3600 2015042035959 20051021000000（40430示例：Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; NSEC3 RR that matches the closest encloser (w.example)\n;; H(w.example) = k8udemvp1j2f7eg6jebps17vp3n8i58h",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "k8udemvp1j2f7eg6jebps17vp3n8i58h.example. NSEC3 1 1 12 aabbccdd ( kohar7mbb8dc2ce8a9qvl8hon4k53uhi ) k8udemvp1j2f7eg6jebps17vp3n8i58h.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. FtXGbvF0+wf8iWkyo73enAuVx03klN+pILBK S6qCcftVtfH4yVzsEZquJ27NHR7ruxJWDNMt Otx7w9WfcIg62A== )",
+      "zh-CHS": "k8udemvp1j2f7eg6jebps17vp3n8i58h.example。NSEC3 1 12 aabbccdd（kohar7mbb8dc2ce8a9qvl8hon4k53uhi）K8UDEMVPP1J2F7EG6JEBPS17VP3N8I58H。示例。RRSIG NSEC3 7 2 3600（20150420235959 20051021000000 40430示例。FtXGbvF0+wf8iWkyo73enAuVx03klN+pILBK S6qCcftVtfH4yVzsEZquJ27NHR7ruxJWDNMt Otx7w9WfcIg62A=）"
+    },
+    {
+      "indent": 3,
+      "text": ";; NSEC3 RR that covers the \"next closer\" name (z.w.example)\n;; H(z.w.example) = qlu7gtfaeh0ek0c05ksfhdpbcgglbe03",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "q04jkcevqvmu85r014c7dkba38o0ji5r.example. NSEC3 1 1 12 aabbccdd ( r53bq7cc2uvmubfu5ocmm6pers9tk9en A RRSIG ) q04jkcevqvmu85r014c7dkba38o0ji5r.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. hV5I89b+4FHJDATp09g4bbN0R1F845CaXpL3 ZxlMKimoPAyqletMlEWwLfFia7sdpSzn+ZlN NlkxWcLsIlMmUg== )",
+      "zh-CHS": "q04jkcevqvmu85r014c7dkba38o0ji5r.示例。NSEC3 1 12 aabbccdd（r53bq7cc2uvmubfu5ocmm6pers9tk9en A RRSIG）q04jkcevqvmu85r014c7dkba38o0ji5r.示例。RRSIG NSEC3 7 2 3600（201504220235959 20051021000000 40430示例。hV5I89b+4FHJDATp09g4bbN0R1F845CaXpL3 ZXLMKIMOPAYQLETTMLEWLFIFI7SDPSZN+ZlN NLXWCLSILMMUG==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; NSEC3 RR that matches a wildcard at the closest encloser.\n;; H(*.w.example) = r53bq7cc2uvmubfu5ocmm6pers9tk9en",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "r53bq7cc2uvmubfu5ocmm6pers9tk9en.example. NSEC3 1 1 12 aabbccdd ( t644ebqk9bibcna874givr6joj62mlhv MX RRSIG ) r53bq7cc2uvmubfu5ocmm6pers9tk9en.example. RRSIG NSEC3 7 2 3600 ( 20150420235959 20051021000000 40430 example. aupviViruXs4bDg9rCbezzBMf9h1ZlDvbW/C ZFKulIGXXLj8B/fsDJarXVDA9bnUoRhEbKp+ HF1FWKW7RIJdtQ== )",
+      "zh-CHS": "r53bq7cc2uvmubfu5ocmm6pers9tk9en.示例。NSEC3 1 12 aabbccdd（t644ebqk9bibcna874givr6joj62mlhv MX RRSIG）r53bq7cc2uvmubfu5ocmm6pers9tk9en.示例。RRSIG NSEC3 7 2 3600（20150402035959 20051021000000 40430示例。AUPVIVIRUXS4BDG9RCBEZBMF9H1ZLDVBW/C ZFKulIGXXLj8B/fsDJarXVDA9bnUoRhEbKp+HF1FWW7RIJDTQ==）"
+    },
+    {
+      "indent": 3,
+      "text": ";; Additional\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The query returned the NSEC3 RRs that prove that the requested data does not exist and no wildcard RR applies.",
+      "zh-CHS": "查询返回了NSEC3 RRs，证明请求的数据不存在，并且没有应用通配符RR。"
+    },
+    {
+      "indent": 0,
+      "text": "B.6. DS Child Zone No Data Error",
+      "section_title": true,
+      "zh-CHS": "B.6. DS子区域无数据错误"
+    },
+    {
+      "indent": 3,
+      "text": "A \"no data\" response for a QTYPE=DS query that was mistakenly sent to a name server for the child zone.",
+      "zh-CHS": "QTYPE=DS查询的“无数据”响应被错误地发送到子区域的名称服务器。"
+    },
+    {
+      "indent": 0,
+      "text": ";; Header: QR AA DO RCODE=0\n;;\n;; Question\nexample.            IN DS",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": ";; Answer\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": ";; Authority example. SOA ns1.example. bugs.x.w.example. 1 3600 300 ( 3600000 3600 ) example. RRSIG SOA 7 1 3600 20150420235959 20051021000000 ( 40430 example. Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q== )",
+      "zh-CHS": ";; 权威的例子。SOA ns1.1示例。bugs.x.w.示例。1 3600 300（3600000 3600）示例。RRSIG SOA 7 1 3600 2015042035959 20051021000000（40430示例：Hu25UIyNPmvPIVBrldN+9Mlp9Zql39qaUd8i q4ZLlYWfUUbbAS41pG+68z81q1xhkYAcEyHd VI2LmKusbZsT0Q==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; NSEC3 RR matches the QNAME and shows that the DS type bit is not set.",
+      "zh-CHS": ";; NSEC3 RR与QNAME匹配，并显示未设置DS类型位。"
+    },
+    {
+      "indent": 0,
+      "text": "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. NSEC3 1 1 12 aabbccdd ( 2t7b4g4vsa5smi47k61mv5bv1a22bojr MX DNSKEY NS SOA NSEC3PARAM RRSIG ) 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. RRSIG NSEC3 7 2 3600 20150420235959 20051021000000 40430 example. OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA== )",
+      "zh-CHS": "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example。NSEC3 1 12 aabbccdd（2T7B4G4VSA5SMI47K61MV5BV12BOJR MX DNSKEY NS SOA NSEC3参数RRSIG）0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example。RRSIG NSEC3 7 2 3600 2015042035959 20051021000000 40430示例。OSgWSm26B+cS+dDL8b5QrWr/dEWhtCsKlwKL IBHYH6blRxK9rC0bMJPwQ4mLIuw85H2EY762 BOCXJZMnpuwhpA==）"
+    },
+    {
+      "indent": 0,
+      "text": ";; Additional\n;; (empty)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The query returned an NSEC3 RR showing that the requested was answered by the server authoritative for the zone \"example\". The NSEC3 RR indicates the presence of an SOA RR, showing that this NSEC3 RR is from the apex of the child, not from the zone cut of the parent. Queries for the \"example\" DS RRSet should be sent to the parent servers (which are in this case the root servers).",
+      "zh-CHS": "查询返回一个NSEC3 RR，显示请求已由区域“示例”的权威服务器应答。NSEC3 RR表示存在SOA RR，表明此NSEC3 RR来自子对象的顶点，而不是父对象的分区切割。对“示例”DS RRSet的查询应发送到父服务器（在本例中为根服务器）。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix C. Special Considerations",
+      "section_title": true,
+      "zh-CHS": "附录C.特别注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "The following paragraphs clarify specific behavior and explain special considerations for implementations.",
+      "zh-CHS": "以下段落阐明了具体的行为，并解释了实现的特殊注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "C.1. Salting",
+      "section_title": true,
+      "zh-CHS": "C.1. 腌制"
+    },
+    {
+      "indent": 3,
+      "text": "Augmenting original owner names with salt before hashing increases the cost of a dictionary of pre-generated hash-values. For every bit of salt, the cost of a precomputed dictionary doubles (because there must be an entry for each word combined with each possible salt value). The NSEC3 RR can use a maximum of 2040 bits (255 octets) of salt, multiplying the cost by 2^2040. This means that an attacker must, in practice, recompute the dictionary each time the salt is changed.",
+      "zh-CHS": "在散列之前用salt增加原始所有者名称会增加预生成散列值字典的成本。对于每一位salt，预计算字典的成本都会翻倍（因为每个单词必须有一个条目与每个可能的salt值相结合）。NSEC3 RR最多可以使用2040位（255个八位字节）的salt，将成本乘以2^2040。这意味着，实际上，攻击者必须在每次更改salt时重新计算字典。"
+    },
+    {
+      "indent": 3,
+      "text": "Including a salt, regardless of size, does not affect the cost of constructing NSEC3 RRs. It does increase the size of the NSEC3 RR.",
+      "zh-CHS": "包括盐，无论大小，都不会影响建造NSEC3 RRs的成本。它确实增加了NSEC3 RR的大小。"
+    },
+    {
+      "indent": 3,
+      "text": "There MUST be at least one complete set of NSEC3 RRs for the zone using the same salt value.",
+      "zh-CHS": "对于使用相同盐值的区域，必须至少有一套完整的NSEC3 RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "The salt SHOULD be changed periodically to prevent pre-computation using a single salt. It is RECOMMENDED that the salt be changed for every re-signing.",
+      "zh-CHS": "盐应定期更换，以防止使用单一盐进行预计算。建议每次重新签名时更换salt。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this could cause a resolver to see RRs with different salt values for the same zone. This is harmless, since each RR stands alone (that is, it denies the set of owner names whose hashes, using the salt in the NSEC3 RR, fall between the two hashes in the NSEC3 RR) -- it is only the server that needs a complete set of NSEC3 RRs with the same salt in order to be able to answer every possible query.",
+      "zh-CHS": "请注意，这可能会导致解析器看到同一区域中具有不同盐值的RRs。这是无害的，因为每个RR都是独立的（也就是说，它拒绝使用NSEC3 RR中的salt的哈希值位于NSEC3 RR中的两个哈希值之间的所有者名称集）——只有服务器需要一组具有相同salt的完整NSEC3 RR，才能回答每个可能的查询。"
+    },
+    {
+      "indent": 3,
+      "text": "There is no prohibition with having NSEC3 RRs with different salts within the same zone. However, in order for authoritative servers to be able to consistently find covering NSEC3 RRs, the authoritative server MUST choose a single set of parameters (algorithm, salt, and iterations) to use when selecting NSEC3 RRs.",
+      "zh-CHS": "不禁止在同一区域内使用不同盐的NSEC3 RRs。但是，为了使权威服务器能够一致地查找覆盖NSEC3 RRs的内容，权威服务器必须选择一组参数（算法、salt和迭代），以便在选择NSEC3 RRs时使用。"
+    },
+    {
+      "indent": 0,
+      "text": "C.2. Hash Collision",
+      "section_title": true,
+      "zh-CHS": "C.2. 散列冲突"
+    },
+    {
+      "indent": 3,
+      "text": "Hash collisions occur when different messages have the same hash value. The expected number of domain names needed to give a 1 in 2 chance of a single collision is about 2^(n/2) for a hash of length n bits (i.e., 2^80 for SHA-1). Though this probability is extremely low, the following paragraphs deal with avoiding collisions and assessing possible damage in the event of an attack using hash collisions.",
+      "zh-CHS": "当不同的消息具有相同的哈希值时，会发生哈希冲突。对于长度为n位的散列（即SHA-1为2^80），提供1/2的单一冲突机会所需的域名的预期数量约为2^（n/2）。尽管这种可能性极低，但以下段落将讨论避免冲突以及使用哈希冲突评估攻击时可能造成的损害。"
+    },
+    {
+      "indent": 0,
+      "text": "C.2.1. Avoiding Hash Collisions During Generation",
+      "section_title": true,
+      "zh-CHS": "C.2.1. 在生成过程中避免哈希冲突"
+    },
+    {
+      "indent": 3,
+      "text": "During generation of NSEC3 RRs, hash values are supposedly unique. In the (academic) case of a collision occurring, an alternative salt MUST be chosen and all hash values MUST be regenerated.",
+      "zh-CHS": "在生成NSEC3 RRs期间，散列值应该是唯一的。在（学术）发生冲突的情况下，必须选择替代salt，并且必须重新生成所有哈希值。"
+    },
+    {
+      "indent": 0,
+      "text": "C.2.2. Second Preimage Requirement Analysis",
+      "section_title": true,
+      "zh-CHS": "C.2.2. 二次预映像需求分析"
+    },
+    {
+      "indent": 3,
+      "text": "A cryptographic hash function has a second-preimage resistance property. The second-preimage resistance property means that it is computationally infeasible to find another message with the same hash value as a given message, i.e., given preimage X, to find a second preimage X' != X such that hash(X) = hash(X'). The work factor for finding a second preimage is of the order of 2^160 for SHA-1. To mount an attack using an existing NSEC3 RR, an adversary needs to find a second preimage.",
+      "zh-CHS": "加密哈希函数具有第二个前映像阻力属性。第二个前映像阻力属性意味着在计算上不可能找到与给定消息具有相同哈希值的另一个消息，即给定前映像X，以找到第二个前映像X'！=使得散列（X）=散列（X'）。对于SHA-1，查找第二个前像的功因数约为2^160。要使用现有NSEC3 RR发起攻击，对手需要找到第二个前映像。"
+    },
+    {
+      "indent": 3,
+      "text": "Assuming an adversary is capable of mounting such an extreme attack, the actual damage is that a response message can be generated that claims that a certain QNAME (i.e., the second pre-image) does exist, while in reality QNAME does not exist (a false positive), which will either cause a security-aware resolver to re-query for the non-existent name, or to fail the initial query. Note that the adversary can't mount this attack on an existing name, but only on a name that the adversary can't choose and that does not yet exist.",
+      "zh-CHS": "假设对手有能力发起这样的极端攻击，实际损害是可以生成一条响应消息，声称某个QNAME（即第二个预映像）确实存在，而实际上QNAME不存在（误报），这将导致安全感知解析程序重新查询不存在的名称，或者导致初始查询失败。请注意，对手不能对现有名称发起此攻击，只能对对手无法选择且尚不存在的名称发起此攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Ben Laurie Nominet 17 Perryn Road London W3 7LR England",
+      "zh-CHS": "英国伦敦佩林路17号，W3 7LR，Ben Laurie Nominet"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +44 20 8735 0686\nEMail: ben@links.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Geoffrey Sisson Nominet Minerva House Edmund Halley Road Oxford Science Park Oxford OX4 4DQ UNITED KINGDOM",
+      "zh-CHS": "Geoffrey Sisson Nominet Minerva House Edmund Halley Road牛津科技园牛津OX4 4DQ英国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +44 1865 332211\nEMail: geoff-s@panix.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Roy Arends Nominet Minerva House Edmund Halley Road Oxford Science Park Oxford OX4 4DQ UNITED KINGDOM",
+      "zh-CHS": "Roy Arends Nominet Minerva House Edmund Halley Road牛津科技园牛津OX4 4DQ英国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +44 1865 332211\nEMail: roy@nominet.org.uk",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "David Blacka VeriSign, Inc. 21355 Ridgetop Circle Dulles, VA 20166 US",
+      "zh-CHS": "David Blacka VeriSign，Inc.美国弗吉尼亚州杜勒斯Ridgetop Circle 21355，邮编20166"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 703 948 3200\nEMail: davidb@verisign.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

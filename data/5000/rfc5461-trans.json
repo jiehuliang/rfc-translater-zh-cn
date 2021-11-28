@@ -1,0 +1,590 @@
+{
+  "title": {
+    "text": "RFC 5461: TCP's Reaction to Soft Errors",
+    "zh-CHS": "RFC 5461"
+  },
+  "number": 5461,
+  "created_at": "2021-11-11 20:51:16.790793+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                            F. Gont\nRequest for Comments: 5461                                       UTN/FRH\nCategory: Informational                                    February 2009",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 21,
+      "text": "TCP's Reaction to Soft Errors",
+      "zh-CHS": "TCP对软错误的反应"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2009 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2009 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/ license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/ 许可证信息）在本文件发布之日生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a non-standard, but widely implemented, modification to TCP's handling of ICMP soft error messages that rejects pending connection-requests when those error messages are received. This behavior reduces the likelihood of long delays between connection-establishment attempts that may arise in a number of scenarios, including one in which dual-stack nodes that have IPv6 enabled by default are deployed in IPv4 or mixed IPv4 and IPv6 environments.",
+      "zh-CHS": "本文档描述了对TCP处理ICMP软错误消息的一个非标准但广泛实施的修改，该修改在收到这些错误消息时拒绝挂起的连接请求。此行为降低了在许多场景中可能出现的连接建立尝试之间长时间延迟的可能性，包括在IPv4或IPv4与IPv6混合环境中部署默认启用IPv6的双堆栈节点的场景。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3\n2.  Error Handling in TCP  . . . . . . . . . . . . . . . . . . . .  3\n  2.1.  Reaction to ICMP Error Messages That Indicate Hard\n        Errors . . . . . . . . . . . . . . . . . . . . . . . . . .  4\n  2.2.  Reaction to ICMP Error Messages That Indicate Soft\n        Errors . . . . . . . . . . . . . . . . . . . . . . . . . .  5\n3.  Problems That May Arise from TCP's Reaction to Soft Errors . .  5\n  3.1.  General Discussion . . . . . . . . . . . . . . . . . . . .  5\n  3.2.  Problems That May Arise with Dual-Stack IPv6 on by\n        Default  . . . . . . . . . . . . . . . . . . . . . . . . .  6\n4.  Deployed Workarounds for Long Delays between\n    Connection-Establishment Attempts  . . . . . . . . . . . . . .  7\n  4.1.  Context-Sensitive ICMP/TCP Interaction . . . . . . . . . .  7\n  4.2.  Context-Sensitive ICMP/TCP Interaction with Repeated\n        Confirmation . . . . . . . . . . . . . . . . . . . . . . .  8\n5.  Possible Drawbacks of Changing ICMP Semantics  . . . . . . . .  9\n  5.1.  Non-Deterministic Transient Network Failures . . . . . . .  9\n  5.2.  Deterministic Transient Network Failures . . . . . . . . . 10\n  5.3.  Non-Compliant Network Address Translators (NATs) . . . . . 10\n6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 10\n7.  Acknowledgements . . . . . . . . . . . . . . . . . . . . . . . 11\n8.  Contributors . . . . . . . . . . . . . . . . . . . . . . . . . 11\n9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 12\n  9.1.  Normative References . . . . . . . . . . . . . . . . . . . 12\n  9.2.  Informative References . . . . . . . . . . . . . . . . . . 12",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The handling of network failures can be separated into two different actions: fault isolation and fault recovery. Fault isolation consists of the actions that hosts and routers take to determine that there is a network failure. Fault recovery, on the other hand, consists of the actions that hosts and routers perform in an attempt to survive a network failure [RFC0816].",
+      "zh-CHS": "网络故障的处理可分为两种不同的操作：故障隔离和故障恢复。故障隔离包括主机和路由器为确定存在网络故障而采取的操作。另一方面，故障恢复包括主机和路由器为在网络故障中生存而执行的操作[RFC0816]。"
+    },
+    {
+      "indent": 3,
+      "text": "In the Internet architecture, the Internet Control Message Protocol (ICMP) [RFC0792] is one fault isolation technique to report network error conditions to the hosts sending datagrams over the network.",
+      "zh-CHS": "在互联网体系结构中，互联网控制消息协议（ICMP）[RFC0792]是一种故障隔离技术，用于向通过网络发送数据报的主机报告网络错误情况。"
+    },
+    {
+      "indent": 3,
+      "text": "When a host is notified of a network error, its network stack will attempt to continue communications, if possible, in the presence of the network failure. The fault recovery strategy may depend on the type of network failure taking place and the time at which the error condition is detected.",
+      "zh-CHS": "当主机收到网络错误通知时，其网络堆栈将尝试在出现网络故障的情况下继续通信（如果可能）。故障恢复策略可能取决于发生的网络故障类型和检测到错误情况的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "This document analyzes the problems that may arise due to TCP's fault recovery reactions to ICMP soft errors. It analyzes the problems that may arise when a host tries to establish a TCP connection with a multihomed host that has some unreachable addresses. Additionally, it analyzes the problems that may arise in the specific scenario where dual-stack nodes that have IPv6 enabled by default are deployed in IPv4 or mixed IPv4 and IPv6 environments.",
+      "zh-CHS": "本文档分析了由于TCP对ICMP软错误的故障恢复反应而可能出现的问题。它分析了当主机试图与具有某些无法访问地址的多宿主主机建立TCP连接时可能出现的问题。此外，本文还分析了在IPv4或IPv4与IPv6混合环境中部署默认启用IPv6的双堆栈节点的特定场景中可能出现的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, we document a modification to TCP's reaction to ICMP messages indicating soft errors during connection startup that has been implemented in a variety of TCP/IP stacks to help overcome the problems outlined below. We stress that this modification runs contrary to the standard behavior and this document unambiguously does not change the standard reaction.",
+      "zh-CHS": "最后，我们记录了对TCP对ICMP消息的反应的修改，ICMP消息指示连接启动期间的软错误，该修改已在各种TCP/IP堆栈中实现，以帮助克服下面概述的问题。我们强调，这种修改违背了标准行为，本文件明确无误地没有改变标准反应。"
+    },
+    {
+      "indent": 3,
+      "text": "[Gont] describes alternative approaches for dealing with the problem of long delays between connection-establishment attempts in TCP.",
+      "zh-CHS": "[Gont]描述了处理TCP中连接建立尝试之间的长延迟问题的替代方法。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Error Handling in TCP",
+      "section_title": true,
+      "zh-CHS": "2. TCP中的错误处理"
+    },
+    {
+      "indent": 3,
+      "text": "Network errors can be divided into soft and hard errors. Soft errors are considered to be transient network failures that are likely to be solved in the near term. Hard errors, on the other hand, are considered to reflect network error conditions that are unlikely to be solved in the near future.",
+      "zh-CHS": "网络错误可分为软错误和硬错误。软错误被认为是可能在短期内解决的瞬时网络故障。另一方面，硬错误被认为反映了在不久的将来不可能解决的网络错误情况。"
+    },
+    {
+      "indent": 3,
+      "text": "The Host Requirements RFC [RFC1122] states, in Section 4.2.3.9, that the ICMP messages that indicate soft errors are ICMP \"Destination Unreachable\" codes 0 (network unreachable), 1 (host unreachable), and 5 (source route failed); ICMP \"Time Exceeded\" codes 0 (time to live exceeded in transit) and 1 (fragment reassembly time exceeded); and ICMP \"Parameter Problem\". Even though ICMPv6 did not exist when [RFC1122] was written, one could extrapolate the concept of soft errors to ICMPv6 \"Destination Unreachable\" codes 0 (no route to destination) and 3 (address unreachable); ICMPv6 \"Time Exceeded\" codes 0 (hop limit exceeded in transit) and 1 (fragment reassembly time exceeded); and ICMPv6 \"Parameter Problem\" codes 0 (erroneous header field encountered), 1 (unrecognized Next Header type encountered), and 2 (unrecognized IPv6 option encountered) [RFC4443].",
+      "zh-CHS": "主机要求RFC[RFC1122]在第4.2.3.9节中规定，指示软错误的ICMP消息为ICMP“目的地不可访问”代码0（网络不可访问）、1（主机不可访问）和5（源路由失败）；ICMP“超过时间”代码0（在传输过程中超过生存时间）和1（超过碎片重新组装时间）；和ICMP“参数问题”。即使在写入[RFC1122]时ICMPv6不存在，人们也可以将软错误的概念外推到ICMPv6“目的地不可访问”代码0（没有到目的地的路由）和3（地址不可访问）；ICMPv6“超出时间”代码0（传输中超出跃点限制）和1（超出碎片重新组装时间）；和ICMPv6“参数问题”代码0（遇到错误的标头字段）、1（遇到无法识别的下一个标头类型）和2（遇到无法识别的IPv6选项）[RFC4443]。"
+    },
+    {
+      "indent": 3,
+      "text": "+----------------------------------+--------------------------------+\n|               ICMP               |             ICMPv6             |\n+----------------------------------+--------------------------------+\n|  Destination Unreachable (codes  | Destination Unreachable (codes |\n|           0, 1, and 5)           |            0 and 3)            |\n+----------------------------------+--------------------------------+\n|   Time Exceeded (codes 0 and 1)  |  Time Exceeded (codes 0 and 1) |\n+----------------------------------+--------------------------------+\n|         Parameter Problem        | Parameter Problem (codes 0, 1, |\n|                                  |             and 2)             |\n+----------------------------------+--------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Table 1: Extrapolating the concept of soft errors to ICMPv6",
+      "zh-CHS": "表1：将软错误概念外推到ICMPv6"
+    },
+    {
+      "indent": 3,
+      "text": "When there is a network failure that is not signaled to the sending host, such as a gateway corrupting packets, TCP's fault recovery action is to repeatedly retransmit the corresponding data until either they get acknowledged or the connection times out.",
+      "zh-CHS": "当存在未向发送主机发送信号的网络故障时，如网关损坏数据包，TCP的故障恢复操作是重复重新传输相应的数据，直到它们得到确认或连接超时。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case that a host does receive an ICMP error message referring to an ongoing TCP connection, the IP layer will pass this message up to the corresponding TCP instance to raise awareness of the network failure [RFC1122]. TCP's reaction to ICMP messages will depend on the type of error being signaled.",
+      "zh-CHS": "如果主机确实收到涉及正在进行的TCP连接的ICMP错误消息，IP层将把该消息传递给相应的TCP实例，以提高对网络故障的意识[RFC1122]。TCP对ICMP消息的反应取决于发出信号的错误类型。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Reaction to ICMP Error Messages That Indicate Hard Errors",
+      "section_title": true,
+      "zh-CHS": "2.1. 对指示硬错误的ICMP错误消息的反应"
+    },
+    {
+      "indent": 3,
+      "text": "When receiving an ICMP error message that indicates a hard error condition, compliant TCP implementations will simply abort the corresponding connection, regardless of the connection state.",
+      "zh-CHS": "当接收到指示硬错误条件的ICMP错误消息时，兼容的TCP实现将简单地中止相应的连接，而不管连接状态如何。"
+    },
+    {
+      "indent": 3,
+      "text": "The Host Requirements RFC [RFC1122] states, in Section 4.2.3.9, that TCP SHOULD abort connections when receiving ICMP error messages that indicate hard errors. This policy is based on the premise that, as",
+      "zh-CHS": "主机要求RFC[RFC1122]在第4.2.3.9节中指出，TCP在接收到指示硬错误的ICMP错误消息时应中止连接。本政策的前提是"
+    },
+    {
+      "indent": 3,
+      "text": "hard errors indicate network error conditions that will not change in the near term, it will not be possible for TCP to usefully recover from this type of network failure.",
+      "zh-CHS": "硬错误表示近期内不会改变的网络错误情况，TCP不可能有效地从此类网络故障中恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "It should be noted that virtually none of the current TCP implementations follow the advice in [RFC1122], and they do not abort the corresponding connection when an ICMP hard error is received for a connection that is in any of the synchronized states [ICMP-ATTACKS].",
+      "zh-CHS": "应该注意的是，当前的TCP实现几乎没有一个遵循[RFC1122]中的建议，并且当接收到处于任何同步状态的连接的ICMP硬错误[ICMP-ATTACKS]时，它们不会中止相应的连接。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Reaction to ICMP Error Messages That Indicate Soft Errors",
+      "section_title": true,
+      "zh-CHS": "2.2. 对指示软错误的ICMP错误消息的反应"
+    },
+    {
+      "indent": 3,
+      "text": "If an ICMP error message is received that indicates a soft error, TCP will repeatedly retransmit the corresponding data until either they get acknowledged or the connection times out. In addition, the TCP sender may record the information for possible later use (see [Stevens], pp. 317-319).",
+      "zh-CHS": "如果收到表明软错误的ICMP错误消息，TCP将重复重新传输相应的数据，直到它们得到确认或连接超时。此外，TCP发送方可能会记录这些信息，以备日后使用（见[Stevens]，第317-319页）。"
+    },
+    {
+      "indent": 3,
+      "text": "The Host Requirements RFC [RFC1122] states, in Section 4.2.3.9, that TCP MUST NOT abort connections when receiving ICMP error messages that indicate soft errors. This policy is based on the premise that, as soft errors are transient network failures that will hopefully be solved in the near term, one of the retransmissions will succeed.",
+      "zh-CHS": "主机要求RFC[RFC1122]在第4.2.3.9节中规定，TCP在接收到指示软错误的ICMP错误消息时不得中止连接。该政策的前提是，由于软错误是暂时性的网络故障，有望在短期内得到解决，因此其中一次重传将成功。"
+    },
+    {
+      "indent": 3,
+      "text": "When the connection timer expires and an ICMP soft error message has been received before the timeout, TCP can use this information to provide the user with a more specific error message (see [Stevens], pp. 317-319).",
+      "zh-CHS": "当连接计时器过期并且在超时之前收到ICMP软错误消息时，TCP可以使用此信息向用户提供更具体的错误消息（参见[Stevens]，第317-319页）。"
+    },
+    {
+      "indent": 3,
+      "text": "This reaction to soft errors exploits a valuable feature of the Internet -- that, for many network failures, the network can be dynamically reconstructed without any disruption of the endpoints.",
+      "zh-CHS": "这种对软错误的反应利用了互联网的一个有价值的特性——对于许多网络故障，可以在不中断端点的情况下动态重建网络。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Problems That May Arise from TCP's Reaction to Soft Errors",
+      "section_title": true,
+      "zh-CHS": "3. TCP对软错误的反应可能引起的问题"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. General Discussion",
+      "section_title": true,
+      "zh-CHS": "3.1. 一般性讨论"
+    },
+    {
+      "indent": 3,
+      "text": "Even though TCP's fault recovery strategy in the presence of soft errors allows for TCP connections to survive transient network failures, there are scenarios in which this policy may cause undesirable effects.",
+      "zh-CHS": "尽管TCP在出现软错误时的故障恢复策略允许TCP连接在短暂的网络故障中生存，但在某些情况下，此策略可能会造成不良影响。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, consider a scenario in which an application on a local host is trying to communicate with a destination whose name resolves to several IP addresses. The application on the local host will try to establish a connection with the destination host, usually cycling through the list of IP addresses until one succeeds [RFC1123]. Suppose that some (but not all) of the addresses in the returned list",
+      "zh-CHS": "例如，考虑一个场景，在该场景中，本地主机上的应用程序试图与其名称解析为多个IP地址的目的地通信。本地主机上的应用程序将尝试与目标主机建立连接，通常在IP地址列表中循环，直到成功[RFC1123]。假设返回列表中的一些（但不是全部）地址"
+    },
+    {
+      "indent": 3,
+      "text": "are permanently unreachable. If such a permanently unreachable address is the first in the list, the application will likely try to use it first and block waiting for a timeout before trying an alternate address.",
+      "zh-CHS": "永远无法到达。如果这样一个永久不可访问的地址是列表中的第一个地址，那么应用程序可能会首先尝试使用它，并在尝试另一个地址之前阻止等待超时。"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in Section 2, this unreachability condition may or may not be signaled to the sending host. If the local TCP is not signaled concerning the error condition, there is very little that can be done other than to repeatedly retransmit the SYN segment and wait for the existing timeout mechanism in TCP, or an application timeout, to be triggered. However, even if unreachability is signaled by some intermediate router to the local TCP by means of an ICMP soft error message, the local TCP will still repeatedly retransmit the SYN segment until the connection timer expires (in the hopes that the error is transient). The Host Requirements RFC [RFC1122] states that this timer MUST be large enough to provide retransmission of the SYN segment for at least 3 minutes. This would mean that the application on the local host would spend several minutes for each unreachable address with which it tries to establish the TCP connection. These long delays between connection-establishment attempts would be inappropriate for many interactive applications, such as the Web. [Shneiderman] and [Thadani] offer some insight into interactive systems (e.g., how the response time affects the usability of an application). This highlights that there is no one definition of a \"transient error\" and that the level of persistence in the face of failure represents a tradeoff.",
+      "zh-CHS": "如第2节所述，此不可到达性条件可能会也可能不会用信号通知发送主机。如果没有向本地TCP发送有关错误条件的信号，那么除了重复重新传输SYN段并等待TCP中现有的超时机制或应用程序超时被触发之外，几乎没有什么可以做的。然而，即使某些中间路由器通过ICMP软错误消息向本地TCP发出不可访问性信号，本地TCP仍将重复重新传输SYN段，直到连接计时器过期（希望错误是暂时的）。主机要求RFC[RFC1122]规定，该计时器必须足够大，以提供至少3分钟的SYN段重传。这意味着本地主机上的应用程序将花费数分钟的时间来查找每个无法访问的地址，并尝试与这些地址建立TCP连接。连接建立尝试之间的长时间延迟对于许多交互式应用程序（如Web）来说是不合适的。[Shneiderman]和[Thadani]提供了对交互系统的一些见解（例如，响应时间如何影响应用程序的可用性）。这突出表明“暂时性错误”没有一个统一的定义，而面对失败时的持久性水平代表了一种权衡。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth noting that while most applications try the addresses returned by the name-to-address function in serial, this is certainly not the only possible approach. For example, applications could try multiple addresses in parallel until one succeeds, possibly avoiding the problem of long delays between connection-establishment attempts described in this document [Gont].",
+      "zh-CHS": "值得注意的是，虽然大多数应用程序都会尝试使用名称到地址函数以串行方式返回的地址，但这肯定不是唯一可能的方法。例如，应用程序可以并行尝试多个地址，直到其中一个成功，这可能避免了本文档[Gont]中描述的连接建立尝试之间的长延迟问题。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Problems That May Arise with Dual-Stack IPv6 on by Default",
+      "section_title": true,
+      "zh-CHS": "3.2. 默认情况下，双栈IPv6打开时可能出现的问题"
+    },
+    {
+      "indent": 3,
+      "text": "A particular scenario in which the above type of problem may occur regularly is that where dual-stack nodes that have IPv6 enabled by default are deployed in IPv4 or mixed IPv4 and IPv6 environments and the IPv6 connectivity is non-existent [RFC4943].",
+      "zh-CHS": "上述类型问题可能经常出现的一种特定场景是，在IPv4或IPv4和IPv6混合环境中部署默认启用IPv6的双堆栈节点，并且IPv6连接不存在[RFC4943]。"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in [RFC4943], there are two possible variants of this scenario, which differ in whether or not the lack of connectivity is signaled to the sending node.",
+      "zh-CHS": "如[RFC4943]中所述，该场景有两种可能的变体，它们在是否向发送节点发送缺少连接的信号方面有所不同。"
+    },
+    {
+      "indent": 3,
+      "text": "In those scenarios in which packets sent to a destination are silently dropped and no ICMPv6 [RFC4443] errors are generated, there is little that can be done other than to wait for the existing connection-timeout mechanism in TCP, or an application timeout, to be triggered.",
+      "zh-CHS": "在发送到目的地的数据包被静默丢弃且不生成ICMPv6[RFC4443]错误的情况下，除了等待TCP中现有的连接超时机制或应用程序超时被触发之外，几乎没有什么可以做的。"
+    },
+    {
+      "indent": 3,
+      "text": "In scenarios where a legacy node has no default routers and Neighbor Unreachability Detection (NUD) [RFC4861] fails for destinations assumed to be on-link, or where firewalls or other systems that enforce scope boundaries send ICMPv6 errors, the sending node will be signaled of the unreachability problem. However, as discussed in Section 2.2, compliant TCP implementations will not abort connections when receiving ICMP error messages that indicate soft errors.",
+      "zh-CHS": "在传统节点没有默认路由器且假定位于链路上的目的地的邻居不可达性检测（NUD）[RFC4861]失败的场景中，或者在防火墙或其他强制作用域边界的系统发送ICMPv6错误的场景中，发送节点将收到不可达性问题的信号。但是，如第2.2节所述，当接收到指示软错误的ICMP错误消息时，兼容TCP实现不会中止连接。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Deployed Workarounds for Long Delays between Connection-Establishment Attempts",
+      "zh-CHS": "4. 为连接建立尝试之间的长延迟部署了变通方法"
+    },
+    {
+      "indent": 3,
+      "text": "The following subsections describe a number of workarounds for the problem of long delays between connection-establishment attempts that have been implemented in a variety of TCP/IP stacks. We note that treating soft errors as hard errors during connection establishment, while widespread, is not part of standard TCP behavior and this document does not change that state of affairs. The consensus of the TCPM WG (TCP Maintenance and Minor Extensions Working Group) was to document this widespread implementation of nonstandard TCP behavior but to not change the TCP standard.",
+      "zh-CHS": "以下小节描述了在各种TCP/IP协议栈中实现的连接建立尝试之间的长延迟问题的一些解决方法。我们注意到，在连接建立过程中，将软错误视为硬错误虽然很普遍，但并不属于标准TCP行为的一部分，本文档不会改变这种情况。TCPM工作组（TCP维护和小型扩展工作组）的共识是记录这种广泛实施的非标准TCP行为，但不改变TCP标准。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Context-Sensitive ICMP/TCP Interaction",
+      "section_title": true,
+      "zh-CHS": "4.1. 上下文敏感的ICMP/TCP交互"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in Section 1, it may make sense for the fault recovery action to depend not only on the type of error being reported but also on the state of the connection against which the error is reported. For example, one could infer that when an error arrives in response to opening a new connection, it is probably caused by opening the connection improperly, rather than by a transient network failure [RFC0816].",
+      "zh-CHS": "如第1节所述，故障恢复操作不仅取决于报告的错误类型，而且还取决于报告错误的连接状态，这是有意义的。例如，可以推断，当响应打开新连接而出现错误时，可能是由于不正确地打开连接，而不是由于暂时的网络故障[RFC0816]引起的。"
+    },
+    {
+      "indent": 3,
+      "text": "A number of TCP implementations have modified their reaction to all ICMP soft errors and treat them as hard errors when they are received for connections in the SYN-SENT or SYN-RECEIVED states. For example, this workaround has been implemented in the Linux kernel since version 2.0.0 (released in 1996) [Linux]. However, it should be noted that this change violates section 4.2.3.9 of [RFC1122], which states that these ICMP error messages indicate soft error conditions and that, therefore, TCP MUST NOT abort the corresponding connection.",
+      "zh-CHS": "许多TCP实现修改了它们对所有ICMP软错误的反应，并将它们作为硬错误处理，当它们被接收用于处于SYN-SENT或SYN-RECEIVE状态的连接时。例如，自2.0.0版（1996年发布）[Linux]以来，此解决方案一直在Linux内核中实现。但是，应注意，此更改违反了[RFC1122]第4.2.3.9节，该节规定，这些ICMP错误消息表示软错误情况，因此，TCP不得中止相应的连接。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3168] states that a host that receives a RST in response to the transmission of an ECN (Explicit Congestion Notification)-setup SYN packet MAY resend a SYN with the CWR (Congestion Window Reduced) and ECE (ECN-Echo) bits cleared. This is meant to deal with faulty middle-boxes that reject connections when a SYN segment has the ECE and CWR bits set. Some faulty middle-boxes (e.g., firewalls) may reject these connection requests with an ICMP soft error of type 3 (Destination Unreachable), code 0 (net unreachable) or 1 (host unreachable), instead of a RST. Therefore, a system that processes ICMP soft error messages as hard errors when they are received for a connection in any of the non-synchronized states could resend the SYN segment with the ECE and CWR bits cleared when an ICMP \"net unreachable\" (type 3, code 0) or \"host unreachable\" (type 3, code 1) error message is received in response to a SYN segment that had these bits set.",
+      "zh-CHS": "[RFC3168]指出，接收RST以响应ECN（显式拥塞通知）-设置SYN数据包传输的主机可以在清除CWR（拥塞窗口缩小）和ECE（ECN回波）位的情况下重新发送SYN。这是为了处理在SYN段设置ECE和CWR位时拒绝连接的故障中间盒。某些有故障的中间盒（例如防火墙）可能会拒绝这些连接请求，并出现类型为3（目标不可访问）、代码为0（网络不可访问）或1（主机不可访问）的ICMP软错误，而不是RST。因此，当ICMP软错误消息被接收用于任何非同步状态的连接时，将其作为硬错误处理的系统可以在ICMP“无法访问网络”（类型3，代码0）或“无法访问主机”（类型3，代码1）时，在清除ECE和CWR位的情况下重新发送SYN段接收到错误消息以响应设置了这些位的SYN段。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 4.2 discusses a more conservative approach than that sketched above, which is implemented in FreeBSD.",
+      "zh-CHS": "第4.2节讨论了一种比上述方法更保守的方法，该方法在FreeBSD中实现。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Context-Sensitive ICMP/TCP Interaction with Repeated Confirmation",
+      "section_title": true,
+      "zh-CHS": "4.2. 具有重复确认的上下文敏感ICMP/TCP交互"
+    },
+    {
+      "indent": 3,
+      "text": "A more conservative approach than simply treating soft errors as hard errors (as described above) would be to abort a connection in the SYN-SENT or SYN-RECEIVED states only after an ICMP soft error has been received a specified number of times and the SYN segment has been retransmitted more than some specified number of times.",
+      "zh-CHS": "与简单地将软错误视为硬错误（如上所述）相比，更保守的方法是，仅在收到ICMP软错误指定次数且SYN段重新传输次数超过某个指定次数后，才中止SYN-SENT或SYN-RECEIVE状态下的连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Two new parameters would have to be introduced to TCP, to be used only during the connection-establishment phase: MAXSYNREXMIT and MAXSOFTERROR. MAXSYNREXMIT would specify the number of times the SYN segment would have to be retransmitted before a connection is aborted. MAXSOFTERROR would specify the number of ICMP messages indicating soft errors that would have to be received before a connection is aborted.",
+      "zh-CHS": "TCP必须引入两个新参数，仅在连接建立阶段使用：MAXSYNREXMIT和MAXSOFTERROR。MAXSYNREXMIT将指定在中断连接之前必须重新传输SYN段的次数。MAXSOFTERROR将指定在中断连接之前必须接收的指示软错误的ICMP消息数。"
+    },
+    {
+      "indent": 3,
+      "text": "Two additional state variables would need to be introduced to store additional state information during the connection-establishment phase: \"nsynrexmit\" and \"nsofterror\". Both would be initialized to zero when a connection attempt is initiated, with \"nsynrexmit\" being incremented by one every time the SYN segment is retransmitted and \"nsofterror\" being incremented by one every time an ICMP message that indicates a soft error is received.",
+      "zh-CHS": "在连接建立阶段，需要引入两个额外的状态变量来存储额外的状态信息：“nsynrexmit”和“nsofterror”。当启动连接尝试时，两者都将初始化为零，每次重新传输SYN段时，“NSYNREMIT”将递增1，“nsofterror”将在每次接收到指示软错误的ICMP消息时递增1。"
+    },
+    {
+      "indent": 3,
+      "text": "A connection in the SYN-SENT or SYN-RECEIVED states would be aborted if \"nsynrexmit\" was greater than MAXSYNREXMIT and \"nsofterror\" was simultaneously greater than MAXSOFTERROR.",
+      "zh-CHS": "如果“nsynrexmit”大于MAXSYNREXMIT且“nsofterror”同时大于MAXSOFTERROR，则处于SYN-SENT或SYN-RECEIVED状态的连接将中止。"
+    },
+    {
+      "indent": 3,
+      "text": "This approach would give the network more time to solve the connectivity problem than does simply aborting a connection attempt upon reception of the first soft error. However, it should be noted that, depending on the values chosen for the MAXSYNREXMIT and MAXSOFTERROR parameters, this approach could still lead to long delays between connection-establishment attempts, thus not solving the problem. For example, BSD systems abort connections in the SYN-SENT or the SYN-RECEIVED state when a second ICMP error is received and the SYN segment has been retransmitted more than three times. They also set up a \"connection-establishment timer\" that imposes an upper limit on the time the connection-establishment attempt has to succeed, which expires after 75 seconds (see [Stevens2], pp. 828- 829). Even when this policy may be better than the three-minute timeout policy specified in [RFC1122], it may still be inappropriate for handling the potential problems described in this document. This more conservative approach has been implemented in BSD systems for more than ten years [Stevens2].",
+      "zh-CHS": "这种方法将给网络更多的时间来解决连接问题，而不是在接收到第一个软错误时简单地中止连接尝试。但是，应该注意的是，根据为MAXSYNREXMIT和MAXSOFTERROR参数选择的值，这种方法仍然可能导致连接建立尝试之间的长时间延迟，因此无法解决问题。例如，当接收到第二个ICMP错误且SYN段已重传三次以上时，BSD系统会中止SYN-SENT或SYN-RECEIVE状态下的连接。他们还设置了一个“连接建立计时器”，对连接建立尝试必须成功的时间施加上限，该时间在75秒后到期（见[Stevens2]，第828-829页）。即使此策略可能优于[RFC1122]中指定的三分钟超时策略，也可能不适合处理本文档中描述的潜在问题。这种更保守的方法在BSD系统中已经实施了十多年[Stevens2]。"
+    },
+    {
+      "indent": 3,
+      "text": "We also note that the approach given in this section is a generalized version of the approach sketched in the previous section. In particular, with MAXSOFTERROR set to 1 and MAXSYNREXMIT set to zero, the schemes are identical.",
+      "zh-CHS": "我们还注意到，本节中给出的方法是前一节中概述的方法的概括版本。特别是，当MAXSOFTERROR设置为1，MAXSYNREXMIT设置为0时，方案是相同的。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Possible Drawbacks of Changing ICMP Semantics",
+      "section_title": true,
+      "zh-CHS": "5. 更改ICMP语义的可能缺点"
+    },
+    {
+      "indent": 3,
+      "text": "The following subsections discuss some possible drawbacks that could arise from use of the non-standard modifications to TCP's reaction to soft errors, which are described in Section 4.1 and Section 4.2.",
+      "zh-CHS": "以下小节讨论了因使用非标准修改TCP对软错误的反应而可能产生的一些缺陷，如第4.1节和第4.2节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Non-Deterministic Transient Network Failures",
+      "section_title": true,
+      "zh-CHS": "5.1. 非确定性瞬态网络故障"
+    },
+    {
+      "indent": 3,
+      "text": "In scenarios where a transient network failure affects all of the addresses returned by the name-to-address translation function, all destinations could be unreachable for some short period of time. For example, a mobile system consisting of a cell and a repeater may pass through a tunnel, leading to a loss of connectivity at the repeater, with the repeater sending ICMP soft errors back to the cell. Also, a transient routing problem might lead some intervening router to drop a SYN segment that was meaning to establish a TCP connection and send an ICMP soft error back to the host. Finally, a SYN segment carrying data might get fragmented and some of the resulting fragments might get lost, with the destination host timing out the reassembly process and sending an ICMP soft error back to the sending host (although this particular scenario is unlikely because, while [RFC0793] allows SYN segments to carry data, in practice they do not). In such scenarios, the application could quickly cycle through all the IP addresses in the list and return an error, when it could have let TCP",
+      "zh-CHS": "在瞬时网络故障影响名称到地址转换功能返回的所有地址的情况下，所有目的地可能在短时间内无法到达。例如，由小区和中继器组成的移动系统可能通过隧道，导致中继器的连接丢失，中继器将ICMP软错误发送回小区。此外，暂时性路由问题可能会导致一些介入路由器丢弃一个SYN段，该SYN段意味着建立TCP连接并将ICMP软错误发送回主机。最后，承载数据的SYN段可能会出现碎片，一些产生的碎片可能会丢失，目标主机将重新组装过程超时，并将ICMP软错误发送回发送主机（尽管这种特殊情况不太可能发生，因为，[RFC0793]允许SYN段携带数据，但实际上不允许）。在这种情况下，应用程序可以快速遍历列表中的所有IP地址并返回一个错误，而此时它可能已经允许TCP"
+    },
+    {
+      "indent": 3,
+      "text": "retry a destination a few seconds later, when the transient problem could have disappeared. In this case, the modifications described here make TCP less robust than a standards-compliant implementation.",
+      "zh-CHS": "几秒钟后，当暂时性问题可能消失时，重试目标。在这种情况下，这里描述的修改使得TCP不如符合标准的实现那么健壮。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, in many cases a domain name maps to a single IP address. In such a case, it might be better to try that address persistently according to normal TCP rules, instead of just aborting the pending connection upon receipt of an ICMP soft error.",
+      "zh-CHS": "此外，在许多情况下，域名映射到单个IP地址。在这种情况下，最好根据正常的TCP规则持久地尝试该地址，而不是在收到ICMP软错误时中止挂起的连接。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Deterministic Transient Network Failures",
+      "section_title": true,
+      "zh-CHS": "5.2. 确定性瞬态网络故障"
+    },
+    {
+      "indent": 3,
+      "text": "There are some scenarios in which transient network failures could be deterministic. For example, consider a scenario in which upstream network connectivity is triggered by network use. That is, network connectivity is instantiated only on an \"as needed\" basis. In this scenario, the connection triggering the upstream connectivity could deterministically receive ICMP Destination Unreachables while the upstream connectivity is being activated, and thus would be aborted. Again, in this case, the modifications described here make TCP less robust than a standards-compliant implementation.",
+      "zh-CHS": "在某些情况下，瞬时网络故障可能是确定性的。例如，考虑通过网络使用触发上行网络连接性的场景。也就是说，仅在“按需”的基础上实例化网络连接。在这种情况下，当上游连接被激活时，触发上游连接的连接可以确定地接收到无法到达的ICMP目的地，因此将被中止。同样，在这种情况下，这里描述的修改使TCP不如符合标准的实现那么健壮。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Non-Compliant Network Address Translators (NATs)",
+      "section_title": true,
+      "zh-CHS": "5.3. 不兼容的网络地址转换器（NAT）"
+    },
+    {
+      "indent": 3,
+      "text": "Some NATs respond to an unsolicited inbound SYN segment with an ICMP soft error message. If the system sending the unsolicited SYN segment implements the workaround described in this document, it will abort the connection upon receipt of the ICMP error message, thus probably preventing TCP's simultaneous open from succeeding through the NAT. However, it must be stressed that those NATs described in this section are not BEHAVE-compliant and therefore should implement REQ-4 of [RFC5382] instead.",
+      "zh-CHS": "一些NAT会使用ICMP软错误消息响应未经请求的入站SYN段。如果发送未经请求的SYN段的系统实现了本文档中描述的解决方法，则在收到ICMP错误消息时，系统将中止连接，从而可能会阻止TCP通过NAT同时打开。但是，必须强调的是，本节中描述的NAT行为不符合要求，因此应改为实现[RFC5382]的REQ-4。"
+    },
+    {
+      "indent": 3,
+      "text": "In those scenarios in which such a non-BEHAVE-compliant NAT is deployed, TCP simultaneous opens could fail. While undesirable, this is tolerable in many situations. For instance, a number of host implementations of TCP do not support TCP simultaneous opens [Zuquete].",
+      "zh-CHS": "在部署这种不符合行为的NAT的场景中，TCP同步打开可能会失败。虽然这是不可取的，但在许多情况下是可以容忍的。例如，TCP的许多主机实现不支持TCP同时打开[Zuquete]。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a non-standard modification to TCP's reaction to soft errors that has been implemented in a variety of TCP implementations. This modification makes TCP abort a connection in the SYN-SENT or the SYN-RECEIVED states when it receives an ICMP error message that indicates a soft error. Therefore, the modification could be exploited to reset valid connections during the connection-establishment phase.",
+      "zh-CHS": "本文档描述了对TCP对软错误的反应的非标准修改，该修改已在各种TCP实现中实现。此修改使TCP在接收到指示软错误的ICMP错误消息时中止处于SYN-SENT或SYN-RECEIVED状态的连接。因此，可以利用修改在连接建立阶段重置有效连接。"
+    },
+    {
+      "indent": 3,
+      "text": "The non-standard workaround described in this document makes TCP more vulnerable to attack, even if only slightly. However, we note that an attacker wishing to reset ongoing TCP connections could send any of the ICMP hard error messages in any connection state.",
+      "zh-CHS": "本文档中描述的非标准解决方法使TCP更容易受到攻击，即使只是轻微的攻击。但是，我们注意到，希望重置正在进行的TCP连接的攻击者可以在任何连接状态下发送任何ICMP硬错误消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Generally, TCP backs off its retransmission timer each time it retransmits the SYN segment for the same connection. If a TCP implements the modification described in this document, that is, tries the next address in the list upon receipt of an ICMP error message, it might end up injecting more packets into the network than if it had simply retried the same address a number of times. However, compliant TCP implementations might already incur this behavior (e.g., as a result of cycling through the list of IP addresses in response to RST segments) as there are currently no recommendations on methods for limiting the rate at which SYN segments are sent for connecting to a specific destination.",
+      "zh-CHS": "通常，TCP在每次为同一连接重新传输SYN段时都会退出其重新传输计时器。如果TCP实现了本文档中描述的修改，即在收到ICMP错误消息后尝试列表中的下一个地址，那么它可能会向网络中注入更多的数据包，而不是简单地多次重试同一地址。但是，兼容的TCP实现可能已经产生这种行为（例如，由于响应RST段在IP地址列表中循环），因为目前没有关于限制SYN段发送速率以连接到特定目的地的方法的建议。"
+    },
+    {
+      "indent": 3,
+      "text": "A discussion of the use of ICMP to perform a variety of attacks against TCP, and a number of counter-measures that minimize the impact of these attacks, can be found in [ICMP-ATTACKS].",
+      "zh-CHS": "有关使用ICMP对TCP执行各种攻击的讨论，以及将这些攻击的影响降至最低的一些应对措施，请参见[ICMP-attacks]。"
+    },
+    {
+      "indent": 3,
+      "text": "A discussion of the security issues arising from the use of ICMPv6 can be found in [RFC4443].",
+      "zh-CHS": "关于使用ICMPv6引起的安全问题的讨论，请参见[RFC4443]。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The author wishes to thank Mark Allman, Jari Arkko, David Black, Ron Bonica, Ted Faber, Gorry Fairhurst, Sally Floyd, Juan Fraschini, Tomohiro Fujisaki, Guillermo Gont, Saikat Guha, Alfred Hoenes, Michael Kerrisk, Eddie Kohler, Mika Liljeberg, Arifumi Matsumoto, Sandy Murphy, Carlos Pignataro, Pasi Sarolahti, Pekka Savola, Pyda Srisuresh, Jinmei Tatuya, and Joe Touch for contributing many valuable comments on earlier versions of this document.",
+      "zh-CHS": "作者希望感谢马克·奥尔曼、贾里·阿克科、大卫·布莱克、罗恩·博尼卡、特德·费伯、戈里·费尔赫斯特、萨利·弗洛伊德、胡安·弗拉希尼、藤崎智宏、吉列尔莫·贡特、赛卡特·古哈、阿尔弗雷德·霍恩斯、迈克尔·克里克、埃迪·科勒、米卡·利耶贝格、松本阿里富米、桑迪·墨菲、卡洛斯·皮纳塔罗、帕西·萨洛哈蒂、佩卡·萨沃拉、皮达·斯利苏雷什、，Jinmei Tatuya和Joe Touch为本文档的早期版本提供了许多有价值的评论。"
+    },
+    {
+      "indent": 3,
+      "text": "The author wishes to thank Secretaria de Extension Universitaria at Universidad Tecnologica Nacional and Universidad Tecnologica Nacional/Facultad Regional Haedo for their support in this work.",
+      "zh-CHS": "作者希望感谢国家技术大学推广大学秘书处和国家技术大学/地区哈多学院对这项工作的支持。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the author wishes to express deep and heartfelt gratitude to Jorge Oscar Gont and Nelida Garcia for their precious motivation and guidance.",
+      "zh-CHS": "最后，作者希望对豪尔赫·奥斯卡·贡特和内丽达·加西亚的宝贵动机和指导表示深切和衷心的感谢。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Contributors",
+      "section_title": true,
+      "zh-CHS": "8. 贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "Mika Liljeberg was the first to describe how their implementation treated soft errors. Based on that, the solution discussed in Section 4.1 was documented in [v6-ON] by Sebastien Roy, Alain Durand, and James Paugh.",
+      "zh-CHS": "Mika Liljeberg是第一个描述他们的实现如何处理软错误的人。基于此，Sebastien Roy、Alain Durand和James Paugh在[v6 on]中记录了第4.1节中讨论的解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC0792] Postel, J., \"Internet Control Message Protocol\", STD 5, RFC 792, September 1981.",
+      "zh-CHS": "[RFC0792]Postel，J.，“互联网控制消息协议”，STD 5，RFC 792，1981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC0793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[RFC0793]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1122] Braden, R., \"Requirements for Internet Hosts - Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[RFC1122]Braden，R.，“互联网主机的要求-通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1123] Braden, R., \"Requirements for Internet Hosts - Application and Support\", STD 3, RFC 1123, October 1989.",
+      "zh-CHS": "[RFC1123]Braden，R.，“互联网主机的要求-应用和支持”，STD 3，RFC 1123，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3168] Ramakrishnan, K., Floyd, S., and D. Black, \"The Addition of Explicit Congestion Notification (ECN) to IP\", RFC 3168, September 2001.",
+      "zh-CHS": "[RFC3168]Ramakrishnan，K.，Floyd，S.，和D.Black，“向IP添加显式拥塞通知（ECN）”，RFC 3168，2001年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4443] Conta, A., Deering, S., and M. Gupta, \"Internet Control Message Protocol (ICMPv6) for the Internet Protocol Version 6 (IPv6) Specification\", RFC 4443, March 2006.",
+      "zh-CHS": "[RFC4443]Conta，A.，Deering，S.和M.Gupta，“互联网协议版本6（IPv6）规范的互联网控制消息协议（ICMPv6）”，RFC 4443，2006年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4861] Narten, T., Nordmark, E., Simpson, W., and H. Soliman, \"Neighbor Discovery for IP version 6 (IPv6)\", RFC 4861, September 2007.",
+      "zh-CHS": "[RFC4861]Narten，T.，Nordmark，E.，Simpson，W.，和H.Soliman，“IP版本6（IPv6）的邻居发现”，RFC 48612007年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[Gont] Gont, F., \"On the problem of long delays between connection-establishment attempts in TCP\", Work in Progress, January 2009.",
+      "zh-CHS": "[Gont]Gont，F.，“关于TCP连接建立尝试之间的长延迟问题”，正在进行的工作，2009年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ICMP-ATTACKS] Gont, F., \"ICMP attacks against TCP\", Work in Progress, October 2008.",
+      "zh-CHS": "[ICMP-ATTACKS]Gont，F.，“针对TCP的ICMP攻击”，正在进行的工作，2008年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Linux] The Linux Project, \"http://www.kernel.org\".",
+      "zh-CHS": "[Linux]Linux项目，”http://www.kernel.org\"."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC0816] Clark, D., \"Fault isolation and recovery\", RFC 816, July 1982.",
+      "zh-CHS": "[RFC0816]Clark，D.，“故障隔离和恢复”，RFC 816，1982年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4943] Roy, S., Durand, A., and J. Paugh, \"IPv6 Neighbor Discovery On-Link Assumption Considered Harmful\", RFC 4943, September 2007.",
+      "zh-CHS": "[RFC4943]Roy，S.，Durand，A.，和J.Paugh，“基于链路假设的IPv6邻居发现被认为是有害的”，RFC 49432007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5382] Guha, S., Biswas, K., Ford, B., Sivakumar, S., and P. Srisuresh, \"NAT Behavioral Requirements for TCP\", BCP 142, RFC 5382, October 2008.",
+      "zh-CHS": "[RFC5382]Guha，S.，Biswas，K.，Ford，B.，Sivakumar，S.，和P.Srisuresh，“TCP的NAT行为要求”，BCP 142，RFC 5382，2008年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Shneiderman] Shneiderman, B., \"Response Time and Display Rate in Human Performance with Computers\", ACM Computing Surveys, 1984.",
+      "zh-CHS": "[Shneiderman]Shneiderman，B.，“计算机在人类行为中的响应时间和显示率”，ACM计算调查，1984年。"
+    },
+    {
+      "indent": 3,
+      "text": "[Stevens] Stevens, W., \"TCP/IP Illustrated, Volume 1: The Protocols\", Addison-Wesley, 1994.",
+      "zh-CHS": "[Stevens]Stevens，W.，“TCP/IP图解，第1卷：协议”，Addison-Wesley，1994年。"
+    },
+    {
+      "indent": 3,
+      "text": "[Stevens2] Wright, G. and W. Stevens, \"TCP/IP Illustrated, Volume 2: The Implementation\", Addison-Wesley, 1994.",
+      "zh-CHS": "[Stevens2]Wright，G.和W.Stevens，“TCP/IP图解，第2卷：实现”，Addison-Wesley，1994年。"
+    },
+    {
+      "indent": 3,
+      "text": "[Thadani] Thadani, A., \"Interactive User Productivity\", IBM Systems Journal, No. 1, 1981.",
+      "zh-CHS": "[Thadani]Thadani，A.，“交互式用户生产力”，IBM系统杂志，1981年第1期。"
+    },
+    {
+      "indent": 3,
+      "text": "[Zuquete] Zuquete, A., \"Improving the functionality of SYN cookies\", 6th IFIP Communications and Multimedia Security Conference (CMS 2002), 2002.",
+      "zh-CHS": "[Zuquete]Zuquete，A.，“改进SYN cookies的功能”，第六届IFIP通信和多媒体安全会议（CMS 2002），2002年。"
+    },
+    {
+      "indent": 3,
+      "text": "[v6-ON] Roy, S., Durand, A., and J. Paugh, \"Issues with Dual Stack IPv6 on by Default\", Work in Progress, July 2004.",
+      "zh-CHS": "[v6 ON]Roy，S.，Durand，A.，和J.Paugh，“默认情况下双栈IPv6开启的问题”，正在进行的工作，2004年7月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Fernando Gont Universidad Tecnologica Nacional / Facultad Regional Haedo Evaristo Carriego 2644 Haedo, Provincia de Buenos Aires 1706 Argentina",
+      "zh-CHS": "阿根廷布宜诺斯艾利斯省费尔南多·冈特国家技术大学/学院地区哈多·埃瓦里斯托·卡里戈2644哈多1706"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +54 11 4650 8472\nEMail: fernando@gont.com.ar\nURI:   http://www.gont.com.ar",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

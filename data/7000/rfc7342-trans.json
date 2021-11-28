@@ -1,0 +1,750 @@
+{
+  "title": {
+    "text": "RFC 7342: Practices for Scaling ARP and Neighbor Discovery (ND) in Large Data Centers",
+    "zh-CHS": "RFC 7342"
+  },
+  "number": 7342,
+  "created_at": "2021-11-02 17:32:59.992227+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Independent Submission                                         L. Dunbar\nRequest for Comments: 7342                                        Huawei\nCategory: Informational                                        W. Kumari\nISSN: 2070-1721                                                   Google\n                                                            I. Gashinsky\n                                                                   Yahoo\n                                                             August 2014",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "Practices for Scaling ARP and Neighbor Discovery (ND) in Large Data Centers",
+      "zh-CHS": "大型数据中心中扩展ARP和邻居发现（ND）的实践"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This memo documents some operational practices that allow ARP and Neighbor Discovery (ND) to scale in data center environments.",
+      "zh-CHS": "本备忘录记录了一些允许ARP和邻居发现（ND）在数据中心环境中扩展的操作实践。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This is a contribution to the RFC Series, independently of any other RFC stream. The RFC Editor has chosen to publish this document at its discretion and makes no statement about its value for implementation or deployment. Documents approved for publication by the RFC Editor are not a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "这是对RFC系列的贡献，独立于任何其他RFC流。RFC编辑器已选择自行发布此文档，并且未声明其对实现或部署的价值。RFC编辑批准发布的文件不适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7342.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7342."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2014 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2014 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Terminology .....................................................4\n3. Common DC Network Designs .......................................4\n4. Layer 3 to Access Switches ......................................5\n5. Layer 2 Practices to Scale ARP/ND ...............................5\n   5.1. Practices to Alleviate APR/ND Burden on L2/L3\n        Boundary Routers ...........................................5\n        5.1.1. Communicating with a Peer in a Different Subnet .....6\n        5.1.2. L2/L3 Boundary Router Processing of Inbound\n               Traffic .............................................7\n        5.1.3. Inter-Subnet Communications .........................8\n   5.2. Static ARP/ND Entries on Switches ..........................8\n   5.3. ARP/ND Proxy Approaches ....................................9\n   5.4. Multicast Scaling Issues ...................................9\n6. Practices to Scale ARP/ND in Overlay Models ....................10\n7. Summary and Recommendations ....................................10\n8. Security Considerations ........................................11\n9. Acknowledgements ...............................................11\n10. References ....................................................12\n   10.1. Normative References .....................................12\n   10.2. Informative References ...................................13",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This memo documents some operational practices that allow ARP/ND to scale in data center environments.",
+      "zh-CHS": "本备忘录记录了一些允许ARP/ND在数据中心环境中扩展的操作实践。"
+    },
+    {
+      "indent": 3,
+      "text": "As described in [RFC6820], the increasing trend of rapid workload shifting and server virtualization in modern data centers requires servers to be loaded (or reloaded) with different Virtual Machines (VMs) or applications at different times. Different VMs residing on one physical server may have different IP addresses or may even be in different IP subnets.",
+      "zh-CHS": "如[RFC6820]所述，现代数据中心中快速工作负载转移和服务器虚拟化的增长趋势要求服务器在不同时间加载（或重新加载）不同的虚拟机（VM）或应用程序。驻留在一台物理服务器上的不同虚拟机可能具有不同的IP地址，甚至可能位于不同的IP子网中。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to allow a physical server to be loaded with VMs in different subnets or allow VMs to be moved to different server racks without IP address reconfiguration, the networks need to enable multiple broadcast domains (many VLANs) on the interfaces of L2/L3 boundary routers and Top-of-Rack (ToR) switches and allow some subnets to span multiple router ports.",
+      "zh-CHS": "为了允许物理服务器在不同子网中加载虚拟机，或允许虚拟机在不重新配置IP地址的情况下移动到不同的服务器机架，网络需要在L2/L3边界路由器和机架顶部（ToR）的接口上启用多个广播域（许多VLAN）交换机，并允许某些子网跨越多个路由器端口。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: L2/L3 boundary routers as discussed in this document are capable of forwarding IEEE 802.1 Ethernet frames (Layer 2) without a Media Access Control (MAC) header change. When subnets span multiple ports of those routers, they still fall under the category of \"single-link\" subnets, specifically the multi-access link model",
+      "zh-CHS": "注：本文档中讨论的L2/L3边界路由器能够转发IEEE 802.1以太网帧（第2层），而无需更改媒体访问控制（MAC）报头。当子网跨越这些路由器的多个端口时，它们仍然属于“单链路”子网的类别，特别是多接入链路模型"
+    },
+    {
+      "indent": 3,
+      "text": "recommended by [RFC4903]. They are different from the \"multi-link\" subnets described in [Multi-Link] and RFC 4903, which refer to different physical media with the same prefix connected to one router. Within the \"multi-link\" subnet described in RFC 4903, Layer 2 frames from one port cannot be natively forwarded to another port without a header change.",
+      "zh-CHS": "由[RFC4903]推荐。它们不同于[multi-link]和RFC 4903中描述的“multi-link”子网，后者指的是连接到一个路由器的具有相同前缀的不同物理介质。在RFC 4903中描述的“多链路”子网中，如果不更改报头，来自一个端口的第2层帧无法本机转发到另一个端口。"
+    },
+    {
+      "indent": 3,
+      "text": "Unfortunately, when the combined number of VMs (or hosts) in all those subnets is large, this can lead to address resolution (i.e., IPv4 ARP and IPv6 ND) scaling issues. There are three major issues associated with ARP/ND address resolution protocols when subnets span multiple L2/L3 boundary router ports:",
+      "zh-CHS": "不幸的是，当所有这些子网中的VM（或主机）的总数很大时，这可能会导致地址解析（即IPv4 ARP和IPv6 ND）扩展问题。当子网跨越多个L2/L3边界路由器端口时，ARP/ND地址解析协议存在三个主要问题："
+    },
+    {
+      "indent": 3,
+      "text": "1) The ARP/ND messages being flooded to many physical link segments, which can reduce bandwidth utilization for user traffic.",
+      "zh-CHS": "1) ARP/ND消息被淹没到许多物理链路段，这会降低用户流量的带宽利用率。"
+    },
+    {
+      "indent": 3,
+      "text": "2) The ARP/ND processing load impact on the L2/L3 boundary routers.",
+      "zh-CHS": "2) ARP/ND处理负载影响L2/L3边界路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "3) In IPv4, every end station in a subnet receiving ARP broadcast messages from all other end stations in the subnet. IPv6 ND has eliminated this issue by using multicast.",
+      "zh-CHS": "3) 在IPv4中，子网中的每个终端站从子网中的所有其他终端站接收ARP广播消息。IPv6 ND通过使用多播消除了这个问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Since the majority of data center servers are moving towards 1G or 10G ports, the bandwidth taken by ARP/ND messages, even when flooded to all physical links, becomes negligible compared to the link bandwidth. In addition, IGMP/MLD (Internet Group Management Protocol and Multicast Listener Discovery) snooping [RFC4541] can further reduce the ND multicast traffic to some physical link segments.",
+      "zh-CHS": "由于大多数数据中心服务器正在向1G或10G端口移动，因此ARP/ND消息占用的带宽（即使在淹没到所有物理链路时）与链路带宽相比变得微不足道。此外，IGMP/MLD（Internet组管理协议和多播侦听器发现）侦听[RFC4541]可以进一步减少某些物理链路段的ND多播流量。"
+    },
+    {
+      "indent": 3,
+      "text": "As modern servers' computing power increases, the processing taken by a large amount of ARP broadcast messages becomes less significant to servers. For example, lab testing shows that 2000 ARP requests per second only takes 2% of a single-core CPU server. Therefore, the impact of ARP broadcasts to end stations is not significant on today's servers.",
+      "zh-CHS": "随着现代服务器计算能力的提高，大量ARP广播消息的处理对于服务器来说变得不那么重要。例如，实验室测试表明，每秒2000个ARP请求只占用单核CPU服务器的2%。因此，ARP广播对终端站的影响在今天的服务器上并不显著。"
+    },
+    {
+      "indent": 3,
+      "text": "Statistics provided by Merit Network [ARMD-Statistics] have shown that the major impact of a large number of mobile VMs in a data center is on the L2/L3 boundary routers, i.e., issue 2 above.",
+      "zh-CHS": "Merit Network[ARMD Statistics]提供的统计数据表明，数据中心中大量移动虚拟机的主要影响在于L2/L3边界路由器，即上述问题2。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo documents some simple practices that can scale ARP/ND in a data center environment, especially in reducing processing loads to L2/L3 boundary routers.",
+      "zh-CHS": "本备忘录记录了一些可以在数据中心环境中扩展ARP/ND的简单实践，特别是在减少L2/L3边界路由器的处理负载方面。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "This document reuses much of the terminology from [RFC6820]. Many of the definitions are presented here to aid the reader.",
+      "zh-CHS": "本文档重用了[RFC6820]中的许多术语。这里给出的许多定义都是为了帮助读者。"
+    },
+    {
+      "indent": 3,
+      "text": "ARP: IPv4 Address Resolution Protocol [RFC826]",
+      "zh-CHS": "ARP:IPv4地址解析协议[RFC826]"
+    },
+    {
+      "indent": 3,
+      "text": "Aggregation Switch: A Layer 2 switch interconnecting ToR switches",
+      "zh-CHS": "聚合交换机：一种与ToR交换机互连的第2层交换机"
+    },
+    {
+      "indent": 3,
+      "text": "Bridge: IEEE802.1Q-compliant device. In this document, the term \"Bridge\" is used interchangeably with \"Layer 2 switch\"",
+      "zh-CHS": "桥接器：符合IEEE802.1Q标准的设备。在本文件中，术语“网桥”可与“第2层交换机”互换使用"
+    },
+    {
+      "indent": 3,
+      "text": "DC: Data Center",
+      "zh-CHS": "数据中心"
+    },
+    {
+      "indent": 3,
+      "text": "DA: Destination Address",
+      "zh-CHS": "DA：目的地地址"
+    },
+    {
+      "indent": 3,
+      "text": "End Station: VM or physical server, whose address is either the destination or the source of a data frame",
+      "zh-CHS": "终端站：虚拟机或物理服务器，其地址是数据帧的目标或源"
+    },
+    {
+      "indent": 3,
+      "text": "EoR: End-of-Row switches in a data center",
+      "zh-CHS": "EoR：数据中心中的行末交换机"
+    },
+    {
+      "indent": 3,
+      "text": "NA: IPv6 Neighbor Advertisement",
+      "zh-CHS": "NA:IPv6邻居广告"
+    },
+    {
+      "indent": 3,
+      "text": "ND: IPv6 Neighbor Discovery [RFC4861]",
+      "zh-CHS": "ND:IPv6邻居发现[RFC4861]"
+    },
+    {
+      "indent": 3,
+      "text": "NS: IPv6 Neighbor Solicitation",
+      "zh-CHS": "NS:IPv6邻居请求"
+    },
+    {
+      "indent": 3,
+      "text": "SA: Source Address",
+      "zh-CHS": "SA：源地址"
+    },
+    {
+      "indent": 3,
+      "text": "ToR: Top-of-Rack Switch (also known as access switch)",
+      "zh-CHS": "ToR：机架顶部交换机（也称为接入交换机）"
+    },
+    {
+      "indent": 3,
+      "text": "UNA: IPv6 Unsolicited Neighbor Advertisement",
+      "zh-CHS": "UNA:IPv6主动邻居广告"
+    },
+    {
+      "indent": 3,
+      "text": "VM: Virtual Machine",
+      "zh-CHS": "虚拟机"
+    },
+    {
+      "indent": 3,
+      "text": "Subnet: Refers to the multi-access link subnet referenced by RFC 4903",
+      "zh-CHS": "子网：指RFC 4903引用的多址链路子网"
+    },
+    {
+      "indent": 0,
+      "text": "3. Common DC Network Designs",
+      "section_title": true,
+      "zh-CHS": "3. 通用直流网络设计"
+    },
+    {
+      "indent": 3,
+      "text": "Some common network designs for a data center include:",
+      "zh-CHS": "数据中心的一些常见网络设计包括："
+    },
+    {
+      "indent": 3,
+      "text": "1) Layer 3 connectivity to the access switch,",
+      "zh-CHS": "1) 接入交换机的第3层连接，"
+    },
+    {
+      "indent": 3,
+      "text": "2) Large Layer 2, and",
+      "zh-CHS": "2) 大层2，和"
+    },
+    {
+      "indent": 3,
+      "text": "3) Overlay models.",
+      "zh-CHS": "3) 覆盖模型。"
+    },
+    {
+      "indent": 3,
+      "text": "There is no single network design that fits all cases. The following sections document some of the common practices to scale address resolution under each network design.",
+      "zh-CHS": "没有适合所有情况的单一网络设计。以下各节记录了在每种网络设计下扩展地址分辨率的一些常见做法。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Layer 3 to Access Switches",
+      "section_title": true,
+      "zh-CHS": "4. 第3层访问交换机"
+    },
+    {
+      "indent": 3,
+      "text": "This network design configures Layer 3 to the access switches, effectively making the access switches the L2/L3 boundary routers for the attached VMs.",
+      "zh-CHS": "该网络设计将第3层配置为接入交换机，有效地使接入交换机成为连接的VM的L2/L3边界路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "As described in [RFC6820], many data centers are architected so that ARP/ND broadcast/multicast messages are confined to a few ports (interfaces) of the access switches (i.e., ToR switches).",
+      "zh-CHS": "如[RFC6820]所述，许多数据中心的架构使得ARP/ND广播/多播消息仅限于接入交换机（即ToR交换机）的几个端口（接口）。"
+    },
+    {
+      "indent": 3,
+      "text": "Another variant of the Layer 3 solution is a Layer 3 infrastructure configured all the way to servers (or even to the VMs), which confines the ARP/ND broadcast/multicast messages to the small number of VMs within the server.",
+      "zh-CHS": "第3层解决方案的另一个变体是一个一直配置到服务器（甚至到虚拟机）的第3层基础设施，它将ARP/ND广播/多播消息限制在服务器内的少量虚拟机上。"
+    },
+    {
+      "indent": 3,
+      "text": "Advantage: Both ARP and ND scale well. There is no address resolution issue in this design.",
+      "zh-CHS": "优点：ARP和ND都能很好地扩展。此设计中没有地址解析问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Disadvantage: The main disadvantage of this network design occurs during VM movement. During VM movement, either VMs need an address change or switches/routers need a configuration change when the VMs are moved to different locations.",
+      "zh-CHS": "缺点：这种网络设计的主要缺点发生在VM移动期间。在VM移动期间，当VM移动到不同位置时，VM需要更改地址或交换机/路由器需要更改配置。"
+    },
+    {
+      "indent": 3,
+      "text": "Summary: This solution is more suitable to data centers that have a static workload and/or network operators who can reconfigure IP addresses/subnets on switches before any workload change. No protocol changes are suggested.",
+      "zh-CHS": "摘要：此解决方案更适合具有静态工作负载的数据中心和/或网络运营商，他们可以在任何工作负载更改之前重新配置交换机上的IP地址/子网。不建议更改协议。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Layer 2 Practices to Scale ARP/ND",
+      "section_title": true,
+      "zh-CHS": "5. 第2层实践以扩展ARP/ND"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Practices to Alleviate APR/ND Burden on L2/L3 Boundary Routers",
+      "section_title": true,
+      "zh-CHS": "5.1. 减轻L2/L3边界路由器APR/ND负担的实践"
+    },
+    {
+      "indent": 3,
+      "text": "The ARP/ND broadcast/multicast messages in a Layer 2 domain can negatively affect the L2/L3 boundary routers, especially with a large number of VMs and subnets. This section describes some commonly used practices for reducing the ARP/ND processing required on L2/L3 boundary routers.",
+      "zh-CHS": "第2层域中的ARP/ND广播/多播消息可能会对L2/L3边界路由器产生负面影响，尤其是在有大量VM和子网的情况下。本节介绍一些常用的做法，以减少L2/L3边界路由器上所需的ARP/ND处理。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. Communicating with a Peer in a Different Subnet",
+      "section_title": true,
+      "zh-CHS": "5.1.1. 与不同子网中的对等方通信"
+    },
+    {
+      "indent": 3,
+      "text": "Scenario: When the originating end station doesn't have its default gateway MAC address in its ARP/ND cache and needs to communicate with a peer in a different subnet, it needs to send ARP/ND requests to its default gateway router to resolve the router's MAC address. If there are many subnets on the gateway router and a large number of end stations in those subnets that don't have the gateway MAC address in their ARP/ND caches, the gateway router has to process a very large number of ARP/ND requests. This is often CPU intensive, as ARP/ND messages are usually processed by the CPU (and not in hardware).",
+      "zh-CHS": "场景：当发起端站的ARP/ND缓存中没有其默认网关MAC地址并且需要与不同子网中的对等方通信时，它需要向其默认网关路由器发送ARP/ND请求以解析路由器的MAC地址。如果网关路由器上有许多子网，并且这些子网中有大量终端站的ARP/ND缓存中没有网关MAC地址，那么网关路由器必须处理大量ARP/ND请求。这通常是CPU密集型的，因为ARP/ND消息通常由CPU（而不是硬件）处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: Any centralized configuration that preloads the default MAC addresses is not included in this scenario.",
+      "zh-CHS": "注意：任何预加载默认MAC地址的集中式配置都不包括在此场景中。"
+    },
+    {
+      "indent": 3,
+      "text": "Solution: For IPv4 networks, a practice to alleviate this problem is to have the L2/L3 boundary router send periodic gratuitous ARP [GratuitousARP] messages, so that all the connected end stations can refresh their ARP caches. As a result, most (if not all) end stations will not need to send ARP requests for the gateway routers when they need to communicate with external peers.",
+      "zh-CHS": "解决方案：对于IPv4网络，缓解此问题的一种做法是让L2/L3边界路由器定期发送免费ARP[免费ARP]消息，以便所有连接的终端站都可以刷新其ARP缓存。因此，当大多数（如果不是全部）终端站需要与外部对等方通信时，它们将不需要向网关路由器发送ARP请求。"
+    },
+    {
+      "indent": 3,
+      "text": "For the above scenario, IPv6 end stations are still required to send unicast ND messages to their default gateway router (even with those routers periodically sending Unsolicited Neighbor Advertisements) because IPv6 requires bidirectional path validation.",
+      "zh-CHS": "对于上述场景，IPv6端站仍然需要向其默认网关路由器发送单播ND消息（即使这些路由器定期发送未经请求的邻居广告），因为IPv6需要双向路径验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Advantage: This practice results in a reduction of ARP requests to be processed by the L2/L3 boundary router for IPv4.",
+      "zh-CHS": "优点：这种做法减少了IPv4的L2/L3边界路由器处理的ARP请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Disadvantage: This practice doesn't reduce ND processing on the L2/L3 boundary router for IPv6 traffic.",
+      "zh-CHS": "缺点：对于IPv6流量，这种做法不会减少L2/L3边界路由器上的ND处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: If the network is an IPv4-only network, then this approach can be used. For an IPv6 network, one needs to consider the work described in [RFC7048]. Note: ND and Secure Neighbor Discovery (SEND) [RFC3971] use the bidirectional nature of queries to detect and prevent security attacks.",
+      "zh-CHS": "建议：如果网络是仅IPv4的网络，则可以使用此方法。对于IPv6网络，需要考虑在[RCF7048 ]中描述的工作。注意：ND和安全邻居发现（SEND）[RFC3971]使用查询的双向性质来检测和防止安全攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.2. L2/L3 Boundary Router Processing of Inbound Traffic",
+      "section_title": true,
+      "zh-CHS": "5.1.2. L2/L3边界路由器处理入站流量"
+    },
+    {
+      "indent": 3,
+      "text": "Scenario: When an L2/L3 boundary router receives a data frame destined for a local subnet and the destination is not in the router's ARP/ND cache, some routers hold the packet and trigger an ARP/ND request to resolve the L2 address. The router may need to send multiple ARP/ND requests until either a timeout is reached or an ARP/ND reply is received before forwarding the data packets towards the target's MAC address. This process is not only CPU intensive but also buffer intensive.",
+      "zh-CHS": "场景：当二级/三级边界路由器接收到一个以本地子网为目的地的数据帧，而目的地不在路由器的ARP/ND缓存中时，一些路由器持有该数据包并触发ARP/ND请求以解析二级地址。路由器可能需要发送多个ARP/ND请求，直到达到超时或接收到ARP/ND回复，然后再将数据包转发到目标的MAC地址。这个过程不仅CPU密集，而且缓冲区密集。"
+    },
+    {
+      "indent": 3,
+      "text": "Solution: To protect a router from being overburdened by resolving target MAC addresses, one solution is for the router to limit the rate of resolving target MAC addresses for inbound traffic whose target is not in the router's ARP/ND cache. When the rate is exceeded, the incoming traffic whose target is not in the ARP/ND cache is dropped.",
+      "zh-CHS": "解决方案：为了防止路由器因解析目标MAC地址而负担过重，一种解决方案是，路由器限制解析目标不在路由器ARP/ND缓存中的入站流量的目标MAC地址的速率。当超过速率时，目标不在ARP/ND缓存中的传入流量将被丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "For an IPv4 network, another common practice to alleviate pain caused by this problem is for the router to snoop ARP messages between other hosts, so that its ARP cache can be refreshed with active addresses in the L2 domain. As a result, there is an increased likelihood of the router's ARP cache having the IP-MAC entry when it receives data frames from external peers. [RFC6820] Section 7.1 provides a full description of this problem.",
+      "zh-CHS": "对于IPv4网络，减轻此问题带来的痛苦的另一种常见做法是路由器在其他主机之间嗅探ARP消息，以便可以使用L2域中的活动地址刷新其ARP缓存。因此，当路由器从外部对等方接收数据帧时，其ARP缓存具有IP-MAC条目的可能性增加。[RFC6820]第7.1节提供了该问题的完整描述。"
+    },
+    {
+      "indent": 3,
+      "text": "For IPv6 end stations, routers are supposed to send Router Advertisements (RAs) unicast even if they have snooped UNAs/NSs/NAs from those stations. Therefore, this practice allows an L2/L3 boundary to send unicast RAs to the target instead of multicasts. [RFC6820] Section 7.2 has a full description of this problem.",
+      "zh-CHS": "对于IPv6终端站，路由器应该发送路由器广告（RAs）单播，即使它们从这些站窥探到了UNA/NSs/NAs。因此，这种做法允许L2/L3边界向目标发送单播RAs，而不是多播。[RFC6820]第7.2节对此问题进行了完整描述。"
+    },
+    {
+      "indent": 3,
+      "text": "Advantage: This practice results in a reduction of the number of ARP requests that routers have to send upon receiving IPv4 packets and the number of IPv4 data frames from external peers that routers have to hold due to targets not being in the ARP cache.",
+      "zh-CHS": "优点：这种做法减少了路由器在接收IPv4数据包时必须发送的ARP请求数量，以及由于目标不在ARP缓存中，路由器必须持有的外部对等方的IPv4数据帧数量。"
+    },
+    {
+      "indent": 3,
+      "text": "Disadvantage: The amount of ND processing on routers for IPv6 traffic is not reduced. IPv4 routers still need to hold data packets from external peers and trigger ARP requests if the targets of the data packets either don't exist or are not very active. In this case, IPv4 processing or IPv4 buffers are not reduced.",
+      "zh-CHS": "缺点：IPv6流量路由器上的ND处理量没有减少。IPv4路由器仍然需要保存来自外部对等方的数据包，并在数据包的目标不存在或不是非常活跃时触发ARP请求。在这种情况下，不会减少IPv4处理或IPv4缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: If there is a higher chance of routers receiving data packets that are destined for nonexistent or inactive targets, alternative approaches should be considered.",
+      "zh-CHS": "建议：如果路由器接收数据包的可能性更高，而这些数据包的目的地是不存在或不活动的目标，则应考虑其他方法。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.3. Inter-Subnet Communications",
+      "section_title": true,
+      "zh-CHS": "5.1.3. 子网间通信"
+    },
+    {
+      "indent": 3,
+      "text": "The router could be hit with ARP/ND requests twice when the originating and destination stations are in different subnets attached to the same router and those hosts don't communicate with external peers often enough. The first hit is when the originating station in subnet-A initiates an ARP/ND request to the L2/L3 boundary router if the router's MAC is not in the host's cache (Section 5.1.1 above), and the second hit is when the L2/L3 boundary router initiates ARP/ND requests to the target in subnet-B if the target is not in the router's ARP/ND cache (Section 5.1.2 above).",
+      "zh-CHS": "当始发站和目的站位于连接到同一路由器的不同子网中，并且这些主机与外部对等方通信不够频繁时，路由器可能会被ARP/ND请求击中两次。第一次命中是当子网A中的始发站向二级/三级边界路由器发起ARP/ND请求时，如果路由器的MAC不在主机缓存中（上文第5.1.1节），第二次命中是当二级/三级边界路由器向子网B中的目标发起ARP/ND请求时，如果目标不在路由器的ARP/ND缓存中（上文第5.1.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Again, practices described in Sections 5.1.1 and 5.1.2 can alleviate some problems in some IPv4 networks.",
+      "zh-CHS": "同样，第5.1.1节和第5.1.2节中描述的实践可以缓解某些IPv4网络中的一些问题。"
+    },
+    {
+      "indent": 3,
+      "text": "For IPv6 traffic, the practices described above don't reduce the ND processing on L2/L3 boundary routers.",
+      "zh-CHS": "对于IPv6流量，上述实践不会减少L2/L3边界路由器上的ND处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: Consider the recommended approaches described in Sections 5.1.1 and 5.1.2. However, any solutions that relax the bidirectional requirement of IPv6 ND disable the security that the two-way ND communication exchange provides.",
+      "zh-CHS": "建议：考虑在5.1.1和5.1.2节中描述的推荐方法。但是，任何放宽IPv6 ND双向要求的解决方案都会禁用双向ND通信交换提供的安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Static ARP/ND Entries on Switches",
+      "section_title": true,
+      "zh-CHS": "5.2. 交换机上的静态ARP/ND条目"
+    },
+    {
+      "indent": 3,
+      "text": "In a data center environment, the placement of L2 and L3 addressing may be orchestrated by Server (or VM) Management System(s). Therefore, it may be possible for static ARP/ND entries to be configured on routers and/or servers.",
+      "zh-CHS": "在数据中心环境中，二级和三级寻址的放置可由服务器（或VM）管理系统协调。因此，可以在路由器和/或服务器上配置静态ARP/ND条目。"
+    },
+    {
+      "indent": 3,
+      "text": "Advantage: This methodology has been used to reduce ARP/ND fluctuations in large-scale data center networks.",
+      "zh-CHS": "优点：此方法已用于减少大规模数据中心网络中的ARP/ND波动。"
+    },
+    {
+      "indent": 3,
+      "text": "Disadvantage: When some VMs are added, deleted, or moved, many switches' static entries need to be updated. In a data center with virtualized servers, those events can happen frequently. For example, for an event of one VM being added to one server, if the subnet of this VM spans 15 access switches, all of them need to be updated. Network management mechanisms (SNMP, the Network Configuration Protocol (NETCONF), or proprietary mechanisms) are available to provide updates or incremental updates. However, there is no well-defined approach for switches to synchronize their content with the management system for efficient incremental updates.",
+      "zh-CHS": "缺点：当添加、删除或移动某些VM时，许多交换机的静态条目需要更新。在具有虚拟化服务器的数据中心中，这些事件可能会频繁发生。例如，对于将一个VM添加到一台服务器的事件，如果此VM的子网跨越15个访问交换机，则所有这些交换机都需要更新。网络管理机制（SNMP、网络配置协议（NETCONF）或专有机制）可用于提供更新或增量更新。但是，对于交换机来说，没有一种定义良好的方法可以将其内容与管理系统同步，从而实现高效的增量更新。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: Additional work may be needed within IETF working groups (e.g., NETCONF, NVO3, I2RS, etc.) to get prompt incremental updates of static ARP/ND entries when changes occur.",
+      "zh-CHS": "建议：IETF工作组（如NETCONF、NVO3、I2RS等）内可能需要额外的工作，以便在发生更改时及时增量更新静态ARP/ND条目。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. ARP/ND Proxy Approaches",
+      "section_title": true,
+      "zh-CHS": "5.3. ARP/ND代理方法"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 1027 [RFC1027] specifies one ARP Proxy approach referred to as \"Proxy ARP\". However, RFC 1027 does not discuss a scaling mechanism. Since the publication of RFC 1027 in 1987, many variants of Proxy ARP have been deployed. RFC 1027's Proxy ARP technique allows a gateway to return its own MAC address on behalf of the target station.",
+      "zh-CHS": "RFC1027[RFC1027]指定了一种称为“代理ARP”的ARP代理方法。然而，RFC1027没有讨论缩放机制。自1987年RFC1027发布以来，已经部署了许多代理ARP变体。RFC1027的代理ARP技术允许网关代表目标站返回自己的MAC地址。"
+    },
+    {
+      "indent": 3,
+      "text": "[ARP_Reduction] describes a type of \"ARP Proxy\" that allows a ToR switch to snoop ARP requests and return the target station's MAC if the ToR has the information in its cache. However, [RFC4903] doesn't recommend the caching approach described in [ARP_Reduction] because such a cache prevents any type of fast mobility between Layer 2 ports and breaks Secure Neighbor Discovery [RFC3971].",
+      "zh-CHS": "[ARP_Reduction]描述了一种“ARP代理”，允许ToR交换机监听ARP请求，并在ToR缓存中有信息时返回目标站的MAC。但是，[RFC4903]不推荐[ARP_Reduction]中描述的缓存方法，因为这样的缓存会阻止第2层端口之间的任何类型的快速移动，并破坏安全的邻居发现[RFC3971]。"
+    },
+    {
+      "indent": 3,
+      "text": "IPv6 ND Proxy [RFC4389] specifies a proxy used between an Ethernet segment and other segments, such as wireless or PPP segments. ND Proxy [RFC4389] doesn't allow a proxy to send NA messages on behalf of the target to ensure that the proxy does not interfere with hosts moving from one segment to another. Therefore, the ND Proxy [RFC4389] doesn't reduce the number of ND messages to an L2/L3 boundary router.",
+      "zh-CHS": "IPv6 ND Proxy[RFC4389]指定以太网段和其他段（如无线或PPP段）之间使用的代理。ND Proxy[RFC4389]不允许代理代表目标发送NA消息，以确保代理不会干扰从一个网段移动到另一个网段的主机。因此，ND代理[RFC4389]不会减少发送到L2/L3边界路由器的ND消息的数量。"
+    },
+    {
+      "indent": 3,
+      "text": "Bottom line, the term \"ARP/ND Proxy\" has different interpretations, depending on vendors and/or environments.",
+      "zh-CHS": "总之，术语“ARP/ND代理”有不同的解释，这取决于供应商和/或环境。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: For IPv4, even though those Proxy ARP variants (not RFC 1076) have been used to reduce ARP traffic in various environments, there are many issues with caching.",
+      "zh-CHS": "建议：对于IPv4，尽管这些代理ARP变体（不是RFC 1076）已用于减少各种环境中的ARP流量，但缓存仍存在许多问题。"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF should consider making proxy recommendations for data center environments as a transition issue to help DC operators transitioning to IPv6. Section 7 of [RFC4389] (\"Guidelines to Proxy Developers\") should be considered when developing any new proxy protocols to scale ARP.",
+      "zh-CHS": "IETF应该考虑为数据中心环境提出代理建议作为过渡问题，以帮助DC运营商过渡到IPv6。在开发任何新的代理协议以扩展ARP时，应考虑[RFC4389]的第7节（“代理开发人员指南”）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Multicast Scaling Issues",
+      "section_title": true,
+      "zh-CHS": "5.4. 多播扩展问题"
+    },
+    {
+      "indent": 3,
+      "text": "Multicast snooping (IGMP/MLD) has different implementations and scaling issues. [RFC4541] notes that multicast IGMPv2/v3 snooping has trouble with subnets that include IGMPv2 and IGMPv3. [RFC4541] also notes that MLDv2 snooping requires the use of either destination MAC (DMAC) address filtering or deeper inspection of frames/packets to allow for scaling.",
+      "zh-CHS": "多播侦听（IGMP/MLD）有不同的实现和扩展问题。[RFC4541]注意到多播IGMPv2/v3侦听在包含IGMPv2和IGMPv3的子网中存在问题。[RFC4541]还注意到，MLDv2窥探需要使用目标MAC（DMAC）地址过滤或对帧/数据包进行更深入的检查，以允许扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "MLDv2 snooping needs to be re-examined for scaling within the DC. Efforts such as IGMP/MLD explicit tracking [IGMP-MLD-Tracking] for downstream hosts need to provide better scaling than IGMP/MLDv2 snooping.",
+      "zh-CHS": "MLDv2窥探需要重新检查DC内的缩放。下游主机的IGMP/MLD显式跟踪[IGMP MLD tracking]等工作需要提供比IGMP/MLDv2窥探更好的伸缩性。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Practices to Scale ARP/ND in Overlay Models",
+      "section_title": true,
+      "zh-CHS": "6. 在覆盖模型中缩放ARP/ND的实践"
+    },
+    {
+      "indent": 3,
+      "text": "There are several documents on using overlay networks to scale large Layer 2 networks (or avoid the need for large L2 networks) and enable mobility (e.g., [L3-VM-Mobility], [VXLAN]). Transparent Interconnection of Lots of Links (TRILL) and IEEE 802.1ah (Mac-in-Mac) are other types of overlay networks that can scale Layer 2.",
+      "zh-CHS": "关于使用覆盖网络扩展大型第二层网络（或避免需要大型第二层网络）和实现移动性（例如，[L3虚拟机移动性]、[VXLAN]），有多个文档。大量链路的透明互连（TRILL）和IEEE 802.1ah（Mac中的Mac）是可以扩展第2层的其他类型的覆盖网络。"
+    },
+    {
+      "indent": 3,
+      "text": "Overlay networks hide the VMs' addresses from the interior switches and routers, thereby greatly reducing the number of addresses exposed to the interior switches and router. The overlay edge nodes that perform the network address encapsulation/decapsulation still handle all remote stations' addresses that communicate with the locally attached end stations.",
+      "zh-CHS": "覆盖网络对内部交换机和路由器隐藏虚拟机的地址，从而大大减少暴露于内部交换机和路由器的地址数量。执行网络地址封装/解除封装的覆盖边缘节点仍然处理与本地连接的终端站通信的所有远程站的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "For a large data center with many applications, these applications' IP addresses need to be reachable by external peers. Therefore, the overlay network may have a bottleneck at the gateway node(s) in processing resolving target stations' physical addresses (MAC or IP) and the overlay edge address within the data center.",
+      "zh-CHS": "对于具有许多应用程序的大型数据中心，这些应用程序的IP地址需要可由外部对等方访问。因此，覆盖网络在处理解析目标站的物理地址（MAC或IP）和数据中心内的覆盖边缘地址时可能在网关节点处存在瓶颈。"
+    },
+    {
+      "indent": 3,
+      "text": "Here are two approaches that can be used to minimize this problem:",
+      "zh-CHS": "以下两种方法可用于最小化此问题："
+    },
+    {
+      "indent": 3,
+      "text": "1. Use static mapping as described in Section 5.2.",
+      "zh-CHS": "1. 使用第5.2节所述的静态映射。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Have multiple L2/L3 boundary nodes (i.e., routers), with each handling a subset of stations' addresses that are visible to external peers (e.g., Gateway #1 handles a set of prefixes, Gateway #2 handles another subset of prefixes, etc.).",
+      "zh-CHS": "2. 具有多个L2/L3边界节点（即路由器），每个节点处理外部对等方可见的站点地址子集（例如，网关1处理一组前缀，网关2处理另一组前缀，等等）。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Summary and Recommendations",
+      "section_title": true,
+      "zh-CHS": "7. 摘要和建议"
+    },
+    {
+      "indent": 3,
+      "text": "This memo describes some common practices that can alleviate the impact of address resolution on L2/L3 gateway routers.",
+      "zh-CHS": "本备忘录描述了一些可以减轻地址解析对二级/三级网关路由器影响的常见做法。"
+    },
+    {
+      "indent": 3,
+      "text": "In data centers, no single solution fits all deployments. This memo has summarized some practices in various scenarios and the advantages and disadvantages of all of these practices.",
+      "zh-CHS": "在数据中心中，没有一种解决方案适合所有部署。本备忘录总结了各种场景中的一些实践以及所有这些实践的优缺点。"
+    },
+    {
+      "indent": 3,
+      "text": "In some of these scenarios, the common practices could be improved by creating and/or extending existing IETF protocols. These protocol change recommendations are:",
+      "zh-CHS": "在其中一些场景中，可以通过创建和/或扩展现有IETF协议来改进通用实践。这些协议变更建议包括："
+    },
+    {
+      "indent": 3,
+      "text": "o Relax the bidirectional requirement of IPv6 ND in some environments. However, other issues will be introduced when the bidirectional requirement of ND is relaxed. Therefore, it is necessary to have performed a comprehensive study of possible issues prior to making those changes.",
+      "zh-CHS": "o 在某些环境中放宽IPv6 ND的双向要求。然而，当ND的双向要求放宽时，将引入其他问题。因此，在进行这些更改之前，有必要对可能出现的问题进行全面研究。"
+    },
+    {
+      "indent": 3,
+      "text": "o Create an incremental \"update\" scheme for efficient static ARP/ND entries.",
+      "zh-CHS": "o 为高效的静态ARP/ND条目创建增量“更新”方案。"
+    },
+    {
+      "indent": 3,
+      "text": "o Develop IPv4 ARP/IPv6 ND Proxy standards for use in the data center. Section 7 of [RFC4389] (\"Guidelines to Proxy Developers\") should be considered when developing any new proxy protocols to scale ARP/ND.",
+      "zh-CHS": "o 开发数据中心使用的IPv4 ARP/IPv6 ND代理标准。在开发任何新的代理协议以扩展ARP/ND时，应考虑[RFC4389]的第7节（“代理开发人员指南”）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Consider scaling issues with IGMP/MLD snooping to determine whether or not new alternatives can provide better scaling.",
+      "zh-CHS": "o 考虑使用IGMP/MLD窥探的缩放问题，以确定新的替代品是否可以提供更好的缩放。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This memo documents existing solutions and proposes additional work that could be initiated to extend various IETF protocols to better scale ARP/ND for the data center environment.",
+      "zh-CHS": "本备忘录记录了现有的解决方案，并提出了可以启动的其他工作，以扩展各种IETF协议，更好地扩展数据中心环境的ARP/ND。"
+    },
+    {
+      "indent": 3,
+      "text": "Security is a major issue for data center environments. Therefore, security should be seriously considered when developing any future protocol extensions.",
+      "zh-CHS": "安全性是数据中心环境的一个主要问题。因此，在开发任何未来的协议扩展时，都应该认真考虑安全性。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We want to acknowledge the ARMD WG and the following people for their valuable inputs to this document: Joel Jaeggli, Dave Thaler, Susan Hares, Benson Schliesser, T. Sridhar, Ron Bonica, Kireeti Kompella, and K.K. Ramakrishnan.",
+      "zh-CHS": "我们要感谢ARMD工作组和以下人员对本文件的宝贵贡献：Joel Jaeggli、Dave Thaler、Susan Hares、Benson Schliesser、T.Sridhar、Ron Bonica、Kireeti Kompella和K.K.Ramakrishnan。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[GratuitousARP] Cheshire, S., \"IPv4 Address Conflict Detection\", RFC 5227, July 2008.",
+      "zh-CHS": "[UnderiousARP]南柴郡，“IPv4地址冲突检测”，RFC 5227，2008年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC826] Plummer, D., \"Ethernet Address Resolution Protocol: Or Converting Network Protocol Addresses to 48.bit Ethernet Address for Transmission on Ethernet Hardware\", STD 37, RFC 826, November 1982.",
+      "zh-CHS": "[RFC826]Plummer，D.，“以太网地址解析协议：或将网络协议地址转换为48位以太网地址，以便在以太网硬件上传输”，STD 37，RFC 826，1982年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1027] Carl-Mitchell, S. and J. Quarterman, \"Using ARP to implement transparent subnet gateways\", RFC 1027, October 1987.",
+      "zh-CHS": "[RFC1027]Carl Mitchell，S.和J.Quarterman，“使用ARP实现透明子网网关”，RFC 1027，1987年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3971] Arkko, J., Ed., Kempf, J., Zill, B., and P. Nikander, \"SEcure Neighbor Discovery (SEND)\", RFC 3971, March 2005.",
+      "zh-CHS": "[RFC3971]Arkko，J.，Ed.，Kempf，J.，Zill，B.，和P.Nikander，“安全邻居发现（SEND）”，RFC 39712005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4389] Thaler, D., Talwar, M., and C. Patel, \"Neighbor Discovery Proxies (ND Proxy)\", RFC 4389, April 2006.",
+      "zh-CHS": "[RFC4389]Thaler，D.，Talwar，M.，和C.Patel，“邻居发现代理（ND代理）”，RFC 4389，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4541] Christensen, M., Kimball, K., and F. Solensky, \"Considerations for Internet Group Management Protocol (IGMP) and Multicast Listener Discovery (MLD) Snooping Switches\", RFC 4541, May 2006.",
+      "zh-CHS": "[RFC4541]Christensen，M.，Kimball，K.，和F.Solensky，“互联网组管理协议（IGMP）和多播侦听器发现（MLD）窥探交换机的注意事项”，RFC 4541，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4861] Narten, T., Nordmark, E., Simpson, W., and H. Soliman, \"Neighbor Discovery for IP version 6 (IPv6)\", RFC 4861, September 2007.",
+      "zh-CHS": "[RFC4861]Narten，T.，Nordmark，E.，Simpson，W.，和H.Soliman，“IP版本6（IPv6）的邻居发现”，RFC 48612007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4903] Thaler, D., \"Multi-Link Subnet Issues\", RFC 4903, June 2007.",
+      "zh-CHS": "[RFC4903]Thaler，D.，“多链路子网问题”，RFC 49032007年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6820] Narten, T., Karir, M., and I. Foo, \"Address Resolution Problems in Large Data Center Networks\", RFC 6820, January 2013.",
+      "zh-CHS": "[RFC6820]Narten，T.，Karir，M.，和I.Foo，“解决大型数据中心网络中的解决方案问题”，RFC 6820，2013年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ARMD-Statistics] Karir, M. and J. Rees, \"Address Resolution Statistics\", Work in Progress, July 2011.",
+      "zh-CHS": "[ARMD统计]Karir，M.和J.Rees，“地址解析统计”，正在进行的工作，2011年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ARP_Reduction] Shah, H., Ghanwani, A., and N. Bitar, \"ARP Broadcast Reduction for Large Data Centers\", Work in Progress, October 2011.",
+      "zh-CHS": "[ARP_缩减]Shah，H.，Ghanwani，A.，和N.Bitar，“大型数据中心ARP广播缩减”，正在进行的工作，2011年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IGMP-MLD-Tracking] Asaeda, H., \"IGMP/MLD-Based Explicit Membership Tracking Function for Multicast Routers\", Work in Progress, December 2013.",
+      "zh-CHS": "[IGMP MLD跟踪]Asaeda，H.，“基于IGMP/MLD的组播路由器显式成员跟踪功能”，正在进行的工作，2013年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[L3-VM-Mobility] Kumari, W. and J. Halpern, \"Virtual Machine mobility in L3 Networks\", Work in Progress, August 2011.",
+      "zh-CHS": "[L3虚拟机移动性]Kumari，W.和J.Halpern，“L3网络中的虚拟机移动性”，正在进行的工作，2011年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Multi-Link] Thaler, D. and C. Huitema, \"Multi-link Subnet Support in IPv6\", Work in Progress, June 2002.",
+      "zh-CHS": "[多链路]Thaler，D.和C.Huitema，“IPv6中的多链路子网支持”，正在进行的工作，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1076] Trewitt, G. and C. Partridge, \"HEMS Monitoring and Control Language\", RFC 1076, November 1988.",
+      "zh-CHS": "[RFC1076]Trewitt，G.和C.Partridge，“HEMS监测和控制语言”，RFC 1076，1988年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7048] Nordmark, E. and I. Gashinsky, \"Neighbor Unreachability Detection Is Too Impatient\", RFC 7048, January 2014.",
+      "zh-CHS": "[RFC7048]Nordmark，E.和I.Gashinsky，“邻居不可达性检测太不耐烦”，RFC 7048，2014年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[VXLAN] Mahalingam, M., Dutt, D., Duda, K., Agarwal, P., Kreeger, L., Sridhar, T., Bursell, M., and C. Wright, \"VXLAN: A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks\", Work in Progress, April 2014.",
+      "zh-CHS": "[VXLAN]Mahalingam，M.，Dutt，D.，Duda，K.，Agarwal，P.，Kreeger，L.，Sridhar，T.，Bursell，M.，和C.Wright，“VXLAN：在第3层网络上覆盖虚拟化第2层网络的框架”，正在进行的工作，2014年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Linda Dunbar Huawei Technologies 5340 Legacy Drive, Suite 175 Plano, TX 75024 USA",
+      "zh-CHS": "Linda Dunbar华为技术5340传统硬盘，美国德克萨斯州普莱诺175号套房75024"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: (469) 277 5840 EMail: ldunbar@huawei.com",
+      "zh-CHS": "电话：（469）2775840电子邮件：ldunbar@huawei.com"
+    },
+    {
+      "indent": 3,
+      "text": "Warren Kumari Google 1600 Amphitheatre Parkway Mountain View, CA 94043 USA",
+      "zh-CHS": "沃伦·库马里谷歌1600圆形剧场公园道山景，加利福尼亚州94043"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: warren@kumari.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Igor Gashinsky Yahoo 45 West 18th Street 6th floor New York, NY 10011 USA",
+      "zh-CHS": "美国纽约州纽约市西18街45号6楼Igor Gashinsky Yahoo 10011"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: igor@yahoo-inc.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

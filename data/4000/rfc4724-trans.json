@@ -1,0 +1,859 @@
+{
+  "title": {
+    "text": "RFC 4724: Graceful Restart Mechanism for BGP",
+    "zh-CHS": "RFC 4724"
+  },
+  "number": 4724,
+  "created_at": "2021-11-14 19:39:58.499957+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          S. Sangli\nRequest for Comments: 4724                                       E. Chen\nCategory: Standards Track                                  Cisco Systems\n                                                             R. Fernando\n                                                              J. Scudder\n                                                              Y. Rekhter\n                                                        Juniper Networks\n                                                            January 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Graceful Restart Mechanism for BGP",
+      "zh-CHS": "BGP的优雅重启机制"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism for BGP that would help minimize the negative effects on routing caused by BGP restart. An End-of-RIB marker is specified and can be used to convey routing convergence information. A new BGP capability, termed \"Graceful Restart Capability\", is defined that would allow a BGP speaker to express its ability to preserve forwarding state during BGP restart. Finally, procedures are outlined for temporarily retaining routing information across a TCP session termination/re-establishment.",
+      "zh-CHS": "本文档描述了一种BGP机制，该机制有助于将BGP重启对路由造成的负面影响降至最低。指定了肋骨末端标记，可用于传递布线会聚信息。定义了一种新的BGP能力，称为“优雅重启能力”，允许BGP扬声器在BGP重启期间表达其保持转发状态的能力。最后，概述了在TCP会话终止/重建过程中临时保留路由信息的过程。"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanisms described in this document are applicable to all routers, both those with the ability to preserve forwarding state during BGP restart and those without (although the latter need to implement only a subset of the mechanisms described in this document).",
+      "zh-CHS": "本文档中描述的机制适用于所有路由器，包括在BGP重启期间能够保持转发状态的路由器和不具有转发状态的路由器（尽管后者只需要实现本文档中描述的机制的一个子集）。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Specification of Requirements ..............................2\n2. Marker for End-of-RIB ...........................................3\n3. Graceful Restart Capability .....................................3\n4. Operation .......................................................6\n   4.1. Procedures for the Restarting Speaker ......................6\n   4.2. Procedures for the Receiving Speaker .......................7\n5. Changes to BGP Finite State Machine .............................9\n6. Deployment Considerations ......................................11\n7. Security Considerations ........................................12\n8. Acknowledgments ................................................13\n9. IANA Considerations ............................................13\n10. References ....................................................13\n   10.1. Normative References .....................................13\n   10.2. Informative References ...................................13",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Usually, when BGP on a router restarts, all the BGP peers detect that the session went down and then came up. This \"down/up\" transition results in a \"routing flap\" and causes BGP route re-computation, generation of BGP routing updates, and unnecessary churn to the forwarding tables. It could spread across multiple routing domains. Such routing flaps may create transient forwarding blackholes and/or transient forwarding loops. They also consume resources on the control plane of the routers affected by the flap. As such, they are detrimental to the overall network performance.",
+      "zh-CHS": "通常，当路由器上的BGP重新启动时，所有BGP对等方都会检测到会话先中断，然后再启动。这种“向下/向上”转换会导致“路由翻转”，并导致BGP路由重新计算、生成BGP路由更新以及对转发表进行不必要的搅动。它可以跨越多个路由域。这种路由襟翼可创建瞬时转发黑洞和/或瞬时转发环路。它们还消耗受襟翼影响的路由器控制平面上的资源。因此，它们对整体网络性能有害。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism for BGP that would help minimize the negative effects on routing caused by BGP restart. An End-of-RIB marker is specified and can be used to convey routing convergence information. A new BGP capability, termed \"Graceful Restart Capability\", is defined that would allow a BGP speaker to express its ability to preserve forwarding state during BGP restart. Finally, procedures are outlined for temporarily retaining routing information across a TCP session termination/re-establishment.",
+      "zh-CHS": "本文档描述了一种BGP机制，该机制有助于将BGP重启对路由造成的负面影响降至最低。指定了肋骨末端标记，可用于传递布线会聚信息。定义了一种新的BGP能力，称为“优雅重启能力”，允许BGP扬声器在BGP重启期间表达其保持转发状态的能力。最后，概述了在TCP会话终止/重建过程中临时保留路由信息的过程。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1 Specification of Requirements",
+      "section_title": true,
+      "zh-CHS": "1.1 需求说明"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Marker for End-of-RIB",
+      "section_title": true,
+      "zh-CHS": "2. 肋骨末端标记"
+    },
+    {
+      "indent": 3,
+      "text": "An UPDATE message with no reachable Network Layer Reachability Information (NLRI) and empty withdrawn NLRI is specified as the End-of-RIB marker that can be used by a BGP speaker to indicate to its peer the completion of the initial routing update after the session is established. For the IPv4 unicast address family, the End-of-RIB marker is an UPDATE message with the minimum length [BGP-4]. For any other address family, it is an UPDATE message that contains only the MP_UNREACH_NLRI attribute [BGP-MP] with no withdrawn routes for that <AFI, SAFI>.",
+      "zh-CHS": "将不具有可访问网络层可达性信息（NLRI）和空提取NLRI的更新消息指定为RIB结束标记，BGP说话者可使用该标记向其对等方指示会话建立后初始路由更新的完成。对于IPv4单播地址系列，RIB结束标记是具有最小长度[BGP-4]的更新消息。对于任何其他地址系列，它是一条更新消息，只包含MP_UNREACH_NLRI属性[BGP-MP]，没有为该<AFI，SAFI>撤销路由。"
+    },
+    {
+      "indent": 3,
+      "text": "Although the End-of-RIB marker is specified for the purpose of BGP graceful restart, it is noted that the generation of such a marker upon completion of the initial update would be useful for routing convergence in general, and thus the practice is recommended.",
+      "zh-CHS": "虽然指定肋骨末端标记是为了BGP优雅地重新启动，但需要注意的是，在初始更新完成后生成这样的标记对于路由收敛通常是有用的，因此建议采用这种做法。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, it would be beneficial for routing convergence if a BGP speaker can indicate to its peer up-front that it will generate the End-of-RIB marker, regardless of its ability to preserve its forwarding state during BGP restart. This can be accomplished using the Graceful Restart Capability described in the next section.",
+      "zh-CHS": "此外，如果BGP演讲者可以提前向其对等方指示它将生成RIB结束标记，而不管它是否能够在BGP重新启动期间保持其转发状态，这将有利于路由收敛。这可以通过使用下一节中描述的优雅重启功能来实现。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Graceful Restart Capability",
+      "section_title": true,
+      "zh-CHS": "3. 优雅的重启能力"
+    },
+    {
+      "indent": 3,
+      "text": "The Graceful Restart Capability is a new BGP capability [BGP-CAP] that can be used by a BGP speaker to indicate its ability to preserve its forwarding state during BGP restart. It can also be used to convey to its peer its intention of generating the End-of-RIB marker upon the completion of its initial routing updates.",
+      "zh-CHS": "优雅重启功能是一种新的BGP功能[BGP-CAP]，BGP扬声器可使用该功能指示其在BGP重启期间保持转发状态的能力。它还可用于向同行传达其在完成初始路由更新后生成肋骨末端标记的意图。"
+    },
+    {
+      "indent": 3,
+      "text": "This capability is defined as follows:",
+      "zh-CHS": "该能力定义如下："
+    },
+    {
+      "indent": 6,
+      "text": "Capability code: 64",
+      "zh-CHS": "能力代码：64"
+    },
+    {
+      "indent": 6,
+      "text": "Capability length: variable",
+      "zh-CHS": "能力长度：可变"
+    },
+    {
+      "indent": 6,
+      "text": "Capability value: Consists of the \"Restart Flags\" field, \"Restart Time\" field, and 0 to 63 of the tuples <AFI, SAFI, Flags for address family> as follows:",
+      "zh-CHS": "能力值：由“重新启动标志”字段、“重新启动时间”字段和0到63个元组<AFI，SAFI，地址系列标志>组成，如下所示："
+    },
+    {
+      "indent": 9,
+      "text": "+--------------------------------------------------+\n| Restart Flags (4 bits)                           |\n+--------------------------------------------------+\n| Restart Time in seconds (12 bits)                |\n+--------------------------------------------------+\n| Address Family Identifier (16 bits)              |\n+--------------------------------------------------+\n| Subsequent Address Family Identifier (8 bits)    |\n+--------------------------------------------------+\n| Flags for Address Family (8 bits)                |\n+--------------------------------------------------+\n| ...                                              |\n+--------------------------------------------------+\n| Address Family Identifier (16 bits)              |\n+--------------------------------------------------+\n| Subsequent Address Family Identifier (8 bits)    |\n+--------------------------------------------------+\n| Flags for Address Family (8 bits)                |\n+--------------------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The use and meaning of the fields are as follows:",
+      "zh-CHS": "字段的用法和含义如下："
+    },
+    {
+      "indent": 6,
+      "text": "Restart Flags:",
+      "zh-CHS": "重新启动标志："
+    },
+    {
+      "indent": 9,
+      "text": "This field contains bit flags related to restart.",
+      "zh-CHS": "此字段包含与重新启动相关的位标志。"
+    },
+    {
+      "indent": 12,
+      "text": " 0 1 2 3\n+-+-+-+-+\n|R|Resv.|\n+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "The most significant bit is defined as the Restart State (R) bit, which can be used to avoid possible deadlock caused by waiting for the End-of-RIB marker when multiple BGP speakers peering with each other restart. When set (value 1), this bit indicates that the BGP speaker has restarted, and its peer MUST NOT wait for the End-of-RIB marker from the speaker before advertising routing information to the speaker.",
+      "zh-CHS": "最高有效位定义为重启状态（R）位，可用于避免当多个BGP扬声器彼此对等重启时等待RIB结束标记可能导致的死锁。设置（值1）时，此位表示BGP扬声器已重新启动，其对等方不得等待扬声器的结束标记，然后再向扬声器播发路由信息。"
+    },
+    {
+      "indent": 9,
+      "text": "The remaining bits are reserved and MUST be set to zero by the sender and ignored by the receiver.",
+      "zh-CHS": "其余的位是保留的，发送方必须将其设置为零，接收方则忽略。"
+    },
+    {
+      "indent": 6,
+      "text": "Restart Time:",
+      "zh-CHS": "重新启动时间："
+    },
+    {
+      "indent": 9,
+      "text": "This is the estimated time (in seconds) it will take for the BGP session to be re-established after a restart. This can be used to speed up routing convergence by its peer in case that the BGP speaker does not come back after a restart.",
+      "zh-CHS": "这是重新启动后重新建立BGP会话所需的估计时间（秒）。这可用于在BGP扬声器重新启动后无法返回的情况下加速对等方的路由收敛。"
+    },
+    {
+      "indent": 6,
+      "text": "Address Family Identifier (AFI), Subsequent Address Family Identifier (SAFI):",
+      "zh-CHS": "地址族标识符（AFI）、后续地址族标识符（SAFI）："
+    },
+    {
+      "indent": 9,
+      "text": "The AFI and SAFI, taken in combination, indicate that Graceful Restart is supported for routes that are advertised with the same AFI and SAFI. Routes may be explicitly associated with a particular AFI and SAFI using the encoding of [BGP-MP] or implicitly associated with <AFI=IPv4, SAFI=Unicast> if using the encoding of [BGP-4].",
+      "zh-CHS": "AFI和SAFI的组合表明，对于使用相同AFI和SAFI播发的路由，支持优雅重启。路由可以使用[BGP-MP]编码显式地与特定AFI和SAFI关联，或者如果使用[BGP-4]编码，则隐式地与<AFI=IPv4，SAFI=Unicast>关联。"
+    },
+    {
+      "indent": 6,
+      "text": "Flags for Address Family:",
+      "zh-CHS": "地址系列的标志："
+    },
+    {
+      "indent": 9,
+      "text": "This field contains bit flags relating to routes that were advertised with the given AFI and SAFI.",
+      "zh-CHS": "此字段包含与使用给定AFI和SAFI播发的路由相关的位标志。"
+    },
+    {
+      "indent": 12,
+      "text": " 0 1 2 3 4 5 6 7\n+-+-+-+-+-+-+-+-+\n|F|   Reserved  |\n+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "The most significant bit is defined as the Forwarding State (F) bit, which can be used to indicate whether the forwarding state for routes that were advertised with the given AFI and SAFI has indeed been preserved during the previous BGP restart. When set (value 1), the bit indicates that the forwarding state has been preserved.",
+      "zh-CHS": "最高有效位被定义为转发状态（F）位，该位可用于指示使用给定AFI和SAFI播发的路由的转发状态在上一次BGP重启期间是否确实被保留。设置（值1）时，该位表示已保留转发状态。"
+    },
+    {
+      "indent": 9,
+      "text": "The remaining bits are reserved and MUST be set to zero by the sender and ignored by the receiver.",
+      "zh-CHS": "其余的位是保留的，发送方必须将其设置为零，接收方则忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "When a sender of this capability does not include any <AFI, SAFI> in the capability, it means that the sender is not capable of preserving its forwarding state during BGP restart, but supports procedures for the Receiving Speaker (as defined in Section 4.2 of this document). In that case, the value of the \"Restart Time\" field advertised by the sender is irrelevant.",
+      "zh-CHS": "当此功能的发送方未在该功能中包含任何<AFI，SAFI>时，这意味着发送方无法在BGP重启期间保持其转发状态，但支持接收扬声器的程序（如本文件第4.2节所定义）。在这种情况下，发送方公布的“重启时间”字段的值是无关的。"
+    },
+    {
+      "indent": 3,
+      "text": "A BGP speaker MUST NOT include more than one instance of the Graceful Restart Capability in the capability advertisement [BGP-CAP]. If more than one instance of the Graceful Restart Capability is carried in the capability advertisement, the receiver of the advertisement MUST ignore all but the last instance of the Graceful Restart Capability.",
+      "zh-CHS": "BGP扬声器不得在功能公告[BGP-CAP]中包含多个优雅重启功能实例。如果功能公告中包含多个优雅重启功能实例，则该公告的接收者必须忽略优雅重启功能的所有实例，但最后一个实例除外。"
+    },
+    {
+      "indent": 3,
+      "text": "Including <AFI=IPv4, SAFI=unicast> in the Graceful Restart Capability does not imply that the IPv4 unicast routing information should be carried by using the BGP multiprotocol extensions [BGP-MP] -- it could be carried in the NLRI field of the BGP UPDATE message.",
+      "zh-CHS": "在优雅重启功能中包括<AFI=IPv4，SAFI=unicast>，并不意味着IPv4单播路由信息应该通过使用BGP多协议扩展[BGP-MP]来携带——它可以在BGP更新消息的NLRI字段中携带。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Operation",
+      "section_title": true,
+      "zh-CHS": "4. 活动"
+    },
+    {
+      "indent": 3,
+      "text": "A BGP speaker MAY advertise the Graceful Restart Capability for an address family to its peer if it has the ability to preserve its forwarding state for the address family when BGP restarts. In addition, even if the speaker does not have the ability to preserve its forwarding state for any address family during BGP restart, it is still recommended that the speaker advertise the Graceful Restart Capability to its peer (as mentioned before this is done by not including any <AFI, SAFI> in the advertised capability). There are two reasons for doing this. The first is to indicate its intention of generating the End-of-RIB marker upon the completion of its initial routing updates, as doing this would be useful for routing convergence in general. The second is to indicate its support for a peer which wishes to perform a graceful restart.",
+      "zh-CHS": "如果BGP演讲者能够在BGP重新启动时为地址族保留其转发状态，则BGP演讲者可以向其对等方公布地址族的优雅重新启动能力。此外，即使演讲者在BGP重新启动期间没有能力为任何地址系列保留其转发状态，仍然建议演讲者向其对等方公布优雅的重新启动功能（如前所述，这是通过在公布的功能中不包括任何<AFI，SAFI>）。这样做有两个原因。第一个是表明其在完成初始路由更新后生成肋骨末端标记的意图，因为这样做通常有助于路由收敛。第二个是表示它支持希望执行优雅重启的对等方。"
+    },
+    {
+      "indent": 3,
+      "text": "The End-of-RIB marker MUST be sent by a BGP speaker to its peer once it completes the initial routing update (including the case when there is no update to send) for an address family after the BGP session is established.",
+      "zh-CHS": "BGP会话建立后，一旦完成地址族的初始路由更新（包括无需发送更新的情况），BGP说话人必须将RIB结束标记发送给其对等方。"
+    },
+    {
+      "indent": 3,
+      "text": "It is noted that the normal BGP procedures MUST be followed when the TCP session terminates due to the sending or receiving of a BGP NOTIFICATION message.",
+      "zh-CHS": "请注意，当TCP会话因发送或接收BGP通知消息而终止时，必须遵循正常的BGP过程。"
+    },
+    {
+      "indent": 3,
+      "text": "A suggested default for the Restart Time is a value less than or equal to the HOLDTIME carried in the OPEN.",
+      "zh-CHS": "建议的重新启动时间默认值是小于或等于打开时携带的保持时间。"
+    },
+    {
+      "indent": 3,
+      "text": "In the following sections, \"Restarting Speaker\" refers to a router whose BGP has restarted, and \"Receiving Speaker\" refers to a router that peers with the restarting speaker.",
+      "zh-CHS": "在以下章节中，“重启扬声器”指其BGP已重启的路由器，“接收扬声器”指与重启扬声器对等的路由器。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider that the Graceful Restart Capability for an address family is advertised by the Restarting Speaker, and is understood by the Receiving Speaker, and a BGP session between them is established. The following sections detail the procedures that MUST be followed by the Restarting Speaker as well as the Receiving Speaker once the Restarting Speaker restarts.",
+      "zh-CHS": "考虑到地址族的优美重启能力由重启扬声器公告，并且由接收说话者理解，并且建立它们之间的BGP会话。以下各节详细说明了重新启动扬声器以及重新启动扬声器后接收扬声器必须遵循的步骤。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Procedures for the Restarting Speaker",
+      "section_title": true,
+      "zh-CHS": "4.1. 重新启动扬声器的步骤"
+    },
+    {
+      "indent": 3,
+      "text": "When the Restarting Speaker restarts, it MUST retain, if possible, the forwarding state for the BGP routes in the Loc-RIB and MUST mark them as stale. It MUST NOT differentiate between stale and other information during forwarding.",
+      "zh-CHS": "当重新启动扬声器重新启动时，如果可能，它必须保留Loc RIB中BGP路由的转发状态，并且必须将它们标记为过时。在转发过程中，不能区分陈旧信息和其他信息。"
+    },
+    {
+      "indent": 3,
+      "text": "To re-establish the session with its peer, the Restarting Speaker MUST set the \"Restart State\" bit in the Graceful Restart Capability",
+      "zh-CHS": "要与其对等方重新建立会话，重新启动的说话人必须在优雅的重新启动功能中设置“重新启动状态”位"
+    },
+    {
+      "indent": 3,
+      "text": "of the OPEN message. Unless allowed via configuration, the \"Forwarding State\" bit for an address family in the capability can be set only if the forwarding state has indeed been preserved for that address family during the restart.",
+      "zh-CHS": "公开消息的一部分。除非通过配置允许，否则只有在重新启动期间确实为该地址族保留了转发状态时，才能设置功能中地址族的“转发状态”位。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the session between the Restarting Speaker and the Receiving Speaker is re-established, the Restarting Speaker will receive and process BGP messages from its peers. However, it MUST defer route selection for an address family until it either (a) receives the End-of-RIB marker from all its peers (excluding the ones with the \"Restart State\" bit set in the received capability and excluding the ones that do not advertise the graceful restart capability) or (b) the Selection_Deferral_Timer referred to below has expired. It is noted that prior to route selection, the speaker has no routes to advertise to its peers and no routes to update the forwarding state.",
+      "zh-CHS": "一旦重启扬声器和接收扬声器之间的会话重新建立，重启扬声器将接收并处理来自其对等方的BGP消息。但是，它必须推迟地址族的路由选择，直到它（a）从其所有对等方（不包括在接收到的功能中设置了“重启状态”位的地址族，也不包括不宣传优雅重启功能的地址族）或（b）接收到RIB结束标记为止下面提到的选择延迟计时器已过期。注意，在路由选择之前，说话人没有向其对等方播发的路由，也没有更新转发状态的路由。"
+    },
+    {
+      "indent": 3,
+      "text": "In situations where both Interior Gateway Protocol (IGP) and BGP have restarted, it might be advantageous to wait for IGP to converge before the BGP speaker performs route selection.",
+      "zh-CHS": "在内部网关协议（IGP）和BGP都已重新启动的情况下，在BGP扬声器执行路由选择之前等待IGP收敛可能是有利的。"
+    },
+    {
+      "indent": 3,
+      "text": "After the BGP speaker performs route selection, the forwarding state of the speaker MUST be updated and any previously marked stale information MUST be removed. The Adj-RIB-Out can then be advertised to its peers. Once the initial update is complete for an address family (including the case that there is no routing update to send), the End-of-RIB marker MUST be sent.",
+      "zh-CHS": "BGP扬声器执行路由选择后，必须更新扬声器的转发状态，并且必须删除以前标记的过时信息。然后，可以向其同行发布Adj RIB Out。一旦地址族的初始更新完成（包括没有要发送的路由更新的情况），必须发送结束标记。"
+    },
+    {
+      "indent": 3,
+      "text": "To put an upper bound on the amount of time a router defers its route selection, an implementation MUST support a (configurable) timer that imposes this upper bound. This timer is referred to as the \"Selection_Deferral_Timer\". The value of this timer should be large enough, so as to provide all the peers of the Restarting Speaker with enough time to send all the routes to the Restarting Speaker.",
+      "zh-CHS": "要对路由器延迟其路由选择的时间量设置上限，实现必须支持（可配置）施加此上限的计时器。此计时器称为“选择延迟计时器”。此计时器的值应足够大，以便为重启扬声器的所有对等方提供足够的时间将所有路由发送到重启扬声器。"
+    },
+    {
+      "indent": 3,
+      "text": "If one wants to apply graceful restart only when the restart is planned (as opposed to both planned and unplanned restart), then one way to accomplish this would be to set the Forwarding State bit to 1 after a planned restart, and to 0 in all other cases. Other approaches to accomplish this are outside the scope of this document.",
+      "zh-CHS": "如果希望仅在计划重新启动时应用优雅的重新启动（与计划内和计划外重新启动相反），则实现此目的的一种方法是在计划重新启动后将转发状态位设置为1，在所有其他情况下设置为0。实现这一点的其他方法不在本文件的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Procedures for the Receiving Speaker",
+      "section_title": true,
+      "zh-CHS": "4.2. 接见演讲者的程序"
+    },
+    {
+      "indent": 3,
+      "text": "When the Restarting Speaker restarts, the Receiving Speaker may or may not detect the termination of the TCP session with the Restarting Speaker, depending on the underlying TCP implementation, whether or not [BGP-AUTH] is in use, and the specific circumstances of the restart. In case it does not detect the termination of the old TCP session and still considers the BGP session as being established, it",
+      "zh-CHS": "当重启扬声器重启时，接收扬声器可能检测到也可能检测不到与重启扬声器的TCP会话的终止，这取决于底层TCP实现、是否使用[BGP-AUTH]以及重启的具体情况。如果它没有检测到旧TCP会话的终止，并且仍然认为正在建立BGP会话，则"
+    },
+    {
+      "indent": 3,
+      "text": "MUST treat the subsequent open connection from the peer as an indication of the termination of the old TCP session and act accordingly (when the Graceful Restart Capability has been received from the peer). See Section 8 for a description of this behavior in terms of the BGP finite state machine.",
+      "zh-CHS": "必须将来自对等方的后续打开连接视为旧TCP会话终止的指示，并相应地采取行动（当从对等方接收到正常重启功能时）。有关BGP有限状态机的这种行为的描述，请参见第8节。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Acting accordingly\" in this context means that the previous TCP session MUST be closed, and the new one retained. Note that this behavior differs from the default behavior, as specified in [BGP-4], Section 6.8. Since the previous connection is considered to be terminated, no NOTIFICATION message should be sent -- the previous TCP session is simply closed.",
+      "zh-CHS": "在此上下文中，“相应地采取行动”意味着必须关闭上一个TCP会话，并保留新的TCP会话。请注意，此行为不同于[BGP-4]第6.8节中规定的默认行为。由于上一个连接被视为已终止，因此不应发送任何通知消息——上一个TCP会话将简单地关闭。"
+    },
+    {
+      "indent": 3,
+      "text": "When the Receiving Speaker detects termination of the TCP session for a BGP session with a peer that has advertised the Graceful Restart Capability, it MUST retain the routes received from the peer for all the address families that were previously received in the Graceful Restart Capability and MUST mark them as stale routing information. To deal with possible consecutive restarts, a route (from the peer) previously marked as stale MUST be deleted. The router MUST NOT differentiate between stale and other routing information during forwarding.",
+      "zh-CHS": "当接收演讲者检测到BGP会话的TCP会话终止，且对等方已通告优雅重启功能时，它必须保留从对等方接收的所有先前在优雅重启功能中接收到的地址族的路由，并且必须将其标记为陈旧路由信息。要处理可能的连续重新启动，必须删除以前标记为过时的路由（来自对等路由）。在转发过程中，路由器不得区分过时和其他路由信息。"
+    },
+    {
+      "indent": 3,
+      "text": "In re-establishing the session, the \"Restart State\" bit in the Graceful Restart Capability of the OPEN message sent by the Receiving Speaker MUST NOT be set unless the Receiving Speaker has restarted. The presence and the setting of the \"Forwarding State\" bit for an address family depend upon the actual forwarding state and configuration.",
+      "zh-CHS": "在重新建立会话时，除非接收扬声器已重新启动，否则不得设置接收扬声器发送的打开消息的优雅重新启动功能中的“重新启动状态”位。地址族的“转发状态”位的存在和设置取决于实际的转发状态和配置。"
+    },
+    {
+      "indent": 3,
+      "text": "If the session does not get re-established within the \"Restart Time\" that the peer advertised previously, the Receiving Speaker MUST delete all the stale routes from the peer that it is retaining.",
+      "zh-CHS": "如果会话未在对等方先前公布的“重启时间”内重新建立，则接收说话人必须从其保留的对等方删除所有过时路由。"
+    },
+    {
+      "indent": 3,
+      "text": "A BGP speaker could have some way of determining whether its peer's forwarding state is still viable, for example through Bidirectional Forwarding Detection [BFD] or through monitoring layer two information. Specifics of such mechanisms are beyond the scope of this document. In the event that it determines that its peer's forwarding state is not viable prior to the re-establishment of the session, the speaker MAY delete all the stale routes from the peer that it is retaining.",
+      "zh-CHS": "BGP说话者可以通过某种方式确定其对等方的转发状态是否仍然可行，例如通过双向转发检测[BFD]或通过监测第二层信息。此类机制的具体内容超出了本文件的范围。如果演讲者在重新建立会话之前确定其对等方的转发状态不可行，则演讲者可以从其保留的对等方删除所有过时路由。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the session is re-established, if the \"Forwarding State\" bit for a specific address family is not set in the newly received Graceful Restart Capability, or if a specific address family is not included in the newly received Graceful Restart Capability, or if the Graceful Restart Capability is not received in the re-established session at",
+      "zh-CHS": "一旦重新建立会话，如果在新接收的正常重启功能中未设置特定地址系列的“转发状态”位，或者如果在新接收的正常重启功能中未包括特定地址系列，或者如果在重新建立的会话中未在"
+    },
+    {
+      "indent": 3,
+      "text": "all, then the Receiving Speaker MUST immediately remove all the stale routes from the peer that it is retaining for that address family.",
+      "zh-CHS": "全部，则接收说话人必须立即从其为该地址族保留的对等方删除所有过时路由。"
+    },
+    {
+      "indent": 3,
+      "text": "The Receiving Speaker MUST send the End-of-RIB marker once it completes the initial update for an address family (including the case that it has no routes to send) to the peer.",
+      "zh-CHS": "一旦完成地址族的初始更新（包括没有要发送的路由的情况），接收说话人必须向对等方发送结束标记。"
+    },
+    {
+      "indent": 3,
+      "text": "The Receiving Speaker MUST replace the stale routes by the routing updates received from the peer. Once the End-of-RIB marker for an address family is received from the peer, it MUST immediately remove any routes from the peer that are still marked as stale for that address family.",
+      "zh-CHS": "接收扬声器必须用从对等方接收的路由更新来替换过时的路由。一旦从对等方接收到地址族的结束标记，它必须立即从对等方删除仍然标记为该地址族过时的任何路由。"
+    },
+    {
+      "indent": 3,
+      "text": "To put an upper bound on the amount of time a router retains the stale routes, an implementation MAY support a (configurable) timer that imposes this upper bound.",
+      "zh-CHS": "为了给路由器保留陈旧路由的时间量设置上限，实现可以支持一个（可配置的）计时器来施加这个上限。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Changes to BGP Finite State Machine",
+      "section_title": true,
+      "zh-CHS": "5. 对BGP有限状态机的修改"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned under \"Procedures for the Receiving Speaker\" above, this specification modifies the BGP finite state machine.",
+      "zh-CHS": "如上文“接收扬声器程序”所述，本规范修改了BGP有限状态机。"
+    },
+    {
+      "indent": 3,
+      "text": "The specific state machine modifications to [BGP-4], Section 8.2.2, are as follows.",
+      "zh-CHS": "第8.2.2节[BGP-4]的具体状态机修改如下。"
+    },
+    {
+      "indent": 3,
+      "text": "In the Idle state, make the following changes.",
+      "zh-CHS": "在空闲状态下，进行以下更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Replace this text:",
+      "zh-CHS": "替换此文本："
+    },
+    {
+      "indent": 6,
+      "text": "- initializes all BGP resources for the peer connection,",
+      "zh-CHS": "- 初始化对等连接的所有BGP资源，"
+    },
+    {
+      "indent": 3,
+      "text": "with",
+      "zh-CHS": "具有"
+    },
+    {
+      "indent": 6,
+      "text": "- initializes all BGP resources for the peer connection, other than those resources required in order to retain routes according to section \"Procedures for the Receiving Speaker\" of this (Graceful Restart) specification,",
+      "zh-CHS": "- 初始化对等连接的所有BGP资源，但根据本（优雅重启）规范“接收扬声器程序”一节保留路由所需的资源除外，"
+    },
+    {
+      "indent": 3,
+      "text": "In the Established state, make the following changes.",
+      "zh-CHS": "在已建立状态下，进行以下更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Replace this text:",
+      "zh-CHS": "替换此文本："
+    },
+    {
+      "indent": 8,
+      "text": "In response to an indication that the TCP connection is successfully established (Event 16 or Event 17), the second connection SHALL be tracked until it sends an OPEN message.",
+      "zh-CHS": "为了响应TCP连接成功建立的指示（事件16或事件17），应跟踪第二个连接，直到其发送打开消息。"
+    },
+    {
+      "indent": 3,
+      "text": "with",
+      "zh-CHS": "具有"
+    },
+    {
+      "indent": 8,
+      "text": "If the Graceful Restart Capability with one or more AFIs/SAFIs has not been received for the session, then in response to an indication that a TCP connection is successfully established (Event 16 or Event 17), the second connection SHALL be tracked until it sends an OPEN message.",
+      "zh-CHS": "如果会话未收到一个或多个AFI/SAFI的正常重启功能，则响应TCP连接成功建立的指示（事件16或事件17），应跟踪第二个连接，直到其发送打开消息。"
+    },
+    {
+      "indent": 8,
+      "text": "However, if the Graceful Restart Capability with one or more AFIs/SAFIs has been received for the session, then in response to Event 16 or Event 17 the local system:",
+      "zh-CHS": "但是，如果会话接收到一个或多个AFI/SAFI的正常重启功能，则响应事件16或事件17，本地系统："
+    },
+    {
+      "indent": 9,
+      "text": "- retains all routes associated with this connection according to section \"Procedures for the Receiving Speaker\" of this (Graceful Restart) specification,",
+      "zh-CHS": "- 根据本（优雅重启）规范“接收扬声器程序”一节，保留与此连接相关的所有路由，"
+    },
+    {
+      "indent": 9,
+      "text": "- releases all other BGP resources,",
+      "zh-CHS": "- 释放所有其他BGP资源，"
+    },
+    {
+      "indent": 9,
+      "text": "- drops the TCP connection associated with the ESTABLISHED session,",
+      "zh-CHS": "- 断开与已建立会话关联的TCP连接，"
+    },
+    {
+      "indent": 9,
+      "text": "- initializes all BGP resources for the peer connection, other than those required in order to retain routes according to section \"Procedures for the Receiving Speaker\" of this specification,",
+      "zh-CHS": "- 初始化对等连接的所有BGP资源，但根据本规范“接收扬声器程序”一节保留路由所需的资源除外，"
+    },
+    {
+      "indent": 9,
+      "text": "- sets ConnectRetryCounter to zero,",
+      "zh-CHS": "- 将ConnectRetryCounter设置为零，"
+    },
+    {
+      "indent": 9,
+      "text": "- starts the ConnectRetryTimer with the initial value, and",
+      "zh-CHS": "- 使用初始值启动ConnectRetryTimer，然后"
+    },
+    {
+      "indent": 9,
+      "text": "- changes its state to Connect.",
+      "zh-CHS": "- 将其状态更改为“连接”。"
+    },
+    {
+      "indent": 3,
+      "text": "Replace this text:",
+      "zh-CHS": "替换此文本："
+    },
+    {
+      "indent": 6,
+      "text": "If the local system receives a NOTIFICATION message (Event 24 or Event 25), or a TcpConnectionFails (Event 18) from the underlying TCP, the local system:",
+      "zh-CHS": "如果本地系统从底层TCP接收到通知消息（事件24或事件25）或TcpConnectionFails（事件18），则本地系统："
+    },
+    {
+      "indent": 9,
+      "text": "- sets the ConnectRetryTimer to zero,",
+      "zh-CHS": "- 将ConnectRetryTimer设置为零，"
+    },
+    {
+      "indent": 9,
+      "text": "- deletes all routes associated with this connection,",
+      "zh-CHS": "- 删除与此连接关联的所有路由，"
+    },
+    {
+      "indent": 9,
+      "text": "- releases all the BGP resources,",
+      "zh-CHS": "- 释放所有BGP资源，"
+    },
+    {
+      "indent": 9,
+      "text": "- drops the TCP connection,",
+      "zh-CHS": "- 断开TCP连接，"
+    },
+    {
+      "indent": 9,
+      "text": "- increments the ConnectRetryCounter by 1,",
+      "zh-CHS": "- 将ConnectRetryCounter增加1，"
+    },
+    {
+      "indent": 9,
+      "text": "- changes its state to Idle.",
+      "zh-CHS": "- 将其状态更改为空闲。"
+    },
+    {
+      "indent": 3,
+      "text": "with",
+      "zh-CHS": "具有"
+    },
+    {
+      "indent": 6,
+      "text": "If the local system receives a NOTIFICATION message (Event 24 or Event 25), or if the local system receives a TcpConnectionFails (Event 18) from the underlying TCP and the Graceful Restart capability with one or more AFIs/SAFIs has not been received for the session, the local system:",
+      "zh-CHS": "如果本地系统接收到通知消息（事件24或事件25），或者如果本地系统接收到来自底层TCP的TcpConnectionFails（事件18），并且尚未收到会话的一个或多个AFI/SAFI的正常重启功能，则本地系统："
+    },
+    {
+      "indent": 9,
+      "text": "- sets the ConnectRetryTimer to zero,",
+      "zh-CHS": "- 将ConnectRetryTimer设置为零，"
+    },
+    {
+      "indent": 9,
+      "text": "- deletes all routes associated with this connection,",
+      "zh-CHS": "- 删除与此连接关联的所有路由，"
+    },
+    {
+      "indent": 9,
+      "text": "- releases all the BGP resources,",
+      "zh-CHS": "- 释放所有BGP资源，"
+    },
+    {
+      "indent": 9,
+      "text": "- drops the TCP connection,",
+      "zh-CHS": "- 断开TCP连接，"
+    },
+    {
+      "indent": 9,
+      "text": "- increments the ConnectRetryCounter by 1, and",
+      "zh-CHS": "- 将ConnectRetryCounter增加1，然后"
+    },
+    {
+      "indent": 9,
+      "text": "- changes its state to Idle.",
+      "zh-CHS": "- 将其状态更改为空闲。"
+    },
+    {
+      "indent": 6,
+      "text": "However, if the local system receives a TcpConnectionFails (Event 18) from the underlying TCP, and the Graceful Restart Capability with one or more AFIs/SAFIs has been received for the session, the local system:",
+      "zh-CHS": "但是，如果本地系统从底层TCP接收到TcpConnectionFails（事件18），并且已为会话接收到一个或多个AFI/SAFI的正常重启功能，则本地系统："
+    },
+    {
+      "indent": 9,
+      "text": "- sets the ConnectRetryTimer to zero,",
+      "zh-CHS": "- 将ConnectRetryTimer设置为零，"
+    },
+    {
+      "indent": 9,
+      "text": "- retains all routes associated with this connection according to section \"Procedures for the Receiving Speaker\" of this (Graceful Restart) specification,",
+      "zh-CHS": "- 根据本（优雅重启）规范“接收扬声器程序”一节，保留与此连接相关的所有路由，"
+    },
+    {
+      "indent": 9,
+      "text": "- releases all other BGP resources,",
+      "zh-CHS": "- 释放所有其他BGP资源，"
+    },
+    {
+      "indent": 9,
+      "text": "- drops the TCP connection,",
+      "zh-CHS": "- 断开TCP连接，"
+    },
+    {
+      "indent": 9,
+      "text": "- increments the ConnectRetryCounter by 1, and",
+      "zh-CHS": "- 将ConnectRetryCounter增加1，然后"
+    },
+    {
+      "indent": 9,
+      "text": "- changes its state to Idle.",
+      "zh-CHS": "- 将其状态更改为空闲。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Deployment Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 部署注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "Although the procedures described in this document would help minimize the effect of routing flaps, it is noted that when a BGP Graceful Restart-capable router restarts, or if it restarts without preserving its forwarding state (e.g., due to a power failure), there is a potential for transient routing loops or blackholes in the network if routing information changes before the involved routers complete routing updates and convergence. Also, depending on the",
+      "zh-CHS": "尽管本文档中描述的程序将有助于最小化路由皮瓣的影响，但需要注意的是，当具有BGP优雅重启功能的路由器重新启动时，或者如果它重新启动时没有保留其转发状态（例如，由于电源故障），如果路由信息在相关路由器完成路由更新和聚合之前发生变化，则网络中可能存在瞬时路由环路或黑洞。另外，取决于"
+    },
+    {
+      "indent": 3,
+      "text": "network topology, if not all IBGP speakers are Graceful Restart capable, there could be an increased exposure to transient routing loops or blackholes when the Graceful Restart procedures are exercised.",
+      "zh-CHS": "网络拓扑，如果不是所有IBGP扬声器都能正常重启，那么在执行正常重启程序时，可能会增加瞬态路由环路或黑洞的暴露。"
+    },
+    {
+      "indent": 3,
+      "text": "The Restart Time, the upper bound for retaining routes, and the upper bound for deferring route selection may need to be tuned as more deployment experience is gained.",
+      "zh-CHS": "随着获得更多部署经验，可能需要调整重启时间、保留路由的上限以及延迟路由选择的上限。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, it is noted that the benefits of deploying BGP Graceful Restart in an Autonomous System (AS) whose IGPs and BGP are tightly coupled (i.e., BGP and IGPs would both restart) and IGPs have no similar Graceful Restart Capability are reduced relative to the scenario where IGPs do have similar Graceful Restart Capability.",
+      "zh-CHS": "最后，需要注意的是，在IGP和BGP紧密耦合（即，BGP和IGP都将重新启动）且IGP没有类似优雅重启能力的自治系统（AS）中部署BGP优雅重启的好处相对于IGP具有类似优雅重启能力的场景有所减少。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Since with this proposal a new connection can cause an old one to be terminated, it might seem to open the door to denial of service attacks. However, it is noted that unauthenticated BGP is already known to be vulnerable to denials of service through attacks on the TCP transport. The TCP transport is commonly protected through use of [BGP-AUTH]. Such authentication will equally protect against denials of service through spurious new connections.",
+      "zh-CHS": "由于使用此方案，新连接可能会导致旧连接终止，因此可能会打开拒绝服务攻击的大门。然而，需要注意的是，未经验证的BGP已经被认为容易受到TCP传输攻击造成的拒绝服务攻击。TCP传输通常通过使用[BGP-AUTH]进行保护。这种认证将同样防止通过虚假的新连接拒绝服务。"
+    },
+    {
+      "indent": 3,
+      "text": "If an attacker is able to successfully open a TCP connection impersonating a legitimate peer, the attacker's connection will replace the legitimate one, potentially enabling the attacker to advertise bogus routes. We note, however, that the window for such a route insertion attack is small since through normal operation of the protocol the legitimate peer would open a new connection, in turn causing the attacker's connection to be terminated. Thus, this attack devolves to a form of denial of service.",
+      "zh-CHS": "如果攻击者能够模拟合法对等方成功打开TCP连接，则攻击者的连接将替换合法连接，从而可能使攻击者能够公布虚假路由。然而，我们注意到，这种路由插入攻击的窗口很小，因为通过协议的正常操作，合法的对等方将打开一个新的连接，从而导致攻击者的连接被终止。因此，这种攻击演变为一种拒绝服务的形式。"
+    },
+    {
+      "indent": 3,
+      "text": "It is thus concluded that this proposal does not change the underlying security model (and issues) of BGP-4.",
+      "zh-CHS": "因此可以得出结论，本提案不会改变BGP-4的基本安全模型（和问题）。"
+    },
+    {
+      "indent": 3,
+      "text": "We also note that implementations may allow use of graceful restart to be controlled by configuration. If graceful restart is not enabled, naturally the underlying security model of BGP-4 is unchanged.",
+      "zh-CHS": "我们还注意到，实现可能允许通过配置控制优雅重启的使用。如果不启用优雅重启，BGP-4的底层安全模型自然不会改变。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Bruce Cole, Lars Eggert, Bill Fenner, Eric Gray, Jeffrey Haas, Sam Hartman, Alvaro Retana, Pekka Savola Naiming Shen, Satinder Singh, Mark Townsley, David Ward, Shane Wright, and Alex Zinin for their review and comments.",
+      "zh-CHS": "作者要感谢Bruce Cole、Lars Eggert、Bill Fenner、Eric Gray、Jeffrey Haas、Sam Hartman、Alvaro Retana、Pekka Savola Naiming Shen、Satinder Singh、Mark Townsley、David Ward、Shane Wright和Alex Zinin的评论和评论。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new BGP capability - Graceful Restart Capability. The Capability Code for Graceful Restart Capability is 64.",
+      "zh-CHS": "本文档定义了一种新的BGP功能—优雅重启功能。优雅重启功能的功能代码为64。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-4] Rekhter, Y., Li, T., and S. Hares, \"A Border Gateway Protocol 4 (BGP-4)\", RFC 4271, January 2006.",
+      "zh-CHS": "[BGP-4]Rekhter，Y.，Li，T.，和S.Hares，“边境网关协议4（BGP-4）”，RFC 42712006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-MP] Bates, T., Rekhter, Y., Chandra, R., and D. Katz, \"Multiprotocol Extensions for BGP-4\", RFC 2858, June 2000.",
+      "zh-CHS": "[BGP-MP]Bates，T.，Rekhter，Y.，Chandra，R.，和D.Katz，“BGP-4的多协议扩展”，RFC 28582000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-CAP] Chandra, R. and J. Scudder, \"Capabilities Advertisement with BGP-4\", RFC 3392, November 2002.",
+      "zh-CHS": "[BGP-CAP]Chandra，R.和J.Scudder，“BGP-4的能力广告”，RFC 3392，2002年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BGP-AUTH] Heffernan, A., \"Protection of BGP Sessions via the TCP MD5 Signature Option\", RFC 2385, August 1998.",
+      "zh-CHS": "[BGP-AUTH]Heffernan，A.，“通过TCP MD5签名选项保护BGP会话”，RFC 2385，1998年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IANA-AFI]  http://www.iana.org/assignments/address-family-numbers",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[IANA-SAFI] http://www.iana.org/assignments/safi-namespace",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[BFD] Katz, D. and D. Ward, \"Bidirectional Forwarding Detection\", Work in Progress.",
+      "zh-CHS": "[BFD]Katz，D.和D.Ward，“双向转发检测”，工作正在进行中。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Srihari R. Sangli Cisco Systems, Inc.",
+      "zh-CHS": "Srihari R.Sangli思科系统公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rsrihari@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Yakov Rekhter Juniper Networks, Inc.",
+      "zh-CHS": "雅科夫·雷克特·朱尼珀网络公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: yakov@juniper.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Rex Fernando Juniper Networks, Inc.",
+      "zh-CHS": "雷克斯·费尔南多·朱尼珀网络公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rex@juniper.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "John G. Scudder Juniper Networks, Inc.",
+      "zh-CHS": "约翰·G·斯卡德尔·朱尼珀网络公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jgs@juniper.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Enke Chen Cisco Systems, Inc.",
+      "zh-CHS": "陈恩科思科系统有限公司。"
+    },
+    {
+      "indent": 3,
+      "text": "EMail:  enkechen@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

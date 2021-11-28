@@ -1,0 +1,1084 @@
+{
+  "title": {
+    "text": "RFC 5357: A Two-Way Active Measurement Protocol (TWAMP)",
+    "zh-CHS": "RFC 5357"
+  },
+  "number": 5357,
+  "created_at": "2021-10-22 09:50:50.559670+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         K. Hedayat\nRequest for Comments: 5357                                 Brix Networks\nCategory: Standards Track                                  R. Krzanowski\n                                                                 Verizon\n                                                               A. Morton\n                                                               AT&T Labs\n                                                                  K. Yum\n                                                        Juniper Networks\n                                                              J. Babiarz\n                                                         Nortel Networks\n                                                            October 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "A Two-Way Active Measurement Protocol (TWAMP)",
+      "zh-CHS": "双向主动测量协议（TWAMP）"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The One-way Active Measurement Protocol (OWAMP), specified in RFC 4656, provides a common protocol for measuring one-way metrics between network devices. OWAMP can be used bi-directionally to measure one-way metrics in both directions between two network elements. However, it does not accommodate round-trip or two-way measurements. This memo specifies a Two-Way Active Measurement Protocol (TWAMP), based on the OWAMP, that adds two-way or round-trip measurement capabilities. The TWAMP measurement architecture is usually comprised of two hosts with specific roles, and this allows for some protocol simplifications, making it an attractive alternative in some circumstances.",
+      "zh-CHS": "RFC 4656中规定的单向主动测量协议（OWAMP）提供了一个用于测量网络设备之间单向度量的通用协议。OWAMP可以双向地用于测量两个网络元素之间双向的单向度量。但是，它不适用于往返或双向测量。本备忘录规定了基于OWAMP的双向主动测量协议（TWAMP），该协议增加了双向或往返测量功能。TWAMP度量体系结构通常由两个具有特定角色的主机组成，这允许对协议进行一些简化，使其在某些情况下成为一个有吸引力的替代方案。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Relationship of Test and Control Protocols .................3\n   1.2. Logical Model ..............................................3\n   1.3. Pronunciation Guide ........................................4\n2. Protocol Overview ...............................................5\n3. TWAMP-Control ...................................................6\n   3.1. Connection Setup ...........................................6\n   3.2. Integrity Protection .......................................7\n   3.3. Values of the Accept Field .................................7\n   3.4. TWAMP-Control Commands .....................................7\n   3.5. Creating Test Sessions .....................................8\n   3.6. Send Schedules ............................................10\n   3.7. Starting Test Sessions ....................................10\n   3.8. Stop-Sessions .............................................10\n   3.9. Fetch-Session .............................................12\n4. TWAMP-Test .....................................................12\n   4.1. Sender Behavior ...........................................12\n        4.1.1. Packet Timings .....................................12\n        4.1.2. Packet Format and Content ..........................12\n   4.2. Reflector Behavior ........................................13\n        4.2.1. TWAMP-Test Packet Format and Content ...............14\n5. Implementers' Guide ............................................20\n6. Security Considerations ........................................20\n7. Acknowledgements ...............................................21\n8. IANA Considerations ............................................21\n   8.1. Registry Specification ....................................22\n   8.2. Registry Management .......................................22\n   8.3. Experimental Numbers ......................................22\n   8.4. Initial Registry Contents .................................22\n9. Internationalization Considerations ............................22\nAppendix I - TWAMP Light (Informative) ............................23\nNormative References ..............................................24\nInformative References ............................................24",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Internet Engineering Task Force (IETF) has completed a Proposed Standard for the round-trip delay [RFC2681] metric. The IETF has also completed a protocol for the control and collection of one-way measurements, the One-way Active Measurement Protocol (OWAMP) [RFC4656]. However, OWAMP does not accommodate round-trip or two-way measurements.",
+      "zh-CHS": "互联网工程任务组（IETF）已经完成了一项关于往返延迟[RFC2681]指标的拟议标准。IETF还完成了单向测量控制和收集协议，即单向主动测量协议（OWAMP）[RFC4656]。但是，OWAMP不支持往返或双向测量。"
+    },
+    {
+      "indent": 3,
+      "text": "Two-way measurements are common in IP networks, primarily because synchronization between local and remote clocks is unnecessary for round-trip delay, and measurement support at the remote end may be",
+      "zh-CHS": "双向测量在IP网络中很常见，主要是因为本地和远程时钟之间的同步对于往返延迟来说是不必要的，并且远程端的测量支持可能是不必要的"
+    },
+    {
+      "indent": 3,
+      "text": "limited to a simple echo function. However, the most common facility for round-trip measurements is the ICMP Echo Request/Reply (used by the ping tool), and issues with this method are documented in Section 2.6 of [RFC2681]. This memo specifies the Two-Way Active Measurement Protocol, or TWAMP. TWAMP uses the methodology and architecture of OWAMP [RFC4656] to define an open protocol for measurement of two-way or round-trip metrics (henceforth in this document the term two-way also signifies round-trip), in addition to the one-way metrics of OWAMP. TWAMP employs time stamps applied at the echo destination (reflector) to enable greater accuracy (processing delays can be accounted for). The TWAMP measurement architecture is usually comprised of only two hosts with specific roles, and this allows for some protocol simplifications, making it an attractive alternative to OWAMP in some circumstances.",
+      "zh-CHS": "仅限于一个简单的回音功能。然而，往返测量最常见的工具是ICMP回波请求/回复（由ping工具使用），该方法的问题记录在[RFC2681]的第2.6节中。本备忘录规定了双向主动测量协议或TWAMP。TWAMP使用OWAMP[RFC4656]的方法和体系结构，除了OWAMP的单向度量之外，还定义了一个用于测量双向或往返度量的开放协议（在本文档中，术语双向也表示往返）。TWAMP使用在回波目的地（反射器）应用的时间戳来实现更高的精度（可以考虑处理延迟）。TWAMP度量体系结构通常仅由两个具有特定角色的主机组成，这允许对协议进行一些简化，从而在某些情况下成为OWAMP的一个有吸引力的替代方案。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Relationship of Test and Control Protocols",
+      "section_title": true,
+      "zh-CHS": "1.1. 测试和控制协议的关系"
+    },
+    {
+      "indent": 3,
+      "text": "Similar to OWAMP [RFC4656], TWAMP consists of two inter-related protocols: TWAMP-Control and TWAMP-Test. The relationship of these protocols is as defined in Section 1.1 of OWAMP [RFC4656]. TWAMP-Control is used to initiate, start, and stop test sessions, whereas TWAMP-Test is used to exchange test packets between two TWAMP entities.",
+      "zh-CHS": "与OWAMP[RFC4656]类似，TWAMP由两个相互关联的协议组成：TWAMP控制和TWAMP测试。这些协议的关系如OWAMP[RFC4656]第1.1节所定义。TWAMP控制用于启动、启动和停止测试会话，而TWAMP测试用于在两个TWAMP实体之间交换测试数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Logical Model",
+      "section_title": true,
+      "zh-CHS": "1.2. 逻辑模型"
+    },
+    {
+      "indent": 3,
+      "text": "The role and definition of the logical entities are as defined in Section 1.2 of OWAMP [RFC4656] with the following exceptions:",
+      "zh-CHS": "逻辑实体的作用和定义如OWAMP[RFC4656]第1.2节所述，但以下情况除外："
+    },
+    {
+      "indent": 3,
+      "text": "- The Session-Receiver is called the Session-Reflector in the TWAMP architecture. The Session-Reflector has the capability to create and send a measurement packet when it receives a measurement packet. Unlike the Session-Receiver, the Session-Reflector does not collect any packet information.",
+      "zh-CHS": "- 在TWAMP体系结构中，会话接收器称为会话反射器。会话反射器能够在接收到测量数据包时创建并发送测量数据包。与会话接收器不同，会话反射器不收集任何分组信息。"
+    },
+    {
+      "indent": 3,
+      "text": "- The Server is an end system that manages one or more TWAMP sessions, and is capable of configuring per-session state in the endpoints. However, a Server associated with a Session-Reflector would not have the capability to return the results of a test session, and this is a difference from OWAMP.",
+      "zh-CHS": "- 服务器是管理一个或多个TWAMP会话的终端系统，能够在端点中配置每个会话的状态。但是，与会话反射器关联的服务器将无法返回测试会话的结果，这与OWAMP不同。"
+    },
+    {
+      "indent": 3,
+      "text": "- The Fetch-Client entity does not exist in the TWAMP architecture, as the Session-Reflector does not collect any packet information to be fetched. Consequently, there is no need for the Fetch-Client.",
+      "zh-CHS": "- TWAMP体系结构中不存在Fetch客户端实体，因为会话反射器不收集任何要获取的数据包信息。因此，不需要Fetch客户机。"
+    },
+    {
+      "indent": 3,
+      "text": "An example of possible relationship scenarios between these roles is presented below. In this example, different logical roles are played on different hosts. Unlabeled links in the figure are unspecified by this document and may be proprietary protocols.",
+      "zh-CHS": "下面给出了这些角色之间可能的关系场景示例。在本例中，在不同的主机上扮演不同的逻辑角色。图中未标记的链接未在本文件中指定，可能是专有协议。"
+    },
+    {
+      "indent": 9,
+      "text": "+----------------+               +-------------------+\n| Session-Sender |<-TWAMP-Test-->| Session-Reflector |\n+----------------+               +-------------------+\n  ^                                     ^\n  |                                     |\n  |                                     |\n  |                                     |\n  |  +----------------+<----------------+\n  |  |     Server     |\n  |  +----------------+\n  |    ^\n  |    |\n  | TWAMP-Control\n  |    |\n  v    v\n+----------------+\n| Control-Client |\n+----------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "As in OWAMP [RFC4656], different logical roles can be played by the same host. For example, in the figure above, there could actually be two hosts: one playing the roles of Control-Client and Session-Sender, and the other playing the roles of Server and Session-Reflector. This example is shown below.",
+      "zh-CHS": "正如在OWAMP[RFC4656]中一样，同一台主机可以扮演不同的逻辑角色。例如，在上图中，实际上可能有两台主机：一台扮演控制客户端和会话发送者的角色，另一台扮演服务器和会话反射者的角色。这个例子如下所示。"
+    },
+    {
+      "indent": 10,
+      "text": "+-----------------+                   +-------------------+\n| Control-Client  |<--TWAMP-Control-->|      Server       |\n|                 |                   |                   |\n| Session-Sender  |<--TWAMP-Test----->| Session-Reflector |\n+-----------------+                   +-------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Pronunciation Guide",
+      "section_title": true,
+      "zh-CHS": "1.3. 发音指南"
+    },
+    {
+      "indent": 3,
+      "text": "The acronym OWAMP is usually pronounced in two syllables, Oh-wamp.",
+      "zh-CHS": "首字母缩略词OWAMP通常有两个音节，Oh-wamp。"
+    },
+    {
+      "indent": 3,
+      "text": "The acronym TWAMP is also pronounced in two syllables, Tee-wamp.",
+      "zh-CHS": "首字母缩略词TWAMP也有两个音节，Tee-wamp。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Protocol Overview",
+      "section_title": true,
+      "zh-CHS": "2. 协议概述"
+    },
+    {
+      "indent": 3,
+      "text": "The Two-Way Active Measurement Protocol is an open protocol for measurement of two-way metrics. It is based on OWAMP [RFC4656] and adheres to OWAMP's overall architecture and design. The TWAMP-Control and TWAMP-Test protocols accomplish their testing tasks as outlined below:",
+      "zh-CHS": "双向主动测量协议是用于测量双向度量的开放协议。它基于OWAMP[RFC4656]，并遵循OWAMP的总体架构和设计。TWAMP控制和TWAMP测试协议完成其测试任务，如下所述："
+    },
+    {
+      "indent": 3,
+      "text": "- The Control-Client initiates a TCP connection on TWAMP's well-known port, and the Server (its role now established) responds with its Greeting message, indicating the security/integrity mode(s) it is willing to support.",
+      "zh-CHS": "- 控制客户端在TWAMP的已知端口上启动TCP连接，服务器（其角色现在已建立）响应其问候消息，指示其愿意支持的安全/完整性模式。"
+    },
+    {
+      "indent": 3,
+      "text": "- The Control-Client responds with the chosen mode of communication and information supporting integrity protection and encryption, if the mode requires them. The Server responds to accept the mode and give its start time. This completes the control-connection setup.",
+      "zh-CHS": "- 如果模式需要，控制客户端将使用所选的支持完整性保护和加密的通信和信息模式进行响应。服务器响应接受该模式并给出其启动时间。这就完成了控制连接设置。"
+    },
+    {
+      "indent": 3,
+      "text": "- The Control-Client requests (and describes) a test session with a unique TWAMP-Control message. The Server responds with its acceptance and supporting information. More than one test session may be requested with additional messages.",
+      "zh-CHS": "- 控制客户端使用唯一的TWAMP控制消息请求（并描述）测试会话。服务器响应它的接受和支持信息。可以使用附加消息请求多个测试会话。"
+    },
+    {
+      "indent": 3,
+      "text": "- The Control-Client initiates all requested testing with a Start-Sessions message, and the Server acknowledges.",
+      "zh-CHS": "- 控制客户端通过启动会话消息启动所有请求的测试，服务器确认。"
+    },
+    {
+      "indent": 3,
+      "text": "- The Session-Sender and the Session-Reflector exchange test packets according to the TWAMP-Test protocol for each active session.",
+      "zh-CHS": "- 会话发送方和会话反射器根据每个活动会话的TWAMP测试协议交换测试数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "- When appropriate, the Control-Client sends a message to stop all test sessions.",
+      "zh-CHS": "- 在适当的时候，控制客户端发送一条消息来停止所有测试会话。"
+    },
+    {
+      "indent": 3,
+      "text": "There are two recognized extension mechanisms in the TWAMP Protocol.",
+      "zh-CHS": "TWAMP协议中有两种公认的扩展机制。"
+    },
+    {
+      "indent": 3,
+      "text": "1) The Modes field is used to establish the communication options during TWAMP-Control Connection Setup.",
+      "zh-CHS": "1) 模式字段用于在TWAMP控制连接设置期间建立通信选项。"
+    },
+    {
+      "indent": 3,
+      "text": "2) The TWAMP-Control Command Number is another intended extension mechanism, allowing additional commands to be defined in the future.",
+      "zh-CHS": "2) TWAMP控制命令编号是另一种预期的扩展机制，允许将来定义其他命令。"
+    },
+    {
+      "indent": 3,
+      "text": "The TWAMP-Control protocol resolves different capability levels between the Control-Client and Server.",
+      "zh-CHS": "TWAMP控制协议解决了控制客户端和服务器之间的不同能力级别。"
+    },
+    {
+      "indent": 3,
+      "text": "All multi-octet quantities defined in this document are represented as unsigned integers in network byte order, unless specified otherwise.",
+      "zh-CHS": "除非另有规定，否则本文件中定义的所有多个八位字节数量均以网络字节顺序表示为无符号整数。"
+    },
+    {
+      "indent": 3,
+      "text": "Throughout this memo, the bits marked MBZ (Must Be Zero) MUST be set to zero by senders and MUST be ignored by receivers.",
+      "zh-CHS": "在本备忘录中，标记为MBZ（必须为零）的位必须由发送方设置为零，接收方必须忽略。"
+    },
+    {
+      "indent": 0,
+      "text": "3. TWAMP-Control",
+      "section_title": true,
+      "zh-CHS": "3. 吐温控制"
+    },
+    {
+      "indent": 3,
+      "text": "TWAMP-Control is a derivative of the OWAMP-Control for two-way measurements. All TWAMP-Control messages are similar in format and follow similar guidelines to those defined in Section 3 of OWAMP [RFC4656] with the exceptions outlined in the following sections. One such exception is the Fetch-Session command, which is not used in TWAMP.",
+      "zh-CHS": "TWAMP控制是用于双向测量的OWAMP控制的衍生产品。所有TWAMP控制信息的格式相似，遵循OWAMP[RFC4656]第3节中定义的类似指南，但以下章节中概述的例外情况除外。其中一个例外是Fetch Session命令，它不在TWAMP中使用。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Connection Setup",
+      "section_title": true,
+      "zh-CHS": "3.1. 连接设置"
+    },
+    {
+      "indent": 3,
+      "text": "Connection establishment of TWAMP follows the same procedure defined in Section 3.1 of OWAMP [RFC4656]. The Modes field is a recognized extension mechanism in TWAMP, and the current mode values are identical to those used in OWAMP. The only exception is the well-known port number for TWAMP-Control. A Client opens a TCP connection to the Server on well-known port 862. The host that initiates the TCP connection takes the roles of Control-Client and (in the two-host implementation) the Session-Sender. The host that acknowledges the TCP connection accepts the roles of Server and (in the two-host implementation) the Session-Reflector.",
+      "zh-CHS": "TWAMP的连接建立遵循OWAMP[RFC4656]第3.1节中定义的相同程序。模式字段是TWAMP中公认的扩展机制，当前模式值与OWAMP中使用的值相同。唯一的例外是众所周知的TWAMP控制端口号。客户端在已知端口862上打开与服务器的TCP连接。发起TCP连接的主机扮演控制客户端和（在两个主机实现中）会话发送方的角色。确认TCP连接的主机接受服务器和（在双主机实现中）会话反射器的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "The Control-Client MAY set a desired code point in the Diffserv Code Point (DSCP) field in the IP header for ALL packets of a specific control connection. The Server SHOULD use the DSCP of the Control-Client's TCP SYN in ALL subsequent packets on that connection (avoiding any ambiguity in case of re-marking).",
+      "zh-CHS": "控制客户端可以在IP报头中的Diffserv代码点（DSCP）字段中为特定控制连接的所有分组设置所需的代码点。服务器应在该连接上的所有后续数据包中使用控制客户端TCP SYN的DSCP（避免重新标记时出现任何歧义）。"
+    },
+    {
+      "indent": 3,
+      "text": "The possibility exists for Control-Client failure after TWAMP-Control connection establishment, or the path between the Control-Client and Server may fail while a connection is in progress. The Server MAY discontinue any established control connection when no packet associated with that connection has been received within SERVWAIT seconds. The Server SHALL suspend monitoring control connection activity after receiving a Start-Sessions command, and SHALL resume after receiving a Stop-Sessions command (IF the SERVWAIT option is supported). Note that the REFWAIT timeout (described below) covers failures during test sessions, and if REFWAIT expires on ALL test sessions initiated by a TWAMP-Control connection, then the SERVWAIT monitoring SHALL resume (as though a Stop-Sessions command had been received). An implementation that supports the SERVWAIT timeout SHOULD also implement the REFWAIT timeout. The default value of SERVWAIT SHALL be 900 seconds, and this waiting time MAY be configurable. This timeout allows the Server to free up resources in case of failure.",
+      "zh-CHS": "在建立TWAMP控制连接后，可能存在控制客户端故障，或者在连接过程中，控制客户端和服务器之间的路径可能会出现故障。当在SERVWAIT秒内没有接收到与该连接相关联的数据包时，服务器可以中断任何已建立的控制连接。服务器应在收到启动会话命令后暂停监控连接活动，并在收到停止会话命令后恢复（如果支持SERVWAIT选项）。请注意，REFWAIT超时（如下所述）涵盖测试会话期间的故障，如果REFWAIT在由TWAMP控制连接启动的所有测试会话上过期，则SERVWAIT监控应恢复（如同已收到停止会话命令一样）。支持SERVWAIT超时的实现也应该实现REFWAIT超时。SERVWAIT的默认值应为900秒，此等待时间可配置。此超时允许服务器在发生故障时释放资源。"
+    },
+    {
+      "indent": 3,
+      "text": "Both the Server and the Client use the same mappings from KeyIDs to shared secrets. The Server, being prepared to conduct sessions with more than one Client, uses KeyIDs to choose the appropriate secret key; a Client would typically have different secret keys for different Servers. The shared secret is a passphrase. To maximize passphrase interoperability, the passphrase character set MUST be encoded using Appendix B of [RFC5198] (the ASCII Network Virtual Terminal Definition). It MUST not contain newlines (any combination of Carriage-Return (CR) and/or Line-Feed (LF) characters), and control characters SHOULD be avoided.",
+      "zh-CHS": "服务器和客户端都使用从KeyIDs到共享机密的相同映射。服务器准备与多个客户端进行会话，使用KeyIDs选择适当的密钥；对于不同的服务器，客户端通常具有不同的密钥。共享秘密是一个密码短语。为了最大化密码短语互操作性，必须使用[RFC5198]（ASCII网络虚拟终端定义）的附录B对密码短语字符集进行编码。它不得包含换行符（回车符（CR）和/或换行符（LF）的任何组合），并且应避免使用控制字符。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Integrity Protection",
+      "section_title": true,
+      "zh-CHS": "3.2. 完整性保护"
+    },
+    {
+      "indent": 3,
+      "text": "Integrity protection of TWAMP follows the same procedure defined in Section 3.2 of OWAMP [RFC4656]. As in OWAMP, each HMAC (Hashed Message Authentication Code) sent covers everything sent in a given direction between the previous HMAC (but not including it) and the start of the new HMAC. This way, once encryption is set up, each bit of the TWAMP-Control connection is authenticated by an HMAC exactly once.",
+      "zh-CHS": "TWAMP的完整性保护遵循OWAMP[RFC4656]第3.2节中定义的相同程序。与在OWAMP中一样，发送的每个HMAC（散列消息身份验证码）覆盖了在上一个HMAC（但不包括它）和新HMAC开始之间以给定方向发送的所有内容。这样，一旦设置了加密，TWAMP控制连接的每一位都会被HMAC准确地验证一次。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the Server-Start message (sent by a Server during the initial control-connection exchanges) does not terminate with an HMAC field. Therefore, the HMAC in the first Accept-Session message also covers the Server-Start message and includes the Start-Time field in the HMAC calculation.",
+      "zh-CHS": "请注意，服务器启动消息（在初始控制连接交换期间由服务器发送）不会以HMAC字段终止。因此，第一个Accept会话消息中的HMAC还包括服务器启动消息，并在HMAC计算中包括启动时间字段。"
+    },
+    {
+      "indent": 3,
+      "text": "Also, in authenticated and encrypted modes, the HMAC in TWAMP-Control packets is encrypted.",
+      "zh-CHS": "此外，在认证和加密模式下，对TWAMP控制数据包中的HMAC进行加密。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Values of the Accept Field",
+      "section_title": true,
+      "zh-CHS": "3.3. Accept字段的值"
+    },
+    {
+      "indent": 3,
+      "text": "Accept values used in TWAMP are the same as the values defined in Section 3.3 of OWAMP [RFC4656].",
+      "zh-CHS": "TWAMP中使用的接受值与OWAMP[RFC4656]第3.3节中定义的值相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. TWAMP-Control Commands",
+      "section_title": true,
+      "zh-CHS": "3.4. TWAMP控制命令"
+    },
+    {
+      "indent": 3,
+      "text": "TWAMP-Control commands conform to the rules defined in Section 3.4 of OWAMP [RFC4656].",
+      "zh-CHS": "TWAMP控制命令符合OWAMP[RFC4656]第3.4节中定义的规则。"
+    },
+    {
+      "indent": 3,
+      "text": "The following commands are available for the Control-Client: Request-TW-Session, Start-Sessions, and Stop-Sessions. The Server can send specific messages in response to the commands it receives (as described in the sections that follow).",
+      "zh-CHS": "以下命令可用于控制客户端：请求TW会话、启动会话和停止会话。服务器可以发送特定消息以响应其接收到的命令（如以下各节所述）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the OWAMP Request-Session command is replaced by the TWAMP Request-TW-Session command, and the Fetch-Session command does not appear in TWAMP.",
+      "zh-CHS": "请注意，OWAMP Request Session命令被TWAMP Request TW Session命令替换，而Fetch Session命令不会出现在TWAMP中。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Creating Test Sessions",
+      "section_title": true,
+      "zh-CHS": "3.5. 创建测试会话"
+    },
+    {
+      "indent": 3,
+      "text": "Test session creation follows the same procedure as defined in Section 3.5 of OWAMP [RFC4656]. The Request-TW-Session command is based on the OWAMP Request-Session command, and uses the message format as described in Section 3.5 of OWAMP, but without the Schedule Slot Descriptions field(s) and uses only one HMAC. The description of the Request-TW-Session format follows.",
+      "zh-CHS": "测试会话创建遵循OWAMP[RFC4656]第3.5节中定义的相同程序。Request TW Session命令基于OWAMP Request Session命令，并使用OWAMP第3.5节中所述的消息格式，但不包含Schedule Slot Descriptions字段，仅使用一个HMAC。请求TW会话格式的描述如下。"
+    },
+    {
+      "indent": 3,
+      "text": "In TWAMP, the first octet is referred to as the Command Number, and the Command Number is a recognized extension mechanism. Readers are encouraged to consult the TWAMP-Control Command Number registry to determine if there have been additional values assigned.",
+      "zh-CHS": "在TWAMP中，第一个八位组被称为命令号，而命令号是公认的扩展机制。鼓励读者查阅TWAMP控制命令编号注册表，以确定是否分配了其他值。"
+    },
+    {
+      "indent": 3,
+      "text": "The Command Number value of 5 indicates a Request-TW-Session command, and the Server MUST interpret this command as a request for a two-way test session using the TWAMP-Test protocol.",
+      "zh-CHS": "Command Number值5表示请求TW会话命令，服务器必须将此命令解释为使用TWAMP测试协议的双向测试会话请求。"
+    },
+    {
+      "indent": 3,
+      "text": "If a TWAMP Server receives an unexpected Command Number, it MUST respond with the Accept field set to 3 (meaning \"Some aspect of request is not supported\") in the Accept-Session message. Command Numbers that are Forbidden (and possibly numbers that are Reserved) are unexpected.",
+      "zh-CHS": "如果TWAMP服务器收到意外的命令号，它必须在接受会话消息中将接受字段设置为3（表示“请求的某些方面不受支持”）进行响应。禁止的命令编号（可能还有保留的编号）是意外的。"
+    },
+    {
+      "indent": 3,
+      "text": "In OWAMP, the Conf-Sender field is set to 1 when the Request-Session message describes a task where the Server will configure a one-way test packet sender. Likewise, the Conf-Receiver field is set to 1 when the message describes the configuration for a Session-Receiver. In TWAMP, both endpoints send and receive test packets, with the Session-Sender first sending and then receiving test packets, complimented by the Session-Reflector first receiving and then sending.",
+      "zh-CHS": "在OWAMP中，当请求会话消息描述服务器将配置单向测试数据包发送方的任务时，Conf Sender字段设置为1。同样，当消息描述会话接收器的配置时，Conf Receiver字段设置为1。在TWAMP中，两个端点都发送和接收测试数据包，会话发送方先发送然后接收测试数据包，会话反射器先接收然后发送。"
+    },
+    {
+      "indent": 3,
+      "text": "Both the Conf-Sender field and Conf-Receiver field MUST be set to 0 since the Session-Reflector will both receive and send packets, and the roles are established according to which host initiates the TCP connection for control. The Server MUST interpret any non-zero value as an improperly formatted command, and MUST respond with the Accept field set to 3 (meaning \"Some aspect of request is not supported\") in the Accept-Session message.",
+      "zh-CHS": "Conf Sender字段和Conf Receiver字段都必须设置为0，因为会话反射器将同时接收和发送数据包，并且角色是根据哪个主机启动TCP连接进行控制而建立的。服务器必须将任何非零值解释为格式不正确的命令，并且必须在Accept会话消息中将Accept字段设置为3（表示“请求的某些方面不受支持”）进行响应。"
+    },
+    {
+      "indent": 3,
+      "text": "The Session-Reflector in TWAMP does not process incoming test packets for performance metrics and consequently does not need to know the number of incoming packets and their timing schedule. Consequently the Number of Scheduled Slots and Number of Packets MUST be set to 0.",
+      "zh-CHS": "TWAMP中的会话反射器不为性能指标处理传入的测试数据包，因此不需要知道传入数据包的数量及其时序安排。因此，计划的时隙数和数据包数必须设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "The Sender Port is the UDP port from which TWAMP-Test packets will be sent and the port to which TWAMP-Test packets will be sent by the",
+      "zh-CHS": "发送方端口是UDP端口，TWAMP测试数据包将从该端口发送，TWAMP测试数据包将由发送方发送到该端口"
+    },
+    {
+      "indent": 3,
+      "text": "Session-Reflector (the Session-Sender will use the same UDP port to send and receive packets). The Receiver Port is the desired UDP port to which TWAMP-Test packets will be sent by the Session-Sender (the port where the Session-Reflector is asked to receive test packets). The Receiver Port is also the UDP port from which TWAMP-Test packets will be sent by the Session-Reflector (the Session-Reflector will use the same UDP port to send and receive packets).",
+      "zh-CHS": "会话反射器（会话发送方将使用相同的UDP端口发送和接收数据包）。接收方端口是会话发送方将TWAMP测试数据包发送到的所需UDP端口（请求会话反射器接收测试数据包的端口）。接收方端口也是UDP端口，会话反射器将从中发送TWAMP测试数据包（会话反射器将使用相同的UDP端口发送和接收数据包）。"
+    },
+    {
+      "indent": 3,
+      "text": "The Sender Address and Receiver Address fields contain, respectively, the sender and receiver addresses of the endpoints of the Internet path over which a TWAMP-Test session is requested. They MAY be set to 0, in which case the IP addresses used for the Control-Client to Server TWAMP-Control message exchange MUST be used in the test packets.",
+      "zh-CHS": "发送方地址和接收方地址字段分别包含请求TWAMP测试会话的Internet路径端点的发送方地址和接收方地址。它们可以设置为0，在这种情况下，用于控制客户端到服务器TWAMP控制消息交换的IP地址必须在测试数据包中使用。"
+    },
+    {
+      "indent": 3,
+      "text": "The Session Identifier (SID) is as defined in OWAMP [RFC4656]. Since the SID is always generated by the receiving side, the Server determines the SID, and the SID in the Request-TW-Session message MUST be set to 0.",
+      "zh-CHS": "会话标识符（SID）如OWAMP[RFC4656]中所定义。由于SID始终由接收方生成，因此服务器确定SID，并且请求TW会话消息中的SID必须设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "The Start Time is as defined in OWAMP [RFC4656].",
+      "zh-CHS": "开始时间如OWAMP[RFC4656]中所定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The Timeout is interpreted differently from the definition in OWAMP [RFC4656]. In TWAMP, Timeout is the interval that the Session-Reflector MUST wait after receiving a Stop-Sessions message. In case there are test packets still in transit, the Session-Reflector MUST reflect them if they arrive within the Timeout interval following the reception of the Stop-Sessions message. The Session-Reflector MUST NOT reflect packets that are received beyond the timeout.",
+      "zh-CHS": "超时的解释与OWAMP[RFC4656]中的定义不同。在TWAMP中，超时是会话反射器在接收到停止会话消息后必须等待的时间间隔。如果有测试数据包仍在传输中，会话反射器必须在接收到Stop Sessions消息后的超时间隔内反映这些数据包。会话反射器不得反映超时后接收到的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Type-P descriptor is as defined in OWAMP [RFC4656]. The only capability of this field is to set the Differentiated Services Code Point (DSCP) as defined in [RFC2474]. The same value of DSCP MUST be used in test packets reflected by the Session-Reflector.",
+      "zh-CHS": "P型描述符如OWAMP[RFC4656]中所定义。此字段的唯一功能是设置[RFC2474]中定义的差异化服务代码点（DSCP）。会话反射器反射的测试数据包中必须使用相同的DSCP值。"
+    },
+    {
+      "indent": 3,
+      "text": "Since there are no Schedule Slot Descriptions, the Request-TW-Session message is completed by MBZ (Must Be Zero) and HMAC fields. This completes one logical message, referred to as the Request-TW-Session command.",
+      "zh-CHS": "由于没有计划槽描述，请求TW会话消息由MBZ（必须为零）和HMAC字段完成。这就完成了一条逻辑消息，称为Request TW Session命令。"
+    },
+    {
+      "indent": 3,
+      "text": "The Session-Reflector MUST respond to each Request-TW-Session command with an Accept-Session message as defined in OWAMP [RFC4656]. When the Accept field = 0, the Port field confirms (repeats) the port to which TWAMP-Test packets are sent by the Session-Sender toward the Session-Reflector. In other words, the Port field indicates the port number where the Session-Reflector expects to receive packets from the Session-Sender.",
+      "zh-CHS": "会话反射器必须使用OWAMP[RFC4656]中定义的接受会话消息响应每个请求TW会话命令。当Accept字段=0时，Port字段确认（重复）会话发送方向会话反射器发送TWAMP测试数据包的端口。换句话说，端口字段指示会话反射器期望从会话发送器接收数据包的端口号。"
+    },
+    {
+      "indent": 3,
+      "text": "When the requested Receiver Port is not available (e.g., port in use), the Server at the Session-Reflector MAY suggest an alternate and available port for this session in the Port field. The Session-Sender either accepts the alternate port, or composes a new Session-Request message with suitable parameters. Otherwise, the Server at the Control-Client uses the Accept field to convey other forms of session rejection or failure and MUST NOT suggest an alternate port; in this case, the Port field MUST be set to zero.",
+      "zh-CHS": "当请求的接收器端口不可用（例如，正在使用的端口）时，会话反射器处的服务器可在端口字段中为该会话建议备用的可用端口。会话发送方要么接受备用端口，要么使用合适的参数编写新的会话请求消息。否则，控制客户机上的服务器使用Accept字段传递其他形式的会话拒绝或失败，并且不得建议备用端口；在这种情况下，端口字段必须设置为零。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Send Schedules",
+      "section_title": true,
+      "zh-CHS": "3.6. 发送时间表"
+    },
+    {
+      "indent": 3,
+      "text": "The send schedule for test packets defined in Section 3.6 of OWAMP [RFC4656] is not used in TWAMP. The Control-Client and Session-Sender MAY autonomously decide the send schedule. The Session-Reflector SHOULD return each test packet to the Session-Sender as quickly as possible.",
+      "zh-CHS": "OWAMP[RFC4656]第3.6节中定义的测试数据包发送计划不用于TWAMP。控制客户端和会话发送方可以自主决定发送时间表。会话反射器应尽快将每个测试数据包返回给会话发送器。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. Starting Test Sessions",
+      "section_title": true,
+      "zh-CHS": "3.7. 启动测试会话"
+    },
+    {
+      "indent": 3,
+      "text": "The procedure and guidelines for starting test sessions is the same as defined in Section 3.7 of OWAMP [RFC4656].",
+      "zh-CHS": "开始测试会话的程序和指南与OWAMP[RFC4656]第3.7节中的定义相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3.8. Stop-Sessions",
+      "section_title": true,
+      "zh-CHS": "3.8. 停止会话"
+    },
+    {
+      "indent": 3,
+      "text": "The procedure and guidelines for stopping test sessions is similar to that defined in Section 3.8 of OWAMP [RFC4656]. The Stop-Sessions command can only be issued by the Control-Client. The message MUST NOT contain any session description records or skip ranges. The message is terminated with a single block HMAC to complete the Stop-Sessions command. Since the TWAMP Stop-Sessions command does not convey SIDs, it applies to all sessions previously requested and started with a Start-Sessions command.",
+      "zh-CHS": "停止测试会话的程序和指南类似于OWAMP[RFC4656]第3.8节中定义的程序和指南。停止会话命令只能由控制客户端发出。消息不得包含任何会话描述记录或跳过范围。消息以单个块HMAC终止，以完成停止会话命令。由于TWAMP Stop Sessions命令不传送SID，因此它适用于以前请求并使用Start Sessions命令启动的所有会话。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, the TWAMP Stop-Sessions command is constructed as follows:",
+      "zh-CHS": "因此，TWAMP Stop Sessions命令的构造如下："
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|      3        |    Accept     |              MBZ              |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Number of Sessions                       |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        MBZ (8 octets)                         |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n|                       HMAC (16 octets)                        |\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Above, the Command Number in the first octet (3) indicates that this is the Stop-Sessions command.",
+      "zh-CHS": "上面，第一个八位组（3）中的命令编号表示这是停止会话命令。"
+    },
+    {
+      "indent": 3,
+      "text": "Non-zero Accept values indicate a failure of some sort. Zero values indicate normal (but possibly premature) completion. The full list of available Accept values is described in Section 3.3 of [RFC4656], \"Values of the Accept Field\".",
+      "zh-CHS": "非零接受值表示某种类型的故障。零值表示正常（但可能过早）完成。[RFC4656]第3.3节“接受字段的值”中描述了可用接受值的完整列表。"
+    },
+    {
+      "indent": 3,
+      "text": "If Accept has a non-zero value, results of all TWAMP-Test sessions spawned by this TWAMP-Control session SHOULD be considered invalid. If the Accept-Session message was not transmitted at all (for whatever reason, including failure of the TCP connection used for TWAMP-Control), the results of all TWAMP-Test sessions spawned by this TWAMP-Control session MAY be considered invalid.",
+      "zh-CHS": "如果Accept具有非零值，则此TWAMP控制会话生成的所有TWAMP测试会话的结果应视为无效。如果根本未传输Accept Session消息（无论出于何种原因，包括用于TWAMP控制的TCP连接失败），则此TWAMP控制会话生成的所有TWAMP测试会话的结果可能被视为无效。"
+    },
+    {
+      "indent": 3,
+      "text": "Number of Sessions indicates the number of sessions that the Control-Client intends to stop.",
+      "zh-CHS": "会话数表示控制客户端打算停止的会话数。"
+    },
+    {
+      "indent": 3,
+      "text": "Number of Sessions MUST contain the number of send sessions started by the Control-Client that have not been previously terminated by a Stop-Sessions command (i.e., the Control-Client MUST account for each accepted Request-Session). If the Stop-Sessions message does not account for exactly the number of sessions in progress, then it is to be considered invalid, the TWAMP-Control connection SHOULD be closed, and any results obtained considered invalid.",
+      "zh-CHS": "Sessions Number of Sessions必须包含由控制客户端启动的发送会话的数量，这些会话之前没有被Stop Sessions命令终止（即，控制客户端必须说明每个接受的请求会话）。如果Stop Sessions（停止会话）消息没有准确说明正在进行的会话数，则认为该消息无效，应关闭TWAMP控制连接，获得的任何结果都视为无效。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receipt of a TWAMP-Control Stop-Sessions command, the Session-Reflector MUST discard any TWAMP-Test packets that arrive at the current time plus the Timeout (in the Request-TW-Session command).",
+      "zh-CHS": "在收到TWAMP Control Stop Sessions命令后，会话反射器必须丢弃在当前时间加上超时（在Request TW Session命令中）到达的任何TWAMP测试数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "3.9. Fetch-Session",
+      "section_title": true,
+      "zh-CHS": "3.9. 获取会话"
+    },
+    {
+      "indent": 3,
+      "text": "One purpose of TWAMP is measurement of two-way metrics. Two-way measurement methods do not require packet-level data to be collected by the Session-Reflector (such as sequence number, timestamp, and Time to Live (TTL)) because this data is communicated in the \"reflected\" test packets. As such, the protocol does not require the retrieval of packet-level data from the Server and the OWAMP Fetch-Session command is not used in TWAMP.",
+      "zh-CHS": "TWAMP的一个目的是测量双向度量。双向测量方法不要求会话反射器收集分组级数据（例如序列号、时间戳和生存时间（TTL）），因为该数据在“反射的”测试分组中通信。因此，该协议不需要从服务器检索数据包级别的数据，并且OWAMP Fetch Session命令不在TWAMP中使用。"
+    },
+    {
+      "indent": 0,
+      "text": "4. TWAMP-Test",
+      "section_title": true,
+      "zh-CHS": "4. 吐温试验"
+    },
+    {
+      "indent": 3,
+      "text": "The TWAMP-Test protocol is similar to the OWAMP-test protocol [RFC4656] with the exception that the Session-Reflector transmits test packets to the Session-Sender in response to each test packet it receives. TWAMP defines two different test packet formats, one for packets transmitted by the Session-Sender and one for packets transmitted by the Session-Reflector. As with OWAMP-test protocol [RFC4656], there are three modes: unauthenticated, authenticated, and encrypted.",
+      "zh-CHS": "TWAMP测试协议类似于OWAMP测试协议[RFC4656]，不同之处在于会话反射器将测试数据包发送给会话发送器，以响应其接收到的每个测试数据包。TWAMP定义了两种不同的测试数据包格式，一种用于会话发送方发送的数据包，另一种用于会话反射器发送的数据包。与OWAMP测试协议[RFC4656]一样，有三种模式：未经验证、已验证和加密。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Sender Behavior",
+      "section_title": true,
+      "zh-CHS": "4.1. 发送者行为"
+    },
+    {
+      "indent": 3,
+      "text": "The sender behavior is determined by the configuration of the Session-Sender and is not defined in this standard. Further, the Session-Reflector does not need to know the Session-Sender behavior to the degree of detail as needed in OWAMP [RFC4656]. Additionally, the Session-Sender collects and records the necessary information provided from the packets transmitted by the Session-Reflector for measuring two-way metrics. The information recording based on the packet(s) received by the Session-Sender is implementation dependent.",
+      "zh-CHS": "发送方行为由会话发送方的配置决定，本标准中未定义。此外，会话反射器不需要知道OWAMP[RFC4656]中所需的会话发送者行为的详细程度。此外，会话发送方收集并记录从会话反射器发送的分组提供的必要信息，用于测量双向度量。基于会话发送方接收的分组的信息记录取决于实现。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. Packet Timings",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 数据包定时"
+    },
+    {
+      "indent": 3,
+      "text": "Since the send schedule is not communicated to the Session-Reflector, there is no need for a standardized computation of packet timing.",
+      "zh-CHS": "由于发送时间表没有传送到会话反射器，因此不需要分组定时的标准化计算。"
+    },
+    {
+      "indent": 3,
+      "text": "Regardless of any scheduling delays, each packet that is actually sent MUST have the best possible approximation of its real time of departure as its timestamp (in the packet).",
+      "zh-CHS": "无论任何调度延迟如何，实际发送的每个数据包都必须具有其实际出发时间的最佳近似值作为其时间戳（在数据包中）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Packet Format and Content",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 数据包格式和内容"
+    },
+    {
+      "indent": 3,
+      "text": "The Session-Sender packet format and content follow the same procedure and guidelines as defined in Section 4.1.2 of OWAMP [RFC4656] (with the exception of the reference to the send schedule).",
+      "zh-CHS": "会话发送方数据包格式和内容遵循OWAMP[RFC4656]第4.1.2节中定义的相同程序和指南（发送时间表参考除外）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the Reflector test packet formats are larger than the Sender's formats. The Session-Sender MAY append sufficient Packet Padding to allow the same IP packet payload lengths to be used in each direction of transmission (this is usually desirable). To compensate for the Reflector's larger test packet format, the Sender appends at least 27 octets of padding in unauthenticated mode, and at least 56 octets in authenticated and encrypted modes.",
+      "zh-CHS": "请注意，反射器测试数据包的格式大于发送器的格式。会话发送方可以附加足够的分组填充，以允许在每个传输方向上使用相同的IP分组有效载荷长度（这通常是期望的）。为了补偿反射器较大的测试数据包格式，发送器在未经验证的模式下附加至少27个八位字节的填充，在经验证和加密的模式下附加至少56个八位字节。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Reflector Behavior",
+      "section_title": true,
+      "zh-CHS": "4.2. 反射器行为"
+    },
+    {
+      "indent": 3,
+      "text": "TWAMP requires the Session-Reflector to transmit a packet to the Session-Sender in response to each packet it receives.",
+      "zh-CHS": "TWAMP要求会话反射器向会话发送器发送一个数据包，以响应它接收到的每个数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "As packets are received, the Session-Reflector will do the following:",
+      "zh-CHS": "当接收到数据包时，会话反射器将执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "- Timestamp the received packet. Each packet that is actually received MUST have the best possible approximation of its real time of arrival entered as its Received Timestamp (in the packet).",
+      "zh-CHS": "- 给接收到的数据包加上时间戳。实际接收到的每个数据包必须具有其实时到达时间的最佳近似值，输入为其接收的时间戳（在数据包中）。"
+    },
+    {
+      "indent": 3,
+      "text": "- In authenticated or encrypted mode, decrypt the appropriate sections of the packet body (first block (16 octets) for authenticated, 96 octets for encrypted), and then check integrity of sections covered by the HMAC.",
+      "zh-CHS": "- 在认证或加密模式下，解密包体的适当部分（第一个块（16个八位字节）用于认证，96个八位字节用于加密），然后检查HMAC覆盖的部分的完整性。"
+    },
+    {
+      "indent": 3,
+      "text": "- Copy the packet sequence number into the corresponding reflected packet to the Session-Sender.",
+      "zh-CHS": "- 将数据包序列号复制到会话发送方对应的反射数据包中。"
+    },
+    {
+      "indent": 3,
+      "text": "- Extract the Sender TTL value from the TTL/Hop Limit value of received packets. Session-Reflector implementations SHOULD fetch the TTL/Hop Limit value from the IP header of the packet, replacing the value of 255 set by the Session-Sender. If an implementation does not fetch the actual TTL value (the only good reason not to do so is an inability to access the TTL field of arriving packets), it MUST set the Sender TTL value as 255.",
+      "zh-CHS": "- 从接收数据包的TTL/Hop限制值中提取发送方TTL值。会话反射器实现应该从数据包的IP报头获取TTL/Hop Limit值，替换会话发送器设置的255值。如果实现没有获取实际的TTL值（不这样做的唯一原因是无法访问到达数据包的TTL字段），则必须将发送方TTL值设置为255。"
+    },
+    {
+      "indent": 3,
+      "text": "- In authenticated and encrypted modes, the HMAC MUST be calculated first, then the appropriate portion of the packet body is encrypted.",
+      "zh-CHS": "- 在认证和加密模式下，必须首先计算HMAC，然后对数据包正文的适当部分进行加密。"
+    },
+    {
+      "indent": 3,
+      "text": "- Transmit a test packet to the Session-Sender in response to every received packet. The response MUST be generated as immediately as possible. The format and content of the test packet is defined in Section 4.2.1. Prior to the transmission of the test packet, the Session-Reflector MUST enter the best possible approximation of its actual sending time as its Timestamp (in the packet). This permits the determination of the elapsed time between the reception of the packet and its transmission.",
+      "zh-CHS": "- 响应于每个接收到的数据包，向会话发送方发送测试数据包。必须尽快生成响应。第4.2.1节规定了测试包的格式和内容。在传输测试包之前，会话反射器必须输入其实际发送时间的最佳近似值作为其时间戳（在包中）。这允许确定在接收分组和发送分组之间经过的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "- Packets not received within the Timeout (following the Stop-Sessions command) MUST be ignored by the Reflector. The Session-Reflector MUST NOT generate a test packet to the Session-Sender for packets that are ignored.",
+      "zh-CHS": "- 反射程序必须忽略在超时（停止会话命令之后）内未接收到的数据包。会话反射器不得为被忽略的数据包向会话发送器生成测试数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "The possibility exists for Session-Sender failure during a session, or the path between the Session-Sender and Session-Reflector may fail while a test session is in progress. The Session-Reflector MAY discontinue any session that has been started when no packet associated with that session has been received for REFWAIT seconds. The default value of REFWAIT SHALL be 900 seconds, and this waiting time MAY be configurable. This timeout allows a Session-Reflector to free up resources in case of failure.",
+      "zh-CHS": "会话期间存在会话发送者失败的可能性，或者在测试会话进行期间会话发送者和会话反射器之间的路径可能会失败。会话反射器可以在REFWAIT秒内未接收到与该会话相关联的分组时中断已启动的任何会话。REFWAIT的默认值应为900秒，此等待时间可配置。此超时允许会话反射器在出现故障时释放资源。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.1. TWAMP-Test Packet Format and Content",
+      "section_title": true,
+      "zh-CHS": "4.2.1. TWAMP测试包格式和内容"
+    },
+    {
+      "indent": 3,
+      "text": "The Session-Reflector MUST transmit a packet to the Session-Sender in response to each packet received. The Session-Reflector SHOULD transmit the packets as immediately as possible. The Session-Reflector SHOULD set the TTL in IPv4 (or Hop Limit in IPv6) in the UDP packet to 255.",
+      "zh-CHS": "会话反射器必须向会话发送器发送一个分组，以响应接收到的每个分组。会话反射器应尽可能立即发送数据包。会话反射器应将UDP数据包中IPv4中的TTL（或IPv6中的跃点限制）设置为255。"
+    },
+    {
+      "indent": 3,
+      "text": "The test packet will have the necessary information for calculating two-way metrics by the Session-Sender. The format of the test packet depends on the mode being used. The two formats are presented below.",
+      "zh-CHS": "测试包将具有会话发送方计算双向度量所需的信息。测试数据包的格式取决于所使用的模式。下面介绍这两种格式。"
+    },
+    {
+      "indent": 3,
+      "text": "For unauthenticated mode:",
+      "zh-CHS": "对于未经验证的模式："
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        Sequence Number                        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                          Timestamp                            |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|         Error Estimate        |           MBZ                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                          Receive Timestamp                    |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        Sender Sequence Number                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Sender Timestamp                         |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|      Sender Error Estimate    |           MBZ                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Sender TTL   |                                               |\n+-+-+-+-+-+-+-+-+                                               +\n|                                                               |\n.                                                               .\n.                         Packet Padding                        .\n.                                                               .\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "For authenticated and encrypted modes:",
+      "zh-CHS": "对于认证和加密模式："
+    },
+    {
+      "indent": 3,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        Sequence Number                        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        MBZ (12 octets)                        |\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                          Timestamp                            |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|         Error Estimate        |                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +\n|                        MBZ (6 octets)                         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        Receive Timestamp                      |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        MBZ (8 octets)                         |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        Sender Sequence Number                 |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                        MBZ (12 octets)                        |\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                      Sender Timestamp                         |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|      Sender Error Estimate    |                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +\n|                        MBZ (6 octets)                         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|  Sender TTL   |                                               |\n+-+-+-+-+-+-+-+-+                                               +\n|                                                               |\n|                                                               |\n|                        MBZ (15 octets)                        |\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n|                        HMAC (16 octets)                       |\n|                                                               |\n|                                                               |\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "|                                                               |\n.                                                               .\n.                         Packet Padding                        .\n.                                                               .\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that all timestamps have the same format as OWAMP [RFC4656] as follows:",
+      "zh-CHS": "请注意，所有时间戳的格式与OWAMP[RFC4656]相同，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                   Integer part of seconds                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                 Fractional part of seconds                    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sequence Number is the sequence number of the test packet according to its transmit order. It starts with zero and is incremented by one for each subsequent packet. The Sequence Number generated by the Session-Reflector is independent from the sequence number of the arriving packets.",
+      "zh-CHS": "序列号是根据其传输顺序的测试数据包的序列号。它以零开始，并为每个后续数据包递增一。会话反射器生成的序列号独立于到达分组的序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "Timestamp and Error Estimate are the Session-Reflector's transmit timestamp and error estimate for the reflected test packet, respectively. The format of all timestamp and error estimate fields follow the definition and formats defined by OWAMP, Section 4.1.2 in [RFC4656].",
+      "zh-CHS": "时间戳和错误估计分别是会话反射器对反射的测试包的发送时间戳和错误估计。所有时间戳和错误估计字段的格式遵循[RFC4656]第4.1.2节OWAMP定义的定义和格式。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender Timestamp and Sender Error Estimate are exact copies of the timestamp and error estimate from the Session-Sender test packet that corresponds to this test packet.",
+      "zh-CHS": "发送方时间戳和发送方错误估计是来自会话发送方测试数据包（对应于此测试数据包）的时间戳和错误估计的精确副本。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender TTL is 255 when transmitted by the Session-Sender. Sender TTL is set to the Time To Live (or Hop Count) value of the received packet from the IP packet header when transmitted by the Session-Reflector.",
+      "zh-CHS": "由会话发送方传输时，发送方TTL为255。发送方TTL被设置为会话反射器发送时从IP分组报头接收的分组的生存时间（或跳数）值。"
+    },
+    {
+      "indent": 3,
+      "text": "Receive Timestamp is the time the test packet was received by the reflector. The difference between Timestamp and Receive Timestamp is the amount of time the packet was in transition in the Session-Reflector. The Error Estimate associated with the Timestamp field also applies to the Receive Timestamp.",
+      "zh-CHS": "接收时间戳是反射器接收测试数据包的时间。时间戳和接收时间戳之间的差异是会话反射器中数据包处于转换状态的时间量。与时间戳字段相关联的错误估计也适用于接收时间戳。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender Sequence Number is a copy of the Sequence Number of the packet transmitted by the Session-Sender that caused the Session-Reflector to generate and send this test packet.",
+      "zh-CHS": "发送方序列号是会话发送方发送的数据包序列号的副本，会话发送方导致会话反射器生成并发送该测试数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "The HMAC field in TWAMP-Test packets covers the same fields as the Advanced Encryption Standard (AES) encryption. Thus, in authenticated mode, HMAC covers the first block (16 octets); in encrypted mode, HMAC covers the first six blocks (96 octets). In TWAMP-Test, the HMAC field MUST NOT be encrypted.",
+      "zh-CHS": "TWAMP测试数据包中的HMAC字段涵盖与高级加密标准（AES）加密相同的字段。因此，在认证模式下，HMAC覆盖第一个块（16个八位组）；在加密模式下，HMAC覆盖前六个块（96个八位字节）。在TWAMP测试中，HMAC字段不得加密。"
+    },
+    {
+      "indent": 3,
+      "text": "Packet Padding in TWAMP-Test SHOULD be pseudo-random (it MUST be generated independently of any other pseudo-random numbers mentioned in this document). However, implementations MUST provide a configuration parameter, an option, or a different means of making Packet Padding consist of all zeros. Packet Padding MUST NOT be covered by the HMAC and MUST NOT be encrypted.",
+      "zh-CHS": "TWAMP测试中的数据包填充应该是伪随机的（它必须独立于本文档中提到的任何其他伪随机数生成）。但是，实现必须提供一个配置参数、一个选项或使数据包填充由全零组成的不同方法。HMAC不得覆盖数据包填充，也不得对其进行加密。"
+    },
+    {
+      "indent": 3,
+      "text": "The minimum data segment length of TWAMP-Test packets in unauthenticated mode is 41 octets, and 104 octets in both authenticated mode and encrypted modes.",
+      "zh-CHS": "未经认证模式下TWAMP测试数据包的最小数据段长度为41个八位字节，认证模式和加密模式下的最小数据段长度为104个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the Session-Reflector Test packet formats are larger than the Sender's formats. The Session-Reflector SHOULD reduce the length of the Sender's Packet Padding to achieve equal IP packet payload lengths in each direction of transmission, when sufficient padding is present. The Session-Reflector MAY re-use the Sender's Packet Padding (since the requirements for padding generation are the same for each), and in this case the Session-Reflector SHOULD truncate the padding such that the highest-number octets are discarded.",
+      "zh-CHS": "请注意，会话反射程序测试数据包的格式大于发送方的格式。当存在足够的填充时，会话反射器应减少发送者的分组填充长度，以在每个传输方向上实现相等的IP分组有效负载长度。会话反射器可以重新使用发送器的分组填充（因为填充生成的要求对于每一个都是相同的），并且在这种情况下会话反射器应该截断填充，以便丢弃最大数量的八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "In unauthenticated mode, encryption or authentication MUST NOT be applied.",
+      "zh-CHS": "在未经身份验证的模式下，不得应用加密或身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "The TWAMP-Test packet layout is identical in authenticated and encrypted modes. The encryption operation for a Session-Sender packet follows the same rules of Session-Sender packets as defined in OWAMP section 4.1.2 of [RFC4656].",
+      "zh-CHS": "在认证和加密模式下，TWAMP测试数据包布局相同。会话发送方数据包的加密操作遵循[RFC4656]OWAMP第4.1.2节中定义的会话发送方数据包的相同规则。"
+    },
+    {
+      "indent": 3,
+      "text": "The main difference between authenticated mode and encrypted mode is the portion of the test packets that are covered by HMAC and encrypted. Authenticated mode permits the timestamp to be fetched after a portion of the packet is encrypted, but in encrypted mode all the sequence numbers and timestamps are fetched before encryption to provide maximum data-integrity protection.",
+      "zh-CHS": "认证模式和加密模式之间的主要区别在于HMAC覆盖并加密的测试数据包部分。认证模式允许在对数据包的一部分进行加密后提取时间戳，但在加密模式下，所有序列号和时间戳都在加密前提取，以提供最大程度的数据完整性保护。"
+    },
+    {
+      "indent": 3,
+      "text": "In authenticated mode, only the sequence number in the first block is encrypted, and the subsequent timestamps and sequence numbers are sent in clear text. Sending the timestamp in clear text allows one to reduce the time between when a timestamp is obtained by a Session-Reflector and when that packet is sent out. This potentially improves the timestamp accuracy, because the sequence number can be encrypted before the timestamp is fetched.",
+      "zh-CHS": "在认证模式下，只有第一个块中的序列号被加密，随后的时间戳和序列号以明文形式发送。以明文形式发送时间戳允许减少会话反射器获得时间戳和发送该分组之间的时间。这可能会提高时间戳的准确性，因为可以在获取时间戳之前对序列号进行加密。"
+    },
+    {
+      "indent": 3,
+      "text": "In encrypted mode, the reflector MUST fetch the timestamps, generate the HMAC, and encrypt the packet, then send it.",
+      "zh-CHS": "在加密模式下，反射器必须获取时间戳，生成HMAC，加密数据包，然后发送。"
+    },
+    {
+      "indent": 3,
+      "text": "Obtaining the keys and encryption methods follows the same procedure as OWAMP as described below. Each TWAMP-Test session has two keys, an AES Session-key and an HMAC Session-key, and the keys are derived from the TWAMP-Control keys and the SID.",
+      "zh-CHS": "获取密钥和加密方法的过程与OWAMP相同，如下所述。每个TWAMP测试会话都有两个密钥，一个AES会话密钥和一个HMAC会话密钥，这些密钥来自TWAMP控制密钥和SID。"
+    },
+    {
+      "indent": 3,
+      "text": "The TWAMP-Test AES Session-key is obtained as follows: the TWAMP-Control AES Session-key (the same AES Session-key as used for the corresponding TWAMP-Control session) is encrypted with the 16-octet session identifier (SID) as the key, using a single-block AES-ECB encryption. The result is the TWAMP-Test AES Session-key to be used in encrypting (and decrypting) the packets of the particular TWAMP-Test session. Note that the TWAMP-Test AES Session-key, TWAMP-Control AES Session-key, and the SID are all comprised of 16 octets.",
+      "zh-CHS": "TWAMP测试AES会话密钥的获取如下：TWAMP控制AES会话密钥（与对应TWAMP控制会话使用的AES会话密钥相同）使用16个八位组会话标识符（SID）作为密钥进行加密，使用单块AES-ECB加密。结果是用于加密（和解密）特定TWAMP测试会话的数据包的TWAMP测试AES会话密钥。请注意，TWAMP测试AES会话密钥、TWAMP控制AES会话密钥和SID都由16个八位字节组成。"
+    },
+    {
+      "indent": 3,
+      "text": "The TWAMP-Test HMAC Session-key is obtained as follows: the TWAMP-Control HMAC Session-key (the same HMAC Session-key as used for the corresponding TWAMP-Control session) is encrypted using AES-CBC (Cipher Block Chaining) with the 16-octet session identifier (SID) as the key. This is a two-block CBC encryption that is always performed with IV=0. Note that the TWAMP-Test HMAC Session-key and TWAMP-Control HMAC Session-key are comprised of 32 octets, while the SID is 16 octets.",
+      "zh-CHS": "TWAMP测试HMAC会话密钥的获取如下：TWAMP控制HMAC会话密钥（与对应TWAMP控制会话使用的HMAC会话密钥相同）使用AES-CBC（密码块链接）加密，16个八位组会话标识符（SID）作为密钥。这是两块CBC加密，始终在IV=0时执行。请注意，TWAMP测试HMAC会话密钥和TWAMP控制HMAC会话密钥由32个八位字节组成，而SID是16个八位字节。"
+    },
+    {
+      "indent": 3,
+      "text": "In authenticated mode, the first block (16 octets) of each TWAMP-Test packet is encrypted using the AES Electronic Codebook (ECB) mode. This mode does not involve any chaining, and lost, duplicated, or reordered packets do not cause problems with deciphering any packet in a TWAMP-Test session.",
+      "zh-CHS": "在认证模式下，使用AES电子码本（ECB）模式对每个TWAMP测试数据包的第一个块（16个八位字节）进行加密。此模式不涉及任何链接，丢失、复制或重新排序的数据包不会导致在TWAMP测试会话中破译任何数据包的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "In encrypted mode, the first six blocks (96 octets) are encrypted using AES-CBC mode. The AES Session-key to use is obtained in the same way as the key for authenticated mode. Each TWAMP-Test packet is encrypted as a separate stream, with just one chaining operation; chaining does not span multiple packets so that lost, duplicated, or reordered packets do not cause problems. The initialization vector for the CBC encryption is a value with all bits equal to zero.",
+      "zh-CHS": "在加密模式下，使用AES-CBC模式对前六个块（96个八位字节）进行加密。要使用的AES会话密钥的获取方式与身份验证模式的密钥相同。每个TWAMP测试数据包被加密为一个单独的流，只需一个链接操作；链接不会跨越多个数据包，因此丢失、重复或重新排序的数据包不会导致问题。CBC加密的初始化向量是所有位都等于零的值。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementation Note: Naturally, the key schedule for each TWAMP-Test session MUST be set up at most once per session, not once per packet.",
+      "zh-CHS": "实现说明：当然，每个TWAMP测试会话的密钥调度必须在每个会话中最多设置一次，而不是在每个数据包中设置一次。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Implementers' Guide",
+      "section_title": true,
+      "zh-CHS": "5. 实施者指南"
+    },
+    {
+      "indent": 3,
+      "text": "This section serves as guidance to implementers of TWAMP. The example architecture presented here is not a requirement. Similar to OWAMP [RFC4656], TWAMP is designed with enough flexibility to allow different architectures that suit multiple system requirements.",
+      "zh-CHS": "本节为TWAMP的实施者提供指导。这里给出的示例体系结构不是一个需求。与OWAMP[RFC4656]类似，TWAMP的设计具有足够的灵活性，允许不同的体系结构满足多种系统需求。"
+    },
+    {
+      "indent": 3,
+      "text": "In this example, the roles of Control-Client and Session-Sender are implemented in one host referred to as the controller, and the roles of Server and Session-Reflector are implemented in another host referred to as the responder.",
+      "zh-CHS": "在此示例中，控制客户端和会话发送方的角色在称为控制器的一台主机中实现，服务器和会话反射器的角色在称为响应者的另一台主机中实现。"
+    },
+    {
+      "indent": 10,
+      "text": "    controller                              responder\n+-----------------+                   +-------------------+\n| Control-Client  |<--TWAMP-Control-->| Server            |\n|                 |                   |                   |\n| Session-Sender  |<--TWAMP-Test----->| Session-Reflector |\n+-----------------+                   +-------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This example provides an architecture that supports the full TWAMP standard. The controller establishes the test session with the responder through the TWAMP-Control protocol. After the session is established, the controller transmits test packets to the responder. The responder follows the Session-Reflector behavior of TWAMP as described in Section 4.2.",
+      "zh-CHS": "此示例提供了支持完整TWAMP标准的体系结构。控制器通过TWAMP控制协议与响应者建立测试会话。会话建立后，控制器向响应者发送测试数据包。响应者遵循第4.2节所述的TWAMP会话反射行为。"
+    },
+    {
+      "indent": 3,
+      "text": "Appendix I provides an example for purely informational purposes. It suggests an incremental path to adopting TWAMP, by implementing the TWAMP-Test protocol first.",
+      "zh-CHS": "附录I提供了一个示例，仅供参考。它建议通过首先实现TWAMP测试协议来逐步采用TWAMP。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Fundamentally, TWAMP and OWAMP use the same protocol for establishment of Control and Test procedures. The main difference between TWAMP and OWAMP is the Session-Reflector behavior in TWAMP vs. the Session-Receiver behavior in OWAMP. This difference in behavior does not introduce any known security vulnerabilities that are not already addressed by the security features of OWAMP. The entire security considerations of OWAMP [RFC4656] applies to TWAMP.",
+      "zh-CHS": "基本上，TWAMP和OWAMP使用相同的协议来建立控制和测试程序。TWAMP和OWAMP之间的主要区别在于TWAMP中的会话反射器行为与OWAMP中的会话接收器行为。这种行为上的差异不会引入任何已知的安全漏洞，而OWAMP的安全功能尚未解决这些漏洞。OWAMP[RFC4656]的全部安全注意事项适用于TWAMP。"
+    },
+    {
+      "indent": 3,
+      "text": "The Server-Greeting message (defined in OWAMP, Section 3.1 of [RFC4656]) includes a Count field to specify the iteration counter used in PKCS #5 to generate keys from shared secrets. OWAMP recommends a lower limit of 1024 iterations, but no upper limit. The Count field provides an opportunity for a denial-of-service (DOS) attack because it is 32 bits long. If an attacking system set the maximum value in Count (2**32), then the system under attack would stall for a significant period of time while it attempts to generate",
+      "zh-CHS": "服务器问候消息（定义见[RFC4656]第3.1节OWAMP）包含一个计数字段，用于指定PKCS#5中用于从共享机密生成密钥的迭代计数器。OWAMP建议迭代次数的下限为1024次，但没有上限。Count字段提供了拒绝服务（DOS）攻击的机会，因为它的长度为32位。如果攻击系统在计数中设置了最大值（2**32），则受攻击的系统将在其试图生成"
+    },
+    {
+      "indent": 3,
+      "text": "keys. Therefore, TWAMP-compliant systems SHOULD have a configuration control to limit the maximum Count value. The default maximum Count value SHOULD be 32768. As suggested in OWAMP, this value MAY be increased when greater computing power becomes common. If a Control-Client receives a Server-Greeting message with Count greater that its maximum configured value, it SHOULD close the control connection.",
+      "zh-CHS": "钥匙。因此，符合TWAMP的系统应该有一个配置控制来限制最大计数值。默认最大计数值应为32768。正如OWAMP中所建议的，当更大的计算能力变得普遍时，该值可能会增加。如果控制客户端接收到计数大于其最大配置值的服务器问候消息，则应关闭控制连接。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We would like to thank Nagarjuna Venna, Sharee McNab, Nick Kinraid, Stanislav Shalunov, Matt Zekauskas, Walt Steverson, Jeff Boote, Murtaza Chiba, and Kevin Earnst for their comments, suggestions, reviews, helpful discussion, and proof-reading. Lars Eggert, Sam Hartman, and Tim Polk contributed very useful AD-level reviews, and the authors thank them for their contributions to the memo.",
+      "zh-CHS": "我们要感谢Nagarjuna Venna、Sharee McNab、Nick Kinraid、Stanislav Shalunov、Matt Zekauskas、Walt Steveson、Jeff Boote、Murtaza Chiba和Kevin Earnst的评论、建议、评论、有益的讨论和校对。拉尔斯·艾格特、山姆·哈特曼和蒂姆·波尔克对广告级评论做出了非常有用的贡献，作者感谢他们对备忘录的贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "8. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "8. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has allocated a well-known TCP port number (861) for the OWAMP-Control part of the OWAMP [RFC4656] protocol.",
+      "zh-CHS": "IANA为OWAMP[RFC4656]协议的OWAMP控制部分分配了一个众所周知的TCP端口号（861）。"
+    },
+    {
+      "indent": 3,
+      "text": "... owamp-control 861/tcp OWAMP-Control owamp-control 861/udp OWAMP-Control # [RFC4656]",
+      "zh-CHS": "... owamp控制861/tcp owamp控制owamp控制861/udp owamp控制#[RFC4656]"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has also allocated a well-known TCP/UDP port number for the TWAMP-Control protocol.",
+      "zh-CHS": "IANA还为TWAMP控制协议分配了一个众所周知的TCP/UDP端口号。"
+    },
+    {
+      "indent": 3,
+      "text": "... twamp-control 862/tcp Two-way Active Measurement Protocol (TWAMP) Control twamp-control 862/udp Two-way Active Measurement Protocol (TWAMP) Control # [RFC5357] # 863-872 Unassigned",
+      "zh-CHS": "... twamp控制862/tcp双向主动测量协议（twamp）控制twamp控制862/udp双向主动测量协议（twamp）控制#[RFC5357]#863-872未分配"
+    },
+    {
+      "indent": 3,
+      "text": "Since TWAMP adds an additional Control command beyond the OWAMP-Control specification and describes behavior when this control command is used, IANA has created a registry for the TWAMP Command Number field. The field is not explicitly named in [RFC4656] but is called out for each command. This field is a recognized extension mechanism for TWAMP.",
+      "zh-CHS": "由于TWAMP在OWAMP控制规范之外添加了一个额外的控制命令，并描述了使用该控制命令时的行为，因此IANA为TWAMP命令编号字段创建了一个注册表。该字段在[RFC4656]中没有明确命名，但会为每个命令调用。此字段是公认的TWAMP扩展机制。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Registry Specification",
+      "section_title": true,
+      "zh-CHS": "8.1. 注册表规范"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has created a TWAMP-Control Command Number registry. TWAMP-Control commands are specified by the first octet in OWAMP-Control messages as shown in Section 3.5 of [RFC4656], and modified by this document. Thus, this registry may contain sixteen possible values.",
+      "zh-CHS": "IANA已经创建了一个TWAMP控制命令号注册表。TWAMP控制命令由OWAMP控制消息中的第一个八位字节指定，如[RFC4656]第3.5节所示，并由本文件修改。因此，该注册表可能包含16个可能的值。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Registry Management",
+      "section_title": true,
+      "zh-CHS": "8.2. 注册表管理"
+    },
+    {
+      "indent": 3,
+      "text": "Because the registry may only contain sixteen values, and because OWAMP and TWAMP are IETF protocols, this registry must only be updated by \"IETF Consensus\" as specified in [RFC5226] -- an RFC documenting the use that is approved by the IESG. We expect that new values will be assigned as monotonically increasing integers in the range [0-15], unless there is a good reason to do otherwise.",
+      "zh-CHS": "由于注册表可能仅包含16个值，且OWAMP和TWAMP是IETF协议，因此该注册表必须仅通过[RFC5226]中规定的“IETF共识”进行更新，该协议是一份记录IESG批准使用情况的RFC。我们期望新值将被指定为[0-15]范围内的单调递增整数，除非有充分的理由这样做。"
+    },
+    {
+      "indent": 0,
+      "text": "8.3. Experimental Numbers",
+      "section_title": true,
+      "zh-CHS": "8.3. 实验数"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3692] recommends allocating an appropriate number of values for experimentation and testing. It is not clear to the authors exactly how many numbers might be useful in this space, or if it would be useful that they were easily distinguishable or at the \"high end\" of the number range. Two might be useful, say one for session control, and one for session fetch. On the other hand, a single number would allow for unlimited extension, because the format of the rest of the message could be tailored, with allocation of other numbers done once usefulness has been proven. Thus, this document allocates one number (6) as designated for experimentation and testing.",
+      "zh-CHS": "[RFC3692]建议为实验和测试分配适当数量的值。作者们不清楚到底有多少数字在这个空间中是有用的，或者它们是否容易区分或者处于数字范围的“高端”是否有用。两个可能很有用，一个用于会话控制，另一个用于会话获取。另一方面，单个数字允许无限扩展，因为消息的其余部分的格式可以定制，一旦证明有用，就可以分配其他数字。因此，本文件分配了一个编号（6），指定用于试验和测试。"
+    },
+    {
+      "indent": 0,
+      "text": "8.4. Initial Registry Contents",
+      "section_title": true,
+      "zh-CHS": "8.4. 初始注册表内容"
+    },
+    {
+      "indent": 3,
+      "text": "TWAMP-Control Command Number Registry",
+      "zh-CHS": "TWAMP控制命令号注册表"
+    },
+    {
+      "indent": 3,
+      "text": "Value Description Semantics Definition 0 Reserved 1 Forbidden 2 Start-Sessions RFC 4656, Section 3.7 3 Stop-Sessions RFC 4656, Section 3.8 4 Reserved 5 Request-TW-Session this document, Section 3.5 6 Experimentation undefined, see Section 8.3.",
+      "zh-CHS": "值描述语义定义0保留1禁止2开始会话RFC 4656，第3.7节3停止会话RFC 4656，第3.8节4保留5请求TW会话本文档第3.5节6实验未定义，请参阅第8.3节。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Internationalization Considerations",
+      "section_title": true,
+      "zh-CHS": "9. 国际化考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The protocol does not carry any information in a natural language, with the possible exception of the KeyID in TWAMP-Control, which is encoded in UTF-8 [RFC3629, RFC5198].",
+      "zh-CHS": "该协议不携带任何自然语言的信息，TWAMP控件中的KeyID可能除外，它以UTF-8编码[RFC3629，RFC5198]。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix I - TWAMP Light (Informative)",
+      "zh-CHS": "附录I-TWAMP灯（资料性）"
+    },
+    {
+      "indent": 3,
+      "text": "In this example, the roles of Control-Client, Server, and Session-Sender are implemented in one host referred to as the controller, and the role of Session-Reflector is implemented in another host referred to as the responder.",
+      "zh-CHS": "在此示例中，控制客户端、服务器和会话发送器的角色在称为控制器的一台主机中实现，会话反射器的角色在称为响应者的另一台主机中实现。"
+    },
+    {
+      "indent": 10,
+      "text": "    controller                              responder\n+-----------------+                   +-------------------+\n|     Server      |<----------------->|                   |\n| Control-Client  |                   | Session-Reflector |\n| Session-Sender  |<--TWAMP-Test----->|                   |\n+-----------------+                   +-------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This example provides a simple architecture for responders where their role will be to simply act as light test points in the network. The controller establishes the test session with the Server through non-standard means. After the session is established, the controller transmits test packets to the responder. The responder follows the Session-Reflector behavior of TWAMP as described in section 4.2 with the following exceptions.",
+      "zh-CHS": "此示例为响应者提供了一个简单的体系结构，其中响应者的角色将只是充当网络中的灯光测试点。控制器通过非标准方式与服务器建立测试会话。会话建立后，控制器向响应者发送测试数据包。响应者遵循第4.2节所述的TWAMP会话反射行为，但以下情况除外。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of TWAMP Light, the Session-Reflector does not necessarily have knowledge of the session state. IF the Session-Reflector does not have knowledge of the session state, THEN the Session-Reflector MUST copy the Sequence Number of the received packet to the Sequence Number field of the reflected packet. The controller receives the reflected test packets and collects two-way metrics. This architecture allows for collection of two-way metrics.",
+      "zh-CHS": "在TWAMP灯的情况下，会话反射器不一定知道会话状态。如果会话反射器不知道会话状态，则会话反射器必须将所接收分组的序列号复制到所反射分组的序列号字段。控制器接收反射的测试数据包并收集双向度量。此体系结构允许收集双向度量。"
+    },
+    {
+      "indent": 3,
+      "text": "This example eliminates the need for the TWAMP-Control protocol, and assumes that the Session-Reflector is configured and communicates its configuration with the Server through non-standard means. The Session-Reflector simply reflects the incoming packets back to the controller while copying the necessary information and generating sequence number and timestamp values per Section 4.2.1. TWAMP Light introduces some additional security considerations. The non-standard means to control the responder and establish test sessions SHOULD offer the features listed below.",
+      "zh-CHS": "此示例消除了对TWAMP控制协议的需要，并假设会话反射器已配置，并通过非标准方式与服务器通信其配置。会话反射器只是将传入的数据包反射回控制器，同时根据第4.2.1节复制必要的信息并生成序列号和时间戳值。TWAMP灯引入了一些额外的安全注意事项。控制响应者和建立测试会话的非标准方法应提供下列特征。"
+    },
+    {
+      "indent": 3,
+      "text": "The non-standard responder control protocol SHOULD have an authenticated mode of operation. The responder SHOULD be configurable to accept only authenticated control sessions.",
+      "zh-CHS": "非标准响应者控制协议应具有经过验证的操作模式。响应程序应可配置为仅接受经过身份验证的控制会话。"
+    },
+    {
+      "indent": 3,
+      "text": "The non-standard responder control protocol SHOULD have a means to activate the authenticated and encrypted modes of the TWAMP-Test protocol.",
+      "zh-CHS": "非标准响应者控制协议应具有激活TWAMP测试协议的认证和加密模式的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "When the TWAMP Light test sessions operate in authenticated or encrypted mode, the Session-Reflector MUST have some mechanism for generating keys (because the TWAMP-Control protocol normally plays a role in this process, but is not present here). The specification of the key generation mechanism is beyond the scope of this memo.",
+      "zh-CHS": "当TWAMP灯光测试会话在认证或加密模式下运行时，会话反射器必须具有某种生成密钥的机制（因为TWAMP控制协议通常在此过程中起作用，但此处不存在）。密钥生成机制的规范超出了本备忘录的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "Normative References",
+      "zh-CHS": "规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4656] Shalunov, S., Teitelbaum, B., Karp, A., Boote, J., and M. Zekauskas, \"A One-way Active Measurement Protocol (OWAMP)\", RFC 4656, September 2006.",
+      "zh-CHS": "[RFC4656]Shalunov，S.，Teitelbaum，B.，Karp，A.，Boote，J.，和M.Zekauskas，“单向主动测量协议（OWAMP）”，RFC 46562006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2681] Almes, G., Kalidindi, S., and M. Zekauskas, \"A Round-trip Delay Metric for IPPM\", RFC 2681, September 1999.",
+      "zh-CHS": "[RFC2681]Almes，G.，Kalidini，S.，和M.Zekauskas，“IPPM的往返延迟度量”，RFC 2681，1999年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2474] Nichols, K., Blake, S., Baker, F., and D. Black, \"Definition of the Differentiated Services Field (DS Field) in the IPv4 and IPv6 Headers\", RFC 2474, December 1998.",
+      "zh-CHS": "[RFC2474]Nichols，K.，Blake，S.，Baker，F.，和D.Black，“IPv4和IPv6头中区分服务字段（DS字段）的定义”，RFC 2474，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5226] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 5226, May 2008.",
+      "zh-CHS": "[RFC5226]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 5226，2008年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3629] Yergeau, F., \"UTF-8, a transformation format of ISO 10646\", STD 63, RFC 3629, November 2003.",
+      "zh-CHS": "[RFC3629]Yergeau，F.，“UTF-8，ISO 10646的转换格式”，STD 63，RFC 3629，2003年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5198] Klensin, J. and M. Padlipsky, \"Unicode Format for Network Interchange\", RFC 5198, March 2008.",
+      "zh-CHS": "[RFC5198]Klensin，J.和M.Padlipsky，“网络交换的Unicode格式”，RFC 51982008年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Informative References",
+      "zh-CHS": "资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3692] Narten, T., \"Assigning Experimental and Testing Numbers Considered Useful\", BCP 82, RFC 3692, January 2004.",
+      "zh-CHS": "[RFC3692]Narten，T.，“分配被认为有用的实验和测试数字”，BCP 82，RFC 3692，2004年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Kaynam Hedayat Brix Networks 285 Mill Road Chelmsford, MA 01824 USA EMail: khedayat@brixnet.com URI: http://www.brixnet.com/",
+      "zh-CHS": "Kaynam Hedayat Brix Networks美国马萨诸塞州切姆斯福德密尔路285号邮编01824电子邮件：khedayat@brixnet.comURI:http://www.brixnet.com/"
+    },
+    {
+      "indent": 3,
+      "text": "Roman M. Krzanowski, Ph.D. Verizon 500 Westchester Ave. White Plains, NY USA EMail: roman.krzanowski@verizon.com URI: http://www.verizon.com/",
+      "zh-CHS": "罗曼·克扎诺夫斯基博士。美国纽约州怀特平原韦斯特切斯特大道500号Verizon电子邮件：roman。krzanowski@verizon.comURI:http://www.verizon.com/"
+    },
+    {
+      "indent": 3,
+      "text": "Al Morton\nAT&T Labs\nRoom D3 - 3C06\n200 Laurel Ave. South\nMiddletown, NJ 07748\nUSA\nPhone  +1 732 420 1571\nEMail: acmorton@att.com\nURI:   http://home.comcast.net/~acmacm/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Kiho Yum Juniper Networks 1194 Mathilda Ave. Sunnyvale, CA USA EMail: kyum@juniper.net URI: http://www.juniper.com/",
+      "zh-CHS": "Kiho Yum Juniper Networks美国加利福尼亚州桑尼维尔市玛蒂尔达大道1194号电子邮件：kyum@juniper.netURI:http://www.juniper.com/"
+    },
+    {
+      "indent": 3,
+      "text": "Jozef Z. Babiarz Nortel Networks 3500 Carling Avenue Ottawa, Ont K2H 8E9 Canada Email: babiarz@nortel.com URI: http://www.nortel.com/",
+      "zh-CHS": "Jozef Z.Babiarz Nortel Networks加拿大安大略省渥太华卡林大道3500号K2H 8E9电子邮件：babiarz@nortel.comURI:http://www.nortel.com/"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

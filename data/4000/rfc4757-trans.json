@@ -1,0 +1,985 @@
+{
+  "title": {
+    "text": "RFC 4757: The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows",
+    "zh-CHS": "RFC 4757"
+  },
+  "number": 4757,
+  "created_at": "2021-11-14 22:49:43.290001+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                      K. Jaganathan\nRequest for Comments: 4757                                        L. Zhu\nCategory: Informational                                        J. Brezak\n                                                   Microsoft Corporation\n                                                           December 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows",
+      "zh-CHS": "Windows RCAC使用的Windows Kerberos加密类型"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "IESG Note",
+      "zh-CHS": "IESG注释"
+    },
+    {
+      "indent": 3,
+      "text": "This document documents the RC4 Kerberos encryption types first introduced in Microsoft Windows 2000. Since then, these encryption types have been implemented in a number of Kerberos implementations. The IETF Kerberos community supports publishing this specification as an informational document in order to describe this widely implemented technology. However, while these encryption types provide the operations necessary to implement the base Kerberos specification [RFC4120], they do not provide all the required operations in the Kerberos cryptography framework [RFC3961]. As a result, it is not generally possible to implement potential extensions to Kerberos using these encryption types. The Kerberos encryption type negotiation mechanism [RFC4537] provides one approach for using such extensions even when a Kerberos infrastructure uses long-term RC4 keys. Because this specification does not implement operations required by RFC 3961 and because of security concerns with the use of RC4 and MD4 discussed in Section 8, this specification is not appropriate for publication on the standards track.",
+      "zh-CHS": "本文档记录了Microsoft Windows 2000中首次引入的RC4 Kerberos加密类型。从那时起，这些加密类型已经在许多Kerberos实现中实现。IETF Kerberos社区支持将此规范作为信息文档发布，以描述此广泛实现的技术。但是，尽管这些加密类型提供了实现基本Kerberos规范[RFC4120]所需的操作，但它们并没有提供Kerberos加密框架[RFC3961]中所需的所有操作。因此，通常不可能使用这些加密类型实现对Kerberos的潜在扩展。Kerberos加密类型协商机制[RFC4537]为使用此类扩展提供了一种方法，即使Kerberos基础结构使用长期RC4密钥。由于本规范未实现RFC 3961要求的操作，并且由于第8节讨论的RC4和MD4使用的安全问题，本规范不适合在标准轨道上发布。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Microsoft Windows 2000 implementation of Kerberos introduces a new encryption type based on the RC4 encryption algorithm and using an MD5 HMAC for checksum. This is offered as an alternative to using the existing DES-based encryption types.",
+      "zh-CHS": "Kerberos的Microsoft Windows 2000实现引入了一种基于RC4加密算法的新加密类型，并使用MD5 HMAC进行校验和。这是使用现有基于DES的加密类型的替代方案。"
+    },
+    {
+      "indent": 3,
+      "text": "The RC4-HMAC encryption types are used to ease upgrade of existing Windows NT environments, provide strong cryptography (128-bit key lengths), and provide exportable (meet United States government export restriction requirements) encryption. This document describes the implementation of those encryption types.",
+      "zh-CHS": "RC4-HMAC加密类型用于简化现有Windows NT环境的升级，提供强加密（128位密钥长度），并提供可导出（满足美国政府出口限制要求）加密。本文档描述了这些加密类型的实现。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Conventions Used in This Document ..........................3\n2. Key Generation ..................................................3\n3. Basic Operations ................................................4\n4. Checksum Types ..................................................5\n5. Encryption Types ................................................6\n6. Key Strength Negotiation ........................................8\n7. GSS-API Kerberos V5 Mechanism Type ..............................8\n   7.1. Mechanism Specific Changes .................................8\n   7.2. GSS-API MIC Semantics ......................................9\n   7.3. GSS-API WRAP Semantics ....................................11\n8. Security Considerations ........................................15\n9. IANA Considerations ............................................15\n10. Acknowledgements ..............................................15\n11. References ....................................................16\n   11.1. Normative References .....................................16\n   11.2. Informative References ...................................16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Microsoft Windows 2000 implementation of Kerberos contains new encryption and checksum types for two reasons. First, for export reasons early in the development process, 56-bit DES encryption could not be exported, and, second, upon upgrade from Windows NT 4.0 to Windows 2000, accounts will not have the appropriate DES keying material to do the standard DES encryption. Furthermore, 3DES was not available for export when Windows 2000 was released, and there was a desire to use a single flavor of encryption in the product for both US and international products.",
+      "zh-CHS": "Kerberos的Microsoft Windows 2000实现包含新的加密和校验和类型，原因有二。首先，由于开发过程早期的导出原因，56位DES加密无法导出，其次，从Windows NT 4.0升级到Windows 2000后，帐户将没有适当的DES密钥资料来执行标准DES加密。此外，当Windows 2000发布时，3DES不可用于出口，人们希望在产品中为美国和国际产品使用单一风格的加密。"
+    },
+    {
+      "indent": 3,
+      "text": "As a result, there are two new encryption types and one new checksum type introduced in Microsoft Windows 2000.",
+      "zh-CHS": "因此，Microsoft Windows 2000中引入了两种新的加密类型和一种新的校验和类型。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that these cryptosystems aren't intended to be complete, general-purpose Kerberos encryption or checksum systems as defined in [RFC3961]: there is no one-one mapping between the operations in this documents and the primitives described in [RFC3961].",
+      "zh-CHS": "请注意，这些密码系统不是[RFC3961]中定义的完整、通用Kerberos加密或校验和系统：本文档中的操作与[RFC3961]中描述的原语之间没有一个映射。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "1.1. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Key Generation",
+      "section_title": true,
+      "zh-CHS": "2. 密钥生成"
+    },
+    {
+      "indent": 3,
+      "text": "On upgrade from existing Windows NT domains, the user accounts would not have a DES-based key available to enable the use of DES base encryption types specified in [RFC4120] and [RFC3961]. The key used for RC4-HMAC is the same as the existing Windows NT key (NT Password Hash) for compatibility reasons. Once the account password is changed, the DES-based keys are created and maintained. Once the DES keys are available, DES-based encryption types can be used with Kerberos.",
+      "zh-CHS": "从现有Windows NT域升级时，用户帐户将无法使用基于DES的密钥来启用[RFC4120]和[RFC3961]中指定的DES基本加密类型。出于兼容性原因，RC4-HMAC使用的密钥与现有Windows NT密钥（NT密码哈希）相同。更改帐户密码后，将创建并维护基于DES的密钥。一旦DES密钥可用，基于DES的加密类型就可以与Kerberos一起使用。"
+    },
+    {
+      "indent": 3,
+      "text": "The RC4-HMAC string to key function is defined as follows:",
+      "zh-CHS": "RC4-HMAC串到键功能定义如下："
+    },
+    {
+      "indent": 6,
+      "text": "String2Key(password)",
+      "zh-CHS": "String2Key（密码）"
+    },
+    {
+      "indent": 11,
+      "text": "K = MD4(UNICODE(password))",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The RC4-HMAC keys are generated by using the Windows UNICODE version of the password. Each Windows UNICODE character is encoded in little-endian format of 2 octets each. Then an MD4 [RFC1320] hash operation is performed on just the UNICODE characters of the password (not including the terminating zero octets).",
+      "zh-CHS": "RC4-HMAC密钥是使用Windows UNICODE版本的密码生成的。每个Windows UNICODE字符都以小尾端格式编码，每个字符有2个八位字节。然后，仅对密码的UNICODE字符（不包括终止的零八位字节）执行MD4[RFC1320]哈希操作。"
+    },
+    {
+      "indent": 3,
+      "text": "For an account with a password of \"foo\", this String2Key(\"foo\") will return:",
+      "zh-CHS": "对于密码为“foo”的帐户，此String2Key（“foo”）将返回："
+    },
+    {
+      "indent": 11,
+      "text": "0xac, 0x8e, 0x65, 0x7f, 0x83, 0xdf, 0x82, 0xbe, 0xea, 0x5d, 0x43, 0xbd, 0xaf, 0x78, 0x00, 0xcc",
+      "zh-CHS": "0xac、0x8e、0x65、0x7f、0x83、0xdf、0x82、0xbe、0xea、0x5d、0x43、0xbd、0xaf、0x78、0x00、0xcc"
+    },
+    {
+      "indent": 0,
+      "text": "3. Basic Operations",
+      "section_title": true,
+      "zh-CHS": "3. 基本操作"
+    },
+    {
+      "indent": 3,
+      "text": "The MD5 HMAC function is defined in [RFC2104]. It is used in this encryption type for checksum operations. Refer to [RFC2104] for details on its operation. In this document, this function is referred to as HMAC(Key, Data) returning the checksum using the specified key on the data.",
+      "zh-CHS": "MD5 HMAC功能在[RFC2104]中定义。它在此加密类型中用于校验和操作。有关其操作的详细信息，请参阅[RFC2104]。在本文档中，此函数称为HMAC（键，数据），使用数据上的指定键返回校验和。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic MD5 hash operation is used in this encryption type and defined in [RFC1321]. In this document, this function is referred to as MD5(Data) returning the checksum of the data.",
+      "zh-CHS": "基本MD5哈希操作用于此加密类型，并在[RFC1321]中定义。在本文档中，此函数称为MD5（数据），返回数据的校验和。"
+    },
+    {
+      "indent": 3,
+      "text": "RC4 is a stream cipher licensed by RSA Data Security. In this document, the function is referred to as RC4(Key, Data) returning the encrypted data using the specified key on the data.",
+      "zh-CHS": "RC4是RSA Data Security许可的流密码。在本文档中，该函数称为RC4（密钥，数据），使用数据上的指定密钥返回加密数据。"
+    },
+    {
+      "indent": 3,
+      "text": "These encryption types use key derivation. With each message, the message type (T) is used as a component of the keying material. The following table summarizes the different key derivation values used in the various operations. Note that these differ from the key derivations used in other Kerberos encryption types. T = the message type, encoded as a little-endian four-byte integer.",
+      "zh-CHS": "这些加密类型使用密钥派生。对于每条消息，消息类型（T）用作键控材料的一个组件。下表总结了各种操作中使用的不同键派生值。请注意，这些不同于其他Kerberos加密类型中使用的密钥派生。T=消息类型，编码为小端四字节整数。"
+    },
+    {
+      "indent": 6,
+      "text": "1. AS-REQ PA-ENC-TIMESTAMP padata timestamp, encrypted with the client key (T=1) 2. AS-REP Ticket and TGS-REP Ticket (includes TGS session key or application session key), encrypted with the service key (T=2) 3. AS-REP encrypted part (includes TGS session key or application session key), encrypted with the client key (T=8) 4. TGS-REQ KDC-REQ-BODY AuthorizationData, encrypted with the TGS session key (T=4) 5. TGS-REQ KDC-REQ-BODY AuthorizationData, encrypted with the TGS authenticator subkey (T=5) 6. TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator cksum, keyed with the TGS session key (T=6) 7. TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator (includes TGS authenticator subkey), encrypted with the TGS session key T=7) 8. TGS-REP encrypted part (includes application session key), encrypted with the TGS session key (T=8) 9. TGS-REP encrypted part (includes application session key), encrypted with the TGS authenticator subkey (T=8)",
+      "zh-CHS": "1. AS-REQ PA-ENC-TIMESTAMP padata TIMESTAMP，使用客户端密钥（T=1）2加密。AS-REP票证和TGS-REP票证（包括TGS会话密钥或应用程序会话密钥），使用服务密钥（T=2）3加密。AS-REP加密部分（包括TGS会话密钥或应用程序会话密钥），使用客户端密钥（T=8）4加密。TGS-REQ KDC-REQ-BODY授权数据，使用TGS会话密钥（T=4）5加密。TGS-REQ KDC-REQ-BODY AuthorizationData，使用TGS验证器子密钥（T=5）6加密。TGS-REQ PA-TGS-REQ padata AP-REQ验证器cksum，用TGS会话密钥（T=6）7键入。TGS-REQ PA-TGS-REQ padata AP-REQ验证器（包括TGS验证器子密钥），用TGS会话密钥T=7加密）8。TGS-REP加密部分（包括应用程序会话密钥），使用TGS会话密钥（T=8）9加密。TGS-REP加密部分（包括应用程序会话密钥），使用TGS验证器子密钥（T=8）加密"
+    },
+    {
+      "indent": 6,
+      "text": "10. AP-REQ Authenticator cksum, keyed with the application session key (T=10) 11. AP-REQ Authenticator (includes application authenticator subkey), encrypted with the application session key (T=11) 12. AP-REP encrypted part (includes application session subkey), encrypted with the application session key (T=12) 13. KRB-PRIV encrypted part, encrypted with a key chosen by the application. Also for data encrypted with GSS Wrap (T=13) 14. KRB-CRED encrypted part, encrypted with a key chosen by the application (T=14) 15. KRB-SAFE cksum, keyed with a key chosen by the application. Also for data signed in GSS MIC (T=15)",
+      "zh-CHS": "10. AP-REQ验证器cksum，用应用程序会话密钥（T=10）11键入。AP-REQ验证器（包括应用验证器子密钥），用应用会话密钥（T=11）12加密。AP-REP加密部分（包括应用程序会话子密钥），用应用程序会话密钥（T=12）13加密。KRB-PRIV加密部分，使用应用程序选择的密钥加密。也适用于使用GSS Wrap（T=13）14加密的数据。KRB-CRED加密部分，使用应用程序选择的密钥（T=14）15进行加密。KRB-SAFE cksum，使用应用程序选择的密钥键入。也适用于在GSS MIC中签名的数据（T=15）"
+    },
+    {
+      "indent": 6,
+      "text": "Relative to RFC-1964 key uses:",
+      "zh-CHS": "相对于RFC-1964的主要用途："
+    },
+    {
+      "indent": 6,
+      "text": "T = 0 in the generation of sequence number for the MIC token T = 0 in the generation of sequence number for the WRAP token T = 0 in the generation of encrypted data for the WRAPPED token",
+      "zh-CHS": "在生成MIC令牌的序列号时T=0在生成包裹令牌的序列号时T=0在生成包裹令牌的加密数据时T=0"
+    },
+    {
+      "indent": 3,
+      "text": "All strings in this document are ASCII unless otherwise specified. The lengths of ASCII-encoded character strings include the trailing terminator character (0). The concat(a,b,c,...) function will return the logical concatenation (left to right) of the values of the arguments. The nonce(n) function returns a pseudo-random number of \"n\" octets.",
+      "zh-CHS": "除非另有规定，本文档中的所有字符串均为ASCII。ASCII编码字符串的长度包括结尾字符（0）。concat（a，b，c，…）函数将返回参数值的逻辑连接（从左到右）。nonce（n）函数返回“n”个八位字节的伪随机数。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Checksum Types",
+      "section_title": true,
+      "zh-CHS": "4. 校验和类型"
+    },
+    {
+      "indent": 3,
+      "text": "There is one checksum type used in this encryption type. The Kerberos constant for this type is:",
+      "zh-CHS": "此加密类型中使用了一种校验和类型。此类型的Kerberos常量为："
+    },
+    {
+      "indent": 11,
+      "text": "#define KERB_CHECKSUM_HMAC_MD5 (-138)",
+      "zh-CHS": "#定义路缘石校验和HMAC MD5（-138）"
+    },
+    {
+      "indent": 6,
+      "text": "The function is defined as follows:",
+      "zh-CHS": "该函数定义如下："
+    },
+    {
+      "indent": 6,
+      "text": "K = the Key T = the message type, encoded as a little-endian four-byte integer",
+      "zh-CHS": "K=密钥T=消息类型，编码为小端四字节整数"
+    },
+    {
+      "indent": 6,
+      "text": "CHKSUM(K, T, data)",
+      "zh-CHS": "CHKSUM（K，T，data）"
+    },
+    {
+      "indent": 11,
+      "text": "Ksign = HMAC(K, \"signaturekey\")  //includes zero octet at end\ntmp = MD5(concat(T, data))\nCHKSUM = HMAC(Ksign, tmp)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "5. Encryption Types",
+      "section_title": true,
+      "zh-CHS": "5. 加密类型"
+    },
+    {
+      "indent": 3,
+      "text": "There are two encryption types used in these encryption types. The Kerberos constants for these types are:",
+      "zh-CHS": "这些加密类型中使用了两种加密类型。这些类型的Kerberos常量为："
+    },
+    {
+      "indent": 11,
+      "text": "#define KERB_ETYPE_RC4_HMAC 23 #define KERB_ETYPE_RC4_HMAC_EXP 24",
+      "zh-CHS": "#定义路缘石RC4 HMAC 23#定义路缘石RC4 HMAC EXP 24"
+    },
+    {
+      "indent": 3,
+      "text": "The basic encryption function is defined as follows:",
+      "zh-CHS": "基本加密功能定义如下："
+    },
+    {
+      "indent": 5,
+      "text": "T = the message type, encoded as a little-endian four-byte integer.",
+      "zh-CHS": "T=消息类型，编码为小端四字节整数。"
+    },
+    {
+      "indent": 11,
+      "text": "OCTET L40[14] = \"fortybits\";",
+      "zh-CHS": "八位组L40[14]=“四位组”；"
+    },
+    {
+      "indent": 6,
+      "text": "The header field on the encrypted data in KDC messages is:",
+      "zh-CHS": "KDC消息中加密数据的标题字段为："
+    },
+    {
+      "indent": 11,
+      "text": "typedef struct _RC4_MDx_HEADER {\n    OCTET Checksum[16];\n    OCTET Confounder[8];\n} RC4_MDx_HEADER, *PRC4_MDx_HEADER;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "ENCRYPT (K, export, T, data)\n{\n    struct EDATA {\n        struct HEADER {\n                OCTET Checksum[16];\n                OCTET Confounder[8];\n        } Header;\n        OCTET Data[0];\n    } edata;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "if (export){\n    *((DWORD *)(L40+10)) = T;\n    K1 = HMAC(K, L40); // where the length of L40 in\n                       // octets is 14\n}\nelse\n{\n    K1 = HMAC(K, &T); // where the length of T in octets\n                      // is 4\n}\nmemcpy (K2, K1, 16);\nif (export) memset (K1+7, 0xAB, 9);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "nonce (edata.Confounder, 8);\nmemcpy (edata.Data, data);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "edata.Checksum = HMAC (K2, edata);\nK3 = HMAC (K1, edata.Checksum);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "    RC4 (K3, edata.Confounder);\n    RC4 (K3, data.Data);\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "DECRYPT (K, export, T, edata)\n{\n    // edata looks like\n    struct EDATA {\n        struct HEADER {\n                OCTET Checksum[16];\n                OCTET Confounder[8];\n        } Header;\n        OCTET Data[0];\n    } edata;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "if (export){\n    *((DWORD *)(L40+10)) = T;\n    HMAC (K, L40, 14, K1);\n}\nelse\n{\n    HMAC (K, &T, 4, K1);\n}\nmemcpy (K2, K1, 16);\nif (export) memset (K1+7, 0xAB, 9);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "K3 = HMAC (K1, edata.Checksum);\nRC4 (K3, edata.Confounder);\nRC4 (K3, edata.Data);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "    // verify generated and received checksums\n  checksum = HMAC (K2, concat(edata.Confounder, edata.Data));\n    if (checksum != edata.Checksum)\n        printf(\"CHECKSUM ERROR  !!!!!!\\n\");\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The KDC message is encrypted using the ENCRYPT function not including the Checksum in the RC4_MDx_HEADER.",
+      "zh-CHS": "KDC消息使用加密函数进行加密，该函数不包括RC4_MDx_头中的校验和。"
+    },
+    {
+      "indent": 3,
+      "text": "The character constant \"fortybits\" evolved from the time when a 40-bit key length was all that was exportable from the United States. It is now used to recognize that the key length is of \"exportable\" length. In this description, the key size is actually 56 bits.",
+      "zh-CHS": "字符常量“fortybits”是从40位密钥长度是美国唯一可以输出的时间开始演变而来的。它现在用于识别密钥长度为“可导出”长度。在此描述中，密钥大小实际上是56位。"
+    },
+    {
+      "indent": 3,
+      "text": "The pseudo-random operation [RFC3961] for both enctypes above is defined as follows:",
+      "zh-CHS": "上述两种类型的伪随机操作[RFC3961]定义如下："
+    },
+    {
+      "indent": 11,
+      "text": "pseudo-random(K, S) = HMAC-SHA1(K, S)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where K is the protocol key and S is the input octet string. HMAC-SHA1 is defined in [RFC2104] and the output of HMAC-SHA1 is the 20-octet digest.",
+      "zh-CHS": "其中K是协议密钥，S是输入八位字节字符串。HMAC-SHA1在[RFC2104]中定义，HMAC-SHA1的输出为20个八位组摘要。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Key Strength Negotiation",
+      "section_title": true,
+      "zh-CHS": "6. 关键力量谈判"
+    },
+    {
+      "indent": 3,
+      "text": "A Kerberos client and server can negotiate over key length if they are using mutual authentication. If the client is unable to perform full-strength encryption, it may propose a key in the \"subkey\" field of the authenticator, using a weaker encryption type. The server must then either return the same key or suggest its own key in the subkey field of the AP reply message. The key used to encrypt data is derived from the key returned by the server. If the client is able to perform strong encryption but the server is not, it may propose a subkey in the AP reply without first being sent a subkey in the authenticator.",
+      "zh-CHS": "如果使用相互身份验证，Kerberos客户端和服务器可以协商密钥长度。如果客户端无法执行全强度加密，它可以使用较弱的加密类型在验证器的“子密钥”字段中提出密钥。然后，服务器必须在AP应答消息的子密钥字段中返回相同的密钥或建议自己的密钥。用于加密数据的密钥来自服务器返回的密钥。如果客户端能够执行强加密，但服务器不能，则它可以在AP应答中建议一个子密钥，而无需首先在验证器中发送子密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "7. GSS-API Kerberos V5 Mechanism Type",
+      "section_title": true,
+      "zh-CHS": "7. GSS-API Kerberos V5机制类型"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Mechanism Specific Changes",
+      "section_title": true,
+      "zh-CHS": "7.1. 特定机制的变化"
+    },
+    {
+      "indent": 3,
+      "text": "The Generic Security Service Application Program Interface (GSS-API) per-message tokens also require new checksum and encryption types. The GSS-API per-message tokens are adapted to support these new encryption types. See [RFC1964] Section 1.2.2.",
+      "zh-CHS": "通用安全服务应用程序接口（GSS-API）每消息令牌也需要新的校验和和加密类型。GSS-API每消息令牌经过调整以支持这些新的加密类型。参见[RFC1964]第1.2.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "The only support quality of protection is:",
+      "zh-CHS": "保护的唯一支持质量是："
+    },
+    {
+      "indent": 9,
+      "text": "#define GSS_KRB5_INTEG_C_QOP_DEFAULT 0x0",
+      "zh-CHS": "#定义GSS_KRB5_INTEG_C_QOP_默认值0x0"
+    },
+    {
+      "indent": 3,
+      "text": "When using this RC4-based encryption type, the sequence number is always sent in big-endian rather than little-endian order.",
+      "zh-CHS": "当使用这种基于RC4的加密类型时，序列号总是以大端顺序而不是小端顺序发送。"
+    },
+    {
+      "indent": 3,
+      "text": "The Windows 2000 implementation also defines new GSS-API flags in the initial token passed when initializing a security context. These flags are passed in the checksum field of the authenticator. See [RFC1964] Section 1.1.1.",
+      "zh-CHS": "Windows 2000实现还在初始化安全上下文时传递的初始令牌中定义新的GSS-API标志。这些标志在验证器的校验和字段中传递。参见[RFC1964]第1.1.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "GSS_C_DCE_STYLE - This flag was added for use with Microsoft's implementation of Distributed Computing Environment Remote Procedure Call (DCE RPC), which initially expected three legs of authentication. Setting this flag causes an extra AP reply to be sent from the client back to the server after receiving the server's",
+      "zh-CHS": "GSS_C_DCE_风格-此标志添加用于Microsoft的分布式计算环境远程过程调用（DCE RPC）实现，该实现最初需要三段身份验证。设置此标志将导致在收到服务器的响应后，从客户端向服务器发送额外的AP应答"
+    },
+    {
+      "indent": 3,
+      "text": "AP reply. In addition, the context negotiation tokens do not have GSS-API per-message tokens -- they are raw AP messages that do not include object identifiers.",
+      "zh-CHS": "美联社回复。此外，上下文协商令牌没有GSS-API每消息令牌——它们是不包含对象标识符的原始AP消息。"
+    },
+    {
+      "indent": 11,
+      "text": "#define GSS_C_DCE_STYLE 0x1000",
+      "zh-CHS": "#定义GSS_C_DCE_样式0x1000"
+    },
+    {
+      "indent": 3,
+      "text": "GSS_C_IDENTIFY_FLAG - This flag allows the client to indicate to the server that it should only allow the server application to identify the client by name and ID, but not to impersonate the client.",
+      "zh-CHS": "GSS_C_identification_标志-此标志允许客户端向服务器指示它只允许服务器应用程序通过名称和ID标识客户端，而不允许模拟客户端。"
+    },
+    {
+      "indent": 11,
+      "text": "#define GSS_C_IDENTIFY_FLAG 0x2000",
+      "zh-CHS": "#定义GSS_C_标识_标志0x2000"
+    },
+    {
+      "indent": 3,
+      "text": "GSS_C_EXTENDED_ERROR_FLAG - Setting this flag indicates that the client wants to be informed of extended error information. In particular, Windows 2000 status codes may be returned in the data field of a Kerberos error message. This allows the client to understand a server failure more precisely. In addition, the server may return errors to the client that are normally handled at the application layer in the server, in order to let the client try to recover. After receiving an error message, the client may attempt to resubmit an AP request.",
+      "zh-CHS": "GSS_C_EXTENDED_ERROR_标志-设置此标志表示客户端希望收到扩展错误信息的通知。特别是，Windows 2000状态代码可能会在Kerberos错误消息的数据字段中返回。这使客户机能够更准确地理解服务器故障。此外，服务器可能会将通常在服务器的应用程序层处理的错误返回给客户端，以便让客户端尝试恢复。收到错误消息后，客户端可能会尝试重新提交AP请求。"
+    },
+    {
+      "indent": 11,
+      "text": "#define GSS_C_EXTENDED_ERROR_FLAG 0x4000",
+      "zh-CHS": "#定义GSS_C_扩展_错误_标志0x4000"
+    },
+    {
+      "indent": 3,
+      "text": "These flags are only used if a client is aware of these conventions when using the Security Support Provider Interface (SSPI) on the Windows platform; they are not generally used by default.",
+      "zh-CHS": "这些标志仅在客户端在Windows平台上使用安全支持提供程序接口（SSPI）时知道这些约定时使用；默认情况下，它们通常不使用。"
+    },
+    {
+      "indent": 3,
+      "text": "When NetBIOS addresses are used in the GSS-API, they are identified by the GSS_C_AF_NETBIOS value. This value is defined as:",
+      "zh-CHS": "当在GSS-API中使用NetBIOS地址时，它们由GSS_C_AF_NetBIOS值标识。该值定义为："
+    },
+    {
+      "indent": 11,
+      "text": "#define GSS_C_AF_NETBIOS 0x14",
+      "zh-CHS": "#定义GSS_C_AF_NETBIOS 0x14"
+    },
+    {
+      "indent": 3,
+      "text": "NetBios addresses are 16-octet addresses typically composed of 1 to 15 characters, trailing blank (ASCII char 20) filled, with a 16th octet of 0x0.",
+      "zh-CHS": "NetBios地址是16个八位字节地址，通常由1到15个字符组成，尾随空格（ASCII字符20）填充，第16个八位字节为0x0。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. GSS-API MIC Semantics",
+      "section_title": true,
+      "zh-CHS": "7.2. GSS-API MIC语义"
+    },
+    {
+      "indent": 3,
+      "text": "The GSS-API checksum type and algorithm are defined in Section 5. Only the first 8 octets of the checksum are used. The resulting checksum is stored in the SGN_CKSUM field. See [RFC1964] Section 1.2 for GSS_GetMIC() and GSS_Wrap(conf_flag=FALSE).",
+      "zh-CHS": "第5节定义了GSS-API校验和类型和算法。仅使用校验和的前8个八位字节。结果校验和存储在SGN_校验和字段中。有关GSS_GetMIC（）和GSS_Wrap（conf_flag=FALSE），请参见[RFC1964]第1.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "The GSS_GetMIC token has the following format:",
+      "zh-CHS": "GSS_GetMIC令牌具有以下格式："
+    },
+    {
+      "indent": 8,
+      "text": "Byte no Name Description 0..1 TOK_ID Identification field. Tokens emitted by GSS_GetMIC() contain the hex value 01 01 in this field. 2..3 SGN_ALG Integrity algorithm indicator. 11 00 - HMAC 4..7 Filler Contains ff ff ff ff 8..15 SND_SEQ Sequence number field. 16..23 SGN_CKSUM Checksum of \"to-be-signed data\", calculated according to algorithm specified in SGN_ALG field.",
+      "zh-CHS": "字节无名称说明0..1 TOK_ID标识字段。GSS_GetMIC（）发出的令牌在此字段中包含十六进制值01。2..3 SGN_ALG完整性算法指示器。11 00-HMAC 4..7填充包含ff 8..15序列号字段。16..23“待签名数据”的SGN_校验和，根据SGN_ALG字段中指定的算法计算。"
+    },
+    {
+      "indent": 3,
+      "text": "The MIC mechanism used for GSS-MIC-based messages is as follows:",
+      "zh-CHS": "用于基于GSS MIC的消息的MIC机制如下："
+    },
+    {
+      "indent": 11,
+      "text": "GetMIC(Kss, direction, export, seq_num, data)\n{\n        struct Token {\n               struct Header {\n                      OCTET TOK_ID[2];\n                      OCTET SGN_ALG[2];\n                      OCTET Filler[4];\n                 };\n               OCTET SND_SEQ[8];\n               OCTET SGN_CKSUM[8];\n        } Token;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Token.TOK_ID = 01 01;\nToken.SGN_SLG = 11 00;\nToken.Filler = ff ff ff ff;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Create the sequence number",
+      "zh-CHS": "//创建序列号"
+    },
+    {
+      "indent": 19,
+      "text": "if (direction == sender_is_initiator)\n{\n        memset(Token.SEND_SEQ+4, 0xff, 4)\n}\nelse if (direction == sender_is_acceptor)\n{\n        memset(Token.SEND_SEQ+4, 0, 4)\n}\nToken.SEND_SEQ[0] = (seq_num & 0xff000000) >> 24;\nToken.SEND_SEQ[1] = (seq_num & 0x00ff0000) >> 16;\nToken.SEND_SEQ[2] = (seq_num & 0x0000ff00) >> 8;\nToken.SEND_SEQ[3] = (seq_num & 0x000000ff);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Derive signing key from session key",
+      "zh-CHS": "//从会话密钥派生签名密钥"
+    },
+    {
+      "indent": 19,
+      "text": "Ksign = HMAC(Kss, \"signaturekey\");\n                  // length includes terminating null",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Generate checksum of message - SGN_CKSUM\n//   Key derivation salt = 15",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Sgn_Cksum = MD5((int32)15, Token.Header, data);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Save first 8 octets of HMAC Sgn_Cksum",
+      "zh-CHS": "//保存HMAC Sgn_Cksum的前8个八位字节"
+    },
+    {
+      "indent": 19,
+      "text": "Sgn_Cksum = HMAC(Ksign, Sgn_Cksum);\nmemcpy(Token.SGN_CKSUM, Sgn_Cksum, 8);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Encrypt the sequence number",
+      "zh-CHS": "//加密序列号"
+    },
+    {
+      "indent": 19,
+      "text": "// Derive encryption key for the sequence number\n//   Key derivation salt = 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "if (exportable)\n{\n        Kseq = HMAC(Kss, \"fortybits\", (int32)0);\n                     // len includes terminating null\n        memset(Kseq+7, 0xab, 7)\n}\nelse\n{\n         Kseq = HMAC(Kss, (int32)0);\n}\nKseq = HMAC(Kseq, Token.SGN_CKSUM);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Encrypt the sequence number",
+      "zh-CHS": "//加密序列号"
+    },
+    {
+      "indent": 11,
+      "text": "        RC4(Kseq, Token.SND_SEQ);\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "7.3. GSS-API WRAP Semantics",
+      "section_title": true,
+      "zh-CHS": "7.3. GSS-API包装语义"
+    },
+    {
+      "indent": 3,
+      "text": "There are two encryption keys for GSS-API message tokens, one that is 128 bits in strength and one that is 56 bits in strength as defined in Section 6.",
+      "zh-CHS": "GSS-API消息令牌有两个加密密钥，一个强度为128位，另一个强度为56位，如第6节所定义。"
+    },
+    {
+      "indent": 3,
+      "text": "All padding is rounded up to 1 byte. One byte is needed to say that there is 1 byte of padding. The DES-based mechanism type uses 8-byte padding. See [RFC1964] Section 1.2.2.3.",
+      "zh-CHS": "所有填充都四舍五入到1字节。需要一个字节来表示有1个字节的填充。基于DES的机制类型使用8字节填充。参见[RFC1964]第1.2.2.3节。"
+    },
+    {
+      "indent": 3,
+      "text": "The RC4-HMAC GSS_Wrap() token has the following format:",
+      "zh-CHS": "RC4-HMAC GSS_Wrap（）令牌具有以下格式："
+    },
+    {
+      "indent": 6,
+      "text": "Byte no Name Description 0..1 TOK_ID Identification field. Tokens emitted by GSS_Wrap() contain the hex value 02 01 in this field. 2..3 SGN_ALG Checksum algorithm indicator. 11 00 - HMAC 4..5 SEAL_ALG ff ff - none 00 00 - DES-CBC 10 00 - RC4 6..7 Filler Contains ff ff 8..15 SND_SEQ Encrypted sequence number field. 16..23 SGN_CKSUM Checksum of plaintext padded data, calculated according to algorithm specified in SGN_ALG field. 24..31 Confounder Random confounder. 32..last Data Encrypted or plaintext padded data.",
+      "zh-CHS": "字节无名称说明0..1 TOK_ID标识字段。GSS_Wrap（）发出的令牌在此字段中包含十六进制值02 01。2..3 SGN_ALG校验和算法指示器。11 00-HMAC 4..5密封件ff-无00-DES-CBC 10 00-RC4 6..7填充件包含ff 8..15序列号加密字段。16..23根据SGN_ALG字段中指定的算法计算的明文填充数据的SGN_校验和校验和。24..31混杂随机混杂。32.最后一个数据加密或纯文本填充数据。"
+    },
+    {
+      "indent": 3,
+      "text": "The encryption mechanism used for GSS-wrap-based messages is as follows:",
+      "zh-CHS": "用于基于GSS wrap的消息的加密机制如下所示："
+    },
+    {
+      "indent": 11,
+      "text": "WRAP(Kss, encrypt, direction, export, seq_num, data)\n{\n        struct Token {          // 32 octets\n               struct Header {\n                      OCTET TOK_ID[2];\n                      OCTET SGN_ALG[2];\n                      OCTET SEAL_ALG[2];\n                      OCTET Filler[2];\n               };\n               OCTET SND_SEQ[8];\n               OCTET SGN_CKSUM[8];\n                 OCTET Confounder[8];\n        } Token;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Token.TOK_ID = 02 01;\nToken.SGN_SLG = 11 00;\nToken.SEAL_ALG = (no_encrypt)? ff ff : 10 00;\nToken.Filler = ff ff;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Create the sequence number",
+      "zh-CHS": "//创建序列号"
+    },
+    {
+      "indent": 19,
+      "text": "if (direction == sender_is_initiator) {",
+      "zh-CHS": "如果（方向==发送方\\发起方）{"
+    },
+    {
+      "indent": 19,
+      "text": "        memset(&Token.SEND_SEQ[4], 0xff, 4)\n}\nelse if (direction == sender_is_acceptor)\n{\n        memset(&Token.SEND_SEQ[4], 0, 4)\n}\nToken.SEND_SEQ[0] = (seq_num & 0xff000000) >> 24;\nToken.SEND_SEQ[1] = (seq_num & 0x00ff0000) >> 16;\nToken.SEND_SEQ[2] = (seq_num & 0x0000ff00) >> 8;\nToken.SEND_SEQ[3] = (seq_num & 0x000000ff);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Generate random confounder",
+      "zh-CHS": "//产生随机混杂"
+    },
+    {
+      "indent": 19,
+      "text": "nonce(&Token.Confounder, 8);",
+      "zh-CHS": "nonce（和Token.confound，8）；"
+    },
+    {
+      "indent": 19,
+      "text": "// Derive signing key from session key",
+      "zh-CHS": "//从会话密钥派生签名密钥"
+    },
+    {
+      "indent": 19,
+      "text": "Ksign = HMAC(Kss, \"signaturekey\");",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Generate checksum of message -\n//  SGN_CKSUM + Token.Confounder\n//   Key derivation salt = 15",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Sgn_Cksum = MD5((int32)15, Token.Header, Token.Confounder);",
+      "zh-CHS": "Sgn_Cksum=MD5（（int32）15，Token.Header，Token.confour）；"
+    },
+    {
+      "indent": 19,
+      "text": "// Derive encryption key for data\n//   Key derivation salt = 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "for (i = 0; i < 16; i++) Klocal[i] = Kss[i] ^ 0xF0;\n                                         // XOR\nif (exportable)\n{\n        Kcrypt = HMAC(Klocal, \"fortybits\", (int32)0);\n                    // len includes terminating null\n        memset(Kcrypt+7, 0xab, 7);\n}\nelse\n{\n        Kcrypt = HMAC(Klocal, (int32)0);\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// new encryption key salted with seq",
+      "zh-CHS": "//添加了seq的新加密密钥"
+    },
+    {
+      "indent": 19,
+      "text": "Kcrypt = HMAC(Kcrypt, (int32)seq);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Encrypt confounder (if encrypting)",
+      "zh-CHS": "//加密混淆（如果加密）"
+    },
+    {
+      "indent": 19,
+      "text": "if (encrypt) RC4(Kcrypt, Token.Confounder);",
+      "zh-CHS": "if（加密）RC4（Kcrypt，Token.confour）；"
+    },
+    {
+      "indent": 19,
+      "text": "// Sum the data buffer",
+      "zh-CHS": "//对数据缓冲区求和"
+    },
+    {
+      "indent": 19,
+      "text": "Sgn_Cksum += MD5(data);         // Append to checksum",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Encrypt the data (if encrypting)",
+      "zh-CHS": "//加密数据（如果加密）"
+    },
+    {
+      "indent": 19,
+      "text": "if (encrypt) RC4(Kcrypt, data);",
+      "zh-CHS": "if（加密）RC4（Kcrypt，数据）；"
+    },
+    {
+      "indent": 19,
+      "text": "// Save first 8 octets of HMAC Sgn_Cksum",
+      "zh-CHS": "//保存HMAC Sgn_Cksum的前8个八位字节"
+    },
+    {
+      "indent": 19,
+      "text": "Sgn_Cksum = HMAC(Ksign, Sgn_Cksum);\nmemcpy(Token.SGN_CKSUM, Sgn_Cksum, 8);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Derive encryption key for the sequence number\n//   Key derivation salt = 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "if (exportable)\n{\n        Kseq = HMAC(Kss, \"fortybits\", (int32)0);\n                    // len includes terminating null\n        memset(Kseq+7, 0xab, 7)\n}\nelse\n{\n        Kseq = HMAC(Kss, (int32)0);\n}\nKseq = HMAC(Kseq, Token.SGN_CKSUM);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "// Encrypt the sequence number",
+      "zh-CHS": "//加密序列号"
+    },
+    {
+      "indent": 19,
+      "text": "RC4(Kseq, Token.SND_SEQ);",
+      "zh-CHS": "RC4（Kseq，令牌序列号）；"
+    },
+    {
+      "indent": 11,
+      "text": "        // Encrypted message = Token + Data\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The character constant \"fortybits\" evolved from the time when a 40-bit key length was all that was exportable from the United States. It is now used to recognize that the key length is of \"exportable\" length. In this description, the key size is actually 56 bits.",
+      "zh-CHS": "字符常量“fortybits”是从40位密钥长度是美国唯一可以输出的时间开始演变而来的。它现在用于识别密钥长度为“可导出”长度。在此描述中，密钥大小实际上是56位。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Care must be taken in implementing these encryption types because they use a stream cipher. If a different IV is not used in each direction when using a session key, the encryption is weak. By using the sequence number as an IV, this is avoided.",
+      "zh-CHS": "在实现这些加密类型时必须小心，因为它们使用流密码。如果在使用会话密钥时未在每个方向使用不同的IV，则加密较弱。通过使用序列号作为IV，可以避免这种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "There are two classes of attack on RC4 described in [MIRONOV]. Strong distinguishers distinguish an RC4 keystream from randomness at the start of the stream. Weak distinguishers can operate on any part of the keystream, and the best ones, described in [FMcG] and [MANTIN05], can exploit data from multiple, different keystreams. A consequence of these is that encrypting the same data (for instance, a password) sufficiently many times in separate RC4 keystreams can be sufficient to leak information to an adversary. The encryption types defined in this document defend against these by constructing a new keystream for every message. However, it is RECOMMENDED not to use the RC4 encryption types defined in this document for high-volume connections.",
+      "zh-CHS": "[MIRONOV]中描述了对RC4的两类攻击。强区分器将RC4密钥流与流开始时的随机性区分开来。弱识别器可以在钥匙流的任何部分上工作，最好的识别器，如[FMcG]和[MANTIN05]所述，可以利用来自多个不同钥匙流的数据。这样做的结果是，在单独的RC4密钥流中对相同数据（例如，密码）进行足够多次的加密就足以将信息泄漏给对手。本文中定义的加密类型通过为每条消息构造一个新的密钥流来抵御这些攻击。但是，建议不要将本文档中定义的RC4加密类型用于大容量连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Weaknesses in MD4 [BOER91] were demonstrated by den Boer and Bosselaers in 1991. In August 2004, Xiaoyun Wang, et al., reported MD4 collisions generated using hand calculation [WANG04]. Implementations based on Wang's algorithm can find collisions in real time. However, the intended usage of MD4 described in this document does not rely on the collision-resistant property of MD4. Furthermore, MD4 is always used in the context of a keyed hash in this document. Although no evidence has suggested keyed MD4 hashes are vulnerable to collision-based attacks, no study has directly proved that the HMAC-MD4 is secure: the existing study simply assumed that the hash function used in HMAC is collision proof. It is thus RECOMMENDED not to use the RC4 encryption types defined in this document if alternative stronger encryption types, such as aes256-cts-hmac-sha1-96 [RFC3962], are available.",
+      "zh-CHS": "1991年，den Boer和Bosselaers证明了MD4[BOER91]的弱点。2004年8月，王晓云等人报告了使用手工计算产生的MD4碰撞[WANG04]。基于Wang算法的实现可以实时发现冲突。然而，本文档中描述的MD4的预期用途并不依赖于MD4的抗碰撞性能。此外，MD4总是在本文档中的键控哈希上下文中使用。尽管没有证据表明键控MD4哈希容易受到基于冲突的攻击，但没有研究直接证明HMAC-MD4是安全的：现有研究只是假设HMAC中使用的哈希函数是防冲突的。因此，如果有其他更强的加密类型（如aes256-cts-hmac-sha1-96[RFC3962]），建议不要使用本文档中定义的RC4加密类型。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Section 5 of this document defines two Kerberos encryption types rc4-hmac (23) and rc4-hmac-exp (24). The Kerberos parameters registration page at <http://www.iana.org/assignments/kerberos-parameters> has been updated to reference this document for these two encryption types.",
+      "zh-CHS": "本文档第5节定义了两种Kerberos加密类型rc4 hmac（23）和rc4 hmac exp（24）。位于的Kerberos参数注册页<http://www.iana.org/assignments/kerberos-parameters>已更新，以针对这两种加密类型引用此文档。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "10. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors wish to thank Sam Hartman, Ken Raeburn, and Qunli Li for their insightful comments.",
+      "zh-CHS": "作者要感谢山姆·哈特曼、肯·雷伯恩和李群丽的富有洞察力的评论。"
+    },
+    {
+      "indent": 0,
+      "text": "11. References",
+      "section_title": true,
+      "zh-CHS": "11. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "11.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "11.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1320] Rivest, R., \"The MD4 Message-Digest Algorithm\", RFC 1320, April 1992.",
+      "zh-CHS": "[RFC1320]Rivest，R.，“MD4消息摘要算法”，RFC1320，1992年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1321] Rivest, R., \"The MD5 Message-Digest Algorithm\", RFC 1321, April 1992.",
+      "zh-CHS": "[RFC1321]Rivest，R.，“MD5消息摘要算法”，RFC13211992年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1964] Linn, J., \"The Kerberos Version 5 GSS-API Mechanism\", RFC 1964, June 1996.",
+      "zh-CHS": "[RFC1964]Linn，J.，“Kerberos版本5 GSS-API机制”，RFC19641996年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2104] Krawczyk, H., Bellare, M., and R. Canetti, \"HMAC: Keyed-Hashing for Message Authentication\", RFC 2104, February 1997.",
+      "zh-CHS": "[RFC2104]Krawczyk，H.，Bellare，M.，和R.Canetti，“HMAC：用于消息认证的键控哈希”，RFC 2104，1997年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3961] Raeburn, K., \"Encryption and Checksum Specifications for Kerberos 5\", RFC 3961, February 2005.",
+      "zh-CHS": "[RFC3961]Raeburn，K.，“Kerberos 5的加密和校验和规范”，RFC 3961，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3962] Raeburn, K., \"Advanced Encryption Standard (AES) Encryption for Kerberos 5\", RFC 3962, February 2005.",
+      "zh-CHS": "[RFC3962]Raeburn，K.，“Kerberos 5的高级加密标准（AES）加密”，RFC 3962，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4120] Neuman, C., Yu, T., Hartman, S., and K. Raeburn, \"The Kerberos Network Authentication Service (V5)\", RFC 4120, July 2005.",
+      "zh-CHS": "[RFC4120]Neuman，C.，Yu，T.，Hartman，S.，和K.Raeburn，“Kerberos网络身份验证服务（V5）”，RFC41202005年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4537] Zhu, L., Leach, P., and K. Jaganathan, \"Kerberos Cryptosystem Negotiation Extension\", RFC 4537, June 2006.",
+      "zh-CHS": "[RFC4537]Zhu，L.，Leach，P.，和K.Jaganathan，“Kerberos密码系统协商扩展”，RFC 4537，2006年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "11.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "11.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[BOER91] den Boer, B. and A. Bosselaers, \"An Attack on the Last Two Rounds of MD4\", Proceedings of the 11th Annual International Cryptology Conference on Advances in Cryptology, pages: 194 - 203, 1991.",
+      "zh-CHS": "[BOER91]den Boer，B.和A.Bosselaers，“对MD4最后两轮的攻击”，第11届国际密码学年度会议记录，关于密码学进展，第194-203页，1991年。"
+    },
+    {
+      "indent": 3,
+      "text": "[FMcG] Fluhrer, S. and D. McGrew, \"Statistical Analysis of the Alleged RC4 Keystream Generator\", Fast Software Encryption: 7th International Workshop, FSE 2000, April 2000, <http://www.mindspring.com/~dmcgrew/rc4-03.pdf>.",
+      "zh-CHS": "[FMcG]Fluhrer，S.和D.McGrew，“所谓RC4密钥流生成器的统计分析”，快速软件加密：第七届国际研讨会，FSE 2000，2000年4月<http://www.mindspring.com/~dmcgrew/rc4-03.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[MANTIN05] Mantin, I., \"Predicting and Distinguishing Attacks on RC4 Keystream Generator\", Advances in Cryptology -- EUROCRYPT 2005: 24th Annual International Conference on the Theory and Applications of Cryptographic Techniques, May 2005.",
+      "zh-CHS": "[MANTIN05]Mantin，I.，“预测和区分对RC4密钥流生成器的攻击”，《密码学进展——欧洲密码2005年：第24届国际密码技术理论与应用年会》，2005年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MIRONOV] Mironov, I., \"(Not So) Random Shuffles of RC4\", Advances in Cryptology -- CRYPTO 2002: 22nd Annual International Cryptology Conference, August 2002, <http://eprint.iacr.org/2002/067.pdf>.",
+      "zh-CHS": "[MIRONOV]MIRONOV，I.，“RC4的随机洗牌”（并非如此），《密码学进展——2002年密码学：第22届国际密码学年会》，2002年8月<http://eprint.iacr.org/2002/067.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[WANG04] Wang, X., Lai, X., Feng, D., Chen, H., and X. Yu, \"Cryptanalysis of Hash functions MD4 and RIPEMD\", August 2004, <http://www.infosec.sdu.edu.cn/paper/md4-ripemd-attck.pdf>.",
+      "zh-CHS": "[WANG04]Wang，X.，Lai，X.，Feng，D.，Chen，H.，和X.Yu，“哈希函数MD4和RIPEMD的密码分析”，2004年8月<http://www.infosec.sdu.edu.cn/paper/md4-ripemd-attck.pdf>."
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Karthik Jaganathan Microsoft Corporation One Microsoft Way Redmond, WA 98052 US",
+      "zh-CHS": "Karthik Jaganathan微软公司美国华盛顿州雷德蒙微软大道一号，邮编：98052"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: karthikj@microsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Larry Zhu Microsoft Corporation One Microsoft Way Redmond, WA 98052 US",
+      "zh-CHS": "Larry Zhu微软公司美国华盛顿州雷德蒙微软大道一号，邮编：98052"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: lzhu@microsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "John Brezak Microsoft Corporation One Microsoft Way Redmond, WA 98052 US",
+      "zh-CHS": "约翰·布雷扎克微软公司美国华盛顿州雷德蒙微软大道一号，邮编：98052"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jbrezak@microsoft.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST, AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,456 @@
+{
+  "title": {
+    "text": "RFC 4811: OSPF Out-of-Band Link State Database (LSDB) Resynchronization",
+    "zh-CHS": "RFC 4811"
+  },
+  "number": 4811,
+  "created_at": "2021-11-15 03:46:00.158607+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          L. Nguyen\nRequest for Comments: 4811                                        A. Roy\nCategory: Informational                                    Cisco Systems\n                                                                A. Zinin\n                                                          Alcatel-Lucent\n                                                              March 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "OSPF Out-of-Band Link State Database (LSDB) Resynchronization",
+      "zh-CHS": "OSPF带外链路状态数据库（LSDB）重新同步"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "OSPF is a link-state intra-domain routing protocol used in IP networks. Link State Database (LSDB) synchronization in OSPF is achieved via two methods -- initial LSDB synchronization when an OSPF router has just been connected to the network and asynchronous flooding that ensures continuous LSDB synchronization in the presence of topology changes after the initial procedure was completed. It may sometime be necessary for OSPF routers to resynchronize their LSDBs. The OSPF standard, however, does not allow routers to do so without actually changing the topology view of the network.",
+      "zh-CHS": "OSPF是IP网络中使用的链路状态域内路由协议。OSPF中的链路状态数据库（LSDB）同步通过两种方法实现——当OSPF路由器刚刚连接到网络时的初始LSDB同步和异步泛洪（asynchronous flooding），以确保在初始过程完成后出现拓扑变化时的连续LSDB同步。OSPF路由器有时可能需要重新同步其LSDB。然而，OSPF标准不允许路由器在不改变网络拓扑视图的情况下这样做。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo describes a vendor-specific mechanism to perform such a form of out-of-band LSDB synchronization. The mechanism described in this document was proposed before Graceful OSPF Restart, as described in RFC 3623, came into existence. It is implemented/supported by at least one major vendor and is currently deployed in the field. The purpose of this document is to capture the details of this mechanism for public use. This mechanism is not an IETF standard.",
+      "zh-CHS": "本备忘录描述了执行这种带外LSDB同步形式的供应商特定机制。本文件中描述的机制是在RFC 3623中描述的OSPF正常重启之前提出的。它至少由一家主要供应商实施/支持，目前已部署在现场。本文件旨在获取该机制的详细信息，供公众使用。该机制不是IETF标准。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Proposed Solution ...............................................2\n   2.1. The LR-Bit .................................................3\n   2.2. OSPF Neighbor Data Structure ...............................3\n   2.3. Hello Packets ..............................................4\n   2.4. DBD Packets ................................................4\n   2.5. Neighbor State Treatment ...................................7\n   2.6. Initiating OOB LSDB Resynchronization ......................7\n3. Backward Compatibility ..........................................7\n4. Security Considerations .........................................7\n5. IANA Considerations .............................................7\n6. References ......................................................8\n   6.1. Normative References .......................................8\n   6.2. Informative References .....................................8\nAppendix A.  Acknowledgements ......................................9",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "According to the OSPF standard [RFC2328], after two OSPF routers have established an adjacency (the neighbor Finite State Machines (FSMs) have reached Full state), routers announce the adjacency states in their router-Link State Advertisements (LSAs). Asynchronous flooding algorithm ensures that routers' LSDBs stay in sync in the presence of topology changes. However, if routers need (for some reason) to resynchronize their LSDBs, they cannot do that without actually putting the neighbor FSMs into the ExStart state. This effectively causes the adjacencies to be removed from the router-LSAs, which may not be acceptable if the desire is to prevent routing table flaps during database resynchronization. In this document, we provide the means for so-called out-of-band (OOB) LSDB resynchronization.",
+      "zh-CHS": "根据OSPF标准[RFC2328]，在两个OSPF路由器建立邻接（邻居有限状态机（FSM）已达到完全状态）后，路由器在其路由器链路状态公告（LSA）中宣布邻接状态。异步泛洪算法确保路由器的LSDB在拓扑发生变化时保持同步。但是，如果路由器需要（出于某种原因）重新同步其LSDB，那么在不将相邻FSM实际置于ExStart状态的情况下，它们无法做到这一点。这有效地导致从路由器lsa移除邻接，如果希望在数据库重新同步期间防止路由表抖动，则这可能是不可接受的。在本文档中，我们提供了所谓的带外（OOB）LSDB再同步的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "The described mechanism can be used in a number of situations including those where the routers are picking up the adjacencies after a reload. The process of adjacency preemption is outside the scope of this document. Only the details related to LSDB resynchronization are mentioned herein.",
+      "zh-CHS": "所描述的机制可用于许多情况，包括路由器在重新加载后拾取邻接的情况。邻接抢占的过程不在本文档的范围内。本文仅提及与LSDB重新同步相关的细节。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Proposed Solution",
+      "section_title": true,
+      "zh-CHS": "2. 提议的解决办法"
+    },
+    {
+      "indent": 3,
+      "text": "With this Out-of-Band Resynchronization Solution, the format of the OSPF Database Description (DBD) packet is changed to include a new R-bit indicating OOB LSDB resynchronization. All DBD packets sent during the OOB resynchronization procedure are sent with the R-bit set.",
+      "zh-CHS": "通过这种带外再同步解决方案，OSPF数据库描述（DBD）数据包的格式被更改为包含一个新的R位，指示OOB LSDB再同步。在OOB重新同步过程中发送的所有DBD数据包都使用R位集发送。"
+    },
+    {
+      "indent": 3,
+      "text": "Also, two new fields are added to the neighbor data structure. The first field indicates a neighbor's OOB resynchronization capability. The second indicates that OOB LSDB resynchronization is in process. The latter field allows OSPF implementations to utilize the existing neighbor FSM code.",
+      "zh-CHS": "另外，两个新字段被添加到邻居数据结构中。第一个字段表示邻居的OOB重新同步能力。第二个表示OOB LSDB重新同步正在进行中。后一个字段允许OSPF实现利用现有的邻居FSM代码。"
+    },
+    {
+      "indent": 3,
+      "text": "A bit is occupied in the Extended Options (EO) TLV (see [RFC4813]). Routers set this bit to indicate their capability to support the described technique.",
+      "zh-CHS": "扩展选项（EO）TLV中占用了一位（请参阅[RFC4813]）。路由器设置此位以指示其支持所述技术的能力。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. The LR-Bit",
+      "section_title": true,
+      "zh-CHS": "2.1. LR钻头"
+    },
+    {
+      "indent": 3,
+      "text": "A new bit, called LR (LR stands for LSDB Resynchronization), is introduced to the LLS Extended Options TLV (see [RFC4813]). The value of the bit is 0x00000001; see Figure 1. See the \"IANA Considerations\" section of [RFC4813] for more information on the Extended Options bit definitions. Routers set the LR-bit to announce OOB LSDB resynchronization capability.",
+      "zh-CHS": "在LLS扩展选项TLV中引入了一个名为LR（LR代表LSDB再同步）的新位（请参见[RFC4813]）。该位的值为0x00000001；参见图1。有关扩展选项位定义的更多信息，请参阅[RFC4813]的“IANA注意事项”部分。路由器设置LR位以宣布OOB LSDB重新同步能力。"
+    },
+    {
+      "indent": 3,
+      "text": "+---+---+---+---+---+---+---+- -+---+---+---+---+---+---+---+---+\n| * | * | * | * | * | * | * |...| * | * | * | * | * | * | * | LR|\n+---+---+---+---+---+---+---+- -+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "Figure 1. The Options Field",
+      "zh-CHS": "图1。选项字段"
+    },
+    {
+      "indent": 3,
+      "text": "Routers supporting the OOB LSDB resynchronization technique set the LR-bit in the EO-TLV in the LLS block attached to both Hello and DBD packets. Note that no bit is set in the standard OSPF Options field, neither in OSPF packets nor in LSAs.",
+      "zh-CHS": "支持OOB LSDB再同步技术的路由器在附加到Hello和DBD数据包的LLS块中设置EO-TLV中的LR位。请注意，标准OSPF选项字段中未设置任何位，无论是在OSPF数据包中还是在LSA中。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. OSPF Neighbor Data Structure",
+      "section_title": true,
+      "zh-CHS": "2.2. OSPF邻居数据结构"
+    },
+    {
+      "indent": 3,
+      "text": "A field is introduced into OSPF neighbor data structure, as described below. The name of the field is OOBResync, and it is a flag indicating that the router is currently performing OOB LSDB resynchronization with the neighbor.",
+      "zh-CHS": "在OSPF邻居数据结构中引入一个字段，如下所述。该字段的名称为OOBResync，它是一个标志，指示路由器当前正在与邻居执行OOB LSDB重新同步。"
+    },
+    {
+      "indent": 3,
+      "text": "The OOBResync flag is set when the router is initiating OOB LSDB resynchronization (see Section 2.6 for more details).",
+      "zh-CHS": "当路由器启动OOB LSDB重新同步时设置OOBResync标志（有关更多详细信息，请参阅第2.6节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Routers clear the OOBResync flag on the following conditions:",
+      "zh-CHS": "路由器在以下情况下清除OOBResync标志："
+    },
+    {
+      "indent": 4,
+      "text": "o The neighbor data structure is first created.",
+      "zh-CHS": "o 首先创建邻居数据结构。"
+    },
+    {
+      "indent": 4,
+      "text": "o The neighbor FSM transitions to any state lower than ExStart.",
+      "zh-CHS": "o 相邻FSM转换到低于ExStart的任何状态。"
+    },
+    {
+      "indent": 4,
+      "text": "o The neighbor FSM transitions to the ExStart state because a DBD packet with the R-bit clear has been received.",
+      "zh-CHS": "o 邻居FSM转换到ExStart状态，因为已接收到清除R位的DBD数据包。"
+    },
+    {
+      "indent": 4,
+      "text": "o The neighbor FSM reaches the state Full.",
+      "zh-CHS": "o 相邻FSM达到满状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the OOBResync flag may have a TRUE value only if the neighbor FSM is in states ExStart, Exchange, or Loading. As indicated above, if the FSM transitions to any other state, the OOBResync flag should be cleared.",
+      "zh-CHS": "请注意，只有当相邻FSM处于ExStart、Exchange或Loading状态时，OOBResync标志才可能具有真值。如上所述，如果FSM转换到任何其他状态，则应清除OOBResync标志。"
+    },
+    {
+      "indent": 3,
+      "text": "It is important to mention that operation of the OSPF neighbor FSM is not changed by this document. However, depending on the state of the OOBResync flag, the router sends either normal DBD packets or DBD packets with the R-bit set.",
+      "zh-CHS": "值得一提的是，OSPF邻居FSM的操作并未因本文件而改变。但是，根据OOBResync标志的状态，路由器发送普通DBD数据包或设置了R位的DBD数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Hello Packets",
+      "section_title": true,
+      "zh-CHS": "2.3. 你好，小包"
+    },
+    {
+      "indent": 3,
+      "text": "Routers capable of performing OOB LSDB resynchronization should always set the LR-bit in their Hello packets.",
+      "zh-CHS": "能够执行OOB LSDB再同步的路由器应始终在其Hello数据包中设置LR位。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. DBD Packets",
+      "section_title": true,
+      "zh-CHS": "2.4. DBD数据包"
+    },
+    {
+      "indent": 3,
+      "text": "Routers supporting the described technique should always set the LR-bit in the DBD packets. Since the Options field of the initial DBD packet is stored in corresponding neighbor data structure, the LR-bit may be used later to check if a neighbor is capable of performing OOB LSDB resynchronization.",
+      "zh-CHS": "支持所述技术的路由器应始终在DBD数据包中设置LR位。由于初始DBD分组的选项字段存储在相应的邻居数据结构中，因此稍后可以使用LR比特来检查邻居是否能够执行OOB LSDB重新同步。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of type 2 (DBD) OSPF packets is changed to include a flag indicating the OOB LSDB resynchronization procedure. Figure 2 illustrates the new packet format.",
+      "zh-CHS": "将类型2（DBD）OSPF数据包的格式更改为包含指示OOB LSDB重新同步过程的标志。图2说明了新的数据包格式。"
+    },
+    {
+      "indent": 3,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   Version #   |       2       |         Packet length         |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                          Router ID                            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                           Area ID                             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           Checksum            |             AuType            |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                       Authentication                          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                       Authentication                          |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|         Interface MTU         |    Options    |0|0|0|0|R|I|M|MS\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                     DD sequence number                        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n+-                                                             -+\n|                                                               |\n+-                      An LSA Header                          -+\n|                                                               |\n+-                                                             -+\n|                                                               |\n+-                                                             -+\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                              ...                              |",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 22,
+      "text": "Figure 2. Modified DBD Packet",
+      "zh-CHS": "图2。修改的DBD包"
+    },
+    {
+      "indent": 3,
+      "text": "The R-bit in OSPF type 2 packets is set when the OOBResync flag for the specific neighbor is set to TRUE. If a DBD packets with the R-bit clear is received for a neighbor with active OOBResync flag, the OOB LSDB resynchronization process is canceled and normal LSDB synchronization procedure is initiated.",
+      "zh-CHS": "当特定邻居的OOBResync标志设置为TRUE时，将设置OSPF类型2数据包中的R位。如果为具有活动OOBResync标志的邻居接收到具有R位清除的DBD数据包，则取消OOB LSDB重新同步过程，并启动正常LSDB同步过程。"
+    },
+    {
+      "indent": 3,
+      "text": "When a DBD packet is received with the R-bit set and the sender is known to be OOB-incapable, the packet should be dropped and a SeqNumber-Mismatch event should be generated for the neighbor.",
+      "zh-CHS": "当接收到带有R位集的DBD数据包，并且已知发送方无法进行OOB时，应丢弃该数据包，并为邻居生成SeqNumber不匹配事件。"
+    },
+    {
+      "indent": 3,
+      "text": "Processing of DBD packets is modified as follows:",
+      "zh-CHS": "DBD数据包的处理修改如下："
+    },
+    {
+      "indent": 4,
+      "text": "1. If the OOBResync flag for the neighbor is set (the LSDB resynchronization process has been started) and the received DBD packet does not have the R-bit set, ignore the packet and generate a SeqNumberMismatch event for the neighbor FSM.",
+      "zh-CHS": "1. 如果为邻居设置了OOBResync标志（LSDB重新同步过程已启动），并且接收到的DBD数据包未设置R位，则忽略该数据包并为邻居FSM生成SeqNumberMismatch事件。"
+    },
+    {
+      "indent": 4,
+      "text": "2. Otherwise, if the OOBResync flag for the neighbor is clear and the received DBD packet has the R-bit set, perform the following steps:",
+      "zh-CHS": "2. 否则，如果邻居的OOBResync标志清除，并且接收到的DBD数据包设置了R位，则执行以下步骤："
+    },
+    {
+      "indent": 8,
+      "text": "* If the neighbor FSM is in state Full and bits I, M, and MS are set in the DBD packet, set the OOBResync flag for the neighbor, put the FSM in ExStart state, and continue processing the DBD packet as described in [RFC2328].",
+      "zh-CHS": "* 如果邻居FSM处于满状态，并且DBD数据包中设置了位I、M和MS，则为邻居设置OOBResync标志，将FSM置于ExStart状态，并按照[RFC2328]中的说明继续处理DBD数据包。"
+    },
+    {
+      "indent": 8,
+      "text": "* Otherwise, ignore received DBD packet (no OOB DBD packets are allowed with OOBResync flag clear and FSM in state other than Full). Also, if the state of the FSM is Exchange or higher, generate a SeqNumberMismatch event for the neighbor FSM.",
+      "zh-CHS": "* 否则，忽略接收到的DBD数据包（当OOBResync标志清除且FSM处于非完全状态时，不允许OOB DBD数据包）。此外，如果FSM的状态为Exchange或更高，则为相邻FSM生成SeqNumberMismatch事件。"
+    },
+    {
+      "indent": 4,
+      "text": "3. Otherwise, process the DBD packet as described in [RFC2328].",
+      "zh-CHS": "3. 否则，按照[RFC2328]中所述处理DBD数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "During normal processing of the initial OOB DBD packet (with bits R, I, M, and MS set), if the receiving router is selected to be the Master, it may speed up the resynchronization process by immediately replying to the received packet.",
+      "zh-CHS": "在初始OOB DBD分组的正常处理期间（设置了比特R、I、M和MS），如果选择接收路由器作为主路由器，则它可以通过立即回复接收到的分组来加速重新同步过程。"
+    },
+    {
+      "indent": 3,
+      "text": "It is also necessary to limit the time an adjacency can spend in ExStart, Exchange, and Loading states with OOBResync flag set to a finite period of time (e.g., by limiting the number of times DBD and link state request packets can be retransmitted). If the adjacency does not proceed to Full state before the timeout, it is indicative that the neighboring router cannot resynchronize its LSDB with the local router. The requesting router may decide to stop trying to resynchronize the LSDB over this adjacency (if, for example, it can be resynchronized via another neighbor on the same segment) or to resynchronize using the legacy method by clearing the OOBResync flag and leaving the FSM in ExStart state. The neighboring router may decide to cancel the OOB procedure for the neighbor.",
+      "zh-CHS": "还需要限制相邻项在ExStart、Exchange和加载状态下的时间，将OOBResync标志设置为有限的时间段（例如，通过限制DBD和链路状态请求数据包可以重新传输的次数）。如果邻接在超时之前未进入完全状态，则表示相邻路由器无法将其LSDB与本地路由器重新同步。请求路由器可以决定停止尝试通过该邻接重新同步LSDB（例如，如果它可以通过同一段上的另一个邻居重新同步），或者通过清除OOBResync标志并使FSM保持ExStart状态来使用传统方法重新同步。相邻路由器可以决定取消该邻居的OOB过程。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Neighbor State Treatment",
+      "section_title": true,
+      "zh-CHS": "2.5. 邻国待遇"
+    },
+    {
+      "indent": 3,
+      "text": "An OSPF implementation supporting the described technique should modify the logic consulting the state of a neighbor FSM as described below.",
+      "zh-CHS": "支持所述技术的OSPF实现应修改参考相邻FSM的状态的逻辑，如下所述。"
+    },
+    {
+      "indent": 4,
+      "text": "o FSM state transitioning from and to the Full state with the OOBResync flag set should not cause origination of a new version of router-LSA or network-LSA.",
+      "zh-CHS": "o FSM状态从设置了OOBResync标志的完全状态转换到完全状态时，不应导致新版本的路由器LSA或网络LSA的产生。"
+    },
+    {
+      "indent": 4,
+      "text": "o Any explicit checks for the Full state of a neighbor FSM for the purposes other than LSDB synchronization and flooding should treat states ExStart, Exchange, and Loading as state Full, provided that OOBResync flag is set for the neighbor. (Flooding and MaxAge-LSA-specific procedures should not check the state of the OOBResync flag, but should continue consulting only the FSM state.)",
+      "zh-CHS": "o 如果为邻居设置了OOBResync标志，则出于LSDB同步和泛洪以外的目的对邻居FSM的完整状态进行的任何显式检查都应将状态ExStart、Exchange和Loading视为状态完整。（泛洪和MaxAge LSA特定程序不应检查OOBResync标志的状态，但应继续仅咨询FSM状态。）"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Initiating OOB LSDB Resynchronization",
+      "section_title": true,
+      "zh-CHS": "2.6. 启动OOB LSDB重新同步"
+    },
+    {
+      "indent": 3,
+      "text": "To initiate out-of-band LSDB resynchronization, the router must first make sure that the corresponding neighbor supports this technology (by checking the LR-bit in the Options field of the neighbor data structure). If the neighboring router is capable, the OOBResync flag for the neighbor should be set to TRUE and the FSM state should be forced to ExStart.",
+      "zh-CHS": "要启动带外LSDB重新同步，路由器必须首先确保相应的邻居支持此技术（通过检查邻居数据结构选项字段中的LR位）。如果相邻路由器有能力，则应将相邻路由器的OOBResync标志设置为TRUE，并强制FSM状态为ExStart。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Backward Compatibility",
+      "section_title": true,
+      "zh-CHS": "3. 向后兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "Because OOB-capable routers explicitly indicate their capability by setting the corresponding bit in the Options field, no DBD packets with the R-bit set are sent to OOB-incapable routers.",
+      "zh-CHS": "由于支持OOB的路由器通过在选项字段中设置相应的位来明确指示其能力，因此不向不支持OOB的路由器发送设置了R位的DBD数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "The LR-bit itself is transparent for OSPF implementations and does not affect communication between routers.",
+      "zh-CHS": "LR位本身对于OSPF实现是透明的，不会影响路由器之间的通信。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The described technique does not introduce any new security issues into the OSPF protocol.",
+      "zh-CHS": "所述技术不会在OSPF协议中引入任何新的安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Please refer to the \"IANA Considerations\" section of [RFC4813] for more information on the Extended Options bit definitions.",
+      "zh-CHS": "有关扩展选项位定义的更多信息，请参阅[RFC4813]的“IANA注意事项”部分。"
+    },
+    {
+      "indent": 0,
+      "text": "6. References",
+      "section_title": true,
+      "zh-CHS": "6. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "6.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2328] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998.",
+      "zh-CHS": "[RFC2328]Moy，J.，“OSPF版本2”，STD 54，RFC 2328，1998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3623] Moy, J., Pillay-Esnault, P., and A. Lindem, \"Graceful OSPF Restart\", RFC 3623, November 2003.",
+      "zh-CHS": "[RFC3623]Moy，J.，Pillay Esnault，P.，和A.Lindem，“OSPF的优雅重启”，RFC 36232003年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "6.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4813] Friedman, B., Nguyen, L., Roy, A., Yeung, D., and A. Zinin, \"OSPF Link-Local Signaling\", RFC 4813, March 2007.",
+      "zh-CHS": "[RFC4813]Friedman，B.，Nguyen，L.，Roy，A.，Yeung，D.，和A.Zinin，“OSPF链路本地信令”，RFC 48132007年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Acee Lindem, Russ White, Don Slice, and Alvaro Retana for their valuable comments.",
+      "zh-CHS": "作者要感谢Acee Lindem、Russ White、Don Slice和Alvaro Retana的宝贵评论。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Liem Nguyen Cisco Systems 225 West Tasman Drive San Jose, CA 95134 USA EMail: lhnguyen@cisco.com",
+      "zh-CHS": "Liem Nguyen Cisco Systems 225 West Tasman Drive San Jose，CA 95134美国电子邮件：lhnguyen@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Abhay Roy Cisco Systems 225 West Tasman Drive San Jose, CA 95134 USA EMail: akr@cisco.com",
+      "zh-CHS": "Abhay Roy Cisco Systems 225西塔斯曼大道圣何塞，加利福尼亚州95134美国电子邮件：akr@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Alex Zinin Alcatel-Lucent Mountain View, CA USA EMail: alex.zinin@alcatel-lucent.com",
+      "zh-CHS": "Alex Zinin Alcatel-Lucent Mountain View，CA美国电子邮件：Alex。zinin@alcatel-朗讯网"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,791 @@
+{
+  "title": {
+    "text": "RFC 4279: Pre-Shared Key Ciphersuites for Transport Layer Security (TLS)",
+    "zh-CHS": "RFC 4279"
+  },
+  "number": 4279,
+  "created_at": "2021-11-13 10:17:18.844495+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                     P. Eronen, Ed.\nRequest for Comments: 4279                                         Nokia\nCategory: Standards Track                             H. Tschofenig, Ed.\n                                                                 Siemens\n                                                           December 2005",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Pre-Shared Key Ciphersuites for Transport Layer Security (TLS)",
+      "zh-CHS": "用于传输层安全（TLS）的预共享密钥密码套件"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies three sets of new ciphersuites for the Transport Layer Security (TLS) protocol to support authentication based on pre-shared keys (PSKs). These pre-shared keys are symmetric keys, shared in advance among the communicating parties. The first set of ciphersuites uses only symmetric key operations for authentication. The second set uses a Diffie-Hellman exchange authenticated with a pre-shared key, and the third set combines public key authentication of the server with pre-shared key authentication of the client.",
+      "zh-CHS": "本文档为传输层安全（TLS）协议指定了三套新密码套件，以支持基于预共享密钥（PSK）的身份验证。这些预共享密钥是在通信各方之间预先共享的对称密钥。第一组密码套件仅使用对称密钥操作进行身份验证。第二组使用Diffie-Hellman交换，使用预共享密钥进行身份验证，第三组将服务器的公钥身份验证与客户端的预共享密钥身份验证结合起来。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Applicability Statement ....................................3\n   1.2. Conventions Used in This Document ..........................4\n2. PSK Key Exchange Algorithm ......................................4\n3. DHE_PSK Key Exchange Algorithm ..................................6\n4. RSA_PSK Key Exchange Algorithm ..................................7\n5. Conformance Requirements ........................................8\n   5.1. PSK Identity Encoding ......................................8\n   5.2. Identity Hint ..............................................9\n   5.3. Requirements for TLS Implementations .......................9\n   5.4. Requirements for Management Interfaces .....................9\n6. IANA Considerations ............................................10\n7. Security Considerations ........................................10\n   7.1. Perfect Forward Secrecy (PFS) .............................10\n   7.2. Brute-Force and Dictionary Attacks ........................10\n   7.3. Identity Privacy ..........................................11\n   7.4. Implementation Notes ......................................11\n8. Acknowledgements ...............................................11\n9. References .....................................................12\n   9.1. Normative References ......................................12\n   9.2. Informative References ....................................12",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Usually, TLS uses public key certificates [TLS] or Kerberos [KERB] for authentication. This document describes how to use symmetric keys (later called pre-shared keys or PSKs), shared in advance among the communicating parties, to establish a TLS connection.",
+      "zh-CHS": "通常，TLS使用公钥证书[TLS]或Kerberos[KERB]进行身份验证。本文档描述了如何使用在通信各方之间预先共享的对称密钥（后来称为预共享密钥或PSK）来建立TLS连接。"
+    },
+    {
+      "indent": 3,
+      "text": "There are basically two reasons why one might want to do this:",
+      "zh-CHS": "基本上有两个原因可以让人这么做："
+    },
+    {
+      "indent": 3,
+      "text": "o First, using pre-shared keys can, depending on the ciphersuite, avoid the need for public key operations. This is useful if TLS is used in performance-constrained environments with limited CPU power.",
+      "zh-CHS": "o 首先，根据密码套件的不同，使用预共享密钥可以避免公钥操作。如果TLS用于CPU能力有限的性能受限环境中，这将非常有用。"
+    },
+    {
+      "indent": 3,
+      "text": "o Second, pre-shared keys may be more convenient from a key management point of view. For instance, in closed environments where the connections are mostly configured manually in advance, it may be easier to configure a PSK than to use certificates. Another case is when the parties already have a mechanism for setting up a shared secret key, and that mechanism could be used to \"bootstrap\" a key for authenticating a TLS connection.",
+      "zh-CHS": "o 其次，从密钥管理的角度来看，预共享密钥可能更方便。例如，在封闭环境中，连接大多是预先手动配置的，配置PSK可能比使用证书更容易。另一种情况是当双方已经有一种机制来设置共享密钥，并且该机制可用于“引导”用于验证TLS连接的密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies three sets of new ciphersuites for TLS. These ciphersuites use new key exchange algorithms, and reuse existing cipher and MAC algorithms from [TLS] and [AES]. A summary of these ciphersuites is shown below.",
+      "zh-CHS": "本文件规定了三套新的TLS密码套件。这些密码套件使用新的密钥交换算法，并重用[TLS]和[AES]中的现有密码和MAC算法。这些密码套件的摘要如下所示。"
+    },
+    {
+      "indent": 6,
+      "text": "CipherSuite Key Exchange Cipher Hash",
+      "zh-CHS": "CipherSuite密钥交换密码散列"
+    },
+    {
+      "indent": 6,
+      "text": "TLS_PSK_WITH_RC4_128_SHA PSK RC4_128 SHA TLS_PSK_WITH_3DES_EDE_CBC_SHA PSK 3DES_EDE_CBC SHA TLS_PSK_WITH_AES_128_CBC_SHA PSK AES_128_CBC SHA TLS_PSK_WITH_AES_256_CBC_SHA PSK AES_256_CBC SHA TLS_DHE_PSK_WITH_RC4_128_SHA DHE_PSK RC4_128 SHA TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA DHE_PSK 3DES_EDE_CBC SHA TLS_DHE_PSK_WITH_AES_128_CBC_SHA DHE_PSK AES_128_CBC SHA TLS_DHE_PSK_WITH_AES_256_CBC_SHA DHE_PSK AES_256_CBC SHA TLS_RSA_PSK_WITH_RC4_128_SHA RSA_PSK RC4_128 SHA TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA RSA_PSK 3DES_EDE_CBC SHA TLS_RSA_PSK_WITH_AES_128_CBC_SHA RSA_PSK AES_128_CBC SHA TLS_RSA_PSK_WITH_AES_256_CBC_SHA RSA_PSK AES_256_CBC SHA",
+      "zh-CHS": "一个视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频视频3个CBC和128个CBC（教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教教RSA_PSK AES_256_CBC SHA"
+    },
+    {
+      "indent": 3,
+      "text": "The ciphersuites in Section 2 (with PSK key exchange algorithm) use only symmetric key algorithms and are thus especially suitable for performance-constrained environments.",
+      "zh-CHS": "第2节中的密码套件（使用PSK密钥交换算法）仅使用对称密钥算法，因此特别适用于性能受限的环境。"
+    },
+    {
+      "indent": 3,
+      "text": "The ciphersuites in Section 3 (with DHE_PSK key exchange algorithm) use a PSK to authenticate a Diffie-Hellman exchange. These ciphersuites protect against dictionary attacks by passive eavesdroppers (but not active attackers) and also provide Perfect Forward Secrecy (PFS).",
+      "zh-CHS": "第3节中的密码套件（使用DHE_PSK密钥交换算法）使用PSK对Diffie-Hellman交换进行身份验证。这些密码套件可以防止被动窃听者（但不是主动攻击者）的字典攻击，还可以提供完美的前向保密性（PFS）。"
+    },
+    {
+      "indent": 3,
+      "text": "The ciphersuites in Section 4 (with RSA_PSK key exchange algorithm) combine public-key-based authentication of the server (using RSA and certificates) with mutual authentication using a PSK.",
+      "zh-CHS": "第4节中的密码套件（使用RSA_PSK密钥交换算法）将基于公钥的服务器身份验证（使用RSA和证书）与使用PSK的相互身份验证相结合。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Applicability Statement",
+      "section_title": true,
+      "zh-CHS": "1.1. 适用性声明"
+    },
+    {
+      "indent": 3,
+      "text": "The ciphersuites defined in this document are intended for a rather limited set of applications, usually involving only a very small number of clients and servers. Even in such environments, other alternatives may be more appropriate.",
+      "zh-CHS": "本文档中定义的密码套件适用于相当有限的一组应用程序，通常只涉及极少量的客户端和服务器。即使在这样的环境中，其他替代方案也可能更合适。"
+    },
+    {
+      "indent": 3,
+      "text": "If the main goal is to avoid Public-Key Infrastructures (PKIs), another possibility worth considering is using self-signed certificates with public key fingerprints. Instead of manually configuring a shared secret in, for instance, some configuration file, a fingerprint (hash) of the other party's public key (or certificate) could be placed there instead.",
+      "zh-CHS": "如果主要目标是避免公钥基础设施（PKI），那么另一种值得考虑的可能性是使用带有公钥指纹的自签名证书。例如，可以将另一方公钥（或证书）的指纹（散列）放在那里，而不是在某个配置文件中手动配置共享密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "It is also possible to use the SRP (Secure Remote Password) ciphersuites for shared secret authentication [SRP]. SRP was designed to be used with passwords, and it incorporates protection against dictionary attacks. However, it is computationally more expensive than the PSK ciphersuites in Section 2.",
+      "zh-CHS": "还可以使用SRP（安全远程密码）密码套件进行共享秘密身份验证[SRP]。SRP被设计用于密码，它结合了防止字典攻击的保护。但是，它在计算上比第2节中的PSK密码套件更昂贵。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "1.2. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [KEYWORDS].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[关键词]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. PSK Key Exchange Algorithm",
+      "section_title": true,
+      "zh-CHS": "2. PSK密钥交换算法"
+    },
+    {
+      "indent": 3,
+      "text": "This section defines the PSK key exchange algorithm and associated ciphersuites. These ciphersuites use only symmetric key algorithms.",
+      "zh-CHS": "本节定义了PSK密钥交换算法和相关密码套件。这些密码套件仅使用对称密钥算法。"
+    },
+    {
+      "indent": 3,
+      "text": "It is assumed that the reader is familiar with the ordinary TLS handshake, shown below. The elements in parenthesis are not included when the PSK key exchange algorithm is used, and \"*\" indicates a situation-dependent message that is not always sent.",
+      "zh-CHS": "假设读者熟悉普通TLS握手，如下所示。使用PSK密钥交换算法时，括号中的元素不包括在内，“*”表示并非始终发送的情况相关消息。"
+    },
+    {
+      "indent": 6,
+      "text": "Client                                               Server\n------                                               ------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "ClientHello                  -------->\n                                                ServerHello\n                                              (Certificate)\n                                         ServerKeyExchange*\n                                       (CertificateRequest)\n                             <--------      ServerHelloDone\n(Certificate)\nClientKeyExchange\n(CertificateVerify)\nChangeCipherSpec\nFinished                     -------->\n                                           ChangeCipherSpec\n                             <--------             Finished\nApplication Data             <------->     Application Data",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The client indicates its willingness to use pre-shared key authentication by including one or more PSK ciphersuites in the ClientHello message. If the TLS server also wants to use pre-shared keys, it selects one of the PSK ciphersuites, places the selected ciphersuite in the ServerHello message, and includes an appropriate ServerKeyExchange message (see below). The Certificate and CertificateRequest payloads are omitted from the response.",
+      "zh-CHS": "客户端通过在ClientHello消息中包含一个或多个PSK密码套件来表示其愿意使用预共享密钥身份验证。如果TLS服务器还希望使用预共享密钥，它将选择一个PSK密码套件，将所选密码套件放置在ServerHello消息中，并包含相应的ServerKeyExchange消息（见下文）。响应中省略了Certificate和CertificateRequest有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "Both clients and servers may have pre-shared keys with several different parties. The client indicates which key to use by including a \"PSK identity\" in the ClientKeyExchange message (note that unlike in [SHAREDKEYS], the session_id field in ClientHello message keeps its usual meaning). To help the client in selecting which identity to use, the server can provide a \"PSK identity hint\" in the ServerKeyExchange message. If no hint is provided, the ServerKeyExchange message is omitted. See Section 5 for a more detailed description of these fields.",
+      "zh-CHS": "客户端和服务器都可能与多个不同的方预先共享密钥。客户端通过在ClientKeyExchange消息中包含“PSK标识”来指示要使用的密钥（请注意，与[SHAREDKEYS]中不同，ClientHello消息中的session_id字段保持其通常的含义）。为了帮助客户端选择要使用的标识，服务器可以在ServerKeyExchange消息中提供“PSK标识提示”。如果未提供任何提示，则忽略ServerKeyExchange消息。有关这些字段的更详细说明，请参见第5节。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the ServerKeyExchange and ClientKeyExchange messages is shown below.",
+      "zh-CHS": "ServerKeyExchange和ClientKeyExchange消息的格式如下所示。"
+    },
+    {
+      "indent": 6,
+      "text": "struct {\n    select (KeyExchangeAlgorithm) {\n        /* other cases for rsa, diffie_hellman, etc. */\n        case psk:  /* NEW */\n            opaque psk_identity_hint<0..2^16-1>;\n    };\n} ServerKeyExchange;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "struct {\n    select (KeyExchangeAlgorithm) {\n        /* other cases for rsa, diffie_hellman, etc. */\n        case psk:   /* NEW */\n            opaque psk_identity<0..2^16-1>;\n    } exchange_keys;\n} ClientKeyExchange;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The premaster secret is formed as follows: if the PSK is N octets long, concatenate a uint16 with the value N, N zero octets, a second uint16 with the value N, and the PSK itself.",
+      "zh-CHS": "预主密钥的格式如下：如果PSK的长度为N个八位字节，则将一个uint16与值N、N个零八位字节、第二个uint16与值N以及PSK本身连接起来。"
+    },
+    {
+      "indent": 6,
+      "text": "Note 1: All the ciphersuites in this document share the same general structure for the premaster secret, namely,",
+      "zh-CHS": "注1：本文档中的所有密码套件对于premaster机密具有相同的通用结构，即，"
+    },
+    {
+      "indent": 9,
+      "text": "struct {\n    opaque other_secret<0..2^16-1>;\n    opaque psk<0..2^16-1>;\n};",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Here \"other_secret\" either is zeroes (plain PSK case) or comes from the Diffie-Hellman or RSA exchange (DHE_PSK and RSA_PSK, respectively). See Sections 3 and 4 for a more detailed description.",
+      "zh-CHS": "这里的“other_secret”要么是零（普通PSK情况），要么来自Diffie-Hellman或RSA交换（分别是DHE_PSK和RSA_PSK）。有关更详细的说明，请参见第3节和第4节。"
+    },
+    {
+      "indent": 6,
+      "text": "Note 2: Using zeroes for \"other_secret\" effectively means that only the HMAC-SHA1 part (but not the HMAC-MD5 part) of the TLS PRF",
+      "zh-CHS": "注2：对“其他_机密”使用零实际上意味着只有TLS PRF的HMAC-SHA1部分（而不是HMAC-MD5部分）是有效的"
+    },
+    {
+      "indent": 6,
+      "text": "is used when constructing the master secret. This was considered more elegant from an analytical viewpoint than, for instance, using the same key for both the HMAC-MD5 and HMAC-SHA1 parts. See [KRAWCZYK] for a more detailed rationale.",
+      "zh-CHS": "在构造主密钥时使用。从分析的角度来看，这比为HMAC-MD5和HMAC-SHA1零件使用相同的键更优雅。有关更详细的理由，请参见[KRAWCZYK]。"
+    },
+    {
+      "indent": 3,
+      "text": "The TLS handshake is authenticated using the Finished messages as usual.",
+      "zh-CHS": "TLS握手通常使用完成的消息进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "If the server does not recognize the PSK identity, it MAY respond with an \"unknown_psk_identity\" alert message. Alternatively, if the server wishes to hide the fact that the PSK identity was not known, it MAY continue the protocol as if the PSK identity existed but the key was incorrect: that is, respond with a \"decrypt_error\" alert.",
+      "zh-CHS": "如果服务器无法识别PSK标识，它可能会响应“未知PSK标识”警报消息。或者，如果服务器希望隐藏PSK标识未知的事实，它可以继续协议，就像PSK标识存在但密钥不正确一样：也就是说，响应“decrypt_error”警报。"
+    },
+    {
+      "indent": 0,
+      "text": "3. DHE_PSK Key Exchange Algorithm",
+      "section_title": true,
+      "zh-CHS": "3. DHE_-PSK密钥交换算法"
+    },
+    {
+      "indent": 3,
+      "text": "This section defines additional ciphersuites that use a PSK to authenticate a Diffie-Hellman exchange. These ciphersuites give some additional protection against dictionary attacks and also provide Perfect Forward Secrecy (PFS). See Section 7 for discussion of related security considerations.",
+      "zh-CHS": "本节定义了使用PSK对Diffie-Hellman交换进行身份验证的其他密码套件。这些密码套件对字典攻击提供了一些额外的保护，还提供了完美的前向保密（PFS）。有关相关安全注意事项的讨论，请参见第7节。"
+    },
+    {
+      "indent": 3,
+      "text": "When these ciphersuites are used, the ServerKeyExchange and ClientKeyExchange messages also include the Diffie-Hellman parameters. The PSK identity and identity hint fields have the same meaning as in the previous section (note that the ServerKeyExchange message is always sent, even if no PSK identity hint is provided).",
+      "zh-CHS": "使用这些密码套件时，ServerKeyExchange和ClientKeyExchange消息还包括Diffie-Hellman参数。PSK标识和标识提示字段的含义与上一节中的相同（请注意，始终发送ServerKeyExchange消息，即使未提供PSK标识提示）。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the ServerKeyExchange and ClientKeyExchange messages is shown below.",
+      "zh-CHS": "ServerKeyExchange和ClientKeyExchange消息的格式如下所示。"
+    },
+    {
+      "indent": 6,
+      "text": "struct {\n    select (KeyExchangeAlgorithm) {\n        /* other cases for rsa, diffie_hellman, etc. */\n        case diffie_hellman_psk:  /* NEW */\n            opaque psk_identity_hint<0..2^16-1>;\n            ServerDHParams params;\n    };\n} ServerKeyExchange;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "struct {\n    select (KeyExchangeAlgorithm) {\n        /* other cases for rsa, diffie_hellman, etc. */\n        case diffie_hellman_psk:   /* NEW */\n            opaque psk_identity<0..2^16-1>;\n            ClientDiffieHellmanPublic public;\n    } exchange_keys;\n} ClientKeyExchange;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The premaster secret is formed as follows. First, perform the Diffie-Hellman computation in the same way as for other Diffie-Hellman-based ciphersuites in [TLS]. Let Z be the value produced by this computation (with leading zero bytes stripped as in other Diffie-Hellman-based ciphersuites). Concatenate a uint16 containing the length of Z (in octets), Z itself, a uint16 containing the length of the PSK (in octets), and the PSK itself.",
+      "zh-CHS": "premaster的秘密如下所示。首先，以与[TLS]中其他基于Diffie-Hellman的密码套件相同的方式执行Diffie-Hellman计算。设Z为该计算产生的值（与其他基于Diffie-Hellman的密码套件一样，前导零字节被剥离）。连接包含Z长度（以八位字节为单位）的uint16、Z本身、包含PSK长度（以八位字节为单位）的uint16以及PSK本身。"
+    },
+    {
+      "indent": 3,
+      "text": "This corresponds to the general structure for the premaster secrets (see Note 1 in Section 2) in this document, with \"other_secret\" containing Z.",
+      "zh-CHS": "这对应于本文件中premaster机密的一般结构（见第2节中的注释1），其中“other_secret”包含Z。"
+    },
+    {
+      "indent": 0,
+      "text": "4. RSA_PSK Key Exchange Algorithm",
+      "section_title": true,
+      "zh-CHS": "4. RSA_-PSK密钥交换算法"
+    },
+    {
+      "indent": 3,
+      "text": "The ciphersuites in this section use RSA and certificates to authenticate the server, in addition to using a PSK.",
+      "zh-CHS": "本节中的密码套件除了使用PSK外，还使用RSA和证书对服务器进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "As in normal RSA ciphersuites, the server must send a Certificate message. The format of the ServerKeyExchange and ClientKeyExchange messages is shown below. If no PSK identity hint is provided, the ServerKeyExchange message is omitted.",
+      "zh-CHS": "与普通RSA密码套件一样，服务器必须发送证书消息。ServerKeyExchange和ClientKeyExchange消息的格式如下所示。如果未提供PSK标识提示，则忽略ServerKeyExchange消息。"
+    },
+    {
+      "indent": 6,
+      "text": "struct {\n    select (KeyExchangeAlgorithm) {\n        /* other cases for rsa, diffie_hellman, etc. */\n        case rsa_psk:  /* NEW */\n            opaque psk_identity_hint<0..2^16-1>;\n    };\n} ServerKeyExchange;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "struct {\n    select (KeyExchangeAlgorithm) {\n        /* other cases for rsa, diffie_hellman, etc. */\n        case rsa_psk:   /* NEW */\n            opaque psk_identity<0..2^16-1>;\n            EncryptedPreMasterSecret;\n    } exchange_keys;\n} ClientKeyExchange;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The EncryptedPreMasterSecret field sent from the client to the server contains a 2-byte version number and a 46-byte random value, encrypted using the server's RSA public key as described in Section 7.4.7.1 of [TLS]. The actual premaster secret is formed by both parties as follows: concatenate a uint16 with the value 48, the 2-byte version number and the 46-byte random value, a uint16 containing the length of the PSK (in octets), and the PSK itself. (The premaster secret is thus 52 octets longer than the PSK.)",
+      "zh-CHS": "从客户端发送到服务器的EncryptedPreMasterSecret字段包含一个2字节的版本号和一个46字节的随机值，使用服务器的RSA公钥进行加密，如[TLS]第7.4.7.1节所述。实际的premaster机密由双方按如下方式构成：将uint16与值48、2字节版本号和46字节随机值连接起来，将uint16与PSK本身连接起来，uint16包含PSK的长度（以八位字节为单位）。（因此，premaster的秘密比PSK长52个八位字节。）"
+    },
+    {
+      "indent": 3,
+      "text": "This corresponds to the general structure for the premaster secrets (see Note 1 in Section 2) in this document, with \"other_secret\" containing both the 2-byte version number and the 46-byte random value.",
+      "zh-CHS": "这对应于本文件中premaster机密的一般结构（见第2节中的注释1），其中“other_secret”包含2字节版本号和46字节随机值。"
+    },
+    {
+      "indent": 3,
+      "text": "Neither the normal RSA ciphersuites nor these RSA_PSK ciphersuites themselves specify what the certificates contain (in addition to the RSA public key), or how the certificates are to be validated. In particular, it is possible to use the RSA_PSK ciphersuites with unvalidated self-signed certificates to provide somewhat similar protection against dictionary attacks, as the DHE_PSK ciphersuites define in Section 3.",
+      "zh-CHS": "普通RSA密码套件和这些RSA_PSK密码套件本身都没有指定证书包含的内容（除了RSA公钥之外），也没有指定如何验证证书。特别是，可以将RSA_PSK密码套件与未经验证的自签名证书一起使用，以提供与DHE_PSK密码套件在第3节中定义的类似的防止字典攻击的保护。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Conformance Requirements",
+      "section_title": true,
+      "zh-CHS": "5. 一致性要求"
+    },
+    {
+      "indent": 3,
+      "text": "It is expected that different types of identities are useful for different applications running over TLS. This document does not therefore mandate the use of any particular type of identity (such as IPv4 address or Fully Qualified Domain Name (FQDN)).",
+      "zh-CHS": "预计不同类型的标识对于在TLS上运行的不同应用程序是有用的。因此，本文档不强制使用任何特定类型的标识（如IPv4地址或完全限定域名（FQDN））。"
+    },
+    {
+      "indent": 3,
+      "text": "However, the TLS client and server clearly have to agree on the identities and keys to be used. To improve interoperability, this document places requirements on how the identity is encoded in the protocol, and what kinds of identities and keys implementations have to support.",
+      "zh-CHS": "但是，TLS客户端和服务器显然必须就要使用的身份和密钥达成一致。为了提高互操作性，本文档对身份在协议中的编码方式以及身份和密钥实现必须支持的类型提出了要求。"
+    },
+    {
+      "indent": 3,
+      "text": "The requirements for implementations are divided into two categories, requirements for TLS implementations and management interfaces. In this context, \"TLS implementation\" refers to a TLS library or module that is intended to be used for several different purposes, while \"management interface\" would typically be implemented by a particular application that uses TLS.",
+      "zh-CHS": "实现需求分为两类：TLS实现需求和管理接口需求。在此上下文中，“TLS实现”指的是用于多种不同目的的TLS库或模块，而“管理接口”通常由使用TLS的特定应用程序实现。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not specify how the server stores the keys and identities, or how exactly it finds the key corresponding to the identity it receives. For instance, if the identity is a domain name, it might be appropriate to do a case-insensitive lookup. It is RECOMMENDED that before looking up the key, the server processes the PSK identity with a stringprep profile [STRINGPREP] appropriate for the identity in question (such as Nameprep [NAMEPREP] for components of domain names or SASLprep for usernames [SASLPREP]).",
+      "zh-CHS": "本文档不指定服务器存储密钥和标识的方式，也不指定服务器查找与其接收的标识对应的密钥的确切方式。例如，如果标识是域名，则可能适合进行不区分大小写的查找。建议在查找密钥之前，服务器使用与所述标识相匹配的stringprep配置文件[stringprep]处理PSK标识（例如域名组件的Nameprep[Nameprep]或用户名的SASLprep[SASLprep]）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. PSK Identity Encoding",
+      "section_title": true,
+      "zh-CHS": "5.1. PSK身份编码"
+    },
+    {
+      "indent": 3,
+      "text": "The PSK identity MUST be first converted to a character string, and then encoded to octets using UTF-8 [UTF8]. For instance,",
+      "zh-CHS": "PSK标识必须首先转换为字符串，然后使用UTF-8[UTF8]编码为八位字节。例如，"
+    },
+    {
+      "indent": 3,
+      "text": "o IPv4 addresses are sent as dotted-decimal strings (e.g., \"192.0.2.1\"), not as 32-bit integers in network byte order.",
+      "zh-CHS": "o IPv4地址以点十进制字符串（例如，“192.0.2.1”）的形式发送，而不是以网络字节顺序的32位整数的形式发送。"
+    },
+    {
+      "indent": 3,
+      "text": "o Domain names are sent in their usual text form [DNS] (e.g., \"www.example.com\" or \"embedded\\.dot.example.net\"), not in DNS protocol format.",
+      "zh-CHS": "o 域名以通常的文本形式[DNS]（例如，“www.example.com”或“embedded\\.dot.example.net”）发送，而不是以DNS协议格式发送。"
+    },
+    {
+      "indent": 3,
+      "text": "o X.500 Distinguished Names are sent in their string representation [LDAPDN], not as BER-encoded ASN.1.",
+      "zh-CHS": "o X.500可分辨名称以其字符串表示形式[LDAPDN]发送，而不是以BER编码的ASN.1发送。"
+    },
+    {
+      "indent": 3,
+      "text": "This encoding is clearly not optimal for many types of identities. It was chosen to avoid identity-type-specific parsing and encoding code in implementations where the identity is configured by a person using some kind of management interface. Requiring such identity-type-specific code would also increase the chances for interoperability problems resulting from different implementations supporting different identity types.",
+      "zh-CHS": "对于许多类型的身份，这种编码显然不是最优的。选择它是为了避免在身份由使用某种管理界面的人员配置的实现中使用特定于身份类型的解析和编码代码。需要这种特定于身份类型的代码也会增加因支持不同身份类型的不同实现而导致互操作性问题的可能性。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Identity Hint",
+      "section_title": true,
+      "zh-CHS": "5.2. 身份提示"
+    },
+    {
+      "indent": 3,
+      "text": "In the absence of an application profile specification specifying otherwise, servers SHOULD NOT provide an identity hint and clients MUST ignore the identity hint field. Applications that do use this field MUST specify its contents, how the value is chosen by the TLS server, and what the TLS client is expected to do with the value.",
+      "zh-CHS": "如果没有应用程序配置文件规范另行指定，服务器不应提供标识提示，客户端必须忽略标识提示字段。使用此字段的应用程序必须指定其内容、TLS服务器选择值的方式以及TLS客户端希望如何处理该值。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Requirements for TLS Implementations",
+      "section_title": true,
+      "zh-CHS": "5.3. TLS实现的要求"
+    },
+    {
+      "indent": 3,
+      "text": "TLS implementations supporting these ciphersuites MUST support arbitrary PSK identities up to 128 octets in length, and arbitrary PSKs up to 64 octets in length. Supporting longer identities and keys is RECOMMENDED.",
+      "zh-CHS": "支持这些密码套件的TLS实现必须支持长度不超过128个八位字节的任意PSK标识，以及长度不超过64个八位字节的任意PSK标识。建议支持更长的标识和密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Requirements for Management Interfaces",
+      "section_title": true,
+      "zh-CHS": "5.4. 管理接口的要求"
+    },
+    {
+      "indent": 3,
+      "text": "In the absence of an application profile specification specifying otherwise, a management interface for entering the PSK and/or PSK identity MUST support the following:",
+      "zh-CHS": "在没有应用程序配置文件规范另有规定的情况下，用于输入PSK和/或PSK标识的管理界面必须支持以下内容："
+    },
+    {
+      "indent": 3,
+      "text": "o Entering PSK identities consisting of up to 128 printable Unicode characters. Supporting as wide a character repertoire and as long identities as feasible is RECOMMENDED.",
+      "zh-CHS": "o 输入最多由128个可打印Unicode字符组成的PSK标识。建议支持尽可能广泛的角色剧目和尽可能长的身份。"
+    },
+    {
+      "indent": 3,
+      "text": "o Entering PSKs up to 64 octets in length as ASCII strings and in hexadecimal encoding.",
+      "zh-CHS": "o 以ASCII字符串和十六进制编码形式输入长度不超过64个八位字节的PSK。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA does not currently have a registry for TLS ciphersuite or alert numbers, so there are no IANA actions associated with this document.",
+      "zh-CHS": "IANA目前没有TLS密码套件或警报编号的注册表，因此没有与此文档相关的IANA操作。"
+    },
+    {
+      "indent": 3,
+      "text": "For easier reference in the future, the ciphersuite numbers defined in this document are summarized below.",
+      "zh-CHS": "为便于将来参考，本文档中定义的密码套件编号汇总如下。"
+    },
+    {
+      "indent": 6,
+      "text": "CipherSuite TLS_PSK_WITH_RC4_128_SHA          = { 0x00, 0x8A };\nCipherSuite TLS_PSK_WITH_3DES_EDE_CBC_SHA     = { 0x00, 0x8B };\nCipherSuite TLS_PSK_WITH_AES_128_CBC_SHA      = { 0x00, 0x8C };\nCipherSuite TLS_PSK_WITH_AES_256_CBC_SHA      = { 0x00, 0x8D };\nCipherSuite TLS_DHE_PSK_WITH_RC4_128_SHA      = { 0x00, 0x8E };\nCipherSuite TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA = { 0x00, 0x8F };\nCipherSuite TLS_DHE_PSK_WITH_AES_128_CBC_SHA  = { 0x00, 0x90 };\nCipherSuite TLS_DHE_PSK_WITH_AES_256_CBC_SHA  = { 0x00, 0x91 };\nCipherSuite TLS_RSA_PSK_WITH_RC4_128_SHA      = { 0x00, 0x92 };\nCipherSuite TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA = { 0x00, 0x93 };\nCipherSuite TLS_RSA_PSK_WITH_AES_128_CBC_SHA  = { 0x00, 0x94 };\nCipherSuite TLS_RSA_PSK_WITH_AES_256_CBC_SHA  = { 0x00, 0x95 };",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This document also defines a new TLS alert message, unknown_psk_identity(115).",
+      "zh-CHS": "本文件还定义了一条新的TLS警报消息，即未知的psk标识（115）。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "As with all schemes involving shared keys, special care should be taken to protect the shared values and to limit their exposure over time.",
+      "zh-CHS": "与所有涉及共享密钥的方案一样，应特别注意保护共享值并限制其随时间的暴露。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Perfect Forward Secrecy (PFS)",
+      "section_title": true,
+      "zh-CHS": "7.1. 完美前向保密（PFS）"
+    },
+    {
+      "indent": 3,
+      "text": "The PSK and RSA_PSK ciphersuites defined in this document do not provide Perfect Forward Secrecy (PFS). That is, if the shared secret key (in PSK ciphersuites), or both the shared secret key and the RSA private key (in RSA_PSK ciphersuites), is somehow compromised, an attacker can decrypt old conversations.",
+      "zh-CHS": "本文档中定义的PSK和RSA_PSK密码套件不提供完美的前向保密（PFS）。也就是说，如果共享密钥（在PSK密码套件中）或共享密钥和RSA私钥（在RSA_PSK密码套件中）以某种方式被泄露，攻击者可以解密旧对话。"
+    },
+    {
+      "indent": 3,
+      "text": "The DHE_PSK ciphersuites provide Perfect Forward Secrecy if a fresh Diffie-Hellman private key is generated for each handshake.",
+      "zh-CHS": "如果为每次握手生成新的Diffie-Hellman私钥，DHE_PSK密码套件可提供完美的前向保密性。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Brute-Force and Dictionary Attacks",
+      "section_title": true,
+      "zh-CHS": "7.2. 暴力和字典攻击"
+    },
+    {
+      "indent": 3,
+      "text": "Use of a fixed shared secret of limited entropy (for example, a PSK that is relatively short, or was chosen by a human and thus may contain less entropy than its length would imply) may allow an attacker to perform a brute-force or dictionary attack to recover the secret. This may be either an off-line attack (against a captured",
+      "zh-CHS": "使用有限熵的固定共享秘密（例如，相对较短的PSK，或由人选择的PSK，因此其熵可能小于其长度所表示的熵）可允许攻击者执行蛮力或字典攻击以恢复该秘密。这可能是离线攻击（针对捕获的目标）"
+    },
+    {
+      "indent": 3,
+      "text": "TLS handshake messages) or an on-line attack where the attacker attempts to connect to the server and tries different keys.",
+      "zh-CHS": "TLS握手消息）或攻击者试图连接到服务器并尝试使用不同密钥的在线攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "For the PSK ciphersuites, an attacker can get the information required for an off-line attack by eavesdropping on a TLS handshake, or by getting a valid client to attempt connection with the attacker (by tricking the client to connect to the wrong address, or by intercepting a connection attempt to the correct address, for instance).",
+      "zh-CHS": "对于PSK密码套件，攻击者可以通过窃听TLS握手，或通过让有效的客户端尝试与攻击者连接（例如，通过诱骗客户端连接到错误的地址，或通过拦截到正确地址的连接尝试），获取离线攻击所需的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "For the DHE_PSK ciphersuites, an attacker can obtain the information by getting a valid client to attempt connection with the attacker. Passive eavesdropping alone is not sufficient.",
+      "zh-CHS": "对于DHE_PSK密码套件，攻击者可以通过获取有效的客户端来尝试与攻击者连接来获取信息。仅仅被动窃听是不够的。"
+    },
+    {
+      "indent": 3,
+      "text": "For the RSA_PSK ciphersuites, only the server (authenticated using RSA and certificates) can obtain sufficient information for an off-line attack.",
+      "zh-CHS": "对于RSA_PSK密码套件，只有服务器（使用RSA和证书进行身份验证）才能获得足够的信息进行离线攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "It is RECOMMENDED that implementations that allow the administrator to manually configure the PSK also provide a functionality for generating a new random PSK, taking [RANDOMNESS] into account.",
+      "zh-CHS": "建议允许管理员手动配置PSK的实现也提供生成新随机PSK的功能，同时考虑[随机性]。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Identity Privacy",
+      "section_title": true,
+      "zh-CHS": "7.3. 身份隐私"
+    },
+    {
+      "indent": 3,
+      "text": "The PSK identity is sent in cleartext. Although using a user name or other similar string as the PSK identity is the most straightforward option, it may lead to problems in some environments since an eavesdropper is able to identify the communicating parties. Even when the identity does not reveal any information itself, reusing the same identity over time may eventually allow an attacker to perform traffic analysis to identify the parties. It should be noted that this is no worse than client certificates, since they are also sent in cleartext.",
+      "zh-CHS": "PSK标识以明文形式发送。尽管使用用户名或其他类似字符串作为PSK标识是最简单的选择，但在某些环境中可能会导致问题，因为窃听者能够识别通信方。即使身份本身没有透露任何信息，随着时间的推移，重复使用同一身份最终也可能使攻击者能够执行流量分析以识别参与方。应该注意的是，这并不比客户端证书差，因为它们也是以明文形式发送的。"
+    },
+    {
+      "indent": 0,
+      "text": "7.4. Implementation Notes",
+      "section_title": true,
+      "zh-CHS": "7.4. 实施说明"
+    },
+    {
+      "indent": 3,
+      "text": "The implementation notes in [TLS11] about correct implementation and use of RSA (including Section 7.4.7.1) and Diffie-Hellman (including Appendix F.1.1.3) apply to the DHE_PSK and RSA_PSK ciphersuites as well.",
+      "zh-CHS": "[TLS11]中关于正确实施和使用RSA（包括第7.4.7.1节）和Diffie Hellman（包括附录F.1.1.3）的实施说明也适用于DHE_PSK和RSA_PSK密码套件。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "8. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The protocol defined in this document is heavily based on work by Tim Dierks and Peter Gutmann, and borrows some text from [SHAREDKEYS] and [AES]. The DHE_PSK and RSA_PSK ciphersuites are based on earlier work in [KEYEX].",
+      "zh-CHS": "本文档中定义的协议主要基于Tim Dierks和Peter Gutmann的工作，并借用了[SHAREDKEYS]和[AES]的一些文本。DHE_PSK和RSA_PSK密码套件基于[KEYEX]中的早期工作。"
+    },
+    {
+      "indent": 3,
+      "text": "Valuable feedback was also provided by Bernard Aboba, Lakshminath Dondeti, Philip Ginzboorg, Peter Gutmann, Sam Hartman, Russ Housley, David Jablon, Nikos Mavroyanopoulos, Bodo Moeller, Eric Rescorla, and Mika Tervonen.",
+      "zh-CHS": "Bernard Aboba、Lakshminath Dondeti、Philip Ginzboorg、Peter Gutmann、Sam Hartman、Russ Housley、David Jablon、Nikos Mavroyanopoulos、Bodo Moeller、Eric Rescorla和Mika Tervonen也提供了宝贵的反馈。"
+    },
+    {
+      "indent": 3,
+      "text": "When the first version of this document was almost ready, the authors learned that something similar had been proposed already in 1996 [PASSAUTH]. However, this document is not intended for web password authentication, but rather for other uses of TLS.",
+      "zh-CHS": "当这份文件的第一版几乎准备就绪时，作者们了解到类似的建议已经在1996年提出[PASSAUTH]。但是，本文档并非用于web密码验证，而是用于TLS的其他用途。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[AES] Chown, P., \"Advanced Encryption Standard (AES) Ciphersuites for Transport Layer Security (TLS)\", RFC 3268, June 2002.",
+      "zh-CHS": "[AES]Chown，P.，“用于传输层安全（TLS）的高级加密标准（AES）密码套件”，RFC 32682002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KEYWORDS] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RANDOMNESS] Eastlake, D., 3rd, Schiller, J., and S. Crocker, \"Randomness Requirements for Security\", BCP 106, RFC 4086, June 2005.",
+      "zh-CHS": "[随机性]伊斯特莱克，D.，3，席勒，J.，和S.克罗克，“安全性的随机性要求”，BCP 106，RFC 40862005年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[TLS] Dierks, T. and C. Allen, \"The TLS Protocol Version 1.0\", RFC 2246, January 1999.",
+      "zh-CHS": "[TLS]Dierks，T.和C.Allen，“TLS协议版本1.0”，RFC 2246，1999年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[UTF8] Yergeau, F., \"UTF-8, a transformation format of ISO 10646\", STD 63, RFC 3629, November 2003.",
+      "zh-CHS": "[UTF8]Yergeau，F.，“UTF-8，ISO 10646的转换格式”，STD 63，RFC 3629，2003年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[DNS] Mockapetris, P., \"Domain names - implementation and specification\", STD 13, RFC 1035, November 1987.",
+      "zh-CHS": "[DNS]Mockapetris，P.，“域名-实现和规范”，STD 13，RFC 1035，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KERB] Medvinsky, A. and M. Hur, \"Addition of Kerberos Cipher Suites to Transport Layer Security (TLS)\", RFC 2712, October 1999.",
+      "zh-CHS": "[KERB]Medvinsky，A.和M.Hur，“将Kerberos密码套件添加到传输层安全性（TLS）”，RFC 2712，1999年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KEYEX] Badra, M., Cherkaoui, O., Hajjeh, I. and A. Serhrouchni, \"Pre-Shared-Key key Exchange methods for TLS\", Work in Progress, August 2004.",
+      "zh-CHS": "[KEYEX]Badra，M.，Cherkaoui，O.，Hajjeh，I.和A.Serhrouchni，“TLS的预共享密钥交换方法”，正在进行的工作，2004年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KRAWCZYK] Krawczyk, H., \"Re: TLS shared keys PRF\", message on ietf-tls@lists.certicom.com mailing list 2004-01-13, http://www.imc.org/ietf-tls/mail-archive/msg04098.html.",
+      "zh-CHS": "[KRAWCZYK]KRAWCZYK，H.，“Re:TLS共享密钥PRF”，关于ietf的信息-tls@lists.certicom.com邮寄名单2004-01-13，http://www.imc.org/ietf-tls/mail-archive/msg04098.html."
+    },
+    {
+      "indent": 3,
+      "text": "[LDAPDN] Zeilenga, K., \"LDAP: String Representation of Distinguished Names\", Work in Progress, February 2005.",
+      "zh-CHS": "[LDAPDN]Zeilenga，K.，“LDAP：可分辨名称的字符串表示”，正在进行的工作，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NAMEPREP] Hoffman, P. and M. Blanchet, \"Nameprep: A Stringprep Profile for Internationalized Domain Names (IDN)\", RFC 3491, March 2003.",
+      "zh-CHS": "[NAMEPREP]Hoffman，P.和M.Blanchet，“NAMEPREP：国际化域名（IDN）的Stringprep配置文件”，RFC 34912003年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[PASSAUTH] Simon, D., \"Addition of Shared Key Authentication to Transport Layer Security (TLS)\", Work in Progress, November 1996.",
+      "zh-CHS": "[PASSAUTH]Simon，D.，“将共享密钥认证添加到传输层安全性（TLS）”，正在进行的工作，1996年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SASLPREP] Zeilenga, K., \"SASLprep: Stringprep Profile for User Names and Passwords\", RFC 4013, February 2005.",
+      "zh-CHS": "[SASLPREP]Zeilenga，K.，“SASLPREP:Stringprep用户名和密码配置文件”，RFC 4013，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SHAREDKEYS] Gutmann, P., \"Use of Shared Keys in the TLS Protocol\", Work in Progress, October 2003.",
+      "zh-CHS": "[SHAREDKEYS]Gutmann，P.，“TLS协议中共享密钥的使用”，正在进行的工作，2003年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SRP] Taylor, D., Wu, T., Mavroyanopoulos, N. and T. Perrin, \"Using SRP for TLS Authentication\", Work in Progress, March 2005.",
+      "zh-CHS": "[SRP]Taylor，D.，Wu，T.，Mavroyanopoulos，N.和T.Perrin，“使用SRP进行TLS认证”，正在进行的工作，2005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[STRINGPREP] Hoffman, P. and M. Blanchet, \"Preparation of Internationalized Strings (\"stringprep\")\", RFC 3454, December 2002.",
+      "zh-CHS": "[STRINGPREP]Hoffman，P.和M.Blanchet，“国际化弦的准备（“STRINGPREP”）”，RFC 3454，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[TLS11] Dierks, T. and E. Rescorla, \"The TLS Protocol Version 1.1\", Work in Progress, June 2005.",
+      "zh-CHS": "[TLS11]Dierks，T.和E.Rescorla，“TLS协议版本1.1”，正在进行的工作，2005年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' and Contributors' Addresses",
+      "zh-CHS": "作者和撰稿人地址"
+    },
+    {
+      "indent": 3,
+      "text": "Pasi Eronen Nokia Research Center P.O. Box 407 FIN-00045 Nokia Group Finland",
+      "zh-CHS": "Pasi Eronen诺基亚研究中心邮政信箱407 FIN-00045诺基亚集团芬兰"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: pasi.eronen@nokia.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Hannes Tschofenig Siemens Otto-Hahn-Ring 6 Munich, Bayern 81739 Germany",
+      "zh-CHS": "德国拜仁慕尼黑第6环汉内斯·茨霍芬尼西门子奥托·哈恩81739"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Hannes.Tschofenig@siemens.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Mohamad Badra ENST Paris 46 rue Barrault 75634 Paris France",
+      "zh-CHS": "Mohamad Badra ENST Paris 46 rue Barrault 75634 Paris France"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Mohamad.Badra@enst.fr",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Omar Cherkaoui UQAM University Montreal (Quebec) Canada",
+      "zh-CHS": "加拿大蒙特利尔（魁北克）Omar Cherkaoui UQAM大学"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: cherkaoui.omar@uqam.ca",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Ibrahim Hajjeh ESRGroups 17 passage Barrault 75013 Paris France",
+      "zh-CHS": "易卜拉欣·哈杰17号通道巴劳75013法国巴黎"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Ibrahim.Hajjeh@esrgroups.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Ahmed Serhrouchni ENST Paris 46 rue Barrault 75634 Paris France",
+      "zh-CHS": "Ahmed Serhrouchni ENST Paris 46 rue Barrault 75634 Paris France"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Ahmed.Serhrouchni@enst.fr",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

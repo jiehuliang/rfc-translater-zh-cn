@@ -1,0 +1,785 @@
+{
+  "title": {
+    "text": "RFC 4697: Observed DNS Resolution Misbehavior",
+    "zh-CHS": "RFC 4697"
+  },
+  "number": 4697,
+  "created_at": "2021-11-14 17:29:12.362716+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          M. Larson\nRequest for Comments: 4697                                     P. Barber\nBCP: 123                                                  VeriSign, Inc.\nCategory: Best Current Practice                             October 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Observed DNS Resolution Misbehavior",
+      "zh-CHS": "观察到的DNS解析错误行为"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet Best Current Practices for the Internet Community, and requests discussion and suggestions for improvements. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的最佳现行做法，并要求进行讨论和提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This memo describes DNS iterative resolver behavior that results in a significant query volume sent to the root and top-level domain (TLD) name servers. We offer implementation advice to iterative resolver developers to alleviate these unnecessary queries. The recommendations made in this document are a direct byproduct of observation and analysis of abnormal query traffic patterns seen at two of the thirteen root name servers and all thirteen com/net TLD name servers.",
+      "zh-CHS": "此备忘录描述了DNS迭代解析器行为，该行为会导致大量查询量发送到根和顶级域（TLD）名称服务器。我们向迭代解析器开发人员提供实现建议，以减轻这些不必要的查询。本文中提出的建议是对13个根名称服务器中的两个和所有13个com/net TLD名称服务器上出现的异常查询流量模式进行观察和分析的直接副产品。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. A Note about Terminology in this Memo ......................3\n   1.2. Key Words ..................................................3\n2. Observed Iterative Resolver Misbehavior .........................3\n   2.1. Aggressive Requerying for Delegation Information ...........3\n        2.1.1. Recommendation ......................................5\n   2.2. Repeated Queries to Lame Servers ...........................6\n        2.2.1. Recommendation ......................................6\n   2.3. Inability to Follow Multiple Levels of Indirection .........7\n        2.3.1. Recommendation ......................................7\n   2.4. Aggressive Retransmission when Fetching Glue ...............8\n        2.4.1. Recommendation ......................................9\n   2.5. Aggressive Retransmission behind Firewalls .................9\n        2.5.1. Recommendation .....................................10\n   2.6. Misconfigured NS Records ..................................10\n        2.6.1. Recommendation .....................................11",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "   2.7. Name Server Records with Zero TTL .........................11\n        2.7.1. Recommendation .....................................12\n   2.8. Unnecessary Dynamic Update Messages .......................12\n        2.8.1. Recommendation .....................................13\n   2.9. Queries for Domain Names Resembling IPv4 Addresses ........13\n        2.9.1. Recommendation .....................................14\n   2.10. Misdirected Recursive Queries ............................14\n        2.10.1. Recommendation ....................................14\n   2.11. Suboptimal Name Server Selection Algorithm ...............15\n        2.11.1. Recommendation ....................................15\n3. Security Considerations ........................................16\n4. Acknowledgements ...............................................16\n5. Internationalization Considerations ............................16\n6. References .....................................................16\n   6.1. Normative References ......................................16\n   6.2. Informative References ....................................16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Observation of query traffic received by two root name servers and the thirteen com/net Top-Level Domain (TLD) name servers has revealed that a large proportion of the total traffic often consists of \"requeries\". A requery is the same question (<QNAME, QTYPE, QCLASS>) asked repeatedly at an unexpectedly high rate. We have observed requeries from both a single IP address and multiple IP addresses (i.e., the same query received simultaneously from multiple IP addresses).",
+      "zh-CHS": "对两个根名称服务器和十三个com/net顶级域（TLD）名称服务器接收的查询流量的观察表明，总流量的很大一部分通常由“重新查询”组成。重新查询是以出乎意料的高速度重复询问的相同问题（<QNAME，QTYPE，QCLASS>）。我们观察到来自单个IP地址和多个IP地址的重新查询（即，同时从多个IP地址接收到相同的查询）。"
+    },
+    {
+      "indent": 3,
+      "text": "By analyzing requery events, we have found that the cause of the duplicate traffic is almost always a deficient iterative resolver, stub resolver, or application implementation combined with an operational anomaly. The implementation deficiencies we have identified to date include well-intentioned recovery attempts gone awry, insufficient caching of failures, early abort when multiple levels of indirection must be followed, and aggressive retry by stub resolvers or applications. Anomalies that we have seen trigger requery events include lame delegations, unusual glue records, and anything that makes all authoritative name servers for a zone unreachable (Denial of Service (DoS) attacks, crashes, maintenance, routing failures, congestion, etc.).",
+      "zh-CHS": "通过分析重新查询事件，我们发现重复流量的原因几乎总是有缺陷的迭代解析器、存根解析器或应用程序实现与操作异常相结合。到目前为止，我们发现的实现缺陷包括善意的恢复尝试出错、故障缓存不足、必须遵循多个间接级别时提前中止，以及存根解析程序或应用程序的激进重试。我们所看到的触发重新查询事件的异常情况包括跛脚的委托、异常的粘合记录，以及任何使区域的所有权威名称服务器无法访问的情况（拒绝服务（DoS）攻击、崩溃、维护、路由故障、拥塞等）。"
+    },
+    {
+      "indent": 3,
+      "text": "In the following sections, we provide a detailed explanation of the observed behavior and recommend changes that will reduce the requery rate. None of the changes recommended affects the core DNS protocol specification; instead, this document consists of guidelines to implementors of iterative resolvers.",
+      "zh-CHS": "在以下部分中，我们将对观察到的行为进行详细解释，并建议更改以降低重新查询率。建议的任何更改都不会影响核心DNS协议规范；相反，本文档包含迭代解析器实现者的指南。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. A Note about Terminology in This Memo",
+      "section_title": true,
+      "zh-CHS": "1.1. 关于本备忘录中术语的注释"
+    },
+    {
+      "indent": 3,
+      "text": "To recast an old saying about standards, the nice thing about DNS terms is that there are so many of them to choose from. Writing or talking about DNS can be difficult and can cause confusion resulting from a lack of agreed-upon terms for its various components. Further complicating matters are implementations that combine multiple roles into one piece of software, which makes naming the result problematic. An example is the entity that accepts recursive queries, issues iterative queries as necessary to resolve the initial recursive query, caches responses it receives, and which is also able to answer questions about certain zones authoritatively. This entity is an iterative resolver combined with an authoritative name server and is often called a \"recursive name server\" or a \"caching name server\".",
+      "zh-CHS": "重述一句关于标准的老话，DNS术语的好处在于有很多术语可供选择。撰写或谈论DNS可能会很困难，并且可能会因其各个组件缺乏约定的术语而导致混淆。更复杂的问题是将多个角色组合到一个软件中的实现，这使得命名结果成为问题。例如，实体接受递归查询，根据需要发出迭代查询以解析初始递归查询，缓存接收到的响应，并且能够权威地回答有关特定区域的问题。该实体是与权威名称服务器组合的迭代解析器，通常称为“递归名称服务器”或“缓存名称服务器”。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo is concerned principally with the behavior of iterative resolvers, which are typically found as part of a recursive name server. This memo uses the more precise term \"iterative resolver\", because the focus is usually on that component. In instances where the name server role of this entity requires mentioning, this memo uses the term \"recursive name server\". As an example of the difference, the name server component of a recursive name server receives DNS queries and the iterative resolver component sends queries.",
+      "zh-CHS": "本备忘录主要关注迭代解析器的行为，这些解析器通常是递归名称服务器的一部分。本备忘录使用了更精确的术语“迭代解析器”，因为重点通常放在该组件上。在需要提及该实体的名称服务器角色的情况下，本备忘录使用术语“递归名称服务器”。例如，递归名称服务器的名称服务器组件接收DNS查询，而迭代解析器组件发送查询。"
+    },
+    {
+      "indent": 3,
+      "text": "The advent of IPv6 requires mentioning AAAA records as well as A records when discussing glue. To avoid continuous repetition and qualification, this memo uses the general term \"address record\" to encompass both A and AAAA records when a particular situation is relevant to both types.",
+      "zh-CHS": "IPv6的出现要求在讨论胶水时提及AAAA记录以及A记录。为避免连续重复和限定，当特定情况与A和AAAA记录类型相关时，本备忘录使用通用术语“地址记录”来涵盖A和AAAA记录。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Key Words",
+      "section_title": true,
+      "zh-CHS": "1.2. 关键词"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [1].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[1]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Observed Iterative Resolver Misbehavior",
+      "section_title": true,
+      "zh-CHS": "2. 观察到的迭代解析器错误行为"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Aggressive Requerying for Delegation Information",
+      "section_title": true,
+      "zh-CHS": "2.1. 主动重新查询委派信息"
+    },
+    {
+      "indent": 3,
+      "text": "There can be times when every name server in a zone's NS RRSet is unreachable (e.g., during a network outage), unavailable (e.g., the name server process is not running on the server host), or misconfigured (e.g., the name server is not authoritative for the given zone, also known as \"lame\"). Consider an iterative resolver that attempts to resolve a query for a domain name in such a zone and",
+      "zh-CHS": "有时，区域的NS RRSet中的每个名称服务器都不可访问（例如，在网络中断期间）、不可用（例如，名称服务器进程未在服务器主机上运行）或配置错误（例如，名称服务器对给定区域不具权威性，也称为“lame”）。考虑一个迭代解析器，它试图在这样的区域中解析域名的查询。"
+    },
+    {
+      "indent": 3,
+      "text": "discovers that none of the zone's name servers can provide an answer. We have observed a recursive name server implementation whose iterative resolver then verifies the zone's NS RRSet in its cache by querying for the zone's delegation information: it sends a query for the zone's NS RRSet to one of the parent zone's name servers. (Note that queries with QTYPE=NS are not required by the standard resolution algorithm described in Section 4.3.2 of RFC 1034 [2]. These NS queries represent this implementation's addition to that algorithm.)",
+      "zh-CHS": "发现区域的名称服务器都无法提供答案。我们观察到一个递归名称服务器实现，其迭代解析器随后通过查询区域的委派信息来验证其缓存中区域的NS RRSet：它向父区域的名称服务器之一发送区域的NS RRSet查询。（请注意，RFC 1034[2]第4.3.2节所述的标准解析算法不需要QTYPE=NS的查询。这些NS查询表示此实现对该算法的补充。）"
+    },
+    {
+      "indent": 3,
+      "text": "For example, suppose that \"example.com\" has the following NS RRSet:",
+      "zh-CHS": "例如，假设“example.com”具有以下设置："
+    },
+    {
+      "indent": 5,
+      "text": "example.com. IN NS ns1.example.com. example.com. IN NS ns2.example.com.",
+      "zh-CHS": "example.com。在NS ns1.example.com中。example.com。在NS ns2.example.com中。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receipt of a query for \"www.example.com\" and assuming that neither \"ns1.example.com\" nor \"ns2.example.com\" can provide an answer, this iterative resolver implementation immediately queries a \"com\" zone name server for the \"example.com\" NS RRSet to verify that it has the proper delegation information. This implementation performs this query to a zone's parent zone for each recursive query it receives that fails because of a completely unresponsive set of name servers for the target zone. Consider the effect when a popular zone experiences a catastrophic failure of all its name servers: now every recursive query for domain names in that zone sent to this recursive name server implementation results in a query to the failed zone's parent name servers. On one occasion when several dozen popular zones became unreachable, the query load on the com/net name servers increased by 50%.",
+      "zh-CHS": "在收到对“www.example.com”的查询并假设“ns1.example.com”和“ns2.example.com”都不能提供答案后，此迭代解析器实现会立即向“com”区域名称服务器查询“example.com”NS RRSet，以验证其是否具有正确的委派信息。此实现针对它接收到的每个递归查询（由于目标区域的一组名称服务器完全没有响应而失败），对区域的父区域执行此查询。考虑当流行区域经历了所有名称服务器的灾难性故障时的效果：现在，发送到该递归名称服务器实现的该区域中的每个域名的递归查询导致对失败区域的父名称服务器的查询。有一次，当几十个流行区域无法访问时，com/net名称服务器上的查询负载增加了50%。"
+    },
+    {
+      "indent": 3,
+      "text": "We believe this verification query is not reasonable. Consider the circumstances: when an iterative resolver is resolving a query for a domain name in a zone it has not previously searched, it uses the list of name servers in the referral from the target zone's parent. If on its first attempt to search the target zone, none of the name servers in the referral is reachable, a verification query to the parent would be pointless: this query to the parent would come so quickly on the heels of the referral that it would be almost certain to contain the same list of name servers. The chance of discovering any new information is slim.",
+      "zh-CHS": "我们认为这一验证质疑是不合理的。考虑以下情况：当迭代解析器解决在以前未搜索过的区域中对域名的查询时，它使用目标区域的父对象的引用中的名称服务器列表。如果在第一次尝试搜索目标区域时，无法访问引用中的任何名称服务器，则对父级的验证查询将毫无意义：对父级的查询将在引用之后快速出现，几乎可以肯定包含相同的名称服务器列表。发现任何新信息的机会微乎其微。"
+    },
+    {
+      "indent": 3,
+      "text": "The other possibility is that the iterative resolver successfully contacts one of the target zone's name servers and then caches the NS RRSet from the authority section of a response, the proper behavior according to Section 5.4.1 of RFC 2181 [3], because the NS RRSet from the target zone is more trustworthy than delegation information from the parent zone. If, while processing a subsequent recursive query, the iterative resolver discovers that none of the name servers",
+      "zh-CHS": "另一种可能性是迭代解析器成功地联系了目标区域的名称服务器之一，然后从响应的授权部分缓存NS RRSet，这是RFC 2181[3]第5.4.1节规定的正确行为，因为来自目标区域的NS RRSet比来自父区域的委派信息更可信。如果在处理后续递归查询时，迭代解析器发现没有任何名称服务器"
+    },
+    {
+      "indent": 3,
+      "text": "specified in the cached NS RRSet is available or authoritative, querying the parent would be wrong. An NS RRSet from the parent zone would now be less trustworthy than data already in the cache.",
+      "zh-CHS": "在缓存的NS RRSet中指定的是可用的或权威的，查询父级将是错误的。来自父区域的NS RRSet现在不如缓存中已有的数据可靠。"
+    },
+    {
+      "indent": 3,
+      "text": "For this query of the parent zone to be useful, the target zone's entire set of name servers would have to change AND the former set of name servers would have to be deconfigured or decommissioned AND the delegation information in the parent zone would have to be updated with the new set of name servers, all within the Time to Live (TTL) of the target zone's NS RRSet. We believe this scenario is uncommon: administrative best practices dictate that changes to a zone's set of name servers happen gradually when at all possible, with servers removed from the NS RRSet left authoritative for the zone as long as possible. The scenarios that we can envision that would benefit from the parent requery behavior do not outweigh its damaging effects.",
+      "zh-CHS": "要使对父区域的查询有用，目标区域的整个名称服务器集必须更改，前一组名称服务器必须取消配置或停用，并且父区域中的委派信息必须使用新的名称服务器集更新，所有这些都必须在生存时间（TTL）内完成目标区域的NS RRSet的。我们认为这种情况并不常见：管理最佳实践规定，在可能的情况下，对区域名称服务器集的更改会逐渐发生，从NS RRSet中删除的服务器将尽可能长时间保留对区域的权威性。我们所能预见的将从父重新查询行为中获益的场景不会超过其破坏性影响。"
+    },
+    {
+      "indent": 3,
+      "text": "This section should not be understood to claim that all queries to a zone's parent are bad. In some cases, such queries are not only reasonable but required. Consider the situation when required information, such as the address of a name server (i.e., the address record corresponding to the RDATA of an NS record), has timed out of an iterative resolver's cache before the corresponding NS record. If the name of the name server is below the apex of the zone, then the name server's address record is only available as glue in the parent zone. For example, consider this NS record:",
+      "zh-CHS": "本节不应被理解为声称对区域父级的所有查询都是错误的。在某些情况下，此类查询不仅合理，而且是必需的。考虑需要的信息时的情况，例如名称服务器的地址（即，对应于NS记录的RDATA的地址记录），在对应的NS记录之前从迭代解析器的缓存中超时。如果名称服务器的名称位于分区的顶点之下，则名称服务器的地址记录仅在父分区中可用。例如，考虑NS记录："
+    },
+    {
+      "indent": 5,
+      "text": "example.com. IN NS ns.example.com.",
+      "zh-CHS": "example.com。在NS.example.com中。"
+    },
+    {
+      "indent": 3,
+      "text": "If a cache has this NS record but not the address record for \"ns.example.com\", it is unable to contact the \"example.com\" zone directly and must query the \"com\" zone to obtain the address record. Note, however, that such a query would not have QTYPE=NS according to the standard resolution algorithm.",
+      "zh-CHS": "如果缓存有此NS记录，但没有“NS.example.com”的地址记录，则无法直接联系“example.com”区域，必须查询“com”区域以获取地址记录。但是，请注意，根据标准解析算法，这样的查询不会具有QTYPE=NS。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.1.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "An iterative resolver MUST NOT send a query for the NS RRSet of a non-responsive zone to any of the name servers for that zone's parent zone. For the purposes of this injunction, a non-responsive zone is defined as a zone for which every name server listed in the zone's NS RRSet:",
+      "zh-CHS": "迭代解析程序不得向非响应区域的父区域的任何名称服务器发送对该区域的NS RRSet的查询。就本禁令而言，非响应区域定义为区域的NS RRSet中列出的每个名称服务器："
+    },
+    {
+      "indent": 3,
+      "text": "1. is not authoritative for the zone (i.e., lame), or",
+      "zh-CHS": "1. 对于该区域（即lame）不具有权威性，或"
+    },
+    {
+      "indent": 3,
+      "text": "2. returns a server failure response (RCODE=2), or",
+      "zh-CHS": "2. 返回服务器故障响应（RCODE=2），或"
+    },
+    {
+      "indent": 3,
+      "text": "3. is dead or unreachable according to Section 7.2 of RFC 2308 [4].",
+      "zh-CHS": "3. 根据RFC 2308[4]第7.2节的规定，已失效或无法访问。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Repeated Queries to Lame Servers",
+      "section_title": true,
+      "zh-CHS": "2.2. 对Lame服务器的重复查询"
+    },
+    {
+      "indent": 3,
+      "text": "Section 2.1 describes a catastrophic failure: when every name server for a zone is unable to provide an answer for one reason or another. A more common occurrence is when a subset of a zone's name servers is unavailable or misconfigured. Different failure modes have different expected durations. Some symptoms indicate problems that are potentially transient, for example, various types of ICMP unreachable messages because a name server process is not running or a host or network is unreachable, or a complete lack of a response to a query. Such responses could be the result of a host rebooting or temporary outages; these events do not necessarily require any human intervention and can be reasonably expected to be temporary.",
+      "zh-CHS": "第2.1节描述了一个灾难性故障：当某个区域的每个名称服务器由于某种原因无法提供答案时。更常见的情况是区域名称服务器的子集不可用或配置错误。不同的失效模式具有不同的预期持续时间。某些症状表示可能是暂时性的问题，例如，由于名称服务器进程未运行或主机或网络无法访问，或完全没有对查询的响应而导致各种类型的ICMP无法访问消息。此类响应可能是主机重新启动或临时停机的结果；这些事件不一定需要任何人为干预，可以合理地预期是暂时的。"
+    },
+    {
+      "indent": 3,
+      "text": "Other symptoms clearly indicate a condition requiring human intervention, such as lame server: if a name server is misconfigured and not authoritative for a zone delegated to it, it is reasonable to assume that this condition has potential to last longer than unreachability or unresponsiveness. Consequently, repeated queries to known lame servers are not useful. In this case of a condition with potential to persist for a long time, a better practice would be to maintain a list of known lame servers and avoid querying them repeatedly in a short interval.",
+      "zh-CHS": "其他症状清楚地表明需要人工干预的情况，例如lame服务器：如果名称服务器配置错误，并且对委派给它的区域没有权威性，则可以合理地假设此情况可能持续的时间比无法访问或无响应的时间长。因此，对已知lame服务器的重复查询没有用处。在这种可能持续很长时间的情况下，更好的做法是维护已知lame服务器的列表，并避免在短时间内重复查询它们。"
+    },
+    {
+      "indent": 3,
+      "text": "It should also be noted, however, that some authoritative name server implementations appear to be lame only for queries of certain types as described in RFC 4074 [5]. In this case, it makes sense to retry the \"lame\" servers for other types of queries, particularly when all known authoritative name servers appear to be \"lame\".",
+      "zh-CHS": "但是，还应注意，一些权威名称服务器实现似乎仅适用于RFC 4074[5]中描述的某些类型的查询。在这种情况下，为其他类型的查询重试“lame”服务器是有意义的，特别是当所有已知的权威名称服务器都显示为“lame”时。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.2.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "Iterative resolvers SHOULD cache name servers that they discover are not authoritative for zones delegated to them (i.e., lame servers). If this caching is performed, lame servers MUST be cached against the specific query tuple <zone name, class, server IP address>. Zone name can be derived from the owner name of the NS record that was referenced to query the name server that was discovered to be lame.",
+      "zh-CHS": "迭代解析程序应该缓存它们发现的名称服务器，这些服务器对于委派给它们的区域（即lame服务器）来说不是权威的。如果执行此缓存，则必须针对特定的查询元组<zone name，class，server IP address>缓存lame服务器。区域名称可以从NS记录的所有者名称派生，NS记录用于查询发现为lame的名称服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations that perform lame server caching MUST refrain from sending queries to known lame servers for a configurable time interval after the server is discovered to be lame. A minimum interval of thirty minutes is RECOMMENDED.",
+      "zh-CHS": "执行lame服务器缓存的实现必须在发现服务器为lame后的可配置时间间隔内避免向已知lame服务器发送查询。建议至少间隔30分钟。"
+    },
+    {
+      "indent": 3,
+      "text": "An exception to this recommendation occurs if all name servers for a zone are marked lame. In that case, the iterative resolver SHOULD temporarily ignore the servers' lameness status and query one or more servers. This behavior is a workaround for the type-specific lameness issue described in the previous section.",
+      "zh-CHS": "如果区域的所有名称服务器都标记为lame，则会出现此建议的例外情况。在这种情况下，迭代解析器应该暂时忽略服务器的跛行状态，并查询一个或多个服务器。此行为是前一节中描述的特定于类型的跛行问题的解决方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementors should take care not to make lame server avoidance logic overly broad: note that a name server could be lame for a parent zone but not a child zone, e.g., lame for \"example.com\" but properly authoritative for \"sub.example.com\". Therefore, a name server should not be automatically considered lame for subzones. In the case above, even if a name server is known to be lame for \"example.com\", it should be queried for QNAMEs at or below \"sub.example.com\" if an NS record indicates that it should be authoritative for that zone.",
+      "zh-CHS": "实现者应该注意不要使lame服务器避免逻辑过于宽泛：注意，名称服务器可以是父区域的lame，而不是子区域的lame，例如，lame代表“example.com”，但正确地代表“sub.example.com”。因此，不应自动将名称服务器视为子区域的lame。在上述情况下，即使已知名称服务器是“example.com”的lame，如果NS记录表明它应该是该区域的权威服务器，则应在“sub.example.com”或其下查询QName。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Inability to Follow Multiple Levels of Indirection",
+      "section_title": true,
+      "zh-CHS": "2.3. 无法遵循多个间接层次"
+    },
+    {
+      "indent": 3,
+      "text": "Some iterative resolver implementations are unable to follow sufficient levels of indirection. For example, consider the following delegations:",
+      "zh-CHS": "某些迭代解析器实现无法遵循足够级别的间接寻址。例如，考虑下列代表团："
+    },
+    {
+      "indent": 5,
+      "text": "foo.example. IN NS ns1.example.com. foo.example. IN NS ns2.example.com.",
+      "zh-CHS": "foo.example。在NS ns1.example.com中。foo.example。在NS ns2.example.com中。"
+    },
+    {
+      "indent": 5,
+      "text": "example.com. IN NS ns1.test.example.net. example.com. IN NS ns2.test.example.net.",
+      "zh-CHS": "example.com。在NS ns1.test.example.net中。example.com。在NS ns2.test.example.net中。"
+    },
+    {
+      "indent": 5,
+      "text": "test.example.net. IN NS ns1.test.example.net. test.example.net. IN NS ns2.test.example.net.",
+      "zh-CHS": "test.example.net。在NS ns1.test.example.net中。test.example.net。在NS ns2.test.example.net中。"
+    },
+    {
+      "indent": 3,
+      "text": "An iterative resolver resolving the name \"www.foo.example\" must follow two levels of indirection, first obtaining address records for \"ns1.test.example.net\" or \"ns2.test.example.net\" in order to obtain address records for \"ns1.example.com\" or \"ns2.example.com\" in order to query those name servers for the address records of \"www.foo.example\". Although this situation may appear contrived, we have seen multiple similar occurrences and expect more as new generic top-level domains (gTLDs) become active. We anticipate many zones in new gTLDs will use name servers in existing gTLDs, increasing the number of delegations using out-of-zone name servers.",
+      "zh-CHS": "解析名称“www.foo.example”的迭代解析器必须遵循两个间接级别，首先获取“ns1.test.example.net”或“ns2.test.example.net”的地址记录，以便获取“ns1.example.com”或“ns2.example.com”的地址记录，以便查询这些名称服务器的“www.foo.example”地址记录。尽管这种情况可能是人为造成的，但我们已经看到了多次类似的情况，并且随着新的通用顶级域（GTLD）的激活，我们期待更多的情况出现。我们预计新GTLD中的许多区域将在现有GTLD中使用名称服务器，从而增加使用区域外名称服务器的委派数量。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.3.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "Clearly constructing a delegation that relies on multiple levels of indirection is not a good administrative practice. However, the practice is widespread enough to require that iterative resolvers be able to cope with it. Iterative resolvers SHOULD be able to handle arbitrary levels of indirection resulting from out-of-zone name",
+      "zh-CHS": "显然，构建一个依赖于多个间接层次的委托不是一个好的管理实践。然而，这种做法是广泛的，需要迭代解析器能够处理它。迭代解析器应该能够处理由区域外名称导致的任意级别的间接寻址"
+    },
+    {
+      "indent": 3,
+      "text": "servers. Iterative resolvers SHOULD implement a level-of-effort counter to avoid loops or otherwise performing too much work in resolving pathological cases.",
+      "zh-CHS": "服务器。迭代解析程序应该实现一个工作级别计数器，以避免循环或在解析病理案例时执行过多工作。"
+    },
+    {
+      "indent": 3,
+      "text": "A best practice that avoids this entire issue of indirection is to name one or more of a zone's name servers in the zone itself. For example, if the zone is named \"example.com\", consider naming some of the name servers \"ns{1,2,...}.example.com\" (or similar).",
+      "zh-CHS": "避免整个间接寻址问题的最佳实践是在区域本身中命名一个或多个区域的名称服务器。例如，如果该区域被命名为“Simult.com”，考虑命名一些名称服务器“NS {1,2，…}.Simult.com”（或类似）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Aggressive Retransmission when Fetching Glue",
+      "section_title": true,
+      "zh-CHS": "2.4. 取胶时主动重传"
+    },
+    {
+      "indent": 3,
+      "text": "When an authoritative name server responds with a referral, it includes NS records in the authority section of the response. According to the algorithm in Section 4.3.2 of RFC 1034 [2], the name server should also \"put whatever addresses are available into the additional section, using glue RRs if the addresses are not available from authoritative data or the cache.\" Some name server implementations take this address inclusion a step further with a feature called \"glue fetching\". A name server that implements glue fetching attempts to include address records for every NS record in the authority section. If necessary, the name server issues multiple queries of its own to obtain any missing address records.",
+      "zh-CHS": "当权威名称服务器响应引用时，它在响应的权威部分中包含NS记录。根据RFC 1034[2]第4.3.2节中的算法，名称服务器还应“将任何可用的地址放入附加部分，如果地址无法从权威数据或缓存中获得，则使用glue RRs。”一些名称服务器实现通过名为“glue fetching”。实现glue fetching的名称服务器尝试为授权部分中的每个NS记录包含地址记录。如有必要，名称服务器会发出自己的多个查询以获取任何丢失的地址记录。"
+    },
+    {
+      "indent": 3,
+      "text": "Problems with glue fetching can arise in the context of \"authoritative-only\" name servers, which only serve authoritative data and ignore requests for recursion. Such an entity will not normally generate any queries of its own. Instead it answers non-recursive queries from iterative resolvers looking for information in zones it serves. With glue fetching enabled, however, an authoritative server invokes an iterative resolver to look up an unknown address record to complete the additional section of a response.",
+      "zh-CHS": "在“仅权威”名称服务器的上下文中可能会出现胶取问题，这些服务器只提供权威数据，而忽略递归请求。这种实体通常不会生成自己的任何查询。相反，它回答来自迭代解析器的非递归查询，在它所服务的区域中查找信息。然而，在启用了胶取的情况下，权威服务器调用迭代解析器来查找未知地址记录，以完成响应的附加部分。"
+    },
+    {
+      "indent": 3,
+      "text": "We have observed situations where the iterative resolver of a glue-fetching name server can send queries that reach other name servers, but is apparently prevented from receiving the responses. For example, perhaps the name server is authoritative-only and therefore its administrators expect it to receive only queries and not responses. Perhaps unaware of glue fetching and presuming that the name server's iterative resolver will generate no queries, its administrators place the name server behind a network device that prevents it from receiving responses. If this is the case, all glue-fetching queries will go unanswered.",
+      "zh-CHS": "我们已经观察到了这样的情况，即胶水抓取名称服务器的迭代解析器可以将查询发送到其他名称服务器，但显然无法接收响应。例如，名称服务器可能只是权威服务器，因此其管理员希望它只接收查询而不接收响应。可能不知道胶水抓取，并且假定名称服务器的迭代解析器不会生成任何查询，其管理员将名称服务器放在网络设备后面，以防止其接收响应。如果是这种情况，那么所有的胶水抓取查询都将无法响应。"
+    },
+    {
+      "indent": 3,
+      "text": "We have observed name server implementations whose iterative resolvers retry excessively when glue-fetching queries are unanswered. A single com/net name server has received hundreds of queries per second from a single such source. Judging from the",
+      "zh-CHS": "我们观察到名称服务器实现，其迭代解析程序在胶取查询未得到响应时会过度重试。单个com/net名称服务器每秒从单个此类源接收数百个查询。从实际情况来看"
+    },
+    {
+      "indent": 3,
+      "text": "specific queries received and based on additional analysis, we believe these queries result from overly aggressive glue fetching.",
+      "zh-CHS": "根据收到的特定查询和其他分析，我们认为这些查询是过度激进的胶水抓取造成的。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.4.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "Implementers whose name servers support glue fetching SHOULD take care to avoid sending queries at excessive rates. Implementations SHOULD support throttling logic to detect when queries are sent but no responses are received.",
+      "zh-CHS": "名称服务器支持胶取的实现者应该注意避免以过高的速率发送查询。实现应该支持节流逻辑，以检测何时发送查询但未收到响应。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Aggressive Retransmission behind Firewalls",
+      "section_title": true,
+      "zh-CHS": "2.5. 防火墙后的主动重传"
+    },
+    {
+      "indent": 3,
+      "text": "A common occurrence and one of the largest sources of repeated queries at the com/net and root name servers appears to result from resolvers behind misconfigured firewalls. In this situation, an iterative resolver is apparently allowed to send queries through a firewall to other name servers, but not receive the responses. The result is more queries than necessary because of retransmission, all of which are useless because the responses are never received. Just as with the glue-fetching scenario described in Section 2.4, the queries are sometimes sent at excessive rates. To make matters worse, sometimes the responses, sent in reply to legitimate queries, trigger an alarm on the originator's intrusion detection system. We are frequently contacted by administrators responding to such alarms who believe our name servers are attacking their systems.",
+      "zh-CHS": "com/net和根名称服务器上重复查询的常见情况和最大来源之一似乎是由配置错误的防火墙后面的解析器造成的。在这种情况下，迭代解析器显然可以通过防火墙向其他名称服务器发送查询，但不能接收响应。由于重新传输，结果是产生了更多的查询，所有这些查询都是无用的，因为从未收到响应。正如第2.4节中描述的胶水抓取场景一样，查询有时会以过高的速率发送。更糟糕的是，有时，响应合法查询而发送的响应会在发起人的入侵检测系统上触发警报。响应此类警报的管理员经常联系我们，他们认为我们的名称服务器正在攻击他们的系统。"
+    },
+    {
+      "indent": 3,
+      "text": "Not only do some resolvers in this situation retransmit queries at an excessive rate, but they continue to do so for days or even weeks. This scenario could result from an organization with multiple recursive name servers, only a subset of whose iterative resolvers' traffic is improperly filtered in this manner. Stub resolvers in the organization could be configured to query multiple recursive name servers. Consider the case where a stub resolver queries a filtered recursive name server first. The iterative resolver of this recursive name server sends one or more queries whose replies are filtered, so it cannot respond to the stub resolver, which times out. Then the stub resolver retransmits to a recursive name server that is able to provide an answer. Since resolution ultimately succeeds the underlying problem might not be recognized or corrected. A popular stub resolver implementation has a very aggressive retransmission schedule, including simultaneous queries to multiple recursive name servers, which could explain how such a situation could persist without being detected.",
+      "zh-CHS": "在这种情况下，一些解析器不仅会以过高的速率重新传输查询，而且还会持续数天甚至数周。这种情况可能是由具有多个递归名称服务器的组织造成的，只有其迭代解析程序的流量的子集以这种方式被不正确地过滤。组织中的存根解析器可以配置为查询多个递归名称服务器。考虑存根解析器首先查询筛选递归名称服务器的情况。此递归名称服务器的迭代解析程序发送一个或多个查询，这些查询的答复经过筛选，因此它无法响应存根解析程序，而存根解析程序将超时。然后，存根解析器将重新传输到能够提供答案的递归名称服务器。由于最终解决成功，潜在问题可能无法识别或纠正。一个流行的存根解析器实现有一个非常积极的重传计划，包括对多个递归名称服务器的同时查询，这可以解释这种情况如何在没有被检测到的情况下持续存在。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.5.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "The most obvious recommendation is that administrators SHOULD take care not to place iterative resolvers behind a firewall that allows queries, but not the resulting replies, to pass through.",
+      "zh-CHS": "最明显的建议是，管理员应注意不要将迭代解析器放在允许查询（而不是结果回复）通过的防火墙后面。"
+    },
+    {
+      "indent": 3,
+      "text": "Iterative resolvers SHOULD take care to avoid sending queries at excessive rates. Implementations SHOULD support throttling logic to detect when queries are sent but no responses are received.",
+      "zh-CHS": "迭代解析器应该注意避免以过高的速率发送查询。实现应该支持节流逻辑，以检测何时发送查询但未收到响应。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Misconfigured NS Records",
+      "section_title": true,
+      "zh-CHS": "2.6. 配置错误的NS记录"
+    },
+    {
+      "indent": 3,
+      "text": "Sometimes a zone administrator forgets to add the trailing dot on the domain names in the RDATA of a zone's NS records. Consider this fragment of the zone file for \"example.com\":",
+      "zh-CHS": "有时，区域管理员忘记在区域NS记录的RDATA中的域名上添加尾随点。考虑“示例.com”区域文件的这个片段："
+    },
+    {
+      "indent": 5,
+      "text": "$ORIGIN example.com. example.com. 3600 IN NS ns1.example.com ; Note missing example.com. 3600 IN NS ns2.example.com ; trailing dots",
+      "zh-CHS": "$originexample.com。example.com。NS ns1.example.com中的3600；注意缺少example.com。NS ns2.example.com中的3600；尾随点"
+    },
+    {
+      "indent": 3,
+      "text": "The zone's authoritative servers will parse the NS RDATA as \"ns1.example.com.example.com\" and \"ns2.example.com.example.com\" and return NS records with this incorrect RDATA in responses, including typically the authority section of every response containing records from the \"example.com\" zone.",
+      "zh-CHS": "区域的权威服务器将NS RDATA解析为“ns1.example.com.example.com”和“ns2.example.com.example.com”，并在响应中返回带有此错误RDATA的NS记录，通常包括包含“example.com”区域记录的每个响应的权威部分。"
+    },
+    {
+      "indent": 3,
+      "text": "Now consider a typical sequence of queries. An iterative resolver attempting to resolve address records for \"www.example.com\" with no cached information for this zone will query a \"com\" authoritative server. The \"com\" server responds with a referral to the \"example.com\" zone, consisting of NS records with valid RDATA and associated glue records. (This example assumes that the \"example.com\" zone delegation information is correct in the \"com\" zone.) The iterative resolver caches the NS RRSet from the \"com\" server and follows the referral by querying one of the \"example.com\" authoritative servers. This server responds with the \"www.example.com\" address record in the answer section and, typically, the \"example.com\" NS records in the authority section and, if space in the message remains, glue address records in the additional section. According to Section 5.4.1 of RFC 2181 [3], NS records in the authority section of an authoritative answer are more trustworthy than NS records from the authority section of a non-authoritative answer. Thus, the \"example.com\" NS RRSet just received from the \"example.com\" authoritative server overrides the \"example.com\" NS RRSet received moments ago from the \"com\" authoritative server.",
+      "zh-CHS": "现在考虑一个典型的查询序列。迭代解析程序试图解析“www.example.com”的地址记录，但没有此区域的缓存信息，将查询“com”权威服务器。“com”服务器响应“example.com”区域的引用，该区域由具有有效RDATA的NS记录和关联的glue记录组成。（本例假设“example.com”区域的委派信息在“com”区域中是正确的。）迭代解析器缓存来自“com”服务器的NS RRSet，并通过查询其中一个“example.com”权威服务器来跟踪引用。此服务器在应答部分使用“www.example.com”地址记录进行响应，通常在授权部分使用“example.com”NS记录，如果消息中仍有空格，则将地址记录粘贴到附加部分。根据RFC 2181[3]第5.4.1节，权威答案权威部分的NS记录比非权威答案权威部分的NS记录更可信。因此，刚从“example.com”权威服务器收到的“example.com”NS RRSet覆盖了刚才从“com”权威服务器收到的“example.com”NS RRSet。"
+    },
+    {
+      "indent": 3,
+      "text": "But the \"example.com\" zone contains the erroneous NS RRSet as shown in the example above. Subsequent queries for names in \"example.com\" will cause the iterative resolver to attempt to use the incorrect NS records and so it will try to resolve the nonexistent names \"ns1.example.com.example.com\" and \"ns2.example.com.example.com\". In this example, since all of the zone's name servers are named in the zone itself (i.e., \"ns1.example.com.example.com\" and \"ns2.example.com.example.com\" both end in \"example.com\") and all are bogus, the iterative resolver cannot reach any \"example.com\" name servers. Therefore, attempts to resolve these names result in address record queries to the \"com\" authoritative servers. Queries for such obviously bogus glue address records occur frequently at the com/net name servers.",
+      "zh-CHS": "但是“example.com”区域包含错误的NS RRSet，如上面的示例所示。对“example.com”中名称的后续查询将导致迭代解析器尝试使用不正确的NS记录，因此它将尝试解析不存在的名称“ns1.example.com.example.com”和“ns2.example.com.example.com”。在本例中，由于所有区域的名称服务器都是在区域本身中命名的（即，“ns1.example.com.example.com”和“ns2.example.com.example.com”都以“example.com”结尾），并且都是假的，因此迭代解析器无法访问任何“example.com”名称服务器。因此，尝试解析这些名称会导致向“com”权威服务器查询地址记录。在com/net名称服务器上经常出现对这种明显虚假的胶水地址记录的查询。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.6.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "An authoritative server can detect this situation. A trailing dot missing from an NS record's RDATA always results by definition in a name server name that exists somewhere under the apex of the zone that the NS record appears in. Note that further levels of delegation are possible, so a missing trailing dot could inadvertently create a name server name that actually exists in a subzone.",
+      "zh-CHS": "权威服务器可以检测到这种情况。根据定义，NS记录的RDATA中缺少的尾随点始终会导致名称服务器名称出现在NS记录所在区域顶点下的某个位置。请注意，进一步的委派级别是可能的，因此丢失的尾随点可能会无意中创建一个实际存在于子区域中的名称服务器名称。"
+    },
+    {
+      "indent": 3,
+      "text": "An authoritative name server SHOULD issue a warning when one of a zone's NS records references a name server below the zone's apex when a corresponding address record does not exist in the zone AND there are no delegated subzones where the address record could exist.",
+      "zh-CHS": "当区域中不存在相应的地址记录且不存在地址记录可能存在的委派子区域时，当区域的NS记录之一引用该区域顶点下的名称服务器时，权威名称服务器应发出警告。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7. Name Server Records with Zero TTL",
+      "section_title": true,
+      "zh-CHS": "2.7. 使用零TTL命名服务器记录"
+    },
+    {
+      "indent": 3,
+      "text": "Sometimes a popular com/net subdomain's zone is configured with a TTL of zero on the zone's NS records, which prohibits these records from being cached and will result in a higher query volume to the zone's authoritative servers. The zone's administrator should understand the consequences of such a configuration and provision resources accordingly. A zero TTL on the zone's NS RRSet, however, carries additional consequences beyond the zone itself: if an iterative resolver cannot cache a zone's NS records because of a zero TTL, it will be forced to query that zone's parent's name servers each time it resolves a name in the zone. The com/net authoritative servers do see an increased query load when a popular com/net subdomain's zone is configured with a TTL of zero on the zone's NS records.",
+      "zh-CHS": "有时，流行的com/net子域的区域在区域的NS记录上配置为零的TTL，这将禁止缓存这些记录，并将导致对区域权威服务器的更高查询量。区域管理员应了解此类配置的后果，并相应地提供资源。但是，区域的NS RRSet上的零TTL会带来区域本身以外的其他后果：如果迭代解析程序由于零TTL而无法缓存区域的NS记录，则每次解析区域中的名称时，它都将被迫查询该区域的父级名称服务器。当流行的com/net子域的分区的NS记录上的TTL为零时，com/net权威服务器确实会看到查询负载增加。"
+    },
+    {
+      "indent": 3,
+      "text": "A zero TTL on an RRSet expected to change frequently is extreme but permissible. A zone's NS RRSet is a special case, however, because changes to it must be coordinated with the zone's parent. In most zone parent/child relationships that we are aware of, there is",
+      "zh-CHS": "RRSet上预计会频繁更改的零TTL是极端的，但是允许的。但是，区域的NS RRSet是一种特殊情况，因为对它的更改必须与区域的父级协调。在我们所了解的大多数区域父/子关系中，存在"
+    },
+    {
+      "indent": 3,
+      "text": "typically some delay involved in effecting changes. Furthermore, changes to the set of a zone's authoritative name servers (and therefore to the zone's NS RRSet) are typically relatively rare: providing reliable authoritative service requires a reasonably stable set of servers. Therefore, an extremely low or zero TTL on a zone's NS RRSet rarely makes sense, except in anticipation of an upcoming change. In this case, when the zone's administrator has planned a change and does not want iterative resolvers throughout the Internet to cache the NS RRSet for a long period of time, a low TTL is reasonable.",
+      "zh-CHS": "通常，在实施变更时会出现一些延迟。此外，对区域的权威名称服务器集（因此对区域的NS RRSet）的更改通常相对较少：提供可靠的权威服务需要一组相当稳定的服务器。因此，一个区域的NS RRSet上的极低或零TTL很少有意义，除非预期即将发生的变化。在这种情况下，如果区域管理员已计划进行更改，并且不希望Internet上的迭代解析程序长时间缓存NS RRSet，则低TTL是合理的。"
+    },
+    {
+      "indent": 0,
+      "text": "2.7.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.7.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "Because of the additional load placed on a zone's parent's authoritative servers resulting from a zero TTL on a zone's NS RRSet, under such circumstances authoritative name servers SHOULD issue a warning when loading a zone.",
+      "zh-CHS": "由于区域的NS RRSet上的TTL为零会导致在区域的父级权威服务器上增加负载，因此在这种情况下，权威名称服务器在加载区域时应发出警告。"
+    },
+    {
+      "indent": 0,
+      "text": "2.8. Unnecessary Dynamic Update Messages",
+      "section_title": true,
+      "zh-CHS": "2.8. 不必要的动态更新消息"
+    },
+    {
+      "indent": 3,
+      "text": "The UPDATE message specified in RFC 2136 [6] allows an authorized agent to update a zone's data on an authoritative name server using a DNS message sent over the network. Consider the case of an agent desiring to add a particular resource record. Because of zone cuts, the agent does not necessarily know the proper zone to which the record should be added. The dynamic update process requires that the agent determine the appropriate zone so the UPDATE message can be sent to one of the zone's authoritative servers (typically the primary master as specified in the zone's Start of Authority (SOA) record's MNAME field).",
+      "zh-CHS": "RFC 2136[6]中指定的更新消息允许授权代理使用通过网络发送的DNS消息更新权威名称服务器上的区域数据。考虑希望添加特定资源记录的代理的情况。由于分区切割，代理不一定知道应将记录添加到的正确分区。动态更新过程要求代理确定适当的区域，以便将更新消息发送到该区域的一个权威服务器（通常是该区域的“授权开始”（SOA）记录的MNAME字段中指定的主主机）。"
+    },
+    {
+      "indent": 3,
+      "text": "The appropriate zone to update is the closest enclosing zone, which cannot be determined only by inspecting the domain name of the record to be updated, since zone cuts can occur anywhere. One way to determine the closest enclosing zone entails walking up the name space tree by sending repeated UPDATE messages until successful. For example, consider an agent attempting to add an address record with the name \"foo.bar.example.com\". The agent could first attempt to update the \"foo.bar.example.com\" zone. If the attempt failed, the update could be directed to the \"bar.example.com\" zone, then the \"example.com\" zone, then the \"com\" zone, and finally the root zone.",
+      "zh-CHS": "要更新的适当区域是最近的封闭区域，这不能仅通过检查要更新的记录的域名来确定，因为区域剪切可以发生在任何地方。确定最近的封闭区域的一种方法是在名称空间树上遍历，发送重复的更新消息，直到成功。例如，考虑一个代理试图添加一个名为“fo.bar .Simult.com”的地址记录。代理可以首先尝试更新“foo.bar.example.com”区域。如果尝试失败，则可以将更新定向到“bar.example.com”区域，然后是“example.com”区域，然后是“com”区域，最后是根区域。"
+    },
+    {
+      "indent": 3,
+      "text": "A popular dynamic agent follows this algorithm. The result is many UPDATE messages received by the root name servers, the com/net authoritative servers, and presumably other TLD authoritative servers. A valid question is why the algorithm proceeds to send updates all the way to TLD and root name servers. This behavior is not entirely unreasonable: in enterprise DNS architectures with an",
+      "zh-CHS": "流行的动态代理遵循此算法。结果是根名称服务器、com/net权威服务器以及其他TLD权威服务器接收到许多更新消息。一个有效的问题是，为什么算法会一直向TLD和根名称服务器发送更新。这种行为并非完全不合理：在具有"
+    },
+    {
+      "indent": 3,
+      "text": "\"internal root\" design, there could conceivably be private, non-public TLD or root zones that would be the appropriate targets for a dynamic update.",
+      "zh-CHS": "在“内部根”设计中，可能存在私有、非公共TLD或根区域，它们将是动态更新的适当目标。"
+    },
+    {
+      "indent": 3,
+      "text": "A significant deficiency with this algorithm is that knowledge of a given UPDATE message's failure is not helpful in directing future UPDATE messages to the appropriate servers. A better algorithm would be to find the closest enclosing zone by walking up the name space with queries for SOA or NS rather than \"probing\" with UPDATE messages. Once the appropriate zone is found, an UPDATE message can be sent. In addition, the results of these queries can be cached to aid in determining the closest enclosing zones for future updates. Once the closest enclosing zone is determined with this method, the update will either succeed or fail and there is no need to send further updates to higher-level zones. The important point is that walking up the tree with queries yields cacheable information, whereas walking up the tree by sending UPDATE messages does not.",
+      "zh-CHS": "此算法的一个显著缺陷是，了解给定更新消息的故障对于将未来的更新消息定向到适当的服务器没有帮助。更好的算法是通过查询SOA或NS来查找最近的封闭区域，而不是使用更新消息进行“探测”。一旦找到合适的区域，就可以发送更新消息。此外，可以缓存这些查询的结果，以帮助确定最近的封闭区域，以便将来进行更新。使用此方法确定最近的封闭区域后，更新将成功或失败，无需向更高级别的区域发送进一步的更新。重要的一点是，使用查询在树上遍历会产生可缓存的信息，而通过发送更新消息在树上遍历则不会。"
+    },
+    {
+      "indent": 0,
+      "text": "2.8.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.8.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "Dynamic update agents SHOULD send SOA or NS queries to progressively higher-level names to find the closest enclosing zone for a given name to update. Only after the appropriate zone is found should the client send an UPDATE message to one of the zone's authoritative servers. Update clients SHOULD NOT \"probe\" using UPDATE messages by walking up the tree to progressively higher-level zones.",
+      "zh-CHS": "动态更新代理应向更高级别的名称发送SOA或NS查询，以查找要更新的给定名称的最近封闭区域。只有在找到适当的区域后，客户端才应向该区域的权威服务器之一发送更新消息。更新客户机不应该使用更新消息“探测”，而是沿着树向上移动到更高级别的区域。"
+    },
+    {
+      "indent": 0,
+      "text": "2.9. Queries for Domain Names Resembling IPv4 Addresses",
+      "section_title": true,
+      "zh-CHS": "2.9. 查询类似IPv4地址的域名"
+    },
+    {
+      "indent": 3,
+      "text": "The root name servers receive a significant number of A record queries where the QNAME looks like an IPv4 address. The source of these queries is unknown. It could be attributed to situations where a user believes that an application will accept either a domain name or an IP address in a given configuration option. The user enters an IP address, but the application assumes that any input is a domain name and attempts to resolve it, resulting in an A record lookup. There could also be applications that produce such queries in a misguided attempt to reverse map IP addresses.",
+      "zh-CHS": "根名称服务器接收大量记录查询，其中QNAME看起来像IPv4地址。这些查询的来源未知。这可能是由于用户认为应用程序将接受给定配置选项中的域名或IP地址。用户输入一个IP地址，但应用程序假定任何输入都是域名，并尝试解析它，从而导致记录查找。也可能有一些应用程序在错误地尝试反向映射IP地址时产生此类查询。"
+    },
+    {
+      "indent": 3,
+      "text": "These queries result in Name Error (RCODE=3) responses. An iterative resolver can negatively cache such responses, but each response requires a separate cache entry; i.e., a negative cache entry for the domain name \"192.0.2.1\" does not prevent a subsequent query for the domain name \"192.0.2.2\".",
+      "zh-CHS": "这些查询会导致名称错误（RCODE=3）响应。迭代解析器可以消极缓存这些响应，但每个响应都需要一个单独的缓存条目；i、 例如，域名“192.0.2.1”的负缓存条目不会阻止对域名“192.0.2.2”的后续查询。"
+    },
+    {
+      "indent": 0,
+      "text": "2.9.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.9.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "It would be desirable for the root name servers not to have to answer these queries: they unnecessarily consume CPU resources and network bandwidth. A possible solution is to delegate these numeric TLDs from the root zone to a separate set of servers to absorb the traffic. The \"black hole servers\" used by the AS 112 Project (http://www.as112.net), which are currently delegated the in-addr.arpa zones corresponding to RFC 1918 [7] private use address space, would be a possible choice to receive these delegations. Of course, the proper and usual root zone change procedures would have to be followed to make such a change to the root zone.",
+      "zh-CHS": "根名称服务器不必回答这些查询是可取的：它们不必要地消耗CPU资源和网络带宽。一种可能的解决方案是将这些数字TLD从根区域委托给一组单独的服务器以吸收流量。AS 112项目使用的“黑洞服务器”(http://www.as112.net)，当前被授予与RFC 1918[7]专用地址空间相对应的in-addr.arpa区域，将是接收这些授权的可能选择。当然，要对根区域进行这样的更改，必须遵循正确和常用的根区域更改程序。"
+    },
+    {
+      "indent": 0,
+      "text": "2.10. Misdirected Recursive Queries",
+      "section_title": true,
+      "zh-CHS": "2.10. 错误定向递归查询"
+    },
+    {
+      "indent": 3,
+      "text": "The root name servers receive a significant number of recursive queries (i.e., queries with the Recursion Desired (RD) bit set in the header). Since none of the root servers offers recursion, the servers' response in such a situation ignores the request for recursion and the response probably does not contain the data the querier anticipated. Some of these queries result from users configuring stub resolvers to query a root server. (This situation is not hypothetical: we have received complaints from users when this configuration does not work as hoped.) Of course, users should not direct stub resolvers to use name servers that do not offer recursion, but we are not aware of any stub resolver implementation that offers any feedback to the user when so configured, aside from simply \"not working\".",
+      "zh-CHS": "根名称服务器接收大量递归查询（即，在标头中设置了递归所需（RD）位的查询）。由于没有一个根服务器提供递归，因此在这种情况下，服务器的响应会忽略递归请求，并且响应可能不包含查询者预期的数据。其中一些查询是用户配置存根解析程序来查询根服务器的结果。（这种情况不是假设性的：当此配置无法按预期工作时，我们收到了用户的投诉。）当然，用户不应该指示存根解析程序使用不提供递归的名称服务器，但我们不知道有任何存根解析程序实现在这样配置时向用户提供任何反馈，除了简单的“不工作”。"
+    },
+    {
+      "indent": 0,
+      "text": "2.10.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.10.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "When the IP address of a name server that supposedly offers recursion is configured in a stub resolver using an interactive user interface, the resolver could send a test query to verify that the server indeed supports recursion (i.e., verify that the response has the RA bit set in the header). The user could be notified immediately if the server is non-recursive.",
+      "zh-CHS": "当使用交互式用户界面在存根解析程序中配置假定提供递归的名称服务器的IP地址时，解析程序可以发送测试查询以验证服务器是否确实支持递归（即，验证响应是否在头中设置了RA位）。如果服务器是非递归的，则可以立即通知用户。"
+    },
+    {
+      "indent": 3,
+      "text": "The stub resolver could also report an error, either through a user interface or in a log file, if the queried server does not support recursion. Error reporting SHOULD be throttled to avoid a notification or log message for every response from a non-recursive server.",
+      "zh-CHS": "如果查询的服务器不支持递归，存根解析器还可以通过用户界面或日志文件报告错误。应限制错误报告，以避免对来自非递归服务器的每个响应发出通知或日志消息。"
+    },
+    {
+      "indent": 0,
+      "text": "2.11. Suboptimal Name Server Selection Algorithm",
+      "section_title": true,
+      "zh-CHS": "2.11. 次优名称服务器选择算法"
+    },
+    {
+      "indent": 3,
+      "text": "An entire document could be devoted to the topic of problems with different implementations of the recursive resolution algorithm. The entire process of recursion is woefully under-specified, requiring each implementor to design an algorithm. Sometimes implementors make poor design choices that could be avoided if a suggested algorithm and best practices were documented, but that is a topic for another document.",
+      "zh-CHS": "整个文档可以专门讨论递归解析算法的不同实现的问题。令人遗憾的是，递归的整个过程都没有规定，需要每个实现者设计一个算法。有时实现者会做出糟糕的设计选择，如果建议的算法和最佳实践被记录在案，这是可以避免的，但这是另一个文档的主题。"
+    },
+    {
+      "indent": 3,
+      "text": "Some deficiencies cause significant operational impact and are therefore worth mentioning here. One of these is name server selection by an iterative resolver. When an iterative resolver wants to contact one of a zone's authoritative name servers, how does it choose from the NS records listed in the zone's NS RRSet? If the selection mechanism is suboptimal, queries are not spread evenly among a zone's authoritative servers. The details of the selection mechanism are up to the implementor, but we offer some suggestions.",
+      "zh-CHS": "一些缺陷会对运营造成重大影响，因此值得在此提及。其中之一是迭代解析器选择名称服务器。当迭代解析器想要联系某个区域的权威名称服务器时，它如何从该区域的NS RRSet中列出的NS记录中进行选择？如果选择机制不理想，则查询不会在区域的权威服务器之间均匀分布。选择机制的细节由实现者决定，但我们提供一些建议。"
+    },
+    {
+      "indent": 0,
+      "text": "2.11.1. Recommendation",
+      "section_title": true,
+      "zh-CHS": "2.11.1. 正式建议"
+    },
+    {
+      "indent": 3,
+      "text": "This list is not conclusive, but reflects the changes that would produce the most impact in terms of reducing disproportionate query load among a zone's authoritative servers. That is, these changes would help spread the query load evenly.",
+      "zh-CHS": "此列表不是决定性的，但反映了在减少区域权威服务器之间不成比例的查询负载方面产生最大影响的更改。也就是说，这些更改将有助于均匀分布查询负载。"
+    },
+    {
+      "indent": 3,
+      "text": "o Do not make assumptions based on NS RRSet order: all NS RRs SHOULD be treated equally. (In the case of the \"com\" zone, for example, most of the root servers return the NS record for \"a.gtld-servers.net\" first in the authority section of referrals. Apparently as a result, this server receives disproportionately more traffic than the other twelve authoritative servers for \"com\".)",
+      "zh-CHS": "o 不要根据NS RRSet顺序进行假设：所有NS RRs应同等对待。（例如，在“com”区域的情况下，大多数根服务器首先在引用的权限部分返回“a.gtld-servers.net”的NS记录。显然，结果是，此服务器收到的流量比“com”的其他12个权威服务器多得多。）"
+    },
+    {
+      "indent": 3,
+      "text": "o Use all NS records in an RRSet. (For example, we are aware of implementations that hard-coded information for a subset of the root servers.)",
+      "zh-CHS": "o 使用RRSet中的所有NS记录。（例如，我们知道一些实现需要硬编码根服务器子集的信息。）"
+    },
+    {
+      "indent": 3,
+      "text": "o Maintain state and favor the best-performing of a zone's authoritative servers. A good definition of performance is response time. Non-responsive servers can be penalized with an extremely high response time.",
+      "zh-CHS": "o 维护状态并支持区域权威服务器的最佳性能。性能的一个好定义是响应时间。没有响应的服务器可能会因响应时间过长而受到惩罚。"
+    },
+    {
+      "indent": 3,
+      "text": "o Do not lock onto the best-performing of a zone's name servers. An iterative resolver SHOULD periodically check the performance of all of a zone's name servers to adjust its determination of the best-performing one.",
+      "zh-CHS": "o 不要锁定区域中性能最好的名称服务器。迭代解析器应该定期检查所有区域名称服务器的性能，以调整其对最佳性能服务器的确定。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "3. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The iterative resolver misbehavior discussed in this document exposes the root and TLD name servers to increased risk of both intentional and unintentional Denial of Service attacks.",
+      "zh-CHS": "本文档中讨论的迭代解析器错误行为使根服务器和TLD名称服务器暴露在有意和无意拒绝服务攻击的风险增加的情况下。"
+    },
+    {
+      "indent": 3,
+      "text": "We believe that implementation of the recommendations offered in this document will reduce the amount of unnecessary traffic seen at root and TLD name servers, thus reducing the opportunity for an attacker to use such queries to his or her advantage.",
+      "zh-CHS": "我们相信，实施本文档中提供的建议将减少在根服务器和TLD名称服务器上看到的不必要流量，从而减少攻击者利用此类查询的机会。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "4. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank the following people for their comments that improved this document: Andras Salamon, Dave Meyer, Doug Barton, Jaap Akkerhuis, Jinmei Tatuya, John Brady, Kevin Darcy, Olafur Gudmundsson, Pekka Savola, Peter Koch, and Rob Austein. We apologize if we have omitted anyone; any oversight was unintentional.",
+      "zh-CHS": "作者感谢以下人士对本文件的改进意见：Andras Salamon、Dave Meyer、Doug Barton、Jaap Akkerhuis、Jinmei Tatuya、John Brady、Kevin Darcy、Olafur Gudmundsson、Pekka Savola、Peter Koch和Rob Austein。如果遗漏了任何人，我们深表歉意；任何疏忽都是无意的。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Internationalization Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 国际化考虑"
+    },
+    {
+      "indent": 3,
+      "text": "There are no new internationalization considerations introduced by this memo.",
+      "zh-CHS": "本备忘录没有引入新的国际化注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "6. References",
+      "section_title": true,
+      "zh-CHS": "6. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "6.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[1] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[2] Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "6.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Elz, R. and R. Bush, \"Clarifications to the DNS Specification\", RFC 2181, July 1997.",
+      "zh-CHS": "[3] Elz，R.和R.Bush，“DNS规范的澄清”，RFC 21811997年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Andrews, M., \"Negative Caching of DNS Queries (DNS NCACHE)\", RFC 2308, March 1998.",
+      "zh-CHS": "[4] Andrews，M.，“DNS查询的反向缓存（DNS NCACHE）”，RFC 2308，1998年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Morishita, Y. and T. Jinmei, \"Common Misbehavior Against DNS Queries for IPv6 Addresses\", RFC 4074, May 2005.",
+      "zh-CHS": "[5] Morishita，Y.和T.Jinmei，“针对IPv6地址的DNS查询的常见错误行为”，RFC 4074，2005年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Vixie, P., Thomson, S., Rekhter, Y., and J. Bound, \"Dynamic Updates in the Domain Name System (DNS UPDATE)\", RFC 2136, April 1997.",
+      "zh-CHS": "[6] Vixie，P.，Thomson，S.，Rekhter，Y.，和J.Bound，“域名系统中的动态更新（DNS更新）”，RFC 21361997年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Rekhter, Y., Moskowitz, B., Karrenberg, D., de Groot, G., and E. Lear, \"Address Allocation for Private Internets\", BCP 5, RFC 1918, February 1996.",
+      "zh-CHS": "[7] Rekhter，Y.，Moskowitz，B.，Karrenberg，D.，de Groot，G.，和E.Lear，“私人互联网地址分配”，BCP 5，RFC 1918，1996年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Matt Larson VeriSign, Inc. 21345 Ridgetop Circle Dulles, VA 20166-6503 USA",
+      "zh-CHS": "Matt Larson VeriSign，Inc.美国弗吉尼亚州杜勒斯Ridgetop Circle 21345，邮编20166-6503"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mlarson@verisign.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Piet Barber VeriSign, Inc. 21345 Ridgetop Circle Dulles, VA 20166-6503 USA",
+      "zh-CHS": "Piet Barber VeriSign公司，美国弗吉尼亚州杜勒斯Ridgetop Circle 21345，邮编20166-6503"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: pbarber@verisign.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

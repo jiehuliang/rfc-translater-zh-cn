@@ -1,0 +1,1120 @@
+{
+  "title": {
+    "text": "RFC 5162: IMAP4 Extensions for Quick Mailbox Resynchronization",
+    "zh-CHS": "RFC 5162"
+  },
+  "number": 5162,
+  "created_at": "2021-11-10 08:38:15.810502+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        A. Melnikov\nRequest for Comments: 5162                                   D. Cridland\nCategory: Standards Track                                      Isode Ltd\n                                                               C. Wilson\n                                                                   Nokia\n                                                              March 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "IMAP4 Extensions for Quick Mailbox Resynchronization",
+      "zh-CHS": "用于快速邮箱重新同步的IMAP4扩展"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an IMAP4 extension, which gives an IMAP client the ability to quickly resynchronize any previously opened mailbox as part of the SELECT command, without the need for server-side state or additional client round-trips. This extension also introduces a new response that allows for a more compact representation of a list of expunged messages (and always includes the Unique Identifiers (UIDs) expunged).",
+      "zh-CHS": "本文档定义了IMAP4扩展，它使IMAP客户端能够作为SELECT命令的一部分快速重新同步以前打开的任何邮箱，而无需服务器端状态或额外的客户端往返。此扩展还引入了一个新的响应，该响应允许更紧凑地表示已删除消息的列表（并且始终包括已删除的唯一标识符（UID））。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction and Overview  . . . . . . . . . . . . . . . . . .  2\n2.  Requirements Notation  . . . . . . . . . . . . . . . . . . . .  4\n3.  IMAP Protocol Changes  . . . . . . . . . . . . . . . . . . . .  4\n  3.1.  QRESYNC Parameter to SELECT/EXAMINE  . . . . . . . . . . .  4\n  3.2.  VANISHED UID FETCH Modifier  . . . . . . . . . . . . . . .  8\n  3.3.  EXPUNGE Command  . . . . . . . . . . . . . . . . . . . . . 10\n  3.4.  CLOSE Command  . . . . . . . . . . . . . . . . . . . . . . 11\n  3.5.  UID EXPUNGE Command  . . . . . . . . . . . . . . . . . . . 11\n  3.6.  VANISHED Response  . . . . . . . . . . . . . . . . . . . . 12\n  3.7.  CLOSED Response Code . . . . . . . . . . . . . . . . . . . 15\n4.  Server Implementation Considerations . . . . . . . . . . . . . 15\n  4.1.  Server Implementations That Don't Store Extra State  . . . 15\n  4.2.  Server Implementations Storing Minimal State . . . . . . . 16\n  4.3.  Additional State Required on the Server  . . . . . . . . . 16\n5.  Updated Synchronization Sequence . . . . . . . . . . . . . . . 17\n6.  Formal Syntax  . . . . . . . . . . . . . . . . . . . . . . . . 19\n7.  Security Considerations  . . . . . . . . . . . . . . . . . . . 20\n8.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 21\n9.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 21\n10. References . . . . . . . . . . . . . . . . . . . . . . . . . . 21\n  10.1. Normative References . . . . . . . . . . . . . . . . . . . 21\n  10.2. Informative References . . . . . . . . . . . . . . . . . . 22",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction and Overview",
+      "section_title": true,
+      "zh-CHS": "1. 导言和概述"
+    },
+    {
+      "indent": 3,
+      "text": "The [CONDSTORE] extension gives a disconnected client the ability to quickly resynchronize IMAP flag changes for previously seen messages. This can be done using the CHANGEDSINCE FETCH modifier once a mailbox is opened. In order for the client to discover which messages have been expunged, the client still has to issue a UID FETCH or a UID SEARCH command. This document defines an extension to [CONDSTORE] that allows a reconnecting client to perform full resynchronization, including discovery of expunged messages, in a single round-trip. This extension also introduces a new response, VANISHED, that allows for a more compact representation of a list of expunged messages.",
+      "zh-CHS": "[CONDSTORE]扩展使断开连接的客户端能够快速重新同步以前看到的消息的IMAP标志更改。打开邮箱后，可以使用CHANGEDSINCE FETCH修饰符完成此操作。为了让客户端发现哪些消息已被删除，客户端仍然必须发出UID FETCH或UID SEARCH命令。本文档定义了[CONDSTORE]的扩展，该扩展允许重新连接的客户端在一次往返中执行完全重新同步，包括发现已删除的消息。此扩展还引入了一个新的响应，即消失，它允许更紧凑地表示已删除消息的列表。"
+    },
+    {
+      "indent": 3,
+      "text": "This extension can be useful for mobile clients that can experience frequent disconnects caused by environmental factors (battery life, signal strength, etc.). Such clients need a way to quickly reconnect to the IMAP server, while minimizing delay experienced by the user as well as the amount of traffic (and hence the expense) generated by resynchronization.",
+      "zh-CHS": "此扩展对于可能因环境因素（电池寿命、信号强度等）而频繁断开连接的移动客户端非常有用。这样的客户端需要一种快速重新连接到IMAP服务器的方法，同时最大限度地减少用户所经历的延迟以及重新同步所产生的通信量（以及由此产生的费用）。"
+    },
+    {
+      "indent": 3,
+      "text": "By extending the SELECT command to perform the additional resynchronization, this also allows clients to reduce concurrent connections to the IMAP server held purely for the sake of avoiding the resynchronization.",
+      "zh-CHS": "通过扩展SELECT命令来执行额外的重新同步，这还允许客户端减少与IMAP服务器的并发连接，而这纯粹是为了避免重新同步。"
+    },
+    {
+      "indent": 3,
+      "text": "The quick resync IMAP extension is present if an IMAP4 server returns \"QRESYNC\" as one of the supported capabilities to the CAPABILITY command.",
+      "zh-CHS": "如果IMAP4服务器将“QRESYNC”作为支持的功能之一返回给CAPABILITY命令，则存在快速重新同步IMAP扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "Servers supporting this extension MUST implement and advertise support for the [ENABLE] IMAP extension. Also, the presence of the \"QRESYNC\" capability implies support for the [CONDSTORE] IMAP extension even if the CONDSTORE capability isn't advertised. A server compliant with this specification is REQUIREd to support \"ENABLE QRESYNC\" and \"ENABLE QRESYNC CONDSTORE\" (which are \"CONDSTORE enabling commands\", as defined in [CONDSTORE], and have identical results), but there is no requirement for a compliant server to support \"ENABLE CONDSTORE\" by itself. The \"ENABLE QRESYNC\"/\"ENABLE QRESYNC CONDSTORE\" command also tells the server that it SHOULD start sending VANISHED responses (see Section 3.6) instead of EXPUNGE responses. This change remains in effect until the connection is closed.",
+      "zh-CHS": "支持此扩展的服务器必须实现并公布对[ENABLE]IMAP扩展的支持。此外，“QRESYNC”功能的存在意味着支持[CONDSTORE]IMAP扩展，即使CONDSTORE功能没有公布。符合本规范的服务器需要支持“ENABLE QRESYNC”和“ENABLE QRESYNC CONDSTORE”（即[CONDSTORE]中定义的“CONDSTORE enabling commands”，并具有相同的结果），但不要求兼容服务器本身支持“ENABLE CONDSTORE”。“ENABLE QRESYNC”/“ENABLE QRESYNC CONDSTORE”命令还告诉服务器应该开始发送消失的响应（参见第3.6节），而不是删除响应。此更改将保持有效，直到连接关闭。"
+    },
+    {
+      "indent": 3,
+      "text": "For compatibility with clients that only support the [CONDSTORE] IMAP extension, servers SHOULD advertise CONDSTORE in the CAPABILITY response as well.",
+      "zh-CHS": "为了与仅支持[CONDSTORE]IMAP扩展的客户端兼容，服务器还应在功能响应中公布CONDSTORE。"
+    },
+    {
+      "indent": 3,
+      "text": "A client making use of this extension MUST issue \"ENABLE QRESYNC\" once it is authenticated. A server MUST respond with a tagged BAD response if the QRESYNC parameter to the SELECT/EXAMINE command or the VANISHED UID FETCH modifier is specified and the client hasn't issued \"ENABLE QRESYNC\" in the current connection.",
+      "zh-CHS": "使用此扩展的客户端在经过身份验证后必须发出“ENABLE QRESYNC”。如果指定了SELECT/inspect命令的QRESYNC参数或已消失的UID FETCH修饰符，并且客户端尚未在当前连接中发出“ENABLE QRESYNC”，则服务器必须以标记的错误响应进行响应。"
+    },
+    {
+      "indent": 3,
+      "text": "This document puts additional requirements on a server implementing the [CONDSTORE] extension. Each mailbox that supports persistent storage of mod-sequences, i.e., for which the server has sent a HIGHESTMODSEQ untagged OK response code on a successful SELECT/ EXAMINE, MUST increment the per-mailbox mod-sequence when one or more messages are expunged due to EXPUNGE, UID EXPUNGE or CLOSE; the server MUST associate the incremented mod-sequence with the UIDs of the expunged messages.",
+      "zh-CHS": "本文档对实现[CONDSTORE]扩展的服务器提出了附加要求。每个支持mod序列持久存储的邮箱，即服务器在成功选择/检查时发送了最高ModSeq Untaged OK响应代码的邮箱，在由于EXPUNGE、UID EXPUNGE或CLOSE而删除一条或多条邮件时，必须增加每个邮箱的mod序列；服务器必须将递增的mod序列与已删除消息的UID相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "A client that supports CONDSTORE but not this extension might resynchronize a mailbox and discover that its HIGHESTMODSEQ has increased from the value cached by the client. If the increase is only due to messages having been expunged since the client last synchronized, the client is likely to send a FETCH ... CHANGEDSINCE command that returns no data. Thus, a client that supports CONDSTORE",
+      "zh-CHS": "支持CONDSTORE但不支持此扩展的客户端可能会重新同步邮箱，并发现其HIGHESTMODSEQ已从客户端缓存的值增加。如果增加的原因仅仅是自客户端上次同步后已删除消息，则客户端可能会发送一个FETCH。。。不返回任何数据的CHANGEDSINCE命令。因此，支持CONDSTORE的客户机"
+    },
+    {
+      "indent": 3,
+      "text": "but not this extension might incur a penalty of an unneeded round-trip when resynchronizing some mailboxes (those that have had messages expunged but no flag changes since the last synchronization).",
+      "zh-CHS": "但是，在重新同步某些邮箱（自上次同步以来已删除邮件但未更改标志的邮箱）时，此扩展可能会招致不必要的往返惩罚。"
+    },
+    {
+      "indent": 3,
+      "text": "This extra round-trip is only incurred by clients that support CONDSTORE but not this extension, and only when a mailbox has had messages expunged but no flag changes to non-expunged messages. Since CONDSTORE is a relatively new extension, it is thought likely that clients that support it will also support this extension.",
+      "zh-CHS": "只有支持CONDSTORE但不支持此扩展的客户端才会产生此额外的往返，并且只有当邮箱已删除邮件但未删除邮件的标志未更改时才会产生此额外往返。由于CONDSTORE是一个相对较新的扩展，因此认为支持它的客户端也可能支持此扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements Notation",
+      "section_title": true,
+      "zh-CHS": "2. 需求符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "In examples, \"C:\" and \"S:\" indicate lines sent by the client and server respectively. If a single \"C:\" or \"S:\" label applies to multiple lines, then the line breaks between those lines are for editorial clarity only and are not part of the actual protocol exchange. The five characters [...] means that something has been elided.",
+      "zh-CHS": "在示例中，“C:”和“S:”分别表示客户端和服务器发送的行。如果单个“C:”或“S:”标签适用于多行，则这些行之间的换行符仅用于编辑清晰性，不属于实际协议交换的一部分。五个字符[…]意味着某些东西被省略了。"
+    },
+    {
+      "indent": 3,
+      "text": "Understanding of the IMAP message sequence numbers and UIDs and the EXPUNGE response [RFC3501] is essential when reading this document.",
+      "zh-CHS": "阅读本文档时，必须了解IMAP消息序列号和UID以及删除响应[RFC3501]。"
+    },
+    {
+      "indent": 0,
+      "text": "3. IMAP Protocol Changes",
+      "section_title": true,
+      "zh-CHS": "3. IMAP协议更改"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. QRESYNC Parameter to SELECT/EXAMINE",
+      "section_title": true,
+      "zh-CHS": "3.1. 要选择/检查的QRESYNC参数"
+    },
+    {
+      "indent": 3,
+      "text": "The Quick Resynchronization parameter to SELECT/EXAMINE commands has four arguments:",
+      "zh-CHS": "用于选择/检查命令的快速重新同步参数有四个参数："
+    },
+    {
+      "indent": 3,
+      "text": "o the last known UIDVALIDITY,",
+      "zh-CHS": "o 最后已知的UID有效性，"
+    },
+    {
+      "indent": 3,
+      "text": "o the last known modification sequence,",
+      "zh-CHS": "o 最后一个已知的修改序列，"
+    },
+    {
+      "indent": 3,
+      "text": "o the optional set of known UIDs, and",
+      "zh-CHS": "o 已知UID的可选集，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o an optional parenthesized list of known sequence ranges and their corresponding UIDs.",
+      "zh-CHS": "o 已知序列范围及其对应UID的可选括号列表。"
+    },
+    {
+      "indent": 3,
+      "text": "A server MUST respond with a tagged BAD response if the Quick Resynchronization parameter to SELECT/EXAMINE command is specified and the client hasn't issued \"ENABLE QRESYNC\" in the current connection.",
+      "zh-CHS": "如果指定了用于选择/检查命令的快速重新同步参数，并且客户端尚未在当前连接中发出“ENABLE QRESYNC”，则服务器必须以标记的错误响应进行响应。"
+    },
+    {
+      "indent": 3,
+      "text": "Before opening the specified mailbox, the server verifies all arguments for syntactic validity. If any parameter is not syntactically valid, the server returns the tagged BAD response, and the mailbox remains unselected. Once the check is done, the server opens the mailbox as if no SELECT/EXAMINE parameters are specified (this is subject to processing of other parameters as defined in other extensions). In particular this means that the server MUST send all untagged responses as specified in Sections 6.3.1 and 6.3.2 of [RFC3501].",
+      "zh-CHS": "在打开指定的邮箱之前，服务器将验证所有参数的语法有效性。如果任何参数在语法上无效，服务器将返回标记的错误响应，邮箱将保持未选择状态。检查完成后，服务器将打开邮箱，就像未指定选择/检查参数一样（这取决于对其他扩展中定义的其他参数的处理）。特别是，这意味着服务器必须按照[RFC3501]第6.3.1节和第6.3.2节的规定发送所有未标记的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "After that, the server checks the UIDVALIDITY value provided by the client. If the provided UIDVALIDITY doesn't match the UIDVALIDITY for the mailbox being opened, then the server MUST ignore the remaining parameters and behave as if no dynamic message data changed. The client can discover this situation by comparing the UIDVALIDITY value returned by the server. This behavior allows the client not to synchronize the mailbox or decide on the best synchronization strategy.",
+      "zh-CHS": "然后，服务器检查客户端提供的UIDVality值。如果提供的UIDVality与正在打开的邮箱的UIDVality不匹配，则服务器必须忽略其余参数，并表现为没有更改动态消息数据。客户端可以通过比较服务器返回的UIDVality值来发现这种情况。此行为允许客户端不同步邮箱或决定最佳同步策略。"
+    },
+    {
+      "indent": 3,
+      "text": "Example: Attempting to resynchronize INBOX, but the provided UIDVALIDITY parameter doesn't match the current UIDVALIDITY value.",
+      "zh-CHS": "示例：正在尝试重新同步收件箱，但提供的UIDVALIDITY参数与当前UIDVALIDITY值不匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "C: A02 SELECT INBOX (QRESYNC (67890007 20050715194045000\n         41,43:211,214:541))\n         S: * 464 EXISTS\n         S: * 3 RECENT\n         S: * OK [UIDVALIDITY 3857529045] UIDVALIDITY\n         S: * OK [UIDNEXT 550] Predicted next UID\n         S: * OK [HIGHESTMODSEQ 90060128194045007]\n         S: * OK [UNSEEN 12] Message 12 is first unseen\n         S: * FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen)\n         S: * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft\n         \\Deleted \\Seen \\*)] Permanent flags\n         S: A02 OK [READ-WRITE] Sorry, UIDVALIDITY mismatch",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Modification Sequence and UID Parameters:",
+      "zh-CHS": "修改顺序和UID参数："
+    },
+    {
+      "indent": 3,
+      "text": "A server that doesn't support the persistent storage of mod-sequences for the mailbox MUST send the OK untagged response including the NOMODSEQ response code with every successful SELECT or EXAMINE command, as described in [CONDSTORE]. Such a server doesn't need to remember mod-sequences for expunged messages in the mailbox. It MUST ignore the remaining parameters and behave as if no dynamic message data changed.",
+      "zh-CHS": "不支持邮箱mod序列持久存储的服务器必须发送OK Untaged响应，包括NOMODSEQ响应代码以及每个成功的SELECT或EXAMINE命令，如[CONDSTORE]中所述。这样的服务器不需要记住邮箱中已删除邮件的mod序列。它必须忽略其余参数，并表现为没有动态消息数据更改。"
+    },
+    {
+      "indent": 3,
+      "text": "If the provided UIDVALIDITY matches that of the selected mailbox, the server then checks the last known modification sequence.",
+      "zh-CHS": "如果提供的UIDVality与所选邮箱的UIDVality匹配，则服务器将检查最后一次已知的修改序列。"
+    },
+    {
+      "indent": 3,
+      "text": "The server sends the client any pending flag changes (using FETCH responses that MUST contain UIDs) and expunges those that have occurred in this mailbox since the provided modification sequence.",
+      "zh-CHS": "服务器向客户端发送任何挂起的标志更改（使用必须包含UID的获取响应），并删除自提供的修改序列以来在此邮箱中发生的更改。"
+    },
+    {
+      "indent": 3,
+      "text": "If the list of known UIDs was also provided, the server should only report flag changes and expunges for the specified messages. If the client did not provide the list of UIDs, the server acts as if the client has specified \"1:<maxuid>\", where <maxuid> is the mailbox's UIDNEXT value minus 1. If the mailbox is empty and never had any messages in it, then lack of the list of UIDs is interpreted as an empty set of UIDs.",
+      "zh-CHS": "如果还提供了已知UID的列表，则服务器应仅报告指定消息的标志更改和删除。如果客户端未提供UID列表，则服务器的行为就像客户端指定了“1:<maxuid>”，其中<maxuid>是邮箱的UIDNEXT值减去1。如果邮箱是空的，并且其中从未包含任何邮件，则缺少UID列表将被解释为一组空的UID。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, the client can process just these pending events and need not perform a full resynchronization. Without the message sequence number matching information, the result of this step is semantically equivalent to the client issuing: tag1 UID FETCH \"known-uids\" (FLAGS) (CHANGEDSINCE \"mod-sequence-value\" VANISHED)",
+      "zh-CHS": "因此，客户端可以只处理这些挂起的事件，而不需要执行完全的重新同步。如果没有消息序列号匹配信息，此步骤的结果在语义上等同于客户端发出：tag1 UID FETCH“known UID”（标志）（CHANGEDSINCE“mod sequence value”消失）"
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   C: A03 SELECT INBOX (QRESYNC (67890007\n      90060115194045000 41,43:211,214:541))\n   S: * OK [CLOSED]\n   S: * 314 EXISTS\n   S: * 15 RECENT\n   S: * OK [UIDVALIDITY 67890007] UIDVALIDITY\n   S: * OK [UIDNEXT 567] Predicted next UID\n   S: * OK [HIGHESTMODSEQ 90060115205545359]\n   S: * OK [UNSEEN 7] There are some unseen messages in the mailbox\n   S: * FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen)\n   S: * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft\n      \\Deleted \\Seen \\*)] Permanent flags\n   S: * VANISHED (EARLIER) 41,43:116,118,120:211,214:540\n   S: * 49 FETCH (UID 117 FLAGS (\\Seen \\Answered) MODSEQ\n      (90060115194045001))\n   S: * 50 FETCH (UID 119 FLAGS (\\Draft $MDNSent) MODSEQ\n      (90060115194045308))\n   S: ...\n   S: * 100 FETCH (UID 541 FLAGS (\\Seen $Forwarded) MODSEQ\n      (90060115194045001))\n   S: A03 OK [READ-WRITE] mailbox selected",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Message sequence match data:",
+      "zh-CHS": "消息序列匹配数据："
+    },
+    {
+      "indent": 3,
+      "text": "A client MAY provide a parenthesized list of a message sequence set and the corresponding UID sets. Both MUST be provided in ascending order. The server uses this data to restrict the range for which it provides expunged message information.",
+      "zh-CHS": "客户端可以提供消息序列集和相应UID集的括号列表。两者都必须按升序提供。服务器使用此数据限制其提供已删除邮件信息的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Conceptually, the client provides a small sample of sequence numbers for which it knows the corresponding UIDs. The server then compares each sequence number and UID pair the client provides with the current state of the mailbox. If a pair matches, then the client knows of any expunges up to, and including, the message, and thus will not include that range in the VANISHED response, even if the \"mod-sequence-value\" provided by the client is too old for the server to have data of when those messages were expunged.",
+      "zh-CHS": "从概念上讲，客户机提供了一个序列号的小样本，它知道相应的UID。然后，服务器将客户端提供的每个序列号和UID对与邮箱的当前状态进行比较。如果一对匹配，则客户机知道在消息之前（包括消息）有任何删除，因此不会在消失的响应中包括该范围，即使客户机提供的“mod sequence value”太旧，服务器无法获得删除这些消息的时间数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, if the Nth message number in the first set in the list is 4, and the Nth UID in the second set in the list is 8, and the mailbox's fourth message has UID 8, then no UIDs equal to or less than 8 are present in the VANISHED response. If the (N+1)th message number is 12, and the (N+1)th UID is 24, and the (N+1)th message in the mailbox has UID 25, then the lowest UID included in the VANISHED response would be 9.",
+      "zh-CHS": "因此，如果列表中第一组中的第n个邮件编号为4，而列表中第二组中的第n个UID为8，并且邮箱的第四条邮件的UID为8，则响应中不存在等于或小于8的UID。如果第（N+1）条消息编号为12，（N+1）条UID为24，邮箱中第（N+1）条消息的UID为25，则消失响应中包含的最低UID为9。"
+    },
+    {
+      "indent": 3,
+      "text": "In the following two examples, the server is unable to remember expunges at all, and only UIDs with messages divisible by three are present in the mailbox. In the first example, the client does not use the fourth parameter; in the second, it provides it. This example is somewhat extreme, but shows that judicious usage of the sequence match data can save a substantial amount of bandwidth.",
+      "zh-CHS": "在以下两个示例中，服务器根本记不起删除，邮箱中只存在消息可被3整除的UID。在第一个示例中，客户端不使用第四个参数；第二，它提供了它。这个例子有点极端，但它表明，明智地使用序列匹配数据可以节省大量带宽。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   C: A04 SELECT INBOX (QRESYNC (67890007\n      90060115194045000 1:29997))\n   S: * 10003 EXISTS\n   S: * 5 RECENT\n   S: * OK [UIDVALIDITY 67890007] UIDVALIDITY\n   S: * OK [UIDNEXT 30013] Predicted next UID\n   S: * OK [HIGHESTMODSEQ 90060115205545359]\n   S: * OK [UNSEEN 7] There are some unseen messages in the mailbox\n   S: * FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen)\n   S: * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft\n      \\Deleted \\Seen \\*)] Permanent flags\n   S: * VANISHED (EARLIER) 1:2,4:5,7:8,10:11,13:14 [...]\n      29998:29999,30001:30002,30004:30005,30007:30008\n   S: * 9889 FETCH (UID 29667 FLAGS (\\Seen \\Answered) MODSEQ\n      (90060115194045027))\n   S: * 9890 FETCH (UID 29670 FLAGS (\\Draft $MDNSent) MODSEQ\n      (90060115194045028))\n   S: ...\n   S: * 9999 FETCH (UID 29997 FLAGS (\\Seen $Forwarded) MODSEQ\n      (90060115194045031))\n   S: A04 OK [READ-WRITE] mailbox selected",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   C: B04 SELECT INBOX (QRESYNC (67890007\n      90060115194045000 1:29997 (5000,7500,9000,9990:9999 15000,\n      22500,27000,29970,29973,29976,29979,29982,29985,29988,29991,\n      29994,29997)))\n   S: * 10003 EXISTS\n   S: * 5 RECENT\n   S: * OK [UIDVALIDITY 67890007] UIDVALIDITY\n   S: * OK [UIDNEXT 30013] Predicted next UID\n   S: * OK [HIGHESTMODSEQ 90060115205545359]\n   S: * OK [UNSEEN 7] There are some unseen messages in the mailbox\n   S: * FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen)\n   S: * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft\n      \\Deleted \\Seen \\*)] Permanent flags\n   S: * VANISHED (EARLIER) 29998:29999,30001:30002,30004:30005,30007:\n      30008\n   S: * 9889 FETCH (UID 29667 FLAGS (\\Seen \\Answered) MODSEQ\n      (90060115194045027))\n   S: * 9890 FETCH (UID 29670 FLAGS (\\Draft $MDNSent) MODSEQ\n      (90060115194045028))\n   S: ...\n   S: * 9999 FETCH (UID 29997 FLAGS (\\Seen $Forwarded) MODSEQ\n      (90060115194045031))\n   S: B04 OK [READ-WRITE] mailbox selected",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.2. VANISHED UID FETCH Modifier",
+      "section_title": true,
+      "zh-CHS": "3.2. 提取修改器"
+    },
+    {
+      "indent": 3,
+      "text": "[IMAPABNF] has extended the syntax of the FETCH and UID FETCH commands to include an optional FETCH modifier. This document defines a new UID FETCH modifier: VANISHED.",
+      "zh-CHS": "[IMAPABNF]扩展了FETCH和UID FETCH命令的语法，以包括可选的FETCH修饰符。此文档定义了一个新的UID获取修饰符：已消失。"
+    },
+    {
+      "indent": 3,
+      "text": "Note, that the VANISHED UID FETCH modifier is NOT allowed with a FETCH command. The server MUST return a tagged BAD response if this response is specified as a modifier to the FETCH command.",
+      "zh-CHS": "请注意，FETCH命令不允许使用已消失的UID FETCH修饰符。如果将此响应指定为FETCH命令的修饰符，则服务器必须返回带标记的错误响应。"
+    },
+    {
+      "indent": 3,
+      "text": "A server MUST respond with a tagged BAD response if the VANISHED UID FETCH modifier is specified and the client hasn't issued \"ENABLE QRESYNC\" in the current connection.",
+      "zh-CHS": "如果指定了已消失的UID FETCH修饰符，并且客户端在当前连接中未发出“ENABLE QRESYNC”，则服务器必须以标记的错误响应进行响应。"
+    },
+    {
+      "indent": 3,
+      "text": "The VANISHED UID FETCH modifier MUST only be specified together with the CHANGEDSINCE UID FETCH modifier.",
+      "zh-CHS": "消失的UID提取修饰符只能与CHANGEDSINCE UID提取修饰符一起指定。"
+    },
+    {
+      "indent": 3,
+      "text": "The VANISHED UID FETCH modifier instructs the server to report those messages from the UID set parameter that have been expunged and whose associated mod-sequence is larger than the specified mod-sequence. That is, the client requests to be informed of messages from the specified set that were expunged since the specified mod-sequence. Note that the mod-sequence(s) associated with these messages were",
+      "zh-CHS": "消失的UID FETCH修饰符指示服务器报告UID set参数中已删除且关联的mod序列大于指定mod序列的消息。也就是说，客户机请求通知指定集合中自指定mod序列以来已删除的消息。请注意，与这些消息关联的mod序列是"
+    },
+    {
+      "indent": 3,
+      "text": "updated when the messages were expunged (as described above). The expunged messages are reported using the VANISHED response as described in Section 3.6, which MUST contain the EARLIER tag. Any VANISHED (EARLIER) responses MUST be returned before any FETCH responses, as otherwise the client might get confused about how message numbers map to UIDs.",
+      "zh-CHS": "删除消息时更新（如上所述）。删除的消息使用第3.6节中描述的消失响应进行报告，该响应必须包含先前的标记。任何消失（更早）的响应必须在任何获取响应之前返回，否则客户端可能会对消息编号如何映射到UID感到困惑。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: A server that receives a mod-sequence smaller than <minmodseq>, where <minmodseq> is the value of the smallest expunged mod-sequence it remembers minus one, MUST behave as if it was requested to report all expunged messages from the provided UID set parameter.",
+      "zh-CHS": "注意：如果服务器接收的mod sequence小于<minmodseq>，其中<minmodseq>是其记忆的最小已删除mod sequence的值减去1，则其行为必须与请求报告所提供UID set参数中所有已删除消息的行为相同。"
+    },
+    {
+      "indent": 3,
+      "text": "Example 1: Without the VANISHED UID FETCH modifier, a CONDSTORE-aware client [CONDSTORE] needs to issue separate commands to learn of flag changes and expunged messages since the last synchronization:",
+      "zh-CHS": "示例1：如果没有已消失的UID FETCH修饰符，感知CONDSTORE的客户端[CONDSTORE]需要发出单独的命令，以了解自上次同步以来的标志更改和已删除消息："
+    },
+    {
+      "indent": 3,
+      "text": "C: s100 UID FETCH 300:500 (FLAGS) (CHANGEDSINCE 12345)\nS: * 1 FETCH (UID 404 MODSEQ (65402) FLAGS (\\Seen))\nS: * 2 FETCH (UID 406 MODSEQ (75403) FLAGS (\\Deleted))\nS: * 4 FETCH (UID 408 MODSEQ (29738) FLAGS ($NoJunk\n    $AutoJunk $MDNSent))\nS: s100 OK FETCH completed\nC: s101 UID SEARCH 300:500\nS: * SEARCH 404 406 407 408 410 412\nS: s101 OK search completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Where 300 and 500 are the lowest and highest UIDs from client's cache. The second SEARCH response tells the client that the messages with UIDs 407, 410, and 412 are still present, but their flags haven't changed since the specified modification sequence.",
+      "zh-CHS": "其中300和500是来自客户端缓存的最低和最高UID。第二个搜索响应告诉客户端，UID407、410和412的消息仍然存在，但它们的标志自指定的修改序列以来没有更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Using the VANISHED UID FETCH modifier, it is sufficient to issue only a single command:",
+      "zh-CHS": "使用已消失的UID FETCH修饰符，仅发出一个命令即可："
+    },
+    {
+      "indent": 3,
+      "text": "C: s100 UID FETCH 300:500 (FLAGS) (CHANGEDSINCE 12345\n    VANISHED)\nS: * VANISHED (EARLIER) 300:310,405,411\nS: * 1 FETCH (UID 404 MODSEQ (65402) FLAGS (\\Seen))\nS: * 2 FETCH (UID 406 MODSEQ (75403) FLAGS (\\Deleted))\nS: * 4 FETCH (UID 408 MODSEQ (29738) FLAGS ($NoJunk\n    $AutoJunk $MDNSent))\nS: s100 OK FETCH completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.3. EXPUNGE Command",
+      "section_title": true,
+      "zh-CHS": "3.3. 删除命令"
+    },
+    {
+      "indent": 3,
+      "text": "Arguments: none",
+      "zh-CHS": "论点：无"
+    },
+    {
+      "indent": 3,
+      "text": "Responses: untagged responses: EXPUNGE or VANISHED",
+      "zh-CHS": "响应：未标记的响应：删除或消失"
+    },
+    {
+      "indent": 3,
+      "text": "Result: OK - expunge completed\n        NO - expunge failure: can't expunge (e.g., permission denied)\n        BAD - command unknown or arguments invalid",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This section updates the definition of the EXPUNGE command described in Section 6.4.3 of [RFC3501].",
+      "zh-CHS": "本节更新了[RFC3501]第6.4.3节中描述的EXPUNGE命令的定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The EXPUNGE command permanently removes all messages that have the \\Deleted flag set from the currently selected mailbox. Before returning an OK to the client, those messages that are removed are reported using a VANISHED response or EXPUNGE responses.",
+      "zh-CHS": "EXPUNGE命令将永久删除当前选定邮箱中设置了\\Deleted标志的所有邮件。在向客户端返回OK之前，将使用消失响应或删除响应报告已删除的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If the server is capable of storing modification sequences for the selected mailbox, it MUST increment the per-mailbox mod-sequence if at least one message was permanently removed due to the execution of the EXPUNGE command. For each permanently removed message, the server MUST remember the incremented mod-sequence and corresponding UID. If at least one message got expunged, the server MUST send the updated per-mailbox modification sequence using the HIGHESTMODSEQ response code (defined in [CONDSTORE]) in the tagged OK response.",
+      "zh-CHS": "如果服务器能够存储所选邮箱的修改序列，则如果由于执行EXPUNGE命令至少有一封邮件被永久删除，则必须增加每个邮箱的修改序列。对于每个永久删除的消息，服务器必须记住递增的mod序列和相应的UID。如果至少有一封邮件被删除，服务器必须使用标记的OK响应中的HIGHESTMODSEQ响应代码（在[CONDSTORE]中定义）发送更新的每个邮箱修改序列。"
+    },
+    {
+      "indent": 6,
+      "text": "Example:    C: A202 EXPUNGE\n            S: * 3 EXPUNGE\n            S: * 3 EXPUNGE\n            S: * 5 EXPUNGE\n            S: * 8 EXPUNGE\n            S: A202 OK [HIGHESTMODSEQ 20010715194045319] expunged",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note: In this example, messages 3, 4, 7, and 11 had the \\Deleted flag set. The first \"* 3 EXPUNGE\" reports message # 3 as expunged. The second \"* 3 EXPUNGE\" reports message # 4 as expunged (the message number got decremented due to the previous EXPUNGE response). See the description of the EXPUNGE response in [RFC3501] for further explanation.",
+      "zh-CHS": "注意：在此示例中，消息3、4、7和11设置了\\Deleted标志。第一个“*3删除”将消息#3报告为已删除。第二个“*3 EXPUNGE”将消息#4报告为已删除（由于上一个EXPUNGE响应，消息编号已减少）。有关更多说明，请参见[RFC3501]中的删除响应说明。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that if the server chooses to always send VANISHED responses instead of EXPUNGE responses, the previous example might look like this:",
+      "zh-CHS": "请注意，如果服务器选择始终发送消失的响应，而不是删除响应，则前面的示例可能如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "Example:    C: B202 EXPUNGE\n            S: * VANISHED 405,407,410,425\n            S: B202 OK [HIGHESTMODSEQ 20010715194045319] expunged",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Here messages with message numbers 3, 4, 7, and 11 have respective UIDs 405, 407, 410, and 425.",
+      "zh-CHS": "这里，消息编号为3、4、7和11的消息具有各自的UID 405、407、410和425。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. CLOSE Command",
+      "section_title": true,
+      "zh-CHS": "3.4. 关闭命令"
+    },
+    {
+      "indent": 3,
+      "text": "Arguments: none",
+      "zh-CHS": "论点：无"
+    },
+    {
+      "indent": 3,
+      "text": "Responses: no specific responses for this command",
+      "zh-CHS": "响应：此命令没有特定的响应"
+    },
+    {
+      "indent": 3,
+      "text": "Result: OK - close completed, now in authenticated state BAD - command unknown or arguments invalid",
+      "zh-CHS": "结果：确定-关闭完成，现在处于身份验证状态错误-命令未知或参数无效"
+    },
+    {
+      "indent": 3,
+      "text": "This section updates the definition of the CLOSE command described in Section 6.4.2 of [RFC3501].",
+      "zh-CHS": "本节更新了[RFC3501]第6.4.2节中描述的关闭命令的定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The CLOSE command permanently removes all messages that have the \\Deleted flag set from the currently selected mailbox, and returns to the authenticated state from the selected state. No untagged EXPUNGE (or VANISHED) responses are sent.",
+      "zh-CHS": "CLOSE命令将从当前选定邮箱中永久删除所有设置了\\Deleted标志的邮件，并从选定状态返回到已验证状态。不发送未标记的删除（或消失）响应。"
+    },
+    {
+      "indent": 3,
+      "text": "If the server is capable of storing modification sequences for the selected mailbox, it MUST increment the per-mailbox mod-sequence if at least one message was permanently removed due to the execution of the CLOSE command. For each permanently removed message, the server MUST remember the incremented mod-sequence and corresponding UID. If at least one message got expunged, the server MUST send the updated per-mailbox modification sequence using the HIGHESTMODSEQ response code (defined in [CONDSTORE]) in the tagged OK response.",
+      "zh-CHS": "如果服务器能够存储所选邮箱的修改序列，则如果由于执行CLOSE命令至少有一封邮件被永久删除，则必须增加每个邮箱的修改序列。对于每个永久删除的消息，服务器必须记住递增的mod序列和相应的UID。如果至少有一封邮件被删除，服务器必须使用标记的OK响应中的HIGHESTMODSEQ响应代码（在[CONDSTORE]中定义）发送更新的每个邮箱修改序列。"
+    },
+    {
+      "indent": 6,
+      "text": "Example: C: A202 CLOSE S: A202 OK [HIGHESTMODSEQ 20010715194045319] done",
+      "zh-CHS": "示例：C:A202关闭S:A202正常[最高ModSeq 20010715194045319]完成"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. UID EXPUNGE Command",
+      "section_title": true,
+      "zh-CHS": "3.5. UID删除命令"
+    },
+    {
+      "indent": 3,
+      "text": "Arguments: message set",
+      "zh-CHS": "参数：消息集"
+    },
+    {
+      "indent": 3,
+      "text": "Responses: untagged responses: EXPUNGE or VANISHED",
+      "zh-CHS": "响应：未标记的响应：删除或消失"
+    },
+    {
+      "indent": 3,
+      "text": "Result: OK - expunge completed\n        NO - expunge failure: can't expunge (e.g., permission denied)\n        BAD - command unknown or arguments invalid",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This section updates the definition of the UID EXPUNGE command described in Section 2.1 of [UIDPLUS]. Servers that implement both [UIDPLUS] and QRESYNC extensions must implement UID EXPUNGE as described in this section.",
+      "zh-CHS": "本节更新[UIDPLUS]第2.1节中描述的UID EXPUNGE命令的定义。同时实现[UIDPLUS]和QRESYNC扩展的服务器必须按照本节所述实现UID EXPUNGE。"
+    },
+    {
+      "indent": 3,
+      "text": "The UID EXPUNGE command permanently removes from the currently selected mailbox all messages that both have the \\Deleted flag set and have a UID that is included in the specified message set. If a message either does not have the \\Deleted flag set or has a UID that is not included in the specified message set, it is not affected.",
+      "zh-CHS": "UID EXPUNGE命令将从当前选定的邮箱中永久删除所有设置了\\Deleted标志且UID包含在指定邮件集中的邮件。如果消息未设置\\Deleted标志，或者具有未包含在指定消息集中的UID，则该消息不受影响。"
+    },
+    {
+      "indent": 3,
+      "text": "This command is particularly useful for disconnected mode clients. By using UID EXPUNGE instead of EXPUNGE when resynchronizing with the server, the client can avoid inadvertently removing any messages that have been marked as \\Deleted by other clients between the time that the client was last connected and the time the client resynchronizes.",
+      "zh-CHS": "此命令对于断开连接模式的客户端特别有用。通过在与服务器重新同步时使用UID EXPUNGE而不是EXPUNGE，客户机可以避免无意中删除在上次连接客户机和客户机重新同步之间被其他客户机标记为\\已删除的任何消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Before returning an OK to the client, those messages that are removed are reported using a VANISHED response or EXPUNGE responses.",
+      "zh-CHS": "在向客户端返回OK之前，将使用消失响应或删除响应报告已删除的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If the server is capable of storing modification sequences for the selected mailbox, it MUST increment the per-mailbox mod-sequence if at least one message was permanently removed due to the execution of the UID EXPUNGE command. For each permanently removed message, the server MUST remember the incremented mod-sequence and corresponding UID. If at least one message got expunged, the server MUST send the updated per-mailbox modification sequence using the HIGHESTMODSEQ response code (defined in [CONDSTORE]) in the tagged OK response.",
+      "zh-CHS": "如果服务器能够存储所选邮箱的修改序列，则如果由于执行UID EXPUNGE命令至少有一封邮件被永久删除，则必须增加每个邮箱的修改序列。对于每个永久删除的消息，服务器必须记住递增的mod序列和相应的UID。如果至少有一封邮件被删除，服务器必须使用标记的OK响应中的HIGHESTMODSEQ响应代码（在[CONDSTORE]中定义）发送更新的每个邮箱修改序列。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:    C: . UID EXPUNGE 3000:3002\n            S: * 3 EXPUNGE\n            S: * 3 EXPUNGE\n            S: * 3 EXPUNGE\n            S: . OK [HIGHESTMODSEQ 20010715194045319] Ok",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note: In this example, at least messages with message numbers 3, 4, and 5 (UIDs 3000 to 3002) had the \\Deleted flag set. The first \"* 3 EXPUNGE\" reports message # 3 as expunged. The second \"* 3 EXPUNGE\" reports message # 4 as expunged (the message number got decremented due to the previous EXPUNGE response). See the description of the EXPUNGE response in [RFC3501] for further explanation.",
+      "zh-CHS": "注意：在本例中，至少设置了\\Deleted标志的邮件编号为3、4和5（UIDs 3000到3002）。第一个“*3删除”将消息#3报告为已删除。第二个“*3 EXPUNGE”将消息#4报告为已删除（由于上一个EXPUNGE响应，消息编号已减少）。有关更多说明，请参见[RFC3501]中的删除响应说明。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. VANISHED Response",
+      "section_title": true,
+      "zh-CHS": "3.6. 消失反应"
+    },
+    {
+      "indent": 3,
+      "text": "Contents: an optional EARLIER tag",
+      "zh-CHS": "Contents：一个可选的早期标记"
+    },
+    {
+      "indent": 3,
+      "text": "list of UIDs",
+      "zh-CHS": "UID列表"
+    },
+    {
+      "indent": 3,
+      "text": "The VANISHED response reports that the specified UIDs have been permanently removed from the mailbox. This response is similar to the EXPUNGE response [RFC3501]; however, it can return information about multiple messages, and it returns UIDs instead of message",
+      "zh-CHS": "消失的响应报告指定的UID已从邮箱中永久删除。此响应类似于删除响应[RFC3501]；但是，它可以返回有关多条消息的信息，并且返回UID而不是消息"
+    },
+    {
+      "indent": 3,
+      "text": "numbers. The first benefit saves bandwidth, while the second is more convenient for clients that only use UIDs to access the IMAP server.",
+      "zh-CHS": "数字。第一个好处可以节省带宽，而第二个好处对于仅使用UID访问IMAP服务器的客户端来说更方便。"
+    },
+    {
+      "indent": 3,
+      "text": "The VANISHED response has the same restrictions on when it can be sent as does the EXPUNGE response (see below).",
+      "zh-CHS": "“消失”响应与“删除”响应在发送时间上具有相同的限制（见下文）。"
+    },
+    {
+      "indent": 3,
+      "text": "The VANISHED response has two forms. The first form contains the EARLIER tag, which signifies that the response was caused by a UID FETCH (VANISHED) or a SELECT/EXAMINE (QRESYNC) command. This response is sent if the UID set parameter to the UID FETCH (VANISHED) command includes UIDs of messages that are no longer in the mailbox. When the client sees a VANISHED EARLIER response, it MUST NOT decrement message sequence numbers for each successive message in the mailbox.",
+      "zh-CHS": "消失的反应有两种形式。第一个表单包含前面的标记，表示响应是由UID FETCH（消失）或SELECT/inspect（QRESYNC）命令引起的。如果UID FETCH（消失）命令的UID set参数包含邮箱中不再存在的邮件的UID，则会发送此响应。当客户端看到已消失的较早响应时，它不得减少邮箱中每个连续邮件的邮件序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "The second form doesn't contain the EARLIER tag and is described below. Once a client has issued \"ENABLE QRESYNC\", the server SHOULD use the VANISHED response without the EARLIER tag instead of the EXPUNGE response. The server SHOULD continue using VANISHED in lieu of EXPUNGE for the duration of the connection. In particular, this affects the EXPUNGE [RFC3501] and UID EXPUNGE [UIDPLUS] commands, as well as messages expunged in other connections. Such a VANISHED response MUST NOT contain the EARLIER tag.",
+      "zh-CHS": "第二个表单不包含前面的标记，如下所述。一旦客户机发出“enableqresync”，服务器就应该使用不带早期标记的消失响应，而不是删除响应。在连接期间，服务器应继续使用“消失”而不是“删除”。特别是，这会影响EXPUNGE[RFC3501]和UID EXPUNGE[UIDPLUS]命令，以及在其他连接中删除的消息。这种消失的响应不能包含前面的标记。"
+    },
+    {
+      "indent": 3,
+      "text": "A VANISHED response sent because of an EXPUNGE or UID EXPUNGE command or because messages were expunged in other connections (i.e., the VANISHED response without the EARLIER tag) also decrements the number of messages in the mailbox; it is not necessary for the server to send an EXISTS response with the new value. It also decrements message sequence numbers for each successive message in the mailbox (see the example at the end of this section). Note that a VANISHED response caused by EXPUNGE, UID EXPUNGE, or messages expunged in other connections SHOULD only contain UIDs for messages expunged since the last VANISHED/EXPUNGE response sent for the currently opened mailbox or since the mailbox was opened. That is, servers SHOULD NOT send UIDs for previously expunged messages, unless explicitly requested to do so by the UID FETCH (VANISHED) command.",
+      "zh-CHS": "由于EXPUNGE或UID EXPUNGE命令或由于邮件在其他连接中被删除而发送的消失响应（即，没有早期标记的消失响应）也会减少邮箱中的邮件数量；服务器不必发送带有新值的EXISTS响应。它还会减少邮箱中每个连续邮件的邮件序列号（请参阅本节末尾的示例）。请注意，由EXPUNGE、UID EXPUNGE或在其他连接中删除的邮件导致的消失响应应仅包含自上次为当前打开的邮箱发送消失/删除响应或邮箱打开后删除的邮件的UID。也就是说，服务器不应该为以前删除的消息发送UID，除非UID FETCH（消失）命令明确要求这样做。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that client implementors must take care to properly decrement the number of messages in the mailbox even if a server violates this last SHOULD or repeats the same UID multiple times in the returned UID set. In general, this means that a client using this extension should either avoid using message numbers entirely, or have a complete mapping of UIDs to message sequence numbers for the selected mailbox.",
+      "zh-CHS": "请注意，客户端实现者必须注意适当减少邮箱中的邮件数，即使服务器违反了最后一个UID，或者在返回的UID集中多次重复相同的UID。一般来说，这意味着使用此扩展的客户端应该避免完全使用邮件编号，或者具有所选邮箱的UID到邮件序列号的完整映射。"
+    },
+    {
+      "indent": 3,
+      "text": "Because clients handle the two different forms of the VANISHED response differently, servers MUST NOT report UIDs resulting from a UID FETCH (VANISHED) or a SELECT/EXAMINE (QRESYNC) in the same VANISHED response as UIDs of messages expunged now (i.e., messages expunged in other connections). Instead, the server MUST send separate VANISHED responses: one with the EARLIER tag and one without.",
+      "zh-CHS": "由于客户端对两种不同形式的消失响应的处理方式不同，因此服务器不能在同一个消失响应中报告UID获取（消失）或选择/检查（QRESYNC）产生的UID，就像现在删除的消息的UID（即，在其他连接中删除的消息）一样。相反，服务器必须分别发送消失的响应：一个带有较早标记，另一个没有。"
+    },
+    {
+      "indent": 3,
+      "text": "A VANISHED response MUST NOT be sent when no command is in progress, nor while responding to a FETCH, STORE, or SEARCH command. This rule is necessary to prevent a loss of synchronization of message sequence numbers between client and server. A command is not \"in progress\" until the complete command has been received; in particular, a command is not \"in progress\" during the negotiation of command continuation.",
+      "zh-CHS": "当没有命令正在执行时，或者在响应FETCH、STORE或SEARCH命令时，不得发送消失的响应。此规则对于防止客户端和服务器之间的消息序列号同步丢失是必需的。在收到完整的命令之前，命令不会“进行中”；特别是，在命令延续的协商过程中，命令没有“进行中”。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: UID FETCH, UID STORE, and UID SEARCH are different commands from FETCH, STORE, and SEARCH. A VANISHED response MAY be sent during a UID command. However, the VANISHED response MUST NOT be sent during a UID SEARCH command that contains message numbers in the search criteria.",
+      "zh-CHS": "注意：UID FETCH、UID STORE和UID SEARCH是与FETCH、STORE和SEARCH不同的命令。UID命令期间可能会发送消失的响应。但是，在搜索条件中包含消息编号的UID搜索命令期间，不得发送消失的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "The update from the VANISHED response MUST be recorded by the client.",
+      "zh-CHS": "客户端必须记录来自已消失响应的更新。"
+    },
+    {
+      "indent": 3,
+      "text": "Example: Let's assume that there is the following mapping between message numbers and UIDs in the currently selected mailbox (here \"X\" marks messages with the \\Deleted flag set, and \"x\" represents UIDs which are not relevant for the example):",
+      "zh-CHS": "示例：假设当前选定邮箱中的邮件编号和UID之间存在以下映射（此处“X”标记设置了\\Deleted标志的邮件，“X”表示与示例无关的UID）："
+    },
+    {
+      "indent": 3,
+      "text": "Message numbers: 1 2 3 4 5 6 7 8 9 10 11 UIDs: x 504 505 507 508 x 510 x x x 625 \\Deleted messages: X X X X",
+      "zh-CHS": "消息编号：1234567891011 UIDs:x504507508x510x625\\已删除消息：xxx x"
+    },
+    {
+      "indent": 3,
+      "text": "In the presence of the extension defined in this document:",
+      "zh-CHS": "在本文件中定义的扩展出现时："
+    },
+    {
+      "indent": 3,
+      "text": "C: A202 EXPUNGE\nS: * VANISHED 505,507,510,625\nS: A202 OK EXPUNGE completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Without the QRESYNC extension, the same example might look like:",
+      "zh-CHS": "如果没有QRESYNC扩展，相同的示例可能如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "C: A202 EXPUNGE\nS: * 3 EXPUNGE\nS: * 3 EXPUNGE\nS: * 5 EXPUNGE\nS: * 8 EXPUNGE\nS: A202 OK EXPUNGE completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "(Continuing previous example) If subsequently messages with UIDs 504 and 508 got marked as \\Deleted:",
+      "zh-CHS": "（继续上一示例）如果随后带有UID 504和508的消息被标记为\\已删除："
+    },
+    {
+      "indent": 3,
+      "text": "C: A210 EXPUNGE\nS: * VANISHED 504,508\nS: A210 OK EXPUNGE completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "i.e., the last VANISHED response only contains UIDs of messages expunged since the previous VANISHED response.",
+      "zh-CHS": "i、 例如，上次消失的响应仅包含自上次消失的响应以来已删除的消息的UID。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. CLOSED Response Code",
+      "section_title": true,
+      "zh-CHS": "3.7. 闭合响应码"
+    },
+    {
+      "indent": 3,
+      "text": "The CLOSED response code has no parameters. A server implementing the extension defined in this document MUST return the CLOSED response code when the currently selected mailbox is closed implicitly using the SELECT/EXAMINE command on another mailbox. The CLOSED response code serves as a boundary between responses for the previously opened mailbox (which was closed) and the newly selected mailbox: all responses before the CLOSED response code relate to the mailbox that was closed, and all subsequent responses relate to the newly opened mailbox.",
+      "zh-CHS": "关闭响应代码没有参数。当使用另一个邮箱上的SELECT/EXAMINE命令隐式关闭当前选定的邮箱时，实现此文档中定义的扩展的服务器必须返回关闭的响应代码。关闭的响应代码用作以前打开的邮箱（已关闭）和新选择的邮箱的响应之间的边界：关闭的响应代码之前的所有响应都与已关闭的邮箱相关，所有后续响应都与新打开的邮箱相关。"
+    },
+    {
+      "indent": 3,
+      "text": "There is no need to return the CLOSED response code on completion of the CLOSE or the UNSELECT [UNSELECT] command (or similar) whose purpose is to close the currently selected mailbox without opening a new one.",
+      "zh-CHS": "关闭或取消选择[UNSELECT]命令（或类似命令）完成后，无需返回关闭的响应代码，其目的是关闭当前选定的邮箱而不打开新邮箱。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Server Implementation Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 服务器实现注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes a minimalist implementation, a moderate implementation, and an example of a full implementation.",
+      "zh-CHS": "本节介绍了最低限度的实现、中等程度的实现以及完整实现的示例。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Server Implementations That Don't Store Extra State",
+      "section_title": true,
+      "zh-CHS": "4.1. 不存储额外状态的服务器实现"
+    },
+    {
+      "indent": 3,
+      "text": "Strictly speaking, a server implementation that doesn't remember mod-sequences associated with expunged messages can be considered compliant with this specification. Such implementations return all expunged messages specified in the UID set of the UID FETCH (VANISHED) command every time, without paying attention to the specified CHANGEDSINCE mod-sequence. Such implementations are discouraged, as they can end up returning VANISHED responses that are bigger than the result of a UID SEARCH command for the same UID set.",
+      "zh-CHS": "严格地说，不记得与已删除消息相关联的mod序列的服务器实现可以被视为符合此规范。这种实现每次都返回UID FETCH（消失）命令的UID集合中指定的所有已删除消息，而不注意指定的CHANGEDSINCE mod序列。不鼓励这样的实现，因为它们最终可能返回比同一UID集的UID搜索命令的结果更大的消失响应。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients that use the message sequence match data can reduce the scope of this VANISHED response substantially in the typical case where expunges have not happened, or happen only toward the end of the mailbox.",
+      "zh-CHS": "在典型情况下，使用消息序列匹配数据的客户端可以大大减少此消失响应的范围，在这种情况下，删除操作未发生，或者仅发生在邮箱末尾。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Server Implementations Storing Minimal State",
+      "section_title": true,
+      "zh-CHS": "4.2. 存储最小状态的服务器实现"
+    },
+    {
+      "indent": 3,
+      "text": "A server that stores the HIGHESTMODSEQ value at the time of the last EXPUNGE can omit the VANISHED response when a client provides a MODSEQ value that is equal to, or higher than, the current value of this datum, that is, when there have been no EXPUNGEs.",
+      "zh-CHS": "当客户机提供的MODSEQ值等于或高于此数据的当前值时（即，未进行任何删除时），存储上次删除时最高MODSEQ值的服务器可以忽略消失的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "A client providing message sequence match data can reduce the scope as above. In the case where there have been no expunges, the server can ignore this data.",
+      "zh-CHS": "提供消息序列匹配数据的客户端可以减少上述范围。在没有删除的情况下，服务器可以忽略此数据。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Additional State Required on the Server",
+      "section_title": true,
+      "zh-CHS": "4.3. 服务器上需要的其他状态"
+    },
+    {
+      "indent": 3,
+      "text": "When compared to the [CONDSTORE] extension, this extension requires servers to store additional state associated with expunged messages. Note that implementations are not required to store this state in persistent storage; however, use of persistent storage is advisable.",
+      "zh-CHS": "与[CONDSTORE]扩展相比，此扩展要求服务器存储与已删除邮件关联的其他状态。注意，实现不需要将此状态存储在持久存储中；但是，建议使用持久性存储。"
+    },
+    {
+      "indent": 3,
+      "text": "One possible way to correctly implement the extension described in this document is to store a queue of <UID set, mod-sequence> pairs. <UID set> can be represented as a sequence of <min UID, max UID> pairs.",
+      "zh-CHS": "正确实现本文档中描述的扩展的一种可能方法是存储<UID set，mod sequence>对的队列<UID set>可以表示为<min UID，max UID>对的序列。"
+    },
+    {
+      "indent": 3,
+      "text": "When messages are expunged, one or more entries are added to the queue tail.",
+      "zh-CHS": "删除消息时，一个或多个条目将添加到队列尾部。"
+    },
+    {
+      "indent": 3,
+      "text": "When the server receives a request to return messages expunged since a given mod-sequence, it will search the queue from the tail (i.e., going from the highest expunged mod-sequence to the lowest) until it sees the first record with a mod-sequence less than or equal to the given mod-sequence or it reaches the head of the queue.",
+      "zh-CHS": "当服务器收到返回从给定mod序列删除的消息的请求时，它将从尾部搜索队列（即，从最高的已删除mod序列到最低的），直到它看到mod序列小于或等于给定mod序列的第一条记录或到达队列的头部。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that indefinitely storing information about expunged messages can cause storage and related problems for an implementation. In the worst case, this could result in almost 64Gb of storage for each IMAP mailbox. For example, consider an implementation that stores <min UID, max UID, mod-sequence> triples for each range of messages expunged at the same time. Each triple requires 16 octets: 4 octets for each of the two UIDs, and 8 octets for the mod-sequence. Assume that there is a mailbox containing a single message with a UID of 2**32-1 (the maximum possible UID value), where messages had previously existed with UIDs starting at 1, and have been expunged one at a time. For this mailbox alone, storage is required for the triples <1, 1, modseq1>, <2, 2, modseq2>, ..., <2**32-2, 2**32-2, modseq4294967294>.",
+      "zh-CHS": "请注意，无限期地存储有关已删除消息的信息可能会导致实现的存储和相关问题。在最坏的情况下，这可能会导致每个IMAP邮箱的存储空间接近64Gb。例如，考虑一个实现同时存储每个消息范围的<min uID、max uID、mod序列>三元组的方法。每个三元组需要16个八位组：两个UID各4个八位组，mod序列8个八位组。假设存在一个邮箱，其中包含一封UID为2**32-1（最大可能UID值）的邮件，该邮箱中的邮件以前存在，UID从1开始，并且一次删除一封邮件。仅此邮箱就需要存储三元组<1,1，modseq1>，<2,2，modseq2>，…，<2**32-2，2**32-2，modseq4294967294>。"
+    },
+    {
+      "indent": 3,
+      "text": "Hence, implementations are encouraged to adopt strategies to protect against such storage problems, such as limiting the size of the queue used to store mod-sequences for expunged messages and \"expiring\" older records when this limit is reached. When the selected implementation-specific queue limit is reached, the oldest record(s) are deleted from the queue (note that such records are located at the queue head). For all such \"expired\" records, the server needs to store a single mod-sequence, which is the highest mod-sequence for all \"expired\" expunged messages.",
+      "zh-CHS": "因此，鼓励实现采用策略来防止此类存储问题，例如限制用于存储已删除消息的mod序列的队列大小，并在达到此限制时“终止”旧记录。当达到选定的特定于实现的队列限制时，将从队列中删除最旧的记录（请注意，这些记录位于队列头）。对于所有此类“过期”记录，服务器需要存储单个mod序列，这是所有“过期”已删除消息的最高mod序列。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that if the client provides the message sequence match data, this can heavily reduce the data cost of sending a complete set of missing UIDs; thus, reducing the problems for clients if a server is unable to persist much of this queue. If the queue contains data back to the requested mod-sequence, this data can be ignored.",
+      "zh-CHS": "请注意，如果客户机提供消息序列匹配数据，这将大大降低发送一整套缺失UID的数据成本；因此，如果服务器无法持久保存此队列的大部分内容，则可以减少客户端的问题。如果队列包含返回请求的mod序列的数据，则可以忽略此数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Also, note that if the UIDVALIDITY of the mailbox changes or if the mailbox is deleted, then any state associated with expunged messages doesn't need to be preserved and SHOULD be deleted.",
+      "zh-CHS": "另外，请注意，如果邮箱的UIDVality发生更改或邮箱被删除，则与已删除邮件关联的任何状态都不需要保留，应该删除。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Updated Synchronization Sequence",
+      "section_title": true,
+      "zh-CHS": "5. 更新的同步序列"
+    },
+    {
+      "indent": 3,
+      "text": "This section updates the description of optimized synchronization in Section 6.1 of the [IMAP-DISC].",
+      "zh-CHS": "本节更新了[IMAP-DISC]第6.1节中对优化同步的描述。"
+    },
+    {
+      "indent": 3,
+      "text": "An advanced disconnected mail client should use the QRESYNC and [CONDSTORE] extensions when they are supported by the server. The client uses the value from the HIGHESTMODSEQ OK response code received on mailbox opening to determine if it needs to resynchronize. Once the synchronization is complete, it MUST cache the received value (unless the mailbox UIDVALIDITY value has changed; see below). The client MUST update its copy of the HIGHESTMODSEQ value whenever the server sends a subsequent HIGHESTMODSEQ OK response code.",
+      "zh-CHS": "当服务器支持QRESYNC和[CONDSTORE]扩展时，高级断开连接的邮件客户端应使用它们。客户端使用邮箱打开时收到的HIGHESTMODSEQ OK响应代码中的值来确定是否需要重新同步。同步完成后，它必须缓存收到的值（除非邮箱UIDVality值已更改；请参见下文）。每当服务器发送后续HIGHESTMODSEQ OK响应代码时，客户端必须更新HIGHESTMODSEQ值的副本。"
+    },
+    {
+      "indent": 3,
+      "text": "After completing a full synchronization, the client MUST also take note of any unsolicited MODSEQ FETCH data items received from the server. Whenever the client receives a tagged response to a command, it calculates the highest value among all MODSEQ FETCH data items received since the last tagged response. If this value is bigger than the client's copy of the HIGHESTMODSEQ value, then the client MUST use this value as its new HIGHESTMODSEQ value.",
+      "zh-CHS": "完成完全同步后，客户端还必须注意从服务器收到的任何未经请求的MODSEQ FETCH数据项。每当客户端收到对命令的标记响应时，它都会计算自上次标记响应以来收到的所有MODSEQ FETCH数据项中的最高值。如果此值大于客户端的HIGHESTMODSEQ值副本，则客户端必须使用此值作为其新的HIGHESTMODSEQ值。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: It is not safe to update the client's copy of the HIGHESTMODSEQ value with a MODSEQ FETCH data item value as soon as it is received because servers are not required to send MODSEQ FETCH data items in increasing modseqence order. This can lead to the client missing some changes in case of connectivity loss.",
+      "zh-CHS": "注意：在收到最高MODSEQ值后，立即使用MODSEQ FETCH数据项值更新客户端的最高MODSEQ值副本是不安全的，因为服务器不需要以递增的ModSequence顺序发送MODSEQ FETCH数据项。这可能导致客户端在连接丢失时丢失一些更改。"
+    },
+    {
+      "indent": 3,
+      "text": "When opening the mailbox for synchronization, the client uses the QRESYNC parameter to the SELECT/EXAMINE command. The QRESYNC parameter is followed by the UIDVALIDITY and mailbox HIGHESTMODSEQ values, as known to the client. It can be optionally followed by the set of UIDs, for example, if the client is only interested in partial synchronization of the mailbox. The client may also transmit a list containing its knowledge of message numbers.",
+      "zh-CHS": "打开邮箱进行同步时，客户端将QRESYNC参数用于SELECT/inspect命令。QRESYNC参数后面是客户端已知的UIDVality和mailbox HIGHESTMODSEQ值。例如，如果客户机只对邮箱的部分同步感兴趣，则可以选择后跟UID集。客户机还可以发送包含其对消息号码的了解的列表。"
+    },
+    {
+      "indent": 3,
+      "text": "If the SELECT/EXAMINE command is successful, the client compares UIDVALIDITY as described in step d)1) in Section 3 of the [IMAP-DISC]. If the cached UIDVALIDITY value matches the one returned by the server and the server also returns the HIGHESTMODSEQ response code, then the server reports expunged messages and returns flag changes for all messages specified by the client in the UID set parameter (or for all messages in the mailbox, if the client omitted the UID set parameter). At this point, the client is synchronized, except for maybe the new messages.",
+      "zh-CHS": "如果选择/检查命令成功，客户端将按照[IMAP-DISC]第3节中步骤d）1）中的说明比较UID的有效性。如果缓存的UIDVality值与服务器返回的值匹配，并且服务器还返回HIGHESTMODSEQ响应代码，则服务器会报告已删除的邮件，并返回客户端在UID set参数中指定的所有邮件（或邮箱中的所有邮件，如果客户端忽略UID set参数）的标志更改。在这一点上，客户机是同步的，除了可能的新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If upon a successful SELECT/EXAMINE (QRESYNC) command the client receives a NOMODSEQ OK untagged response (instead of the HIGHESTMODSEQ response code), it MUST remove the last known HIGHESTMODSEQ value from its cache and follow the more general instructions in Section 3 of the [IMAP-DISC].",
+      "zh-CHS": "如果成功执行选择/检查（QRESYNC）命令后，客户端收到NOMODSEQ OK untagged响应（而不是HIGHESTMODSEQ响应代码），则必须从其缓存中删除最后一个已知的HIGHESTMODSEQ值，并遵循[IMAP-DISC]第3节中更一般的说明。"
+    },
+    {
+      "indent": 3,
+      "text": "At this point, the client is in sync with the server regarding old messages. This client can now fetch information about new messages (if requested by the user).",
+      "zh-CHS": "此时，客户端与服务器就旧消息进行同步。此客户端现在可以获取有关新消息的信息（如果用户请求）。"
+    },
+    {
+      "indent": 3,
+      "text": "Step d) (\"Server-to-client synchronization\") in Section 4 of the [IMAP-DISC] in the presence of the QRESYNC & CONDSTORE extensions is amended as follows:",
+      "zh-CHS": "[IMAP-DISC]第4节中有QRESYNC&CONDSTORE扩展的步骤d）（“服务器到客户端同步”）修改如下："
+    },
+    {
+      "indent": 3,
+      "text": "d) \"Server-to-client synchronization\" -- for each mailbox that requires synchronization, do the following:",
+      "zh-CHS": "d) “服务器到客户端同步”--对于每个需要同步的邮箱，请执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "1a) Check the mailbox UIDVALIDITY (see Section 4.1 of the [IMAP-DISC] for more details) after issuing SELECT/EXAMINE (QRESYNC) command.",
+      "zh-CHS": "1a）发出选择/检查（QRESYNC）命令后，检查邮箱UID的有效性（有关更多详细信息，请参阅[IMAP-DISC]的第4.1节）。"
+    },
+    {
+      "indent": 7,
+      "text": "If the UIDVALIDITY value returned by the server differs, the client MUST",
+      "zh-CHS": "如果服务器返回的UIDVality值不同，则客户端必须"
+    },
+    {
+      "indent": 7,
+      "text": "* empty the local cache of that mailbox;",
+      "zh-CHS": "* 清空该邮箱的本地缓存；"
+    },
+    {
+      "indent": 7,
+      "text": "* \"forget\" the cached HIGHESTMODSEQ value for the mailbox;",
+      "zh-CHS": "* “忘记”邮箱的缓存HIGHESTMODSEQ值；"
+    },
+    {
+      "indent": 7,
+      "text": "* remove any pending \"actions\" which refer to UIDs in that mailbox. Note, this doesn't affect actions performed on client generated fake UIDs (see Section 5 of the [IMAP-DISC]);",
+      "zh-CHS": "* 删除该邮箱中引用UID的任何挂起的“操作”。注意，这不会影响对客户端生成的伪UID执行的操作（请参阅[IMAP-DISC]第5节）；"
+    },
+    {
+      "indent": 3,
+      "text": "2) Fetch the current \"descriptors\";",
+      "zh-CHS": "2) 获取当前的“描述符”；"
+    },
+    {
+      "indent": 7,
+      "text": "I) Discover new messages.",
+      "zh-CHS": "一） 发现新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "3) Fetch the bodies of any \"interesting\" messages that the client doesn't already have.",
+      "zh-CHS": "3) 获取客户端还没有的任何“有趣”消息的主体。"
+    },
+    {
+      "indent": 3,
+      "text": "Example: The UIDVALIDITY value is the same, but the HIGHESTMODSEQ value has changed on the server while the client was offline:",
+      "zh-CHS": "示例：UIDVALIDITY值相同，但客户端脱机时服务器上的HIGHESTMODSEQ值已更改："
+    },
+    {
+      "indent": 4,
+      "text": "C: A142 SELECT INBOX (QRESYNC (3857529045 20010715194032001 1:198))\nS: * 172 EXISTS\nS: * 1 RECENT\nS: * OK [UNSEEN 12] Message 12 is first unseen\nS: * OK [UIDVALIDITY 3857529045] UIDs valid\nS: * OK [UIDNEXT 201] Predicted next UID\nS: * FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)\nS: * OK [PERMANENTFLAGS (\\Deleted \\Seen \\*)] Limited\nS: * OK [HIGHESTMODSEQ 20010715194045007]\nS: * VANISHED (EARLIER) 1:5,7:8,10:15\nS: * 2 FETCH (UID 6 MODSEQ (20010715205008000)\n    FLAGS (\\Deleted))\nS: * 5 FETCH (UID 9 MODSEQ (20010715195517000)\n    FLAGS ($NoJunk $AutoJunk $MDNSent))\n   ...\nS: A142 OK [READ-WRITE] SELECT completed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Formal Syntax",
+      "section_title": true,
+      "zh-CHS": "6. 形式语法"
+    },
+    {
+      "indent": 3,
+      "text": "The following syntax specification uses the Augmented Backus-Naur Form (ABNF) notation as specified in [ABNF].",
+      "zh-CHS": "以下语法规范使用[ABNF]中指定的增广Backus Naur Form（ABNF）表示法。"
+    },
+    {
+      "indent": 3,
+      "text": "Non-terminals referenced but not defined below are as defined by [RFC3501], [CONDSTORE], or [IMAPABNF].",
+      "zh-CHS": "以下引用但未定义的非终端由[RFC3501]、[CONDSTORE]或[IMAPABNF]定义。"
+    },
+    {
+      "indent": 3,
+      "text": "Except as noted otherwise, all alphabetic characters are case-insensitive. The use of upper or lower case characters to define token strings is for editorial clarity only. Implementations MUST accept these strings in a case-insensitive fashion.",
+      "zh-CHS": "除非另有说明，否则所有字母字符都不区分大小写。使用大写或小写字符定义标记字符串仅为编辑目的。实现必须以不区分大小写的方式接受这些字符串。"
+    },
+    {
+      "indent": 3,
+      "text": "capability =/ \"QRESYNC\"",
+      "zh-CHS": "能力=/“QRESYNC”"
+    },
+    {
+      "indent": 3,
+      "text": "select-param = \"QRESYNC\" SP \"(\" uidvalidity SP mod-sequence-value [SP known-uids] [SP seq-match-data] \")\" ;; conforms to the generic select-param ;; syntax defined in [IMAPABNF]",
+      "zh-CHS": "选择param=“QRESYNC”SP”（“UID有效性SP mod sequence value[SP known uids][SP seq match data]”）；；符合通用选择参数；；[IMAPABNF]中定义的语法"
+    },
+    {
+      "indent": 3,
+      "text": "seq-match-data = \"(\" known-sequence-set SP known-uid-set \")\"",
+      "zh-CHS": "seq match data=“（“已知序列集SP已知uid集”）”"
+    },
+    {
+      "indent": 3,
+      "text": "uidvalidity         =  nz-number",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "known-uids          =  sequence-set\n                    ;; sequence of UIDs, \"*\" is not allowed",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "known-sequence-set  =  sequence-set\n                    ;; set of message numbers corresponding to\n                    ;; the UIDs in known-uid-set, in ascending order.\n                    ;; * is not allowed.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "known-uid-set       =  sequence-set\n                    ;; set of UIDs corresponding to the messages in\n                    ;; known-sequence-set, in ascending order.\n                    ;; * is not allowed.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "message-data =/ expunged-resp",
+      "zh-CHS": "消息数据=/expunged resp"
+    },
+    {
+      "indent": 3,
+      "text": "expunged-resp = \"VANISHED\" [SP \"(EARLIER)\"] SP known-uids",
+      "zh-CHS": "expunged resp=“消失”[SP（早期）]SP已知UID"
+    },
+    {
+      "indent": 3,
+      "text": "rexpunges-fetch-mod =  \"VANISHED\"\n                    ;; VANISHED UID FETCH modifier conforms\n                    ;; to the fetch-modifier syntax\n                    ;; defined in [IMAPABNF].  It is only\n                    ;; allowed in the UID FETCH command.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "resp-text-code =/ \"CLOSED\"",
+      "zh-CHS": "resp文本代码=/“已关闭”"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "As always, it is important to thoroughly test clients and servers implementing this extension, as it changes how the server reports expunged messages to the client.",
+      "zh-CHS": "一如既往，彻底测试实现此扩展的客户机和服务器非常重要，因为它改变了服务器向客户机报告已删除消息的方式。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations relevant to [CONDSTORE] are relevant to this extension.",
+      "zh-CHS": "与[CONDSTORE]相关的安全注意事项与此扩展相关。"
+    },
+    {
+      "indent": 3,
+      "text": "This document doesn't raise any new security concerns not already raised by [CONDSTORE] or [RFC3501].",
+      "zh-CHS": "本文档不会提出[CONDSTORE]或[RFC3501]尚未提出的任何新的安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "8. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "8. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IMAP4 capabilities are registered by publishing a standards track or IESG approved experimental RFC. The registry is currently located at:",
+      "zh-CHS": "IMAP4功能通过发布标准跟踪或IESG批准的实验RFC进行注册。注册处目前位于："
+    },
+    {
+      "indent": 6,
+      "text": "http://www.iana.org/assignments/imap4-capabilities",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the QRESYNC IMAP capability. IANA has added this capability to the registry.",
+      "zh-CHS": "本文档定义了QRESYNC IMAP功能。IANA已将此功能添加到注册表中。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Steve Hole, Cyrus Daboo, and Michael Wener for encouraging creation of this document.",
+      "zh-CHS": "感谢Steve Hole、Cyrus Daboo和Michael Wener鼓励创建本文档。"
+    },
+    {
+      "indent": 3,
+      "text": "Valuable comments, both in agreement and in dissent, were received from Timo Sirainen, Michael Wener, Randall Gellens, Arnt Gulbrandsen, Chris Newman, Peter Coates, Mark Crispin, Elwyn Davies, Dan Karp, Eric Rescorla, and Mike Zraly.",
+      "zh-CHS": "Timo Sirainen、Michael Wener、Randall Gellens、Arnt Gulbrandsen、Chris Newman、Peter Coates、Mark Crispin、Elwyn Davies、Dan Karp、Eric Rescorla和Mike Zraly提出了有价值的意见，无论是一致意见还是不同意见。"
+    },
+    {
+      "indent": 3,
+      "text": "This document takes substantial text from [RFC3501] by Mark Crispin.",
+      "zh-CHS": "本文件采用Mark Crispin的[RFC3501]中的实质性文本。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[ABNF] Crocker, D. and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", STD 68, RFC 5234, January 2008.",
+      "zh-CHS": "[ABNF]Crocker，D.和P.Overell，“语法规范的扩充BNF:ABNF”，STD 68，RFC 5234，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CONDSTORE] Melnikov, A. and S. Hole, \"IMAP Extension for Conditional STORE Operation or Quick Flag Changes Resynchronization\", RFC 4551, June 2006.",
+      "zh-CHS": "[CONDSTORE]Melnikov，A.和S.Hole，“条件存储操作或快速标志更改再同步的IMAP扩展”，RFC 45512006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ENABLE] Gulbrandsen, A., Ed. and A. Melnikov, Ed., \"The IMAP ENABLE Extension\", RFC 5161, March 2008.",
+      "zh-CHS": "[启用]Gulbrandsen，A.，Ed.和A.Melnikov，Ed.，“IMAP启用扩展”，RFC 51612008年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IMAPABNF] Melnikov, A. and C. Daboo, \"Collected Extensions to IMAP4 ABNF\", RFC 4466, April 2006.",
+      "zh-CHS": "[IMAPABNF]Melnikov，A.和C.Daboo，“IMAP4 ABNF的收集扩展”，RFC 4466，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3501] Crispin, M., \"INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1\", RFC 3501, March 2003.",
+      "zh-CHS": "[RFC3501]Crispin，M.，“互联网消息访问协议-版本4rev1”，RFC 35012003年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[UIDPLUS] Crispin, M., \"Internet Message Access Protocol (IMAP) - UIDPLUS extension\", RFC 4315, December 2005.",
+      "zh-CHS": "[UIDPLUS]Crispin，M.，“互联网消息访问协议（IMAP）-UIDPLUS扩展”，RFC 4315，2005年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[IMAP-DISC] Melnikov, A., Ed., \"Synchronization Operations For Disconnected Imap4 Clients\", RFC 4549, June 2006.",
+      "zh-CHS": "[IMAP-DISC]Melnikov，A.，编辑，“断开连接的Imap4客户端的同步操作”，RFC 4549，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[UNSELECT] Melnikov, A., \"Internet Message Access Protocol (IMAP) UNSELECT command\", RFC 3691, February 2004.",
+      "zh-CHS": "[UNSELECT]Melnikov，A.，“互联网消息访问协议（IMAP）UNSELECT命令”，RFC 3691，2004年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Alexey Melnikov Isode Ltd 5 Castle Business Village 36 Station Road Hampton, Middlesex TW12 2BX UK",
+      "zh-CHS": "英国米德尔塞克斯郡汉普顿车站路36号城堡商业村5号Alexey Melnikov Isode有限公司TW12 2BX"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Alexey.Melnikov@isode.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Dave Cridland Isode Ltd 5 Castle Business Village 36 Station Road Hampton, Middlesex TW12 2BX UK",
+      "zh-CHS": "Dave Cridland Isode Ltd 5城堡商业村英国米德尔塞克斯郡汉普顿车站路36号TW12 2BX"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: dave.cridland@isode.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Corby Wilson Nokia 5 Wayside Rd. Burlington, MA 01803 USA",
+      "zh-CHS": "美国马萨诸塞州伯灵顿路5号诺基亚Corby Wilson 01803"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: corby@computer.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

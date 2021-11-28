@@ -1,0 +1,630 @@
+{
+  "title": {
+    "text": "RFC 6582: The NewReno Modification to TCP's Fast Recovery Algorithm",
+    "zh-CHS": "RFC 6582"
+  },
+  "number": 6582,
+  "created_at": "2021-11-03 18:08:20.814895+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                      T. Henderson\nRequest for Comments: 6582                                        Boeing\nObsoletes: 3782                                                 S. Floyd\nCategory: Standards Track                                           ICSI\nISSN: 2070-1721                                                A. Gurtov\n                                                      University of Oulu\n                                                              Y. Nishida\n                                                            WIDE Project\n                                                              April 2012",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "The NewReno Modification to TCP's Fast Recovery Algorithm",
+      "zh-CHS": "TCP快速恢复算法的NewReno改进"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 5681 documents the following four intertwined TCP congestion control algorithms: slow start, congestion avoidance, fast retransmit, and fast recovery. RFC 5681 explicitly allows certain modifications of these algorithms, including modifications that use the TCP Selective Acknowledgment (SACK) option (RFC 2883), and modifications that respond to \"partial acknowledgments\" (ACKs that cover new data, but not all the data outstanding when loss was detected) in the absence of SACK. This document describes a specific algorithm for responding to partial acknowledgments, referred to as \"NewReno\". This response to partial acknowledgments was first proposed by Janey Hoe. This document obsoletes RFC 3782.",
+      "zh-CHS": "RFC 5681记录了以下四种交织的TCP拥塞控制算法：慢启动、拥塞避免、快速重传和快速恢复。RFC 5681明确允许对这些算法进行某些修改，包括使用TCP选择性确认（SACK）选项（RFC 2883）的修改，以及在没有SACK的情况下响应“部分确认”（覆盖新数据的确认，但不是检测到丢失时所有未完成的数据）的修改。本文档描述了用于响应部分确认的特定算法，称为“NewReno”。这种对部分承认的回应最初是由Janey Hoe提出的。本文件淘汰了RFC 3782。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6582.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6582."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2012 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2012 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 3,
+      "text": "This document may contain material from IETF Documents or IETF Contributions published or made publicly available before November 10, 2008. The person(s) controlling the copyright in some of this material may not have granted the IETF Trust the right to allow modifications of such material outside the IETF Standards Process. Without obtaining an adequate license from the person(s) controlling the copyright in such materials, this document may not be modified outside the IETF Standards Process, and derivative works of it may not be created outside the IETF Standards Process, except to format it for publication as an RFC or to translate it into languages other than English.",
+      "zh-CHS": "本文件可能包含2008年11月10日之前发布或公开的IETF文件或IETF贡献中的材料。控制某些材料版权的人员可能未授予IETF信托允许在IETF标准流程之外修改此类材料的权利。在未从控制此类材料版权的人员处获得充分许可的情况下，不得在IETF标准流程之外修改本文件，也不得在IETF标准流程之外创建其衍生作品，除了将其格式化以RFC形式发布或将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "For the typical implementation of the TCP fast recovery algorithm described in [RFC5681] (first implemented in the 1990 BSD Reno release, and referred to as the \"Reno algorithm\" in [FF96]), the TCP data sender only retransmits a packet after a retransmit timeout has occurred, or after three duplicate acknowledgments have arrived triggering the fast retransmit algorithm. A single retransmit timeout might result in the retransmission of several data packets, but each invocation of the fast retransmit algorithm in RFC 5681 leads to the retransmission of only a single data packet.",
+      "zh-CHS": "对于[RFC5681]中描述的TCP快速恢复算法的典型实现（首先在1990年BSD Reno版本中实现，在[FF96]中称为“Reno算法”），TCP数据发送方仅在发生重新传输超时后重新传输数据包，或者在三次重复确认到达后触发快速重传算法。单个重传超时可能导致多个数据包的重传，但RFC 5681中快速重传算法的每次调用都只导致单个数据包的重传。"
+    },
+    {
+      "indent": 3,
+      "text": "Two problems arise with Reno TCP when multiple packet losses occur in a single window. First, Reno will often take a timeout, as has been documented in [Hoe95]. Second, even if a retransmission timeout is avoided, multiple fast retransmits and window reductions can occur, as documented in [F94]. When multiple packet losses occur, if the SACK option [RFC2883] is available, the TCP sender has the information to make intelligent decisions about which packets to retransmit and which packets not to retransmit during fast recovery.",
+      "zh-CHS": "当一个窗口中发生多个数据包丢失时，Reno TCP会出现两个问题。首先，正如[95]中所记录的那样，雷诺经常会超时。其次，即使避免了重传超时，也可能发生多次快速重传和窗口缩减，如[F94]中所述。当发生多个数据包丢失时，如果SACK选项[RFC2883]可用，则TCP发送方可以在快速恢复期间智能地决定哪些数据包要重新传输，哪些数据包不需要重新传输。"
+    },
+    {
+      "indent": 3,
+      "text": "This document applies to TCP connections that are unable to use the TCP Selective Acknowledgment (SACK) option, either because the option is not locally supported or because the TCP peer did not indicate a willingness to use SACK.",
+      "zh-CHS": "本文档适用于无法使用TCP选择性确认（SACK）选项的TCP连接，原因可能是该选项在本地不受支持，或者TCP对等方未表示愿意使用SACK。"
+    },
+    {
+      "indent": 3,
+      "text": "In the absence of SACK, there is little information available to the TCP sender in making retransmission decisions during fast recovery. From the three duplicate acknowledgments, the sender infers a packet loss, and retransmits the indicated packet. After this, the data sender could receive additional duplicate acknowledgments, as the data receiver acknowledges additional data packets that were already in flight when the sender entered fast retransmit.",
+      "zh-CHS": "在没有SACK的情况下，TCP发送方在快速恢复期间做出重传决策时几乎没有可用的信息。从三个重复确认中，发送方推断出数据包丢失，并重新传输所指示的数据包。在此之后，数据发送方可以接收额外的重复确认，因为数据接收方确认发送方进入快速重传时已经在传输中的额外数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of multiple packets dropped from a single window of data, the first new information available to the sender comes when the sender receives an acknowledgment for the retransmitted packet (that is, the packet retransmitted when fast retransmit was first entered). If there is a single packet drop and no reordering, then the acknowledgment for this packet will acknowledge all of the packets transmitted before fast retransmit was entered. However, if there are multiple packet drops, then the acknowledgment for the retransmitted packet will acknowledge some but not all of the packets transmitted before the fast retransmit. We call this acknowledgment a partial acknowledgment.",
+      "zh-CHS": "在从单个数据窗口丢弃多个数据包的情况下，当发送方接收到对重传数据包的确认时（即，在首次输入快速重传时重传的数据包），发送方可用的第一个新信息出现。如果存在单个数据包丢弃且没有重新排序，则此数据包的确认将确认在输入快速重传之前发送的所有数据包。然而，如果存在多个分组丢弃，则对重传分组的确认将确认在快速重传之前发送的部分但不是全部分组。我们称此确认为部分确认。"
+    },
+    {
+      "indent": 3,
+      "text": "Along with several other suggestions, [Hoe95] suggested that during fast recovery the TCP data sender respond to a partial acknowledgment by inferring that the next in-sequence packet has been lost and retransmitting that packet. This document describes a modification to the fast recovery algorithm in RFC 5681 that incorporates a response to partial acknowledgments received during fast recovery. We call this modified fast recovery algorithm NewReno, because it is a slight but significant variation of the behavior that has been historically referred to as Reno. This document does not discuss the other suggestions in [Hoe95] and [Hoe96], such as a change to the ssthresh parameter during slow start, or the proposal to send a new packet for every two duplicate acknowledgments during fast recovery. The version of NewReno in this document also draws on other discussions of NewReno in the literature [LM97] [Hen98].",
+      "zh-CHS": "与其他一些建议一样，[Hoe95]建议在快速恢复期间，TCP数据发送方通过推断序列中的下一个数据包已丢失并重新传输该数据包来响应部分确认。本文档描述了对RFC 5681中快速恢复算法的修改，该算法包含对快速恢复期间接收到的部分确认的响应。我们称这种改进的快速恢复算法为NewReno，因为它是一种轻微但显著的行为变化，在历史上被称为Reno。本文件不讨论[Hoe95]和[Hoe96]中的其他建议，例如在慢速启动期间更改ssthresh参数，或建议在快速恢复期间每两次重复确认发送一个新数据包。本文件中的NewReno版本还借鉴了文献[LM97][Hen98]中对NewReno的其他讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "We do not claim that the NewReno version of fast recovery described here is an optimal modification of fast recovery for responding to partial acknowledgments, for TCP connections that are unable to use SACK. Based on our experiences with the NewReno modification in the network simulator known as ns-2 [NS] and with numerous implementations of NewReno, we believe that this modification improves the performance of the fast retransmit and fast recovery",
+      "zh-CHS": "我们并不认为这里描述的NewReno版本的快速恢复是对快速恢复的最佳修改，用于响应部分确认，用于无法使用SACK的TCP连接。根据我们在网络模拟器ns-2[ns]中对NewReno进行修改的经验，以及NewReno的大量实现，我们认为该修改提高了快速重传和快速恢复的性能"
+    },
+    {
+      "indent": 3,
+      "text": "algorithms in a wide variety of scenarios. Previous versions of this RFC [RFC2582] [RFC3782] provide simulation-based evidence of the possible performance gains.",
+      "zh-CHS": "各种场景中的算法。此RFC的早期版本[RFC2582][RFC3782]提供了基于模拟的可能性能提升证据。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology and Definitions",
+      "section_title": true,
+      "zh-CHS": "2. 术语和定义"
+    },
+    {
+      "indent": 3,
+      "text": "This document assumes that the reader is familiar with the terms SENDER MAXIMUM SEGMENT SIZE (SMSS), CONGESTION WINDOW (cwnd), and FLIGHT SIZE (FlightSize) defined in [RFC5681].",
+      "zh-CHS": "本文档假设读者熟悉[RFC5681]中定义的术语发送方最大航段大小（SMSS）、拥塞窗口（cwnd）和航班大小（FlightSize）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an additional sender-side state variable called \"recover\":",
+      "zh-CHS": "本文档定义了另一个发送方状态变量“recover”："
+    },
+    {
+      "indent": 6,
+      "text": "recover: When in fast recovery, this variable records the send sequence number that must be acknowledged before the fast recovery procedure is declared to be over.",
+      "zh-CHS": "恢复：在快速恢复中，此变量记录在宣布快速恢复过程结束之前必须确认的发送序列号。"
+    },
+    {
+      "indent": 0,
+      "text": "3. The Fast Retransmit and Fast Recovery Algorithms in NewReno",
+      "section_title": true,
+      "zh-CHS": "3. NewReno中的快速重传和快速恢复算法"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Protocol Overview",
+      "section_title": true,
+      "zh-CHS": "3.1. 协议概述"
+    },
+    {
+      "indent": 3,
+      "text": "The basic idea of these extensions to the fast retransmit and fast recovery algorithms described in Section 3.2 of [RFC5681] is as follows. The TCP sender can infer, from the arrival of duplicate acknowledgments, whether multiple losses in the same window of data have most likely occurred, and avoid taking a retransmit timeout or making multiple congestion window reductions due to such an event.",
+      "zh-CHS": "[RFC5681]第3.2节中描述的快速重传和快速恢复算法的这些扩展的基本思想如下。TCP发送方可以根据重复确认的到达推断同一数据窗口中是否最有可能发生多个丢失，并避免由于此类事件而导致重传超时或多个拥塞窗口减少。"
+    },
+    {
+      "indent": 3,
+      "text": "The NewReno modification applies to the fast recovery procedure that begins when three duplicate ACKs are received and ends when either a retransmission timeout occurs or an ACK arrives that acknowledges all of the data up to and including the data that was outstanding when the fast recovery procedure began.",
+      "zh-CHS": "NewReno修改适用于快速恢复过程，该过程在收到三个重复的ACK时开始，在发生重传超时或ACK到达时结束，确认所有数据，包括快速恢复过程开始时未完成的数据。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Specification",
+      "section_title": true,
+      "zh-CHS": "3.2. 规格"
+    },
+    {
+      "indent": 3,
+      "text": "The procedures specified in Section 3.2 of [RFC5681] are followed, with the modifications listed below. Note that this specification avoids the use of the key words defined in RFC 2119 [RFC2119], since it mainly provides sender-side implementation guidance for performance improvement, and does not affect interoperability.",
+      "zh-CHS": "遵循[RFC5681]第3.2节规定的程序，并进行以下修改。请注意，本规范避免使用RFC 2119[RFC2119]中定义的关键字，因为它主要为性能改进提供发送方实现指南，并且不影响互操作性。"
+    },
+    {
+      "indent": 3,
+      "text": "1) Initialization of TCP protocol control block: When the TCP protocol control block is initialized, recover is set to the initial send sequence number.",
+      "zh-CHS": "1) TCP协议控制块初始化：初始化TCP协议控制块时，recover设置为初始发送序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "2) Three duplicate ACKs: When the third duplicate ACK is received, the TCP sender first checks the value of recover to see if the Cumulative Acknowledgment field covers more than recover. If so, the value of recover is incremented to the value of the highest sequence number transmitted by the TCP so far. The TCP then enters fast retransmit (step 2 of Section 3.2 of [RFC5681]). If not, the TCP does not enter fast retransmit and does not reset ssthresh.",
+      "zh-CHS": "2) 三个重复确认：当收到第三个重复确认时，TCP发送方首先检查recover的值，以查看累积确认字段是否覆盖超过recover。如果是，recover的值将增加到TCP迄今为止传输的最高序列号的值。然后TCP进入快速重传（RFC5681第3.2节第2步）。否则，TCP不会进入快速重传，也不会重置ssthresh。"
+    },
+    {
+      "indent": 3,
+      "text": "3) Response to newly acknowledged data: Step 6 of [RFC5681] specifies the response to the next ACK that acknowledges previously unacknowledged data. When an ACK arrives that acknowledges new data, this ACK could be the acknowledgment elicited by the initial retransmission from fast retransmit, or elicited by a later retransmission. There are two cases:",
+      "zh-CHS": "3) 对新确认数据的响应：[RFC5681]的步骤6指定对下一个确认先前未确认数据的应答。当确认新数据的ACK到达时，该ACK可以是由快速重传的初始重传引起的确认，或者由随后的重传引起的确认。有两种情况："
+    },
+    {
+      "indent": 7,
+      "text": "Full acknowledgments: If this ACK acknowledges all of the data up to and including recover, then the ACK acknowledges all the intermediate segments sent between the original transmission of the lost segment and the receipt of the third duplicate ACK. Set cwnd to either (1) min (ssthresh, max(FlightSize, SMSS) + SMSS) or (2) ssthresh, where ssthresh is the value set when fast retransmit was entered, and where FlightSize in (1) is the amount of data presently outstanding. This is termed \"deflating\" the window. If the second option is selected, the implementation is encouraged to take measures to avoid a possible burst of data, in case the amount of data outstanding in the network is much less than the new congestion window allows. A simple mechanism is to limit the number of data packets that can be sent in response to a single acknowledgment. Exit the fast recovery procedure.",
+      "zh-CHS": "完全确认：如果此ACK确认恢复之前（包括恢复之前）的所有数据，则ACK确认在丢失段的原始传输和收到第三个重复ACK之间发送的所有中间段。将cwnd设置为（1）min（ssthresh，max（FlightSize，SMSS）+SMSS）或（2）ssthresh，其中ssthresh是输入快速重新传输时设置的值，其中（1）中的FlightSize是当前未完成的数据量。这被称为“放气”窗口。如果选择了第二个选项，则鼓励实施部门采取措施避免可能的数据突发，以防网络中未完成的数据量远远小于新的拥塞窗口所允许的数据量。一个简单的机制是限制响应单个确认可以发送的数据包的数量。退出快速恢复过程。"
+    },
+    {
+      "indent": 7,
+      "text": "Partial acknowledgments: If this ACK does *not* acknowledge all of the data up to and including recover, then this is a partial ACK. In this case, retransmit the first unacknowledged segment. Deflate the congestion window by the amount of new data acknowledged by the Cumulative Acknowledgment field. If the partial ACK acknowledges at least one SMSS of new data, then add back SMSS bytes to the congestion window. This artificially inflates the congestion window in order to reflect the additional segment that has left the network. Send a new segment if permitted by the new value of cwnd. This \"partial window deflation\" attempts to ensure that, when fast recovery eventually ends, approximately ssthresh amount of data will be outstanding in the network. Do not exit the fast recovery procedure (i.e., if any duplicate ACKs subsequently arrive, execute step 4 of Section 3.2 of [RFC5681]).",
+      "zh-CHS": "部分确认：如果此确认*不*确认恢复之前（包括恢复）的所有数据，则这是一个部分确认。在这种情况下，重新传输第一个未确认的段。通过累积确认字段确认的新数据量来缩小拥塞窗口。如果部分ACK确认至少一个SMS的新数据，则将SMS字节添加回拥塞窗口。这会人为地增大拥塞窗口，以反映已离开网络的附加网段。如果cwnd的新值允许，则发送新段。这种“部分窗口压缩”试图确保，当快速恢复最终结束时，网络中大约有ssthresh数量的数据将处于未处理状态。不要退出快速恢复程序（即，如果任何重复的ACK随后到达，则执行[RFC5681]第3.2节的步骤4]）。"
+    },
+    {
+      "indent": 7,
+      "text": "For the first partial ACK that arrives during fast recovery, also reset the retransmit timer. Timer management is discussed in more detail in Section 4.",
+      "zh-CHS": "对于在快速恢复期间到达的第一个部分ACK，也重置重传计时器。第4节将更详细地讨论计时器管理。"
+    },
+    {
+      "indent": 3,
+      "text": "4) Retransmit timeouts: After a retransmit timeout, record the highest sequence number transmitted in the variable recover, and exit the fast recovery procedure if applicable.",
+      "zh-CHS": "4) 重新传输超时：在重新传输超时后，记录变量recover中传输的最高序列号，如果适用，退出快速恢复过程。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 2 above specifies a check that the Cumulative Acknowledgment field covers more than recover. Because the acknowledgment field contains the sequence number that the sender next expects to receive, the acknowledgment \"ack_number\" covers more than recover when",
+      "zh-CHS": "上面的步骤2指定了一项检查，以确保累积确认字段覆盖的范围超过恢复范围。由于确认字段包含发送方下一步希望接收的序列号，因此确认“ack_number”覆盖的范围超过了恢复时的范围"
+    },
+    {
+      "indent": 6,
+      "text": "ack_number - 1 > recover;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "i.e., at least one byte more of data is acknowledged beyond the highest byte that was outstanding when fast retransmit was last entered.",
+      "zh-CHS": "i、 例如，在上次输入快速重传时未完成的最高字节之外，至少多确认一个字节的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that in step 3 above, the congestion window is deflated after a partial acknowledgment is received. The congestion window was likely to have been inflated considerably when the partial acknowledgment was received. In addition, depending on the original pattern of packet losses, the partial acknowledgment might acknowledge nearly a window of data. In this case, if the congestion window was not deflated, the data sender might be able to send nearly a window of data back-to-back.",
+      "zh-CHS": "注意，在上面的步骤3中，在接收到部分确认之后，拥塞窗口被缩小。当接收到部分确认时，拥塞窗口很可能已经大大膨胀。此外，根据数据包丢失的原始模式，部分确认可能会确认几乎一个数据窗口。在这种情况下，如果拥塞窗口没有缩小，那么数据发送方可能能够背靠背地发送几乎一个数据窗口。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not specify the sender's response to duplicate ACKs when the fast retransmit/fast recovery algorithm is not invoked. This is addressed in other documents, such as those describing the Limited Transmit procedure [RFC3042]. This document also does not address issues of adjusting the duplicate acknowledgment threshold, but assumes the threshold specified in the IETF standards; the current standard is [RFC5681], which specifies a threshold of three duplicate acknowledgments.",
+      "zh-CHS": "当未调用快速重传/快速恢复算法时，本文档未指定发送方对重复ACK的响应。其他文件（如描述有限传输程序的文件[RFC3042]）对此进行了说明。本文件也不涉及调整重复确认阈值的问题，但假设IETF标准中规定的阈值；当前的标准是[RFC5681]，它规定了三次重复确认的阈值。"
+    },
+    {
+      "indent": 3,
+      "text": "As a final note, we would observe that in the absence of the SACK option, the data sender is working from limited information. When the issue of recovery from multiple dropped packets from a single window of data is of particular importance, the best alternative would be to use the SACK option.",
+      "zh-CHS": "最后，我们注意到，在没有SACK选项的情况下，数据发送者使用的是有限的信息。当从单个数据窗口的多个丢弃数据包中恢复的问题特别重要时，最好的替代方法是使用SACK选项。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Handling Duplicate Acknowledgments after a Timeout",
+      "section_title": true,
+      "zh-CHS": "4. 超时后处理重复确认"
+    },
+    {
+      "indent": 3,
+      "text": "After each retransmit timeout, the highest sequence number transmitted so far is recorded in the variable recover. If, after a retransmit timeout, the TCP data sender retransmits three consecutive packets that have already been received by the data receiver, then the TCP data sender will receive three duplicate acknowledgments that do not cover more than recover. In this case, the duplicate acknowledgments are not an indication of a new instance of congestion. They are simply an indication that the sender has unnecessarily retransmitted at least three packets.",
+      "zh-CHS": "在每次重新传输超时后，到目前为止传输的最高序列号记录在变量recover中。如果在重新传输超时后，TCP数据发送方重新传输数据接收方已经接收到的三个连续数据包，则TCP数据发送方将收到三个重复的确认，其范围不超过恢复时间。在这种情况下，重复确认并不表示新的拥塞实例。它们只是表明发送方不必要地重新传输了至少三个数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "However, when a retransmitted packet is itself dropped, the sender can also receive three duplicate acknowledgments that do not cover more than recover. In this case, the sender would have been better off if it had initiated fast retransmit. For a TCP sender that implements the algorithm specified in Section 3.2 of this document, the sender does not infer a packet drop from duplicate acknowledgments in this scenario. As always, the retransmit timer is the backup mechanism for inferring packet loss in this case.",
+      "zh-CHS": "但是，当重新传输的数据包本身被丢弃时，发送方还可以收到三个重复的确认，这些确认不超过恢复。在这种情况下，如果发送方启动了快速重传，它的境况会更好。对于实现本文档第3.2节中指定的算法的TCP发送方，在这种情况下，发送方不会从重复确认中推断数据包丢弃。一如既往，在这种情况下，重传计时器是推断数据包丢失的备份机制。"
+    },
+    {
+      "indent": 3,
+      "text": "There are several heuristics, based on timestamps or on the amount of advancement of the Cumulative Acknowledgment field, that allow the sender to distinguish, in some cases, between three duplicate acknowledgments following a retransmitted packet that was dropped, and three duplicate acknowledgments from the unnecessary retransmission of three packets [Gur03] [GF04]. The TCP sender may use such a heuristic to decide to invoke a fast retransmit in some cases, even when the three duplicate acknowledgments do not cover more than recover.",
+      "zh-CHS": "基于时间戳或累积确认字段的前进量，有几种启发式方法，在某些情况下，允许发送方区分丢弃的重传数据包之后的三个重复确认，以及来自三个数据包的不必要重传的三个重复确认[Gur03][GF04]。在某些情况下，TCP发送方可以使用这种启发式方法来决定调用快速重传，即使三个重复的确认不超过恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, when three duplicate acknowledgments are caused by the unnecessary retransmission of three packets, this is likely to be accompanied by the Cumulative Acknowledgment field advancing by at least four segments. Similarly, a heuristic based on timestamps uses the fact that when there is a hole in the sequence space, the timestamp echoed in the duplicate acknowledgment is the timestamp of the most recent data packet that advanced the Cumulative Acknowledgment field [RFC1323]. If timestamps are used, and the sender stores the timestamp of the last acknowledged segment, then the timestamp echoed by duplicate acknowledgments can be used to distinguish between a retransmitted packet that was dropped and three duplicate acknowledgments from the unnecessary retransmission of three packets.",
+      "zh-CHS": "例如，当三个分组的不必要重传导致三个重复确认时，这很可能伴随着累积确认字段前进至少四个段。类似地，基于时间戳的启发式使用这样一个事实，即当序列空间中存在漏洞时，重复确认中回显的时间戳是推进累积确认字段[RFC1323]的最近数据分组的时间戳。如果使用了时间戳，并且发送方存储了最后一个确认段的时间戳，那么由重复确认回显的时间戳可用于区分丢弃的重传分组和三个重复确认与三个分组的不必要重传。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. ACK Heuristic",
+      "section_title": true,
+      "zh-CHS": "4.1. ACK启发式"
+    },
+    {
+      "indent": 3,
+      "text": "If the ACK-based heuristic is used, then following the advancement of the Cumulative Acknowledgment field, the sender stores the value of the previous cumulative acknowledgment as prev_highest_ack, and stores the latest cumulative ACK as highest_ack. In addition, the following check is performed if, in step 2 of Section 3.2, the Cumulative Acknowledgment field does not cover more than recover.",
+      "zh-CHS": "如果使用基于确认的启发式，则在累积确认字段前进后，发送方将先前累积确认的值存储为prev_highest_ACK，并将最新累积确认存储为highest_ACK。此外，如果在第3.2节的步骤2中，累积确认字段的覆盖范围不超过恢复范围，则执行以下检查。"
+    },
+    {
+      "indent": 3,
+      "text": "2*) If the Cumulative Acknowledgment field didn't cover more than recover, check to see if the congestion window is greater than SMSS bytes and the difference between highest_ack and prev_highest_ack is at most 4*SMSS bytes. If true, duplicate ACKs indicate a lost segment (enter fast retransmit). Otherwise, duplicate ACKs likely result from unnecessary retransmissions (do not enter fast retransmit).",
+      "zh-CHS": "2*）如果累计确认字段的覆盖范围不超过恢复范围，请检查拥塞窗口是否大于SMSS字节，以及最高确认和上一次最高确认之间的差异是否最多为4*SMSS字节。如果为true，则重复的ACK表示丢失的段（输入fast retransmit）。否则，不必要的重新传输可能会导致重复的ACK（不要进入快速重新传输）。"
+    },
+    {
+      "indent": 3,
+      "text": "The congestion window check serves to protect against fast retransmit immediately after a retransmit timeout.",
+      "zh-CHS": "拥塞窗口检查用于防止在重传超时后立即进行快速重传。"
+    },
+    {
+      "indent": 3,
+      "text": "If several ACKs are lost, the sender can see a jump in the cumulative ACK of more than three segments, and the heuristic can fail. [RFC5681] recommends that a receiver should send duplicate ACKs for every out-of-order data packet, such as a data packet received during fast recovery. The ACK heuristic is more likely to fail if the receiver does not follow this advice, because then a smaller number of ACK losses are needed to produce a sufficient jump in the cumulative ACK.",
+      "zh-CHS": "如果多个ACK丢失，发送方可以看到三个以上段的累积ACK中的跳跃，并且启发式可能失败。[RFC5681]建议接收器应为每个无序数据包发送重复的ACK，例如在快速恢复期间接收的数据包。如果接收器不遵循此建议，则ACK启发式更可能失败，因为此时需要较小数量的ACK丢失以在累积ACK中产生足够的跳跃。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Timestamp Heuristic",
+      "section_title": true,
+      "zh-CHS": "4.2. 时间戳启发式"
+    },
+    {
+      "indent": 3,
+      "text": "If this heuristic is used, the sender stores the timestamp of the last acknowledged segment. In addition, the last sentence of step 2 in Section 3.2 of this document is replaced as follows:",
+      "zh-CHS": "如果使用此启发式，发送方将存储最后确认的段的时间戳。此外，本文件第3.2节第2步的最后一句替换如下："
+    },
+    {
+      "indent": 3,
+      "text": "2**) If the Cumulative Acknowledgment field didn't cover more than recover, check to see if the echoed timestamp in the last non-duplicate acknowledgment equals the stored timestamp. If true, duplicate ACKs indicate a lost segment (enter fast retransmit). Otherwise, duplicate ACKs likely result from unnecessary retransmissions (do not enter fast retransmit).",
+      "zh-CHS": "2**）如果累计确认字段的覆盖范围不超过恢复范围，请检查最后一次非重复确认中的回显时间戳是否等于存储的时间戳。如果为true，则重复的ACK表示丢失的段（输入fast retransmit）。否则，不必要的重新传输可能会导致重复的ACK（不要进入快速重新传输）。"
+    },
+    {
+      "indent": 3,
+      "text": "The timestamp heuristic works correctly, both when the receiver echoes timestamps, as specified by [RFC1323], and by its revision attempts. However, if the receiver arbitrarily echoes timestamps, the heuristic can fail. The heuristic can also fail if a timeout was spurious and returning ACKs are not from retransmitted segments. This can be prevented by detection algorithms such as the Eifel detection algorithm [RFC3522].",
+      "zh-CHS": "根据[RFC1323]的规定，当接收器回显时间戳时，以及通过其修订尝试，时间戳启发式算法都能正常工作。然而，如果接收器任意回显时间戳，则启发式可能失败。如果超时是虚假的，并且返回的ack不是来自重新传输的段，则启发式也可能失败。这可以通过诸如Eifel检测算法[RFC3522]等检测算法来防止。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Implementation Issues for the Data Receiver",
+      "section_title": true,
+      "zh-CHS": "5. 数据接收器的实现问题"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5681] specifies that \"Out-of-order data segments SHOULD be acknowledged immediately, in order to accelerate loss recovery\". Neal Cardwell has noted that some data receivers do not send an immediate acknowledgment when they send a partial acknowledgment, but instead wait first for their delayed acknowledgment timer to expire [C98]. As [C98] notes, this severely limits the potential benefit of NewReno by delaying the receipt of the partial acknowledgment at the data sender. Echoing [RFC5681], our recommendation is that the data receiver send an immediate acknowledgment for an out-of-order segment, even when that out-of-order segment fills a hole in the buffer.",
+      "zh-CHS": "[RFC5681]规定“应立即确认无序数据段，以加速丢失恢复”。Neal Cardwell指出，一些数据接收器在发送部分确认时不会立即发送确认，而是先等待延迟确认计时器过期[C98]。正如[C98]所指出的，这严重限制了NewReno的潜在好处，因为它延迟了数据发送方收到部分确认。响应[RFC5681]，我们的建议是，数据接收器立即发送对无序段的确认，即使该无序段填充了缓冲区中的一个孔。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Implementation Issues for the Data Sender",
+      "section_title": true,
+      "zh-CHS": "6. 数据发送方的实现问题"
+    },
+    {
+      "indent": 3,
+      "text": "In Section 3.2, step 3 above, it is noted that implementations should take measures to avoid a possible burst of data when leaving fast recovery, in case the amount of new data that the sender is eligible to send due to the new value of the congestion window is large. This can arise during NewReno when ACKs are lost or treated as pure window updates, thereby causing the sender to underestimate the number of new segments that can be sent during the recovery procedure. Specifically, bursts can occur when the FlightSize is much less than the new congestion window when exiting from fast recovery. One simple mechanism to avoid a burst of data when leaving fast recovery",
+      "zh-CHS": "在上面的第3.2节步骤3中，注意到，如果由于拥塞窗口的新值，发送方有资格发送的新数据量较大，则实现应采取措施避免在离开快速恢复时可能出现数据突发。在NewReno期间，当ACK丢失或被视为纯窗口更新时，可能会出现这种情况，从而导致发送方低估了恢复过程中可以发送的新段数。具体来说，当退出快速恢复时，FlightSize远小于新的拥塞窗口时，可能会发生突发。一种简单的机制，用于在离开快速恢复时避免数据突发"
+    },
+    {
+      "indent": 3,
+      "text": "is to limit the number of data packets that can be sent in response to a single acknowledgment. (This is known as \"maxburst_\" in ns-2 [NS].) Other possible mechanisms for avoiding bursts include rate-based pacing, or setting the slow start threshold to the resultant congestion window and then resetting the congestion window to FlightSize. A recommendation on the general mechanism to avoid excessively bursty sending patterns is outside the scope of this document.",
+      "zh-CHS": "是限制响应单个确认可以发送的数据包的数量。（这在ns-2[ns]中称为“maxburst_”）。避免突发的其他可能机制包括基于速率的起搏，或将慢启动阈值设置为结果拥塞窗口，然后将拥塞窗口重置为FlightSize。关于避免过度突发发送模式的一般机制的建议超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "An implementation may want to use a separate flag to record whether or not it is presently in the fast recovery procedure. The use of the value of the duplicate acknowledgment counter for this purpose is not reliable, because it can be reset upon window updates and out-of-order acknowledgments.",
+      "zh-CHS": "实现可能希望使用单独的标志来记录它当前是否处于快速恢复过程中。为此目的使用重复确认计数器的值是不可靠的，因为它可以在窗口更新和无序确认时重置。"
+    },
+    {
+      "indent": 3,
+      "text": "When updating the Cumulative Acknowledgment field outside of fast recovery, the state variable recover may also need to be updated in order to continue to permit possible entry into fast recovery (Section 3.2, step 2). This issue arises when an update of the Cumulative Acknowledgment field results in a sequence wraparound that affects the ordering between the Cumulative Acknowledgment field and the state variable recover. Entry into fast recovery is only possible when the Cumulative Acknowledgment field covers more than the state variable recover.",
+      "zh-CHS": "在快速恢复之外更新累积确认字段时，可能还需要更新状态变量recover，以便继续允许可能进入快速恢复（第3.2节，步骤2）。当累积确认字段的更新导致序列环绕，从而影响累积确认字段和状态变量recover之间的顺序时，会出现此问题。只有当累积确认字段覆盖的范围超过状态变量recover时，才能进入快速恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "It is important for the sender to respond correctly to duplicate ACKs received when the sender is no longer in fast recovery (e.g., because of a retransmit timeout). The Limited Transmit procedure [RFC3042] describes possible responses to the first and second duplicate acknowledgments. When three or more duplicate acknowledgments are received, the Cumulative Acknowledgment field doesn't cover more than recover, and a new fast recovery is not invoked, the sender should follow the guidance in Section 4. Otherwise, the sender could end up in a chain of spurious timeouts. We mention this only because several NewReno implementations had this bug, including the implementation in ns-2 [NS].",
+      "zh-CHS": "当发送方不再处于快速恢复状态时（例如，由于重传超时），发送方正确响应收到的重复ACK非常重要。有限传输程序[RFC3042]描述了对第一次和第二次重复确认的可能响应。当收到三个或三个以上的重复确认时，累计确认字段的覆盖范围不超过恢复，并且不会调用新的快速恢复，发送方应遵循第4节中的指导。否则，发送方可能会出现一连串虚假超时。我们之所以提到这一点，只是因为几个NewReno实现都有这个bug，包括ns-2[ns]中的实现。"
+    },
+    {
+      "indent": 3,
+      "text": "It has been observed that some TCP implementations enter a slow start or congestion avoidance window updating algorithm immediately after the cwnd is set by the equation found in Section 3.2, step 3, even without a new external event generating the cwnd change. Note that after cwnd is set based on the procedure for exiting fast recovery (Section 3.2, step 3), cwnd should not be updated until a further event occurs (e.g., arrival of an ack, or timeout) after this adjustment.",
+      "zh-CHS": "已经观察到，一些TCP实现在通过第3.2节步骤3中的等式设置cwnd后立即进入慢启动或拥塞避免窗口更新算法，即使没有生成cwnd更改的新外部事件。请注意，在根据退出快速恢复程序（第3.2节，步骤3）设置cwnd后，在该调整后发生进一步事件（例如，ack到达或超时）之前，不应更新cwnd。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5681] discusses general security considerations concerning TCP congestion control. This document describes a specific algorithm that conforms with the congestion control requirements of [RFC5681], and so those considerations apply to this algorithm, too. There are no known additional security concerns for this specific algorithm.",
+      "zh-CHS": "[RFC5681]讨论了有关TCP拥塞控制的一般安全注意事项。本文件描述了符合[RFC5681]拥塞控制要求的特定算法，因此这些注意事项也适用于该算法。此特定算法没有已知的其他安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Conclusions",
+      "section_title": true,
+      "zh-CHS": "8. 结论"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies the NewReno fast retransmit and fast recovery algorithms for TCP. This NewReno modification to TCP can even be important for TCP implementations that support the SACK option, because the SACK option can only be used for TCP connections when both TCP end-nodes support the SACK option. NewReno performs better than Reno in a number of scenarios discussed in previous versions of this RFC ([RFC2582] [RFC3782]).",
+      "zh-CHS": "本文档指定了用于TCP的NewReno快速重传和快速恢复算法。这种对TCP的NewReno修改甚至对支持SACK选项的TCP实现非常重要，因为只有当两个TCP端节点都支持SACK选项时，SACK选项才能用于TCP连接。NewReno在本RFC先前版本（[RFC2582][RFC3782]）中讨论的许多场景中的性能都优于Reno。"
+    },
+    {
+      "indent": 3,
+      "text": "A number of options for the basic algorithms presented in Section 3 are also referenced in Appendix A of this document. These include the handling of the retransmission timer, the response to partial acknowledgments, and whether or not the sender must maintain a state variable called recover. Our belief is that the differences between these variants of NewReno are small compared to the differences between Reno and NewReno. That is, the important thing is to implement NewReno instead of Reno for a TCP connection without SACK; it is less important exactly which variant of NewReno is implemented.",
+      "zh-CHS": "本文件附录A中还引用了第3节中介绍的一些基本算法选项。其中包括重新传输计时器的处理、对部分确认的响应，以及发送方是否必须维护名为recover的状态变量。我们相信，与雷诺和NewReno之间的差异相比，NewReno的这些变体之间的差异很小。也就是说，对于没有SACK的TCP连接，重要的是实现NewReno而不是Reno；确切地说，实现哪个NewReno变体并不重要。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Many thanks to Anil Agarwal, Mark Allman, Armando Caro, Jeffrey Hsu, Vern Paxson, Kacheong Poon, Keyur Shah, and Bernie Volz for detailed feedback on the precursor RFCs 2582 and 3782. Jeffrey Hsu provided clarifications on the handling of the variable recover; these clarifications were applied to RFC 3782 via an erratum and are incorporated into the text of Section 6 of this document. Yoshifumi Nishida contributed a modification to the fast recovery algorithm to account for the case in which FlightSize is 0 when the TCP sender leaves fast recovery and the TCP receiver uses delayed acknowledgments. Alexander Zimmermann provided several suggestions to improve the clarity of the document.",
+      "zh-CHS": "感谢Anil Agarwal、Mark Allman、Armando Caro、Jeffrey Hsu、Vern Paxson、Kacheong Poon、Keyur Shah和Bernie Volz对前体RFC 2582和3782的详细反馈。Jeffrey Hsu澄清了变量恢复的处理；这些澄清通过勘误表适用于RFC 3782，并纳入本文件第6节的文本中。Yoshifumi Nishida对快速恢复算法进行了修改，以解释当TCP发送方离开快速恢复且TCP接收方使用延迟确认时FlightSize为0的情况。亚历山大·齐默尔曼（Alexander Zimmermann）提出了一些建议，以提高文件的清晰度。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5681] Allman, M., Paxson, V., and E. Blanton, \"TCP Congestion Control\", RFC 5681, September 2009.",
+      "zh-CHS": "[RFC5681]Allman，M.，Paxson，V.和E.Blanton，“TCP拥塞控制”，RFC 56812009年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[C98] Cardwell, N., \"delayed ACKs for retransmitted packets: ouch!\". November 1998, Email to the tcpimpl mailing list, archived at <http://groups.yahoo.com/group/tcp-impl/message/1428>.",
+      "zh-CHS": "[C98]Cardwell，N.，“重传数据包的延迟确认：哎哟！”。1998年11月，发送至tcpimpl邮件列表的电子邮件，存档于<http://groups.yahoo.com/group/tcp-impl/message/1428>."
+    },
+    {
+      "indent": 3,
+      "text": "[F94] Floyd, S., \"TCP and Successive Fast Retransmits\", Technical report, May 1995. <ftp://ftp.ee.lbl.gov/papers/fastretrans.ps>.",
+      "zh-CHS": "[F94]Floyd，S.，“TCP和连续快速重传”，技术报告，1995年5月<ftp://ftp.ee.lbl.gov/papers/fastretrans.ps>."
+    },
+    {
+      "indent": 3,
+      "text": "[FF96] Fall, K. and S. Floyd, \"Simulation-based Comparisons of Tahoe, Reno and SACK TCP\", Computer Communication Review, July 1996. <ftp://ftp.ee.lbl.gov/papers/sacks.ps.Z>.",
+      "zh-CHS": "[FF96]Fall，K.和S.Floyd，“基于模拟的塔霍、雷诺和萨克TCP的比较”，《计算机通信评论》，1996年7月<ftp://ftp.ee.lbl.gov/papers/sacks.ps.Z>."
+    },
+    {
+      "indent": 3,
+      "text": "[GF04] Gurtov, A. and S. Floyd, \"Resolving Acknowledgment Ambiguity in non-SACK TCP\", NExt Generation Teletraffic and Wired/Wireless Advanced Networking (NEW2AN'04), February 2004. <http://www.cs.helsinki.fi/u/gurtov/ papers/heuristics.html>.",
+      "zh-CHS": "[GF04]Gurtov，A.和S.Floyd，“解决非SACK TCP中的确认歧义”，下一代电信业务和有线/无线高级网络（NEW2AN'04），2004年2月<http://www.cs.helsinki.fi/u/gurtov/ 论文/heuristics.html>。"
+    },
+    {
+      "indent": 3,
+      "text": "[Gur03] Gurtov, A., \"[Tsvwg] resolving the problem of unnecessary fast retransmits in go-back-N\", email to the tsvwg mailing list, July 28, 2003. <http://www.ietf.org/mail-archive/ web/tsvwg/current/msg04334.html>.",
+      "zh-CHS": "[Gur03]Gurtov，A.，“[Tsvwg]解决返回N中不必要的快速重传问题”，发送至Tsvwg邮件列表的电子邮件，2003年7月28日<http://www.ietf.org/mail-archive/ web/tsvwg/current/msg04334.html>。"
+    },
+    {
+      "indent": 3,
+      "text": "[Hen98] Henderson, T., \"Re: NewReno and the 2001 Revision\", September 1998. Email to the tcpimpl mailing list, archived at <http://groups.yahoo.com/group/tcp-impl/message/1321>.",
+      "zh-CHS": "[Hen98]Henderson，T.，“Re:NewReno和2001年修订版”，1998年9月。发送至tcpimpl邮件列表的电子邮件，存档于<http://groups.yahoo.com/group/tcp-impl/message/1321>."
+    },
+    {
+      "indent": 3,
+      "text": "[Hoe95] Hoe, J., \"Startup Dynamics of TCP's Congestion Control and Avoidance Schemes\", Master's Thesis, MIT, June 1995.",
+      "zh-CHS": "[Hoe95]Hoe，J.，“TCP拥塞控制和避免方案的启动动力学”，硕士论文，麻省理工学院，1995年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Hoe96] Hoe, J., \"Improving the Start-up Behavior of a Congestion Control Scheme for TCP\", ACM SIGCOMM, August 1996. <http://ccr.sigcomm.org/archive/1996/conf/hoe.pdf>.",
+      "zh-CHS": "[Hoe96]Hoe，J.“改进TCP拥塞控制方案的启动行为”，ACM SIGCOMM，1996年8月<http://ccr.sigcomm.org/archive/1996/conf/hoe.pdf>."
+    },
+    {
+      "indent": 3,
+      "text": "[LM97] Lin, D. and R. Morris, \"Dynamics of Random Early Detection\", SIGCOMM 97, October 1997.",
+      "zh-CHS": "[LM97]Lin，D.和R.Morris，“随机早期检测的动力学”，SIGCOMM 97，1997年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NS] \"The Network Simulator version 2 (ns-2)\", <http://www.isi.edu/nsnam/ns/>.",
+      "zh-CHS": "[NS]“网络模拟器版本2（NS-2）”<http://www.isi.edu/nsnam/ns/>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1323] Jacobson, V., Braden, R., and D. Borman, \"TCP Extensions for High Performance\", RFC 1323, May 1992.",
+      "zh-CHS": "[RFC1323]Jacobson，V.，Braden，R.，和D.Borman，“高性能TCP扩展”，RFC 1323，1992年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2582] Floyd, S. and T. Henderson, \"The NewReno Modification to TCP's Fast Recovery Algorithm\", RFC 2582, April 1999.",
+      "zh-CHS": "[RFC2582]Floyd，S.和T.Henderson，“TCP快速恢复算法的NewReno修改”，RFC 25821999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2883] Floyd, S., Mahdavi, J., Mathis, M., and M. Podolsky, \"An Extension to the Selective Acknowledgement (SACK) Option for TCP\", RFC 2883, July 2000.",
+      "zh-CHS": "[RFC2883]Floyd，S.，Mahdavi，J.，Mathis，M.，和M.Podolsky，“TCP选择性确认（SACK）选项的扩展”，RFC 28832000年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3042] Allman, M., Balakrishnan, H., and S. Floyd, \"Enhancing TCP's Loss Recovery Using Limited Transmit\", RFC 3042, January 2001.",
+      "zh-CHS": "[RFC3042]Allman，M.，Balakrishnan，H.，和S.Floyd，“使用有限传输增强TCP的丢失恢复”，RFC 3042，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3522] Ludwig, R. and M. Meyer, \"The Eifel Detection Algorithm for TCP\", RFC 3522, April 2003.",
+      "zh-CHS": "[RFC3522]Ludwig，R.和M.Meyer，“TCP的Eifel检测算法”，RFC 3522，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3782] Floyd, S., Henderson, T., and A. Gurtov, \"The NewReno Modification to TCP's Fast Recovery Algorithm\", RFC 3782, April 2004.",
+      "zh-CHS": "[RFC3782]Floyd，S.，Henderson，T.，和A.Gurtov，“TCP快速恢复算法的NewReno修改”，RFC 3782，2004年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Additional Information",
+      "section_title": true,
+      "zh-CHS": "附录A.补充资料"
+    },
+    {
+      "indent": 3,
+      "text": "Previous versions of this RFC ([RFC2582] [RFC3782]) contained additional informative material on the following subjects, and may be consulted by readers who may want more information about possible variants to the algorithms and who may want references to specific [NS] simulations that provide NewReno test cases.",
+      "zh-CHS": "本RFC的早期版本（[RFC2582][RFC3782]）包含关于以下主题的额外信息材料，读者可能需要更多关于算法可能变体的信息，以及提供NewReno测试用例的特定[NS]模拟的参考。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 4 of [RFC3782] discusses some alternative behaviors for resetting the retransmit timer after a partial acknowledgment.",
+      "zh-CHS": "[RFC3782]第4节讨论了部分确认后重置重传计时器的一些替代行为。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 5 of [RFC3782] discusses some alternative behaviors for performing retransmission after a partial acknowledgment.",
+      "zh-CHS": "[RFC3782]的第5节讨论了在部分确认后执行重传的一些替代行为。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 6 of [RFC3782] describes more information about the motivation for the sender's state variable recover.",
+      "zh-CHS": "[RFC3782]的第6节介绍了有关发送方状态变量recover动机的更多信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 9 of [RFC3782] introduces some NS simulation test suites for NewReno. In addition, references to simulation results can be found throughout [RFC3782].",
+      "zh-CHS": "[RFC3782]第9节介绍了NewReno的一些NS模拟测试套件。此外，可在[RFC3782]中找到模拟结果的参考资料。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 10 of [RFC3782] provides a comparison of Reno and NewReno TCP.",
+      "zh-CHS": "[RFC3782]的第10节提供了Reno和NewReno TCP的比较。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 11 of [RFC3782] lists changes relative to [RFC2582].",
+      "zh-CHS": "[RFC3782]第11节列出了与[RFC2582]相关的变更。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Changes Relative to RFC 3782",
+      "section_title": true,
+      "zh-CHS": "附录B.与RFC 3782相关的变更"
+    },
+    {
+      "indent": 3,
+      "text": "In [RFC3782], the cwnd after Full ACK reception will be set to (1) min (ssthresh, FlightSize + SMSS) or (2) ssthresh. However, the first option carries a risk of performance degradation: With the first option, if FlightSize is zero, the result will be 1 SMSS. This means TCP can transmit only 1 segment at that moment, which can cause a delay in ACK transmission at the receiver due to a delayed ACK algorithm.",
+      "zh-CHS": "在[RFC3782]中，完全ACK接收后的cwnd将设置为（1）min（ssthresh，FlightSize+SMSS）或（2）ssthresh。但是，第一个选项有性能下降的风险：对于第一个选项，如果FlightSize为零，结果将是1个SMS。这意味着TCP此时只能传输1个段，这可能会由于延迟的ACK算法而导致接收器的ACK传输延迟。"
+    },
+    {
+      "indent": 3,
+      "text": "The FlightSize on Full ACK reception can be zero in some situations. A typical example is where the sending window size during fast recovery is small. In this case, the retransmitted packet and new data packets can be transmitted within a short interval. If all these packets successfully arrive, the receiver may generate a Full ACK that acknowledges all outstanding data. Even if the window size is not small, loss of ACK packets or a receive buffer shortage during fast recovery can also increase the possibility of falling into this situation.",
+      "zh-CHS": "在某些情况下，完全ACK接收时的FlightSize可以为零。一个典型的例子是快速恢复期间发送窗口的大小很小。在这种情况下，可以在短间隔内发送重传分组和新数据分组。如果所有这些数据包成功到达，则接收器可生成确认所有未完成数据的完整ACK。即使窗口大小不小，在快速恢复期间ACK分组丢失或接收缓冲区不足也会增加陷入这种情况的可能性。"
+    },
+    {
+      "indent": 3,
+      "text": "The proposed fix in this document, which sets cwnd to at least 2*SMSS if the implementation uses option 1 in the Full ACK case (Section 3.2, step 3, option 1), ensures that the sender TCP transmits at least two segments on Full ACK reception.",
+      "zh-CHS": "本文件中建议的修复方案，如果实施在完全确认情况下使用选项1（第3.2节，步骤3，选项1），则将cwnd设置为至少2*SMS，确保发送方TCP在完全确认接收时至少传输两段。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, an erratum was reported for RFC 3782 (an editorial clarification to Section 8); this erratum has been addressed in Section 6 of this document.",
+      "zh-CHS": "此外，报告了RFC 3782的勘误表（第8节的编辑澄清）；本勘误表已在本文件第6节中说明。"
+    },
+    {
+      "indent": 3,
+      "text": "The specification text (Section 3.2 herein) was rewritten to more closely track Section 3.2 of [RFC5681].",
+      "zh-CHS": "规范文本（本文第3.2节）被改写，以更紧密地跟踪[RFC5681]第3.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Sections 4, 5, and 9-11 of [RFC3782] were removed, and instead Appendix A of this document was added to back-reference this informative material. A few references that have no citation in the main body of the document have been removed.",
+      "zh-CHS": "删除了[RFC3782]的第4、5和9-11节，并添加了本文件的附录A，以对本资料进行反向引用。一些在文件正文中没有引用的参考文献已被删除。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Tom Henderson The Boeing Company",
+      "zh-CHS": "波音公司的汤姆·亨德森"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: thomas.r.henderson@boeing.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sally Floyd International Computer Science Institute",
+      "zh-CHS": "萨莉·弗洛伊德国际计算机科学研究所"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 (510) 666-2989\nEMail: floyd@acm.org\nURL: http://www.icir.org/floyd/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Andrei Gurtov University of Oulu Centre for Wireless Communications CWC P.O. Box 4500 FI-90014 University of Oulu Finland",
+      "zh-CHS": "安德列Gurtov奥卢大学无线通信中心CWC邮政信箱4500芬兰-F990014奥卢大学"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: gurtov@ee.oulu.fi",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Yoshifumi Nishida WIDE Project Endo 5322 Fujisawa, Kanagawa 252-8520 Japan",
+      "zh-CHS": "日本神奈川藤泽远道5322号西田义文项目252-8520"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: nishida@wide.ad.jp",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

@@ -1,0 +1,644 @@
+{
+  "title": {
+    "text": "RFC 4459: MTU and Fragmentation Issues with In-the-Network Tunneling",
+    "zh-CHS": "RFC 4459"
+  },
+  "number": 4459,
+  "created_at": "2021-11-13 23:39:28.028985+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          P. Savola\nRequest for Comments: 4459                                     CSC/FUNET\nCategory: Informational                                       April 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "MTU and Fragmentation Issues with In-the-Network Tunneling",
+      "zh-CHS": "网络隧道中的MTU和碎片问题"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "Tunneling techniques such as IP-in-IP when deployed in the middle of the network, typically between routers, have certain issues regarding how large packets can be handled: whether such packets would be fragmented and reassembled (and how), whether Path MTU Discovery would be used, or how this scenario could be operationally avoided. This memo justifies why this is a common, non-trivial problem, and goes on to describe the different solutions and their characteristics at some length.",
+      "zh-CHS": "当IP在IP网络中部署时，通常在路由器之间的隧道技术，对于如何处理大数据包有一定的问题：这些分组是否会被碎片化和重新组装（以及如何）、是否使用路径MTU发现，或者如何在操作上避免这种情况。这份备忘录解释了为什么这是一个常见的、不平凡的问题，并进一步详细描述了不同的解决方案及其特点。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Problem Statement ...............................................3\n3. Description of Solutions ........................................4\n   3.1. Fragmentation and Reassembly by the Tunnel Endpoints .......4\n   3.2. Signalling the Lower MTU to the Sources ....................5\n   3.3. Encapsulate Only When There is Free MTU ....................6\n   3.4. Fragmentation of the Inner Packet ..........................8\n4. Conclusions .....................................................9\n5. Security Considerations ........................................10\n6. Acknowledgements ...............................................11\n7. References .....................................................11\n   7.1. Normative References ......................................11\n   7.2. Informative References ....................................12",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "A large number of ways to encapsulate datagrams in other packets, i.e., tunneling mechanisms, have been specified over the years: for example, IP-in-IP (e.g., [1] [2], [3]), Generic Routing Encapsulation (GRE) [4], Layer 2 Tunneling Protocol (L2TP) [5], or IP Security (IPsec) [6] in tunnel mode -- any of which might run on top of IPv4, IPv6, or some other protocol and carrying the same or a different protocol.",
+      "zh-CHS": "多年来，已经指定了大量将数据报封装在其他数据包中的方法，即隧道机制：例如，IP-in-IP（例如，[1][2]，[3]）、通用路由封装（GRE）[4]、第二层隧道协议（L2TP）[5]或隧道模式下的IP安全（IPsec）[6]——其中任何一种都可能在IPv4、IPv6上运行，或其他协议，并承载相同或不同的协议。"
+    },
+    {
+      "indent": 3,
+      "text": "All of these can be run so that the endpoints of the inner protocol are co-located with the endpoints of the outer protocol; in a typical scenario, this would correspond to \"host-to-host\" tunneling. It is also possible to have one set of endpoints co-located, i.e., host-to-router or router-to-host tunneling. Finally, many of these mechanisms are also employed between the routers for all or a part of the traffic that passes between them, resulting in router-to-router tunneling.",
+      "zh-CHS": "所有这些都可以运行，以便内部协议的端点与外部协议的端点位于同一位置；在典型场景中，这将对应于“主机到主机”隧道。也可以将一组端点放在同一位置，即主机到路由器或路由器到主机隧道。最后，这些机制中的许多机制也被用于路由器之间的所有或部分流量，从而导致路由器到路由器的隧道。"
+    },
+    {
+      "indent": 3,
+      "text": "All these protocols and scenarios have one issue in common: how does the source select the maximum packet size so that the packets will fit, even encapsulated, in the smallest Maximum Transmission Unit (MTU) of the traversed path in the network; and if you cannot affect the packet sizes, what do you do to be able to encapsulate them in any case? The four main solutions are as follows (these will be elaborated in Section 3):",
+      "zh-CHS": "所有这些协议和场景都有一个共同的问题：源如何选择最大数据包大小，以使数据包适合，甚至封装在网络中遍历路径的最小最大传输单元（MTU）中；如果您不能影响数据包的大小，那么在任何情况下都应该如何封装它们呢？四种主要解决方案如下（将在第3节中详细阐述）："
+    },
+    {
+      "indent": 3,
+      "text": "1. Fragmenting all too big encapsulated packets to fit in the paths, and reassembling them at the tunnel endpoints.",
+      "zh-CHS": "1. 将所有太大的封装数据包进行碎片化以适应路径，并在隧道端点处重新组装它们。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Signal to all the sources whose traffic must be encapsulated, and is larger than fits, to send smaller packets, e.g., using Path MTU Discovery (PMTUD)[7][8].",
+      "zh-CHS": "2. 向其流量必须封装且大于fits的所有源发送信号，以发送较小的数据包，例如，使用路径MTU发现（PMTUD）[7][8]。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Ensure that in the specific environment, the encapsulated packets will fit in all the paths in the network, e.g., by using MTU bigger than 1500 in the backbone used for encapsulation.",
+      "zh-CHS": "3. 确保在特定环境中，封装的数据包将适合网络中的所有路径，例如，在用于封装的主干中使用大于1500的MTU。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Fragmenting the original too big packets so that their fragments will fit, even encapsulated, in the paths, and reassembling them at the destination nodes. Note that this approach is only available for IPv4 under certain assumptions (see Section 3.4).",
+      "zh-CHS": "4. 将原始的太大的数据包进行分段，使其片段适合甚至封装在路径中，然后在目标节点重新组装。请注意，这种方法仅在某些假设下适用于IPv4（请参见第3.4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "It is also common to run multiple layers of encapsulation, for example, GRE or L2TP over IPsec; with nested tunnels in the network, the tunnel endpoints can be the same or different, and both the inner and outer tunnels may have different MTU handling strategies. In",
+      "zh-CHS": "运行多层封装也很常见，例如，通过IPsec运行GRE或L2TP；对于网络中的嵌套隧道，隧道端点可以相同也可以不同，内部隧道和外部隧道可能具有不同的MTU处理策略。在里面"
+    },
+    {
+      "indent": 3,
+      "text": "particular, signalling may be a scalable option for the outer tunnel or tunnels if the number of innermost tunnel endpoints is limited.",
+      "zh-CHS": "特别地，如果最内层隧道端点的数量有限，则信令可以是外部隧道或多个隧道的可伸缩选项。"
+    },
+    {
+      "indent": 3,
+      "text": "The tunneling packet size issues are relatively straightforward in host-to-host tunneling or host-to-router tunneling where Path MTU Discovery only needs to signal to one source node. The issues are significantly more difficult in router-to-router and certain router-to-host scenarios, which are the focus of this memo.",
+      "zh-CHS": "在主机到主机隧道或主机到路由器隧道中，隧道数据包大小问题相对简单，其中路径MTU发现只需要向一个源节点发送信号。在路由器到路由器和某些路由器到主机的场景中，这些问题要困难得多，这是本备忘录的重点。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth noting that most of this discussion applies to a more generic case, where there exists a link with a lower MTU in the path. A concrete and widely deployed example of this is the usage of PPP over Ethernet (PPPoE) [11] at the customers' access link. These lower-MTU links, and particularly PPPoE links, are typically not deployed in topologies where fragmentation and reassembly might be unfeasible (e.g., a backbone), so this may be a slightly easier problem. However, this more generic case is considered out of scope of this memo.",
+      "zh-CHS": "值得注意的是，本讨论的大部分内容适用于更一般的情况，即路径中存在与较低MTU的链接。一个具体且广泛部署的例子是在客户接入链路上使用以太网PPP（PPPoE）[11]。这些较低的MTU链路，尤其是PPPoE链路，通常不部署在不可能进行碎片化和重组的拓扑中（例如主干网），因此这可能是一个稍微容易一些的问题。然而，这种更一般的情况被认为超出了本备忘录的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "There are also known challenges in specifying and implementing a mechanism that would be used at the tunnel endpoint to obtain the best suitable packet size to use for encapsulation: if a static value is chosen, a lot of fragmentation might end up being performed. On the other hand, if PMTUD is used, the implementation would need to update the discovered interface MTU based on the ICMP Packet Too Big messages and originate ICMP Packet Too Big message(s) back to the source(s) of the encapsulated packets; this also assumes that sufficient data has been piggybacked on the ICMP messages (beyond the required 64 bits after the IPv4 header). We'll discuss using PMTUD to signal the sources briefly in Section 3.2, but in-depth specification and analysis are described elsewhere (e.g., in [4] and [2]) and are out of scope of this memo.",
+      "zh-CHS": "在指定和实现隧道端点使用的机制以获得用于封装的最佳合适数据包大小方面也存在已知的挑战：如果选择静态值，可能会执行大量碎片。另一方面，如果使用PMTUD，则实现将需要基于ICMP分组过大消息更新发现的接口MTU，并将ICMP分组过大消息发回封装分组的源；这还假设在ICMP消息上有足够的数据（超出IPv4报头后所需的64位）。我们将在第3.2节中简要讨论使用PMTUD向信号源发送信号，但深入的规范和分析在其他地方（如[4]和[2]）进行了描述，超出了本备忘录的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 2 includes a problem statement, section 3 describes the different solutions with their drawbacks and advantages, and section 4 presents conclusions.",
+      "zh-CHS": "第2节包括问题陈述，第3节描述了不同的解决方案及其优缺点，第4节给出了结论。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Problem Statement",
+      "section_title": true,
+      "zh-CHS": "2. 问题陈述"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth considering why exactly this is considered a problem.",
+      "zh-CHS": "值得考虑的是，为什么这被认为是一个问题。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible to fix all the packet size issues using solution 1, fragmenting the resulting encapsulated packet, and reassembling it by the tunnel endpoint. However, this is considered problematic for at least three reasons, as described in Section 3.1.",
+      "zh-CHS": "可以使用解决方案1修复所有数据包大小问题，将生成的封装数据包分段，然后由隧道端点重新组装。然而，如第3.1节所述，这至少有三个原因被认为是有问题的。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, it is desirable to avoid fragmentation and reassembly if possible. On the other hand, the other solutions may not be",
+      "zh-CHS": "因此，如果可能，最好避免碎片和重新组装。另一方面，其他解决方案可能不适用"
+    },
+    {
+      "indent": 3,
+      "text": "practical either: especially in router-to-router or router-to-host tunneling, Path MTU Discovery might be very disadvantageous -- consider the case where a backbone router would send ICMP Packet Too Big messages to every source that would try to send packets through it. Fragmenting before encapsulation is also not available in IPv6, and not available when the Don't Fragment (DF) bit has been set (see Section 3.4 for more). Ensuring a high enough MTU so encapsulation is always possible is of course a valid approach, but requires careful operational planning, and may not be a feasible assumption for implementors.",
+      "zh-CHS": "实用性：尤其是在路由器到路由器或路由器到主机隧道中，路径MTU的发现可能是非常不利的——考虑骨干路由器会把ICMP分组太大的消息发送给试图通过它发送数据包的每一个源的情况。封装前的分段在IPv6中也不可用，并且在设置了“不分段”（DF）位时不可用（有关更多信息，请参阅第3.4节）。确保足够高的MTU以使封装始终成为可能当然是一种有效的方法，但需要仔细的操作规划，对于实现者来说可能不是一个可行的假设。"
+    },
+    {
+      "indent": 3,
+      "text": "This yields that there is no trivial solution to this problem, and it needs to be further explored to consider the trade offs, as is done in this memo.",
+      "zh-CHS": "这就产生了解决这个问题的微不足道的解决方案，并且需要进一步探索以权衡权衡，正如本备忘录中所做的那样。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Description of Solutions",
+      "section_title": true,
+      "zh-CHS": "3. 解决方案说明"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the potential solutions in a bit more detail.",
+      "zh-CHS": "本节将更详细地介绍潜在的解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Fragmentation and Reassembly by the Tunnel Endpoints",
+      "section_title": true,
+      "zh-CHS": "3.1. 隧道端点的碎片和重组"
+    },
+    {
+      "indent": 3,
+      "text": "The seemingly simplest solution to tunneling packet size issues is fragmentation of the outer packet by the encapsulator and reassembly by the decapsulator. However, this is highly problematic for at least three reasons:",
+      "zh-CHS": "解决隧道数据包大小问题的看似最简单的解决方案是由封装器对外部数据包进行分段，并由去封装器重新组装。然而，这至少有三个原因是非常成问题的："
+    },
+    {
+      "indent": 3,
+      "text": "o Fragmentation causes overhead: every fragment requires the IP header (20 or 40 bytes), and with IPv6, an additional 8 bytes for the Fragment Header.",
+      "zh-CHS": "o 碎片导致开销：每个碎片都需要IP头（20或40字节），而对于IPv6，碎片头需要额外的8字节。"
+    },
+    {
+      "indent": 3,
+      "text": "o Fragmentation and reassembly require computation: splitting datagrams to fragments is a non-trivial procedure, and so is their reassembly. For example, software router forwarding implementations may not be able to perform these operations at line rate.",
+      "zh-CHS": "o 碎片和重组需要计算：将数据报拆分为碎片是一个非常重要的过程，它们的重组也是如此。例如，软件路由器转发实现可能无法以线路速率执行这些操作。"
+    },
+    {
+      "indent": 3,
+      "text": "o At the time of reassembly, all the information (i.e., all the fragments) is normally not available; when the first fragment arrives to be reassembled, a buffer of the maximum possible size may have to be allocated because the total length of the reassembled datagram is not known at that time. Furthermore, as fragments might get lost, or be reordered or delayed, the reassembly engine has to wait with the partial packet for some time (e.g., 60 seconds [9]). When this would have to be done at the line rate, with, for example 10 Gbit/s speed, the length of the buffers that reassembly might require would be prohibitive.",
+      "zh-CHS": "o 在重新组装时，所有信息（即所有碎片）通常不可用；当第一个片段到达要重新组装时，可能必须分配一个最大可能大小的缓冲区，因为此时不知道重新组装的数据报的总长度。此外，由于片段可能丢失、重新排序或延迟，重新组装引擎必须与部分数据包一起等待一段时间（例如，60秒[9]）。当必须以线速率（例如10 Gbit/s的速度）执行此操作时，重新组装可能需要的缓冲区长度将是禁止的。"
+    },
+    {
+      "indent": 3,
+      "text": "When examining router-to-router tunneling, the third problem is likely the worst; certainly, a hardware computation and implementation requirement would also be significant, but not all that difficult in the end -- and the link capacity wasted in the backbones by additional overhead might not be a huge problem either.",
+      "zh-CHS": "在检查路由器到路由器的隧道时，第三个问题可能是最严重的；当然，硬件计算和实现需求也很重要，但最终并不是那么困难——而且由于额外开销而在主干中浪费的链路容量也可能不是一个大问题。"
+    },
+    {
+      "indent": 3,
+      "text": "However, IPv4 identification header length is only 16 bits (compared to 32 bits in IPv6), and if a larger number of packets are being tunneled between two IP addresses, the ID is very likely to wrap and cause data misassociation. This reassembly wrongly combining data from two unrelated packets causes data integrity and potentially a confidentiality violation. This problem is further described in [12].",
+      "zh-CHS": "但是，IPv4标识头长度仅为16位（与IPv6中的32位相比），如果在两个IP地址之间通过隧道传输大量数据包，则ID很可能会包裹并导致数据错误关联。这种重新组合错误地组合来自两个不相关数据包的数据会导致数据完整性和潜在的机密性冲突。[12]中进一步描述了该问题。"
+    },
+    {
+      "indent": 3,
+      "text": "IPv6, and IPv4 with the DF bit set in the encapsulating header, allows the tunnel endpoints to optimize the tunnel MTU and minimize network-based reassembly. This also prevents fragmentation of the encapsulated packets on the tunnel path. If the IPv4 encapsulating header does not have the DF bit set, the tunnel endpoints will have to perform a significant amount of fragmentation and reassembly, while the use of PMTUD is minimized.",
+      "zh-CHS": "IPv6和在封装头中设置DF位的IPv4允许隧道端点优化隧道MTU并最小化基于网络的重新组装。这还可以防止隧道路径上封装的数据包出现碎片。如果IPv4封装报头未设置DF位，则隧道端点将必须执行大量的分段和重新组装，同时最小化PMTUD的使用。"
+    },
+    {
+      "indent": 3,
+      "text": "As Appendix A describes, the MTU of the tunnel is also a factor on which packets require fragmentation and reassembly; the worst case occurs if the tunnel MTU is \"infinite\" or equal to the physical interface MTUs.",
+      "zh-CHS": "如附录A所述，隧道的MTU也是数据包需要碎片化和重新组装的一个因素；如果隧道MTU为“无限”或等于物理接口MTU，则会发生最坏的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "So, if reassembly could be made to work sufficiently reliably, this would be one acceptable fallback solution but only for IPv6.",
+      "zh-CHS": "因此，如果重新组装能够足够可靠地工作，这将是一个可接受的回退解决方案，但仅适用于IPv6。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Signalling the Lower MTU to the Sources",
+      "section_title": true,
+      "zh-CHS": "3.2. 将较低的MTU发送到源"
+    },
+    {
+      "indent": 3,
+      "text": "Another approach is to use techniques like Path MTU Discovery (or potentially a future derivative [13]) to signal to the sources whose packets will be encapsulated in the network to send smaller packets so that they can be encapsulated; in particular, when done on routers, this includes two separable functions:",
+      "zh-CHS": "另一种方法是使用诸如路径MTU发现（或潜在的未来衍生物[13]）之类的技术来向其分组将被封装在网络中的源发送信号，以发送更小的分组，以便它们可以被封装；特别是，在路由器上执行时，这包括两个可分离的功能："
+    },
+    {
+      "indent": 3,
+      "text": "a. Forwarding behaviour: when forwarding packets, if the IPv4-only DF bit is set, the router sends an ICMP Packet Too Big message to the source if the MTU of the egress link is too small.",
+      "zh-CHS": "a. 转发行为：转发数据包时，如果设置了仅IPv4的DF位，则如果出口链路的MTU太小，路由器会向源发送ICMP数据包太大消息。"
+    },
+    {
+      "indent": 3,
+      "text": "b. Router's \"host\" behaviour: when the router receives an ICMP Packet Too Big message related to a tunnel, it (1) adjusts the tunnel MTU, and (2) originates an ICMP Packet Too Big message to the source address of the encapsulated packet. (2) can be done either immediately or by waiting for the next packet to trigger an ICMP; the former minimizes the packet loss due to MTU changes.",
+      "zh-CHS": "b. 路由器的“主机”行为：当路由器收到与隧道相关的ICMP数据包过大消息时，它（1）调整隧道MTU，（2）向封装数据包的源地址发出ICMP数据包过大消息。（2） 可以立即完成，也可以等待下一个数据包触发ICMP；前者最大限度地减少了由于MTU变化造成的数据包丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this only works if the MTU of the tunnel is of reasonable size, and not, for example, 64 kilobytes: see Appendix A for more.",
+      "zh-CHS": "请注意，这仅在隧道的MTU大小合理时有效，而不是64 KB（例如）时有效：更多信息请参见附录A。"
+    },
+    {
+      "indent": 3,
+      "text": "This approach would presuppose that PMTUD works. While it is currently working for IPv6, and critical for its operation, there is ample evidence that in IPv4, PMTUD is far from reliable due to, for example firewalls and other boxes being configured to inappropriately drop all the ICMP packets [14], or software bugs rendering PMTUD inoperational.",
+      "zh-CHS": "这种方法以PMTUD有效为前提。虽然PMTUD目前正在为IPv6工作，并且对其运行至关重要，但有充分的证据表明，在IPv4中，PMTUD远不可靠，例如，防火墙和其他盒子被配置为不适当地丢弃所有ICMP数据包[14]，或者软件缺陷导致PMTUD无法运行。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, there are two scenarios where signalling from the network would be highly undesirable. The first is when the encapsulation would be done in such a prominent place in the network that a very large number of sources would need to be signalled with this information (possibly even multiple times, depending on how long they keep their PMTUD state). The second is when the encapsulation is done for passive monitoring purposes (network management, lawful interception, etc.) -- when it's critical that the sources whose traffic is being encapsulated are not aware of this happening.",
+      "zh-CHS": "此外，有两种情况下，来自网络的信令非常不受欢迎。第一种情况是，封装将在网络中如此显著的位置进行，以至于需要向大量源发送此信息（甚至可能多次，具体取决于它们保持PMTUD状态的时间长短）。第二种情况是，出于被动监视目的（网络管理、合法拦截等）进行封装时——关键是要使其流量被封装的源不知道发生了这种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "When desiring to avoid fragmentation, IPv4 requires one of two alternatives [1]: copy the DF bit from the inner packets to the encapsulating header, or always set the DF bit of the outer header. The latter is better, especially in controlled environments, because it forces PMTUD to converge immediately.",
+      "zh-CHS": "当希望避免碎片时，IPv4需要两种备选方案之一[1]：将DF位从内部数据包复制到封装头，或始终设置外部头的DF位。后者更好，尤其是在受控环境中，因为它迫使PMTUD立即收敛。"
+    },
+    {
+      "indent": 3,
+      "text": "A related technique, which works with TCP under specific scenarios only, is so-called \"MSS clamping\". With that technique or rather a \"hack\", the TCP packets' Maximum Segment Size (MSS) is reduced by tunnel endpoints so that the TCP connection automatically restricts itself to the maximum available packet size. Obviously, this does not work for UDP or other protocols that have no MSS. This approach is most applicable and used with PPPoE, but could be applied otherwise as well; the approach also assumes that all the traffic goes through tunnel endpoints that do MSS clamping -- this is trivial for the single-homed access links, but could be a challenge otherwise.",
+      "zh-CHS": "一种仅在特定场景下使用TCP的相关技术是所谓的“MSS夹紧”。通过这种技术，或者更确切地说是一种“黑客”，TCP数据包的最大段大小（MSS）会被隧道端点减小，因此TCP连接会自动将自身限制为最大可用数据包大小。显然，这不适用于UDP或其他没有MSS的协议。该方法最适用于PPPoE，但也可用于其他方面；该方法还假设所有流量都通过进行MSS箝位的隧道端点——这对于单宿访问链路来说微不足道，但在其他方面可能是一个挑战。"
+    },
+    {
+      "indent": 3,
+      "text": "A new approach to PMTUD is in the works [13], but it is uncertain whether that would fix the problems -- at least not the passive monitoring requirements.",
+      "zh-CHS": "PMTUD的一种新方法正在研究中[13]，但不确定这是否能解决问题——至少不能解决被动监控要求。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Encapsulate Only When There is Free MTU",
+      "section_title": true,
+      "zh-CHS": "3.3. 仅在有空闲MTU时封装"
+    },
+    {
+      "indent": 3,
+      "text": "The third approach is an operational one, depending on the environment where encapsulation and decapsulation are being performed. That is, if an ISP would deploy tunneling in its backbone, which would consist only of links supporting high MTUs",
+      "zh-CHS": "第三种方法是一种可操作的方法，取决于执行封装和去封装的环境。也就是说，如果ISP在其主干网中部署隧道，那么主干网将只包括支持高MTU的链路"
+    },
+    {
+      "indent": 3,
+      "text": "(e.g., Gigabit Ethernet or SDH/SONET), but all its customers and peers would have a lower MTU (e.g., 1500, or the backbone MTU minus the encapsulation overhead), this would imply that no packets (with the encapsulation overhead added) would have a larger MTU than the \"backbone MTU\", and all the encapsulated packets would always fit MTU-wise in the backbone links.",
+      "zh-CHS": "（例如，千兆以太网或SDH/SONET），但其所有客户和对等方的MTU都较低（例如，1500，或主干MTU减去封装开销），这意味着没有数据包（添加了封装开销）的MTU大于“主干MTU”，所有封装的数据包都将始终适合主干链路中的MTU。"
+    },
+    {
+      "indent": 3,
+      "text": "This approach is highly assumptive of the deployment scenario. It may be desirable to build a tunnel to/from another ISP, for example, where this might no longer hold; or there might be links in the network that cannot support the higher MTUs to satisfy the tunneling requirements; or the tunnel might be set up directly between the customer and the ISP, in which case fragmentation would occur, with tunneled fragments terminating on the ISP and thus requiring reassembly capability from the ISP's equipment.",
+      "zh-CHS": "这种方法高度假设了部署场景。例如，在另一个ISP可能不再适用的地方，可能需要建造一条通向/来自另一个ISP的隧道；或者网络中可能存在无法支持更高MTU以满足隧道要求的链路；或者，可以直接在客户和ISP之间建立隧道，在这种情况下会发生碎片，隧道碎片在ISP上终止，因此需要ISP设备的重新组装能力。"
+    },
+    {
+      "indent": 3,
+      "text": "To restate, this approach can only be considered when tunneling is done inside a part of specific kind of ISP's own network, not, for example, transiting an ISP.",
+      "zh-CHS": "重申一下，只有在特定类型的ISP自身网络的一部分内进行隧道传输时，才可以考虑这种方法，而不是，例如，传输ISP。"
+    },
+    {
+      "indent": 3,
+      "text": "Another, related approach might be having the sources use only a low enough MTU that would fit in all the physical MTUs; for example, IPv6 specifies the minimum MTU of 1280 bytes. For example, if all the sources whose traffic would be encapsulated would use this as the maximum packet size, there would probably always be enough free MTU for encapsulation in the network. However, this is not the case today, and it would be completely unrealistic to assume that this kind of approach could be made to work in general.",
+      "zh-CHS": "另一个相关的方法可能是让源只使用足够低的MTU，以适合所有物理MTU；例如，IPv6指定最小MTU为1280字节。例如，如果其通信量将被封装的所有源都将使用此作为最大数据包大小，则可能总是有足够的空闲MTU用于网络中的封装。然而，今天的情况并非如此，假设这种方法可以在总体上起作用是完全不现实的。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth remembering that while the IPv6 minimum MTU is 1280 bytes [10], there are scenarios where the tunnel implementation must implement fragmentation and reassembly [3]: for example, when having an IPv6-in-IPv6 tunnel on top of a physical interface with an MTU of 1280 bytes, or when having two layers of IPv6 tunneling. This can only be avoided by ensuring that links on top of which IPv6 is being tunneled have a somewhat larger MTU (e.g., 40 bytes) than 1280 bytes. This conclusion can be generalized: because IP can be tunneled on top of IP, no single minimum or maximum MTU can be found such that fragmentation or signalling to the sources would never be needed.",
+      "zh-CHS": "值得记住的是，虽然IPv6最小MTU为1280字节[10]，但在某些情况下，隧道实现必须实现碎片化和重新组装[3]：例如，在MTU为1280字节的物理接口上具有IPv6-in-IPv6隧道，或者具有两层IPv6隧道。这只能通过确保正在隧道传输IPv6的链路的MTU（例如，40字节）略大于1280字节来避免。这一结论可以概括为：由于IP可以在IP之上进行隧道传输，因此无法找到单个最小或最大MTU，因此不需要碎片或向源发送信号。"
+    },
+    {
+      "indent": 3,
+      "text": "All in all, while in certain operational environments it might be possible to avoid any problems by deployment choices, or limiting the MTU that the sources use, this is probably not a sufficiently good general solution for the equipment vendors. Other solutions must also be provided.",
+      "zh-CHS": "总而言之，虽然在某些操作环境中，可以通过部署选择或限制源使用的MTU来避免任何问题，但对于设备供应商来说，这可能不是一个足够好的通用解决方案。还必须提供其他解决办法。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Fragmentation of the Inner Packet",
+      "section_title": true,
+      "zh-CHS": "3.4. 内部数据包的碎片"
+    },
+    {
+      "indent": 3,
+      "text": "A final possibility is fragmenting the inner packet, before encapsulation, in such a manner that the encapsulated packet fits in the tunnel's path MTU (discovered using PMTUD). However, one should note that only IPv4 supports this \"in-flight\" fragmentation; furthermore, it isn't allowed for packets where the Don't Fragment bit has been set. Even if one could ignore IPv6 completely, so many IPv4 host stacks send packets with the DF bit set that this would seem unfeasible.",
+      "zh-CHS": "最后一种可能性是在封装之前对内部数据包进行分段，以使封装的数据包适合隧道的路径MTU（使用PMTUD发现）。但是，应该注意的是，只有IPv4支持这种“正在进行的”分段；此外，对于设置了Don't Fragment位的数据包，它是不允许的。即使可以完全忽略IPv6，也会有太多IPv4主机堆栈发送设置了DF位的数据包，这似乎是不可行的。"
+    },
+    {
+      "indent": 3,
+      "text": "However, there are existing implementations that violate the standard that:",
+      "zh-CHS": "但是，存在违反标准的现有实现："
+    },
+    {
+      "indent": 3,
+      "text": "o discard too big packets with the DF bit not set instead of fragmenting them (this is rare);",
+      "zh-CHS": "o 丢弃未设置DF位的过大数据包，而不是对其进行分段（这种情况很少见）；"
+    },
+    {
+      "indent": 3,
+      "text": "o ignore the DF bit completely, for all or specified interfaces; or",
+      "zh-CHS": "o 对于所有或指定的接口，完全忽略DF位；或"
+    },
+    {
+      "indent": 3,
+      "text": "o clear the DF bit before encapsulation, in the egress of configured interfaces. This is typically done for all the traffic, not just too big packets (allowing configuring this is common).",
+      "zh-CHS": "o 封装前，清除配置接口出口处的DF位。这通常适用于所有流量，而不仅仅是太大的数据包（允许配置这是常见的）。"
+    },
+    {
+      "indent": 3,
+      "text": "This is non-compliant behaviour, but there are certainly uses for it, especially in certain tightly controlled passive monitoring scenarios, and it has potential for more generic applicability as well, to work around PMTUD issues.",
+      "zh-CHS": "这是一种不合规的行为，但它肯定有用途，特别是在某些严格控制的被动监视场景中，而且它还具有更通用的适用性，可以解决PMTUD问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Clearing the DF bit effectively disables the sender's PMTUD for the path beyond the tunnel. This may result in fragmentation later in the network, but as the packets have already been fragmented prior to encapsulation, this fragmentation later on does not make matters significantly worse.",
+      "zh-CHS": "清除DF位将有效地禁用发送方对隧道以外路径的PMTUD。这可能会导致网络中稍后出现碎片，但由于数据包在封装之前已被碎片化，因此稍后出现的碎片不会使情况变得更糟。"
+    },
+    {
+      "indent": 3,
+      "text": "As this is an implemented and desired (by some) behaviour, the full impacts e.g., for the functioning of PMTUD (for example) should be analyzed, and the use of fragmentation-related IPv4 bits should be re-evaluated.",
+      "zh-CHS": "由于这是一种（某些人）实施和期望的行为，因此应分析对PMTUD（例如）功能的全面影响，并重新评估与碎片相关的IPv4位的使用。"
+    },
+    {
+      "indent": 3,
+      "text": "In summary, this approach provides a relatively easy fix for IPv4 problems, with potential for causing problems for PMTUD; as this would not work with IPv6, it could not be considered a generic solution.",
+      "zh-CHS": "总之，这种方法为IPv4问题提供了一个相对简单的解决方案，有可能导致PMTUD出现问题；由于这不适用于IPv6，因此不能将其视为通用解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Conclusions",
+      "section_title": true,
+      "zh-CHS": "4. 结论"
+    },
+    {
+      "indent": 3,
+      "text": "Fragmentation and reassembly by the tunnel endpoints are a clear and simple solution to the problem, but the hardware reassembly when the packets get lost may face significant implementation challenges that may be insurmountable. This approach does not seem feasible, especially for IPv4 with high data rates due to problems with wrapping the fragment identification field [12]. Constant wrapping may occur when the data rate is in the order of MB/s for IPv4 and in the order of dozens of GB/s for IPv6. However, this reassembly approach is probably not a problem for passive monitoring applications.",
+      "zh-CHS": "隧道端点的碎片化和重组是解决该问题的一个清晰而简单的解决方案，但是当数据包丢失时的硬件重组可能面临无法克服的重大实现挑战。这种方法似乎不可行，特别是对于具有高数据速率的IPv4，因为包装片段标识字段存在问题[12]。当IPv4的数据速率为MB/s，IPv6的数据速率为几十GB/s时，可能会发生常量换行。然而，这种重组方法对于被动监控应用程序来说可能不是问题。"
+    },
+    {
+      "indent": 3,
+      "text": "PMTUD techniques, at least at the moment and especially for IPv4, appear to be too unreliable or unscalable to be used in the backbones. It is an open question whether a future solution might work better in this aspect.",
+      "zh-CHS": "PMTUD技术，至少在目前，尤其是IPv4技术，似乎太不可靠或不可扩展，无法在主干网中使用。未来的解决方案在这方面是否会更好，这是一个悬而未决的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "It is clear that in some environments the operational approach to the problem, ensuring that fragmentation is never necessary by keeping higher MTUs in the networks where encapsulated packets traverse, is sufficient. But this is unlikely to be enough in general, and for vendors that may not be able to make assumptions about the operators' deployments.",
+      "zh-CHS": "显然，在某些环境中，解决问题的操作方法是足够的，即通过在封装数据包经过的网络中保持较高的MTU来确保不需要分段。但这在一般情况下是不够的，对于可能无法对运营商的部署做出假设的供应商来说也是不够的。"
+    },
+    {
+      "indent": 3,
+      "text": "Fragmentation of the inner packet is only possible with IPv4, and is sufficient only if standards-incompliant behaviour, with potential for bad side-effects (e.g., for PMTUD), is adopted. It should not be used if there are alternatives; fragmentation of the outer packet seems a better option for passive monitoring.",
+      "zh-CHS": "内部数据包的碎片化只有在IPv4中才可能实现，并且只有在采用不符合标准的行为时才足够，并且可能产生不良副作用（例如，对于PMTUD）。如果存在替代方案，则不应使用该方法；外部数据包的碎片化似乎是被动监控的更好选择。"
+    },
+    {
+      "indent": 3,
+      "text": "However, if reassembly in the network must be avoided, there are basically two possibilities:",
+      "zh-CHS": "但是，如果必须避免在网络中重新组装，基本上有两种可能性："
+    },
+    {
+      "indent": 3,
+      "text": "1. For IPv6, use ICMP signalling or operational methods.",
+      "zh-CHS": "1. 对于IPv6，请使用ICMP信令或操作方法。"
+    },
+    {
+      "indent": 3,
+      "text": "2. For IPv4, packets for which the DF bit is not set can be fragmented before encapsulation (and the encapsulating header would have the DF bit set); packets whose DF bit is set would need to get the DF bit cleared (though this is non-compliant). This also minimizes the need for (unreliable) Internet-wide PMTUD.",
+      "zh-CHS": "2. 对于IPv4，未设置DF位的数据包可以在封装之前进行分段（封装头将设置DF位）；设置了DF位的数据包需要清除DF位（尽管这是不符合要求的）。这也最大限度地减少了对（不可靠的）互联网范围PMTUD的需求。"
+    },
+    {
+      "indent": 3,
+      "text": "An interesting thing to explicitly note is that when tunneling is done in a high-speed backbone, typically one may be able to make assumptions on the environment; however, when reassembly is not performed in such a network, it might be done in software or with lower requirements, and there exists either a reassembly",
+      "zh-CHS": "需要明确指出的一件有趣的事情是，当隧道在高速主干中进行时，通常可以对环境进行假设；然而，当重组不是在这样的网络中执行时，它可能是在软件中完成的，或者要求较低，并且存在重组"
+    },
+    {
+      "indent": 3,
+      "text": "implementation using PMTUD or using a separate approach for passive monitoring -- so this might not be a real problem.",
+      "zh-CHS": "使用PMTUD实现或者使用单独的方法进行被动监控——所以这可能不是一个真正的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "In consequence, the critical questions at this point appear to be 1) whether a higher MTU can be assumed in the high-speed networks that deploy tunneling, and 2) whether \"slower-speed\" networks could cope with a software-based reassembly, a less capable hardware-based reassembly, or the other workarounds. An important future task would be analyzing the observed incompliant behaviour about the DF bit to note whether it has any unanticipated drawbacks.",
+      "zh-CHS": "因此，此时的关键问题似乎是1）在部署隧道的高速网络中是否可以假设更高的MTU，以及2）“较慢的速度”网络是否可以处理基于软件的重新组装、能力较低的基于硬件的重新组装或其他解决方法。未来的一项重要任务是分析观察到的DF钻头的不符合行为，以注意其是否存在任何未预料到的缺陷。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes different issues with packet sizes and in-the-network tunneling; this does not have security considerations on its own.",
+      "zh-CHS": "本文档描述了数据包大小和网络隧道中的不同问题；这本身没有安全考虑。"
+    },
+    {
+      "indent": 3,
+      "text": "However, different solutions might have characteristics that may make them more susceptible to attacks -- for example, a router-based fragment reassembly could easily lead to (reassembly) buffer memory exhaustion if the attacker sends a sufficient number of fragments without sending all of them, so that the reassembly would be stalled until a timeout; these and other fragment attacks (e.g., [15]) have already been used against, for example, firewalls and host stacks, and need to be taken into consideration in the implementations.",
+      "zh-CHS": "但是，不同的解决方案可能具有使其更容易受到攻击的特征——例如，如果攻击者发送足够数量的片段而不发送所有片段，则基于路由器的片段重组很容易导致（重组）缓冲区内存耗尽，这样重新组装将暂停，直到超时；这些和其他碎片攻击（例如，[15]）已经用于防火墙和主机堆栈等，需要在实现中加以考虑。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth considering the cryptographic expense (which is typically more significant than the reassembly, if done in software) with fragmentation of the inner or outer packet. If an outer fragment goes missing, no cryptographic operations have been yet performed; if an inner fragment goes missing, cryptographic operations have already been performed. Therefore, which of these approaches is preferable also depends on whether cryptography or reassembly is already provided in hardware; for high-speed routers, at least, one should be able to assume that if it is performing relatively heavy cryptography, hardware support is already required.",
+      "zh-CHS": "值得考虑内部或外部数据包碎片化的加密费用（通常比重新组装更重要，如果在软件中完成）。如果外部片段丢失，则尚未执行加密操作；如果内部片段丢失，则已执行加密操作。因此，这些方法中哪一种更可取还取决于硬件中是否已经提供了加密或重组；对于高速路由器，至少应该能够假设，如果它正在执行相对繁重的加密，则已经需要硬件支持。"
+    },
+    {
+      "indent": 3,
+      "text": "The solutions using PMTUD (and consequently ICMP) will also need to take into account the attacks using ICMP. In particular, an attacker could send ICMP Packet Too Big messages indicating a very low MTU to reduce the throughput and/or as a fragmentation/reassembly denial-of-service attack. This attack has been described in the context of TCP in [16].",
+      "zh-CHS": "使用PMTUD（以及ICMP）的解决方案还需要考虑使用ICMP的攻击。特别是，攻击者可能发送过大的ICMP数据包消息，指示MTU非常低，从而降低吞吐量和/或作为碎片/重组拒绝服务攻击。此攻击已在[16]中的TCP上下文中描述。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "6. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "While the topic is far from new, recent discussions with W. Mark Townsley on L2TP fragmentation issues caused the author to sit down and write up the issues in general. Michael Richardson and Mika Joutsenvirta provided useful feedback on the first version. When soliciting comments from the NANOG list, Carsten Bormann, Kevin Miller, Warren Kumari, Iljitsch van Beijnum, Alok Dube, and Stephen J. Wilcox provided useful feedback. Later, Carlos Pignataro provided excellent input, helping to improve the document. Joe Touch also provided input on the memo.",
+      "zh-CHS": "虽然这个话题远非新话题，但最近与W.马克·汤斯利就L2TP碎片化问题进行的讨论导致作者坐下来概括这些问题。Michael Richardson和Mika Joutsenvirta就第一版提供了有用的反馈。在征求NANOG名单的意见时，卡斯滕·鲍曼、凯文·米勒、沃伦·库马里、伊尔吉奇·范·贝伊纳姆、阿洛克·杜贝和斯蒂芬·威尔科克斯提供了有用的反馈。后来，Carlos Pignataro提供了出色的输入，帮助改进了文档。Joe Touch也在备忘录上提供了信息。"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Perkins, C., \"IP Encapsulation within IP\", RFC 2003, October 1996.",
+      "zh-CHS": "[1] Perkins，C.，“IP内的IP封装”，RFC 2003，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Nordmark, E. and R. Gilligan, \"Basic Transition Mechanisms for IPv6 Hosts and Routers\", RFC 4213, October 2005.",
+      "zh-CHS": "[2] Nordmark，E.和R.Gilligan，“IPv6主机和路由器的基本转换机制”，RFC 4213，2005年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Conta, A. and S. Deering, \"Generic Packet Tunneling in IPv6 Specification\", RFC 2473, December 1998.",
+      "zh-CHS": "[3] Conta，A.和S.Deering，“IPv6规范中的通用数据包隧道”，RFC 2473，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Farinacci, D., Li, T., Hanks, S., Meyer, D., and P. Traina, \"Generic Routing Encapsulation (GRE)\", RFC 2784, March 2000.",
+      "zh-CHS": "[4] Farinaci，D.，Li，T.，Hanks，S.，Meyer，D.，和P.Traina，“通用路由封装（GRE）”，RFC 27842000年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Lau, J., Townsley, M., and I. Goyret, \"Layer Two Tunneling Protocol - Version 3 (L2TPv3)\", RFC 3931, March 2005.",
+      "zh-CHS": "[5] Lau，J.，Townsley，M.，和I.Goyret，“第二层隧道协议-版本3（L2TPv3）”，RFC 39312005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[6] Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Mogul, J. and S. Deering, \"Path MTU discovery\", RFC 1191, November 1990.",
+      "zh-CHS": "[7] Mogul，J.和S.Deering，“MTU发现路径”，RFC191990年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] McCann, J., Deering, S., and J. Mogul, \"Path MTU Discovery for IP version 6\", RFC 1981, August 1996.",
+      "zh-CHS": "[8] McCann，J.，Deering，S.，和J.Mogul，“IP版本6的路径MTU发现”，RFC 1981，1996年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Braden, R., \"Requirements for Internet Hosts - Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[9] Braden，R.，“互联网主机的要求-通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Deering, S. and R. Hinden, \"Internet Protocol, Version 6 (IPv6) Specification\", RFC 2460, December 1998.",
+      "zh-CHS": "[10] Deering，S.和R.Hinden，“互联网协议，第6版（IPv6）规范”，RFC 2460，1998年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Mamakos, L., Lidl, K., Evarts, J., Carrel, D., Simone, D., and R. Wheeler, \"A Method for Transmitting PPP Over Ethernet (PPPoE)\", RFC 2516, February 1999.",
+      "zh-CHS": "[11] Mamakos，L.，Lidl，K.，Evarts，J.，Carrel，D.，Simone，D.，和R.Wheeler，“通过以太网传输PPP（PPPoE）的方法”，RFC 2516，1999年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Mathis, M., \"Fragmentation Considered Very Harmful\", Work in Progress, July 2004.",
+      "zh-CHS": "[12] Mathis，M.，“碎片被认为是非常有害的”，正在进行的工作，2004年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Mathis, M. and J. Heffner, \"Path MTU Discovery\", Work in Progress, March 2006.",
+      "zh-CHS": "[13] Mathis，M.和J.Heffner，“路径MTU发现”，正在进行的工作，2006年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Medina, A., Allman, M., and S. Floyd, \"Measuring the Evolution of Transport Protocols in the Internet\", Computer Communications Review, Apr 2005, <http://www.icir.org/tbit/>.",
+      "zh-CHS": "[14] Medina，A.，Allman，M.，和S.Floyd，“测量互联网中传输协议的演变”，《计算机通信评论》，2005年4月<http://www.icir.org/tbit/>."
+    },
+    {
+      "indent": 3,
+      "text": "[15] Miller, I., \"Protection Against a Variant of the Tiny Fragment Attack (RFC 1858)\", RFC 3128, June 2001.",
+      "zh-CHS": "[15] Miller，I.，“防止微小碎片攻击的变体（RFC 1858）”，RFC 3128，2001年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[16] Gont, F., \"ICMP attacks against TCP\", Work in Progress, February 2006.",
+      "zh-CHS": "[16] Gont，F.，“针对TCP的ICMP攻击”，正在进行的工作，2006年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. MTU of the Tunnel",
+      "section_title": true,
+      "zh-CHS": "附录A隧道的MTU"
+    },
+    {
+      "indent": 3,
+      "text": "Different tunneling mechanisms may treat the tunnel links as having different kinds of MTU values. Some might use the same default MTU as for other interfaces; some others might use the default MTU minus the expected IP overhead (e.g., 20, 28, or 40 bytes); some others might even treat the tunnel as having an \"infinite MTU\", e.g., 64 kilobytes.",
+      "zh-CHS": "不同的隧道机制可将隧道链路视为具有不同种类的MTU值。有些可能使用与其他接口相同的默认MTU；其他一些可能使用默认MTU减去预期的IP开销（例如，20、28或40字节）；有些人甚至可能将隧道视为具有“无限MTU”，例如64KB。"
+    },
+    {
+      "indent": 3,
+      "text": "As [2] describes, having an infinite MTU, i.e., always fragmenting the outer packet (and never the inner packet) and never performing PMTUD for the tunnel path, is a very bad idea, especially in host-to-router scenarios. (It could be argued that if the nodes are sure that this is a host-to-host tunnel, a larger MTU might make sense if fragmentation and reassembly are more efficient than just sending properly sized packets -- but this seems like a stretch.)",
+      "zh-CHS": "正如[2]所描述的，拥有无限多个MTU，即始终分割外部数据包（而不是内部数据包），并且从不对隧道路径执行PMTUD，这是一个非常糟糕的想法，尤其是在主机到路由器的场景中。（可以说，如果节点确定这是一个主机到主机的隧道，那么如果碎片化和重组比发送适当大小的数据包更有效，那么更大的MTU可能是有意义的——但这似乎是一个延伸。）"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Pekka Savola CSC/FUNET Espoo Finland",
+      "zh-CHS": "佩卡·萨沃拉CSC/芬兰福内·埃斯波"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: psavola@funet.fi",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

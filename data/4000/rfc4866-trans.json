@@ -1,0 +1,1993 @@
+{
+  "title": {
+    "text": "RFC 4866: Enhanced Route Optimization for Mobile IPv6",
+    "zh-CHS": "RFC 4866"
+  },
+  "number": 4866,
+  "created_at": "2021-11-15 07:51:09.164152+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                           J. Arkko\nRequest for Comments: 4866                  Ericsson Research NomadicLab\nCategory: Standards Track                                        C. Vogt\n                                             Universitaet Karlsruhe (TH)\n                                                               W. Haddad\n                                                       Ericsson Research\n                                                                May 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Enhanced Route Optimization for Mobile IPv6",
+      "zh-CHS": "移动IPv6的增强路由优化"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an enhanced version of Mobile IPv6 route optimization, providing lower handoff delays, increased security, and reduced signaling overhead.",
+      "zh-CHS": "本文档指定了移动IPv6路由优化的增强版本，提供了更低的切换延迟、更高的安全性和更低的信令开销。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Objectives ......................................................4\n   2.1. Handoff Latency ............................................5\n   2.2. Security ...................................................5\n   2.3. Signaling Overhead .........................................7\n3. Protocol Design .................................................7\n   3.1. Cryptographically Generated Home Addresses .................7\n   3.2. Non-Cryptographic Care-of Addresses ........................8\n   3.3. Semi-Permanent Security Associations .......................8\n   3.4. Initial Home Address Tests .................................8\n   3.5. Concurrent Care-of Address Tests ...........................9\n   3.6. Credit-Based Authorization .................................9\n   3.7. Parallel Home and Correspondent Registrations .............10\n4. Protocol Operation .............................................10\n   4.1. Sending Binding Update Messages ...........................10\n   4.2. Receiving Binding Update Messages .........................18\n   4.3. Sending Binding Acknowledgment Messages ...................22",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "   4.4. Receiving Binding Acknowledgment Messages .................23\n   4.5. Sending CGA Parameters ....................................25\n   4.6. Receiving CGA Parameters ..................................26\n   4.7. Sending Permanent Home Keygen Tokens ......................27\n   4.8. Receiving Permanent Home Keygen Tokens ....................28\n   4.9. Renewing Permanent Home Keygen Tokens .....................28\n   4.10. Handling Payload Packets .................................28\n   4.11. Credit Aging .............................................31\n   4.12. Simultaneous Movements ...................................32\n5. Option Formats and Status Codes ................................32\n   5.1. CGA Parameters Option .....................................32\n   5.2. Signature Option ..........................................33\n   5.3. Permanent Home Keygen Token Option ........................34\n   5.4. Care-of Test Init Option ..................................35\n   5.5. Care-of Test Option .......................................35\n   5.6. CGA Parameters Request Option .............................36\n   5.7. Status Codes ..............................................36\n6. Security Considerations ........................................38\n   6.1. Home Address Ownership ....................................39\n   6.2. Care-of Address Ownership .................................41\n   6.3. Credit-Based Authorization ................................43\n   6.4. Time Shifting Attacks .....................................46\n   6.5. Replay Attacks ............................................47\n   6.6. Resource Exhaustion .......................................47\n   6.7. IP Address Ownership of Correspondent Node ................47\n7. Protocol Constants and Configuration Variables .................49\n8. IANA Considerations ............................................50\n9. Acknowledgments ................................................50\n10. References ....................................................51\n   10.1. Normative References .....................................51\n   10.2. Informative References ...................................51",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile IPv6 route optimization [1] enables mobile and correspondent nodes to communicate via a direct routing path despite changes in IP connectivity on the mobile node side. Both end nodes use a stable \"home address\" in identifying the mobile node at stack layers above IP, while payload packets are sent or received via a \"care-of address\" that routes to the mobile node's current network attachment. Mobile IPv6 swaps the home and care-of addresses when a payload packet traverses the IP layer. The association between a mobile node's home address and care-of address is called a \"binding\" for the mobile node. It is the responsibility of the mobile node to update its binding at the correspondent node through a \"correspondent registration\" when it changes IP connectivity. A correspondent registration further involves the mobile node's home agent, which proxies the mobile node at the home address and mainly serves as a relay for payload packets exchanged with correspondent nodes that do not support route optimization. The mobile node keeps the home agent up to date about its current care-of address by means of \"home registrations\".",
+      "zh-CHS": "移动IPv6路由优化[1]允许移动节点和对应节点通过直接路由路径进行通信，尽管移动节点端的IP连接发生了变化。两个终端节点都使用一个稳定的“主地址”来标识IP之上的堆栈层上的移动节点，而有效负载分组通过路由到移动节点的当前网络附件的“转交地址”来发送或接收。当有效负载数据包穿过IP层时，移动IPv6交换家庭和照顾地址。移动节点的家庭地址和转交地址之间的关联称为移动节点的“绑定”。当移动节点更改IP连接时，移动节点负责通过“对应注册”更新其在对应节点上的绑定。对应注册还涉及移动节点的归属代理，其在归属地址处代理移动节点，并且主要用作与不支持路由优化的对应节点交换的有效载荷分组的中继。移动节点通过“家庭注册”使家庭代理保持关于其当前转交地址的最新信息。"
+    },
+    {
+      "indent": 3,
+      "text": "From a security perspective, the establishment of a binding during a correspondent registration requires the correspondent node to verify the mobile node's ownership of both the home address and the care-of address. Unprecedented impersonation and flooding threats [5] would arise if correspondent nodes took liberties with respect to these obligations. A correspondent registration hence incorporates a \"home address test\" and a \"care-of address test\", collectively called the \"return routability procedure\". These tests allow the correspondent node to probe the mobile node's reachability at the home and care-of addresses in an ad hoc, non-cryptographic manner. Successful reachability verification at both IP addresses indicates (though it does not guarantee) the mobile node's ownership of the IP addresses, and hence that a binding between the home address and the care-of address is legitimate.",
+      "zh-CHS": "从安全角度来看，在代理注册期间建立绑定要求代理节点验证移动节点对归属地址和转交地址的所有权。如果通信节点在这些义务方面拥有自由，则会出现前所未有的模拟和洪水威胁[5]。因此，通讯员注册包括“家庭地址测试”和“转交地址测试”，统称为“返回可路由性程序”。这些测试允许通信节点以一种特别的、非加密的方式探测移动节点在家中的可达性和地址的转交。两个IP地址上的成功可达性验证表明（尽管不能保证）移动节点对IP地址的所有权，因此，归属地址和转交地址之间的绑定是合法的。"
+    },
+    {
+      "indent": 3,
+      "text": "The advantage of the return routability procedure is that it is lightweight and does not depend on a public-key infrastructure or on a preexisting relationship between the mobile node and the correspondent node. This facilitates a broad deployment. On the other hand, the procedure has an adverse impact on handoff delays since both the home address test and the care-of address test consist of an end-to-end message exchange between the mobile node and the correspondent node. The latency of the home address test may be particularly high because it routes through the home agent. The return routability procedure is also vulnerable to attackers that are in a position where they can interpose in the home or care-of address test. The value of interposing is limited in that the return",
+      "zh-CHS": "返回可路由性过程的优点是它是轻量级的，并且不依赖于公钥基础设施或移动节点和对应节点之间预先存在的关系。这有助于广泛部署。另一方面，该过程对切换延迟具有不利影响，因为归属地址测试和转交地址测试都包括移动节点和对应节点之间的端到端消息交换。家庭地址测试的延迟可能特别高，因为它通过家庭代理路由。返回可路由性过程也容易受到攻击者的攻击，因为攻击者可以介入家庭或托管地址测试。插入的价值是有限的，因为返回"
+    },
+    {
+      "indent": 3,
+      "text": "routability procedure must be repeated in intervals of at most 7 minutes, even in the absence of changes in IP connectivity on the mobile node side. But this comes at the cost of an increased signaling overhead. Much effort has therefore gone into improvements for Mobile IPv6 route optimization [6] that mitigate these disadvantages.",
+      "zh-CHS": "即使在移动节点端的IP连接没有变化的情况下，也必须以最多7分钟的间隔重复路由性过程。但这是以增加信令开销为代价的。因此，在移动IPv6路由优化[6]方面进行了大量的改进，以缓解这些缺点。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies Enhanced Route Optimization, an amendment to route optimization in base Mobile IPv6. Enhanced Route Optimization secures a mobile node's home address against impersonation through an interface identifier that is cryptographically and verifiably bound [2] to the public component of the mobile node's public/private-key pair. The mobile node proves ownership of the home address by providing evidence that it knows the corresponding private key. An initial home address test validates the home address prefix; subsequent home address tests are unnecessary. Enhanced Route Optimization further allows mobile and correspondent nodes to resume bidirectional communications in parallel with pursuing a care-of address test. The latency of the home and care-of address tests are therefore eliminated in most cases. The use of cryptographically generated home addresses also mitigates the threat of impersonators that can interpose on the home address test and thereby facilitate longer binding lifetimes. This leads to increased security and a reduction in signaling overhead. Cryptographically generated home addresses and concurrent care-of address tests are preferably applied together, but a mobile node may choose to use only one of these enhancements.",
+      "zh-CHS": "本文档规定了增强路由优化，这是对基本移动IPv6中路由优化的修正。增强的路由优化通过接口标识符保护移动节点的家庭地址，以防模拟，该接口标识符以加密和可验证的方式绑定到移动节点的公钥/私钥对的公共组件[2]。移动节点通过提供其知道相应私钥的证据来证明归属地址的所有权。初始家庭地址测试验证家庭地址前缀；随后的家庭地址测试是不必要的。增强的路由优化进一步允许移动和对应节点在执行转交地址测试的同时恢复双向通信。因此，在大多数情况下，家庭和照顾地址测试的延迟被消除。使用加密生成的家庭地址还可以减轻冒充者的威胁，冒充者可以介入家庭地址测试，从而延长绑定寿命。这将提高安全性并减少信令开销。密码生成的家庭地址和并发的地址照管测试优选地一起应用，但是移动节点可以选择仅使用这些增强中的一个。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [3].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[3]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Objectives",
+      "section_title": true,
+      "zh-CHS": "2. 目标"
+    },
+    {
+      "indent": 3,
+      "text": "The design of route optimization in base Mobile IPv6 is in many ways conservative, leaving room to optimize handoff delay, security, and signaling overhead. Enhanced Route Optimization tackles these issues and thus constitutes a more progressive variant of Mobile IPv6.",
+      "zh-CHS": "基本移动IPv6中的路由优化设计在许多方面都是保守的，为优化切换延迟、安全性和信令开销留出了空间。增强的路由优化解决了这些问题，因此构成了移动IPv6的一个更进步的变体。"
+    },
+    {
+      "indent": 3,
+      "text": "Despite any Mobile IPv6 optimizations, it is important to take into account that mobility-related activities elsewhere in the protocol stack may have their own impact. For example, attachment procedures, access control, and authentication at the link layer contribute their own handoff delays. So do IP layer tasks such as router discovery, neighbor discovery, movement detection, and IP address configuration. The handoff delays and signaling overhead of Mobile IPv6 are",
+      "zh-CHS": "尽管有任何移动IPv6优化，但重要的是要考虑到协议栈中其他地方与移动相关的活动可能会有其自身的影响。例如，链路层的连接过程、访问控制和身份验证都会造成它们自己的切换延迟。IP层任务也是如此，如路由器发现、邻居发现、移动检测和IP地址配置。分析了移动IPv6的切换时延和信令开销"
+    },
+    {
+      "indent": 3,
+      "text": "typically small compared to the total delay and overhead. The improvements of Enhanced Route Optimization hence ought to be seen in view of the entire protocol stack.",
+      "zh-CHS": "与总延迟和开销相比，通常较小。因此，应该从整个协议栈的角度来看待增强路由优化的改进。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Handoff Latency",
+      "section_title": true,
+      "zh-CHS": "2.1. 切换延迟"
+    },
+    {
+      "indent": 3,
+      "text": "The typical handoff delay in base Mobile IPv6 route optimization is one round-trip time between the mobile node and the home agent for the home registration, one round-trip time between the mobile node and the home agent plus one round-trip time between the home agent and the correspondent node for the return routability procedure, and one one-way time from the mobile node to the correspondent node for the propagation of the Binding Update message. (The assumption here is that the latency of the return routability procedure is dominated by the home address test.) The first payload packet sent to the new care-of address requires one additional one-way time to propagate from the correspondent node to the mobile node. The mobile node can resume transmissions right after it has dispatched the Binding Update message. But if it requests a Binding Acknowledgment message from the correspondent node, communications are usually delayed until this is received.",
+      "zh-CHS": "基本移动IPv6路由优化中的典型切换延迟是移动节点和归属代理之间的一个往返时间用于归属注册，移动节点和归属代理之间的一个往返时间加上归属代理和对应节点之间的一个往返时间用于返回路由性过程，以及从移动节点到对应节点的单向时间，用于传播绑定更新消息。（这里的假设是返回路由性过程的延迟由归属地址测试控制。）发送到新转交地址的第一个有效负载分组需要额外的单向时间从对应节点传播到移动节点。移动节点可以在发送绑定更新消息之后立即恢复传输。但是，如果它从对应节点请求绑定确认消息，则通信通常会延迟，直到收到该消息为止。"
+    },
+    {
+      "indent": 3,
+      "text": "Handoff delays in base Mobile IPv6 route optimization are additive to other delays at the IP layer or link layer. They can cause perceptible quality degradations for interactive and real-time applications. TCP bulk-data transfers are likewise affected since long handoff latencies may lead to successive retransmission timeouts and degraded throughput [7]. An objective of Enhanced Route Optimization is hence a reduction of the handoff latency.",
+      "zh-CHS": "基本移动IPv6路由优化中的切换延迟与IP层或链路层的其他延迟相加。它们会导致交互式和实时应用程序的质量明显下降。TCP批量数据传输同样受到影响，因为长切换延迟可能导致连续的重新传输超时和吞吐量下降[7]。因此，增强路由优化的目标是减少切换延迟。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Security",
+      "section_title": true,
+      "zh-CHS": "2.2. 安全"
+    },
+    {
+      "indent": 3,
+      "text": "The return routability procedure was designed with the objective to provide a level of security that compares to that of today's non-mobile Internet [5]. As such, it protects against impersonation, denial-of-service, and flooding threats that do not exist in the non-mobile Internet, but that the introduction of mobility would introduce in the absence of appropriate countermeasures. In particular, the return routability procedure satisfies the following requirements:",
+      "zh-CHS": "返回可路由性程序旨在提供与当今非移动互联网相比的安全级别[5]。如果没有移动服务的引入，那么移动服务的引入就不会带来威胁，而在没有移动服务的情况下，移动服务的引入就不会带来威胁。具体而言，返回可路由性程序满足以下要求："
+    },
+    {
+      "indent": 3,
+      "text": "o An attacker off the path from a correspondent node to a victim should not be able to trick a correspondent node into redirecting packets, which should normally be delivered to a victim, to itself, or to a third IP address. The attacker could otherwise impersonate the victim to the correspondent node or cause denial of service against the victim. The attacker may launch these",
+      "zh-CHS": "o 通常情况下，攻击者不应将数据包从对应节点发送到对应节点，也不应将数据包从对应节点发送到第三个地址。否则，攻击者可能会向对应节点模拟受害者，或导致对受害者的拒绝服务。攻击者可能会启动这些"
+    },
+    {
+      "indent": 6,
+      "text": "attacks from an arbitrary position, which would not necessarily have to be on the path between the victim and the correspondent node.",
+      "zh-CHS": "来自任意位置的攻击，不一定必须位于受害者和对应节点之间的路径上。"
+    },
+    {
+      "indent": 3,
+      "text": "o An attacker off the path from a correspondent node to a victim should not be able to trick the correspondent node into redirecting packets, which should normally be delivered to the attacker itself, to the victim. The attacker could otherwise flood the victim with unrequested packets. Such \"redirection-based flooding\" may be appealing to the attacker because the burden of generating the flooding packets and sending them to the victim would be on the correspondent node rather than on the attacker. The attacker could spoof multiple correspondent nodes into flooding the same victim. This would enable the attacker to impact the victim much stronger than with a direct flooding attack, where the attacker itself would generate and send the flooding packets. Comparable amplification is today only possible through an army of compromised nodes [8]. One way to cause redirection-based flooding is this: The attacker could accomplish the initial TCP handshake for a voluminous file download through its own IP address, and subsequently bind the victim's IP address (as a care-of address) to the attacker's own IP address (or home address). The correspondent node thereby redirects the download to the victim. The attacker could spoof acknowledgments on behalf of the victim based on the sequence numbers it learned during the initial handshake in order to maintain or accelerate the download. The acknowledgments would be smaller and typically less than the full-sized segments that the correspondent node generates, hence facilitating the amplification.",
+      "zh-CHS": "o 从对应节点到受害者的路径之外的攻击者不应能够诱使对应节点将数据包重定向到受害者，这些数据包通常应发送给攻击者本身。否则，攻击者可能会向受害者发送大量未请求的数据包。这种“基于重定向的泛洪”可能会吸引攻击者，因为生成泛洪数据包并将其发送给受害者的负担将由对应节点承担，而不是由攻击者承担。攻击者可以欺骗多个对应节点，使其淹没同一受害者。这将使攻击者对受害者的影响比直接洪泛攻击强得多，在直接洪泛攻击中，攻击者自己将生成并发送洪泛数据包。如今，只有通过大量受损节点才能实现类似的放大[8]。导致基于重定向的洪泛的一种方法是：攻击者可以通过自己的IP地址完成大量文件下载的初始TCP握手，然后将受害者的IP地址（作为转交地址）绑定到攻击者自己的IP地址（或家庭地址）。相应节点因此将下载重定向到受害者。攻击者可以根据在初始握手过程中获知的序列号，代表受害者伪造确认，以维持或加速下载。确认将更小，并且通常小于对应节点生成的全尺寸段，因此便于放大。"
+    },
+    {
+      "indent": 3,
+      "text": "o Attackers should not be able to cause denial of service against mobile or correspondent nodes through exploiting expensive computations involved in the mobility protocol.",
+      "zh-CHS": "o 攻击者不得利用移动协议中涉及的昂贵计算对移动或对应节点造成拒绝服务。"
+    },
+    {
+      "indent": 3,
+      "text": "The return routability procedure precludes impersonation, denial of service, and redirection-based flooding by attackers that are not on the path from a correspondent node to a victim, and it is sufficiently lightweight not to expose expensive operations. But the return routability procedure fails to protect against attackers that are located on the path from the correspondent node to the victim. Applications that require a higher security level are generally advised to use end-to-end protection such as IP security (IPsec) or Transport Layer Security (TLS). But even then are they vulnerable to denial of service or flooding. Furthermore, end-to-end security mechanisms generally require mobile and correspondent nodes to be preconfigured with authentication credentials, or they depend on a public-key infrastructure. Both would hinder a wide deployment of Mobile IPv6 route optimization if it was a prerequisite for the",
+      "zh-CHS": "返回可路由性过程可防止攻击者模拟、拒绝服务和基于重定向的洪泛，这些攻击者不在从对应节点到受害者的路径上，并且它足够轻量级，不会暴露昂贵的操作。但是，返回可路由性过程无法防止位于从对应节点到受害者的路径上的攻击者。通常建议需要更高安全级别的应用程序使用端到端保护，如IP安全（IPsec）或传输层安全（TLS）。但即便如此，它们也容易受到拒绝服务或洪水的攻击。此外，端到端安全机制通常要求移动节点和对应节点预先配置身份验证凭据，或者它们依赖于公钥基础设施。如果移动IPv6路由优化是移动IPv6路由优化的先决条件，那么这两者都会阻碍移动IPv6路由优化的广泛部署"
+    },
+    {
+      "indent": 3,
+      "text": "protocol. An objective of Enhanced Route Optimization is hence to securely authenticate mobile nodes without preconfigured credentials or a public-key infrastructure, even in the presence of attackers on the path from the correspondent node to the victim.",
+      "zh-CHS": "协议因此，增强路由优化的目标是在没有预配置凭据或公钥基础设施的情况下安全地对移动节点进行身份验证，即使从对应节点到受害者的路径上存在攻击者。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Signaling Overhead",
+      "section_title": true,
+      "zh-CHS": "2.3. 信令开销"
+    },
+    {
+      "indent": 3,
+      "text": "A complete correspondent registration involves six message transmissions at the mobile node, totaling about 376 bytes [9]. This signaling overhead may be acceptable if movements are infrequent. For example, a mobile node that moves once every 30 minutes generates an average of 1.7 bits/s of signaling traffic. Higher mobility causes more substantial overhead, however. A cell size of 100 meters and a speed of 120 km/h yields a change in IP connectivity every 3 s and about 1,000 bits/s of signaling traffic. This is significant compared to a highly compressed voice stream with a typical data rate of 10,000 to 30,000 bits/s.",
+      "zh-CHS": "一个完整的通讯注册涉及移动节点上的六条消息传输，总计约376字节[9]。如果移动不频繁，则可以接受该信令开销。例如，每30分钟移动一次的移动节点产生平均1.7比特/秒的信令业务。然而，更高的移动性会导致更大的开销。小区大小为100米，速度为120公里/小时，IP连接每3秒发生一次变化，信令流量约为1000比特/秒。与典型数据速率为10000到30000比特/秒的高度压缩语音流相比，这是非常重要的。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, base Mobile IPv6 requires mobile nodes to renew a correspondent registration at least every 7 minutes. The signaling overhead amounts to 7.16 bits/s if the mobile node communicates with a stationary node [9]. It doubles if both peers are mobile. This overhead may be negligible when the nodes communicate, but it can be an issue for mobile nodes that are inactive and stay at the same location for a while. These nodes typically prefer to go to standby mode to conserve battery power. Also, the periodic refreshments consume a fraction of the wireless bandwidth that one could use more efficiently. These observations lead to the objective of Enhanced Route Optimization to reduce the signaling overhead of a base Mobile IPv6 correspondent registrations as much as possible, in particular when the mobile node does not move for a while.",
+      "zh-CHS": "此外，基本移动IPv6要求移动节点至少每7分钟更新一次对应注册。如果移动节点与固定节点通信，则信令开销达到7.16比特/秒[9]。如果两个对等点都是移动的，则会加倍。当节点通信时，这种开销可以忽略不计，但对于处于非活动状态且在同一位置停留一段时间的移动节点来说，这可能是一个问题。这些节点通常更喜欢进入待机模式以节省电池电量。此外，定期的茶点会消耗无线带宽的一小部分，人们可以更有效地利用这些带宽。这些观察结果导致了增强路由优化的目标，以尽可能减少基本移动IPv6对应注册的信令开销，特别是当移动节点暂时不移动时。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Protocol Design",
+      "section_title": true,
+      "zh-CHS": "3. 协议设计"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization consists of a set of optimizations that collectively afford the achievement of the objectives discussed in Section 2. These optimizations are summarized in the following.",
+      "zh-CHS": "增强型路线优化由一组优化组成，这些优化共同实现了第2节中讨论的目标。下面总结了这些优化。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Cryptographically Generated Home Addresses",
+      "section_title": true,
+      "zh-CHS": "3.1. 加密生成的家庭地址"
+    },
+    {
+      "indent": 3,
+      "text": "A Mobile IPv6 binding is conceptually a packet redirection from a home address to a care-of address. The home address is the source of the redirection and the care-of address is the destination. The packets to be redirected can hence be identified based on the home address. This motivates a cryptographic ownership proof for the home address. Enhanced Route Optimization applies cryptographically generated home addresses for this purpose [10][11]. In general, a Cryptographically Generated Address (CGA) provides a strong,",
+      "zh-CHS": "移动IPv6绑定在概念上是从家庭地址到转交地址的数据包重定向。家庭地址是重定向的来源，转交地址是目的地。因此，可以基于家庭地址来识别要重定向的分组。这促使对家庭地址进行加密所有权证明。增强路由优化为此目的应用加密生成的家庭地址[10][11]。通常，加密生成地址（CGA）提供了强大的，"
+    },
+    {
+      "indent": 3,
+      "text": "cryptographic binding between its interface identifier and the CGA owner's public key. This facilitates a cryptographic home address ownership proof without a public-key infrastructure, enabling other nodes to securely and autonomously authenticate the CGA owner as such, modulo the correctness of the CGA's subnet prefix. Cryptographically generated home addresses can supersede home address tests with the exception of an initial test for validating the home address prefix. This facilitates lower handoff delays and longer binding lifetimes, as well as reduced signaling overhead for mobile nodes that temporarily do not move. Enhanced Route Optimization also optionally enables the correspondent node to prove ownership of its IP address.",
+      "zh-CHS": "其接口标识符和CGA所有者公钥之间的加密绑定。这有助于在没有公钥基础设施的情况下进行加密家庭地址所有权证明，从而使其他节点能够安全、自主地对CGA所有者进行身份验证，从而对CGA子网前缀的正确性进行模化。加密生成的家庭地址可以取代家庭地址测试，但验证家庭地址前缀的初始测试除外。这有助于降低切换延迟和更长的绑定生命周期，以及减少暂时不移动的移动节点的信令开销。增强的路由优化还可选地使对应节点能够证明其IP地址的所有权。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Non-Cryptographic Care-of Addresses",
+      "section_title": true,
+      "zh-CHS": "3.2. 地址的非加密保管"
+    },
+    {
+      "indent": 3,
+      "text": "In contrast to a home address, a care-of address does not have identifying functionality. There is hence little benefit in a cryptographic ownership proof of a care-of address. Given that the care-of address is the destination of a packet redirection, it is rather the mobile node's reachability at the care-of address that matters. Enhanced Route Optimization uses care-of address tests for this purpose, but allows correspondent nodes to send packets to a new care-of address before the mobile node has been found to be reachable there.",
+      "zh-CHS": "与家庭地址不同，转交地址没有识别功能。因此，转交地址的加密所有权证明没有什么好处。考虑到转交地址是数据包重定向的目的地，重要的是移动节点在转交地址的可达性。增强路由优化为此目的使用转交地址测试，但允许对应节点在发现移动节点可到达该地址之前将数据包发送到新的转交地址。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Semi-Permanent Security Associations",
+      "section_title": true,
+      "zh-CHS": "3.3. 半常设安全协会"
+    },
+    {
+      "indent": 3,
+      "text": "CGA-based authentication involves public-key cryptography and is hence computationally much less efficient than authentication through a shared secret key. The technique further requires a substantial amount of supplementary CGA parameters to be piggybacked onto protected messages. Enhanced Route Optimization mitigates these disadvantages in that it utilizes an initial CGA-based authentication to securely exchange a secret permanent home keygen token between a mobile node and a correspondent node. The permanent home keygen token is used to authenticate the mobile node more efficiently in subsequent correspondent registrations. Mobile and correspondent nodes renew the permanent home keygen token on an infrequent basis. The token is therefore neither constant nor short-lived, which is why the security association between the mobile node and the correspondent node is called \"semi-permanent\".",
+      "zh-CHS": "基于CGA的身份验证涉及公钥加密，因此在计算效率上远低于通过共享密钥进行的身份验证。该技术还需要大量的补充CGA参数，以便将其搭载到受保护的消息上。增强的路由优化减轻了这些缺点，因为它利用初始的基于CGA的认证在移动节点和对应节点之间安全地交换秘密的永久归属密钥根令牌。永久归属密钥根令牌用于在随后的对应注册中更有效地认证移动节点。移动节点和对应节点不经常地更新永久归属密钥生成令牌。因此，令牌既不是恒定的，也不是短期的，这就是为什么移动节点和对应节点之间的安全关联被称为“半永久性”的原因。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Initial Home Address Tests",
+      "section_title": true,
+      "zh-CHS": "3.4. 初始家庭住址测试"
+    },
+    {
+      "indent": 3,
+      "text": "An initial home address test is necessary despite a cryptographic proof of home address ownership to protect against spoofed subnet prefixes in home addresses. In the complete absence of home address tests, a malicious node could cryptographically generate a home",
+      "zh-CHS": "初始家庭地址测试是必要的，尽管有家庭地址所有权的加密证明，以防止家庭地址中的子网前缀被伪造。在完全没有家庭地址测试的情况下，恶意节点可能会以加密方式生成家庭地址"
+    },
+    {
+      "indent": 3,
+      "text": "address with the subnet prefix of a victim network, and request a correspondent node to register a binding between this spoofed home address and the attacker's own care-of address. The attacker then tricks the correspondent node into sending a stream of packets to the care-of address and subsequently deregisters the binding or lets it expire. The consequence is that the correspondent node redirects the packet stream \"back\" to the home address, causing the victim network to be flooded with unrequested packets. To preclude such misuse, an initial home address test is required for the mobile node and the correspondent node to establish a semi-permanent security association. The home address test is, if possible, executed in proactive manner so as to save a potentially costly message exchange via the home agent during the critical handoff period. The home address test does not need to be repeated upon subsequent movements.",
+      "zh-CHS": "使用受害者网络的子网前缀的地址，并请求通信节点注册此伪造的家庭地址和攻击者自己的转交地址之间的绑定。然后，攻击者诱使对应节点向转交地址发送数据包流，然后取消绑定注册或使其过期。结果是，对应节点将数据包流“返回”到主地址，导致受害网络中充斥着未请求的数据包。为了防止这种误用，需要对移动节点和对应节点进行初始家庭地址测试，以建立半永久性安全关联。如果可能，以主动方式执行归属地址测试，以便在关键切换期间通过归属代理节省潜在的昂贵消息交换。在随后的移动中，不需要重复家庭地址测试。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Concurrent Care-of Address Tests",
+      "section_title": true,
+      "zh-CHS": "3.5. 并发地址照管测试"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization allows a correspondent node to send payload packets to a mobile node's new care-of address before the mobile node has been found to be reachable at the care-of address. When the mobile node changes IP connectivity, it first updates its binding at the correspondent node to the new care-of address without providing a proof of reachability. The correspondent node registers the new care-of address on a tentative basis and sets it to UNVERIFIED state. Payload packets can then be exchanged bidirectionally via the new care-of address, while the mobile node's reachability at the new care-of address is verified concurrently. The correspondent node moves the care-of address to VERIFIED state once reachability verification completes.",
+      "zh-CHS": "增强的路由优化允许对应节点在发现移动节点在转交地址处可到达之前向移动节点的新转交地址发送有效负载分组。当移动节点更改IP连接时，它首先将对应节点上的绑定更新为新的转交地址，而不提供可达性证明。通信节点临时注册新的转交地址，并将其设置为未验证状态。然后，可以经由新的转交地址双向交换有效载荷分组，同时同时验证移动节点在新转交地址处的可达性。一旦可达性验证完成，对应节点将转交地址移动到已验证状态。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Credit-Based Authorization",
+      "section_title": true,
+      "zh-CHS": "3.6. 基于信用的授权"
+    },
+    {
+      "indent": 3,
+      "text": "Concurrent care-of address tests without additional protection would enable an attacker to trick a correspondent node into temporarily redirecting payload packets, which would otherwise be addressed to the attacker itself, to the IP address of a victim. Such \"redirection-based flooding\" [5] may be appealing to the attacker because the correspondent node (not the attacker) generates the flooding packets and sends them to the victim. This enables the attacker to amplify the strength of the attack to a significant degree compared to a direct flooding attack where the attacker itself would generate the flooding packets.",
+      "zh-CHS": "在没有额外保护的情况下，并发转交地址测试将使攻击者能够欺骗通信节点，使其将负载数据包临时重定向到受害者的IP地址，否则这些数据包将被发送给攻击者本身。这种“基于重定向的泛洪”[5]可能会吸引攻击者，因为对应节点（而非攻击者）生成泛洪数据包并将其发送给受害者。这使得攻击者能够将攻击强度放大到与直接泛洪攻击（攻击者自身会生成泛洪数据包）相比的显著程度。"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization protects against redirection-based flooding attacks through the use of Credit-Based Authorization. Credit-Based Authorization manages the effort that a correspondent node expends in sending payload packets to a care-of address in UNVERIFIED state so as to ensure that a redirection-based flooding",
+      "zh-CHS": "增强的路由优化通过使用基于信用的授权来防止基于重定向的洪泛攻击。基于信用的授权管理通信节点在未验证状态下向转交地址发送有效负载数据包所花费的努力，以确保基于重定向的泛洪"
+    },
+    {
+      "indent": 3,
+      "text": "attack cannot be more effective than direct flooding. The ability to send unrequested packets is an inherent property of packet-oriented networks, and direct flooding is a threat that results from this. Since direct flooding exists with and without mobility support, and redirection-based flooding attacks cannot be any more efficient than this, Credit-Based Authorization increases the security level provided by Enhanced Route Optimization with respect to flooding to that of the non-mobile Internet. Enhanced Route Optimization therefore satisfies the objective to provide a security level comparable to that of the non-mobile Internet.",
+      "zh-CHS": "攻击不可能比直接洪水更有效。发送未请求的数据包的能力是面向数据包的网络的固有特性，直接泛洪是由此产生的威胁。由于直接洪泛存在于有或无移动支持的情况下，并且基于重定向的洪泛攻击的效率不可能比这更高，因此基于信用的授权可将增强的路由优化相对于洪泛提供的安全级别提高到非移动互联网的安全级别。因此，增强的路由优化满足了提供与非移动互联网相当的安全级别的目标。"
+    },
+    {
+      "indent": 3,
+      "text": "The measuring and limiting of effort are technically realized through the concept of \"credit\", which a correspondent node maintains to put its own effort in relation to the effort that a mobile node expends during regular communications with the correspondent node. The correspondent node increases the credit for payload packets it receives from a care-of address of the mobile node in VERIFIED state, and it reduces the credit in proportion to its own effort for sending payload packets to a care-of address of the mobile node in UNVERIFIED state.",
+      "zh-CHS": "努力的测量和限制在技术上是通过“信用”的概念来实现的，对应节点维护信用以将其自身的努力与移动节点在与对应节点定期通信期间花费的努力相关联。对应节点增加其从处于验证状态的移动节点的照管地址接收到的有效载荷分组的信用，并且其与其自身向处于未验证状态的移动节点的照管地址发送有效载荷分组的努力成比例地减少信用。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. Parallel Home and Correspondent Registrations",
+      "section_title": true,
+      "zh-CHS": "3.7. 平行家庭和通讯注册"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization enables mobile nodes to pursue a correspondent registration in parallel with the respective home registration. This reduces handoff delays compared to base Mobile IPv6, which requires mobile nodes to wait for a Binding Acknowledgment message indicating a successful home registration before they initiate a correspondent registration.",
+      "zh-CHS": "增强的路由优化使移动节点能够在各自的归属注册的同时进行相应的注册。与基本移动IPv6相比，这减少了切换延迟，基本移动IPv6要求移动节点在启动相应的注册之前等待指示成功的归属注册的绑定确认消息。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Protocol Operation",
+      "section_title": true,
+      "zh-CHS": "4. 协议操作"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization allows a mobile node to securely authenticate to a correspondent node based on the CGA property of its home address, and to request a concurrent care-of address test for increased handoff efficiency. Depending on whether the mobile node wishes to take advantage of either or both of these enhancements, the messages exchanged during a correspondent registration are different. This is described in the following.",
+      "zh-CHS": "增强的路由优化允许移动节点基于其归属地址的CGA属性安全地向对应节点进行身份验证，并请求并发的地址照管测试以提高切换效率。根据移动节点是否希望利用这些增强中的一个或两个，在对应注册期间交换的消息是不同的。下文对此进行了描述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Sending Binding Update Messages",
+      "section_title": true,
+      "zh-CHS": "4.1. 发送绑定更新消息"
+    },
+    {
+      "indent": 3,
+      "text": "A mobile node may initiate a correspondent registration for any of the following reasons:",
+      "zh-CHS": "移动节点可出于以下任一原因发起对应注册："
+    },
+    {
+      "indent": 3,
+      "text": "o To establish a new binding at a correspondent node while away from its home link so that subsequent packets will be route-optimized and no longer be routed through the mobile node's home agent.",
+      "zh-CHS": "o 在远离其主链路的情况下在对应节点上建立新绑定，以便后续数据包将经过路由优化，不再通过移动节点的主代理进行路由。"
+    },
+    {
+      "indent": 3,
+      "text": "o To update an existing binding at the correspondent node while moving from one point of IP attachment to another.",
+      "zh-CHS": "o 在从一个IP连接点移动到另一个IP连接点时更新对应节点上的现有绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "o To follow up an early Binding Update message with a complete Binding Update message after receiving a Binding Acknowledgment message with a Care-of Test option.",
+      "zh-CHS": "o 在收到带有Care of Test选项的绑定确认消息后，使用完整的绑定更新消息跟踪早期绑定更新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "o To refresh an existing binding at the correspondent node without changing the current point of IP attachment.",
+      "zh-CHS": "o 在不更改当前IP连接点的情况下刷新对应节点上的现有绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "o To request the correspondent node to renew an existing permanent home keygen token shared between the mobile node and the correspondent node (see Section 4.5).",
+      "zh-CHS": "o 请求对应节点更新移动节点和对应节点之间共享的现有永久home keygen令牌（参见第4.5节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o To request the correspondent node to deregister an existing binding.",
+      "zh-CHS": "o 请求对应节点取消注册现有绑定。"
+    },
+    {
+      "indent": 5,
+      "text": "Mobile node               Home agent           Correspondent node\n    |                         |                         |\n    |                         |                         |\n    ~ Handoff                 |                         |\n    |                         |                         |\n    |-Binding Update--------->|                         |\n    |-early Binding Update + Care-of Test Init option-->|\n    |                         |                         |\n    |                         |                         |\n    |<------------Binding Ack-|                         |\n    |<----------early Binding Ack + Care-of Test option-|\n    |                         |                         |\n    |                         |                         |\n    |-Binding Update----------------------------------->|\n    |                         |                         |\n    |                         |                         |\n    |<--------------------------------------Binding Ack-|\n    |                         |                         |",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "Figure 1: Correspondent registration with authentication by a proof of the mobile node's knowledge of a permanent home keygen token; concurrent care-of address test",
+      "zh-CHS": "图1：通过移动节点知道永久归属密钥生成令牌的证明进行认证的对应注册；并发地址照管测试"
+    },
+    {
+      "indent": 3,
+      "text": "In any of these cases, the mobile node sends a Binding Update message to the correspondent node. The Binding Update message is authenticated by one of the following three authentication methods:",
+      "zh-CHS": "在这些情况中的任何一种情况下，移动节点向对应节点发送绑定更新消息。绑定更新消息通过以下三种身份验证方法之一进行身份验证："
+    },
+    {
+      "indent": 3,
+      "text": "o If the mobile node's home address is a CGA, but the mobile node does not have a permanent home keygen token in its Binding Update List entry for the correspondent node, the mobile node SHOULD",
+      "zh-CHS": "o 如果移动节点的归属地址是CGA，但移动节点在其对应节点的绑定更新列表条目中没有永久归属密钥根令牌，则移动节点应"
+    },
+    {
+      "indent": 6,
+      "text": "authenticate the Binding Update message based on the CGA property of its home address. This requires the mobile node to send its CGA parameters and signature to the correspondent node and to pass a check of reachability at the home address.",
+      "zh-CHS": "根据绑定更新消息的主地址的CGA属性对其进行身份验证。这要求移动节点将其CGA参数和签名发送给对应节点，并通过对家庭地址的可达性检查。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the mobile node's home address is a CGA, and the mobile node has a permanent home keygen token in its Binding Update List entry for the correspondent node, the mobile node MUST authenticate the Binding Update message by a proof of its knowledge of the permanent home keygen token.",
+      "zh-CHS": "o 如果移动节点的归属地址是CGA，并且移动节点在其对应节点的绑定更新列表条目中具有永久归属密钥根令牌，则移动节点必须通过证明其知道永久归属密钥根令牌来认证绑定更新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the mobile node's home address is not a CGA, the mobile node MUST authenticate the Binding Update message through a proof of reachability at its home address.",
+      "zh-CHS": "o 如果移动节点的主地址不是CGA，则移动节点必须通过其主地址的可达性证明来验证绑定更新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "The lifetime requested by the mobile node in the Lifetime field of the Binding Update message MUST NOT exceed MAX_CGA_BINDING_LIFETIME (see Section 7) if the Binding Update message is to be authenticated based on the CGA property of the mobile node's home address or by a proof of the mobile node's knowledge of a permanent home keygen token. If the selected authentication method is a proof of the mobile node's reachability at the home address, the lifetime MUST NOT exceed MAX_RR_BINDING_LIFETIME [1]. It is RECOMMENDED in all cases that the mobile node requests the maximum permitted lifetime in order to avoid unnecessary binding refreshes and thus reduce signaling overhead. The Lifetime field of a Binding Update message that requests the deletion of an existing binding at the correspondent node MUST be set to zero.",
+      "zh-CHS": "如果绑定更新消息将基于移动节点的归属地址的CGA属性或通过移动节点知道永久归属密钥生成令牌的证明进行认证，则移动节点在绑定更新消息的生存期字段中请求的生存期不得超过MAX_CGA_Binding_生存期（参见第7节）。如果所选的身份验证方法是移动节点在家庭地址的可达性证明，则生存期不得超过MAX_RR_BINDING_life[1]。建议在所有情况下，移动节点请求最大允许生存期，以避免不必要的绑定刷新，从而减少信令开销。请求删除对应节点上现有绑定的绑定更新消息的生存期字段必须设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "If the selected authentication method is by way of the CGA property of the mobile node's home address, the mobile node includes its CGA parameters and signature in the Binding Update message by adding one or more CGA Parameters options (see Section 5.1) directly followed by a Signature option (see Section 5.2). This is described in Section 4.5. Once a permanent home keygen token has been obtained from the correspondent node, the mobile node MUST authenticate all subsequent Binding Update messages by a proof of its knowledge of this permanent home keygen token until either the binding lifetime expires, the permanent home keygen token is renewed, or the mobile node explicitly deregisters the binding at the correspondent node. This ensures that an attacker on the path from the correspondent node to the mobile node's home address cannot downgrade the mobile node's chosen authentication method to a proof of reachability at the home address. The mobile node MAY choose to ignore the CGA property of its home address and authenticate Binding Update messages through a proof of reachability at the home address. However, this behavior increases the vulnerability to on-path attackers and is therefore NOT RECOMMENDED.",
+      "zh-CHS": "如果所选择的认证方法是通过移动节点的家庭地址的CGA属性，则移动节点通过添加一个或多个CGA参数选项（参见第5.1节）并直接后跟签名选项（参见第5.2节），在绑定更新消息中包括其CGA参数和签名。第4.5节对此进行了说明。一旦从对应节点获得永久归属密钥根令牌，移动节点必须通过证明其知道该永久归属密钥根令牌来认证所有后续绑定更新消息，直到绑定生存期到期，永久归属密钥根令牌被更新，或者移动节点在对应节点显式取消注册绑定。这可确保从对应节点到移动节点家庭地址的路径上的攻击者无法将移动节点选择的身份验证方法降级为家庭地址的可达性证明。移动节点可以选择忽略其家庭地址的CGA属性，并通过家庭地址处的可达性证明来认证绑定更新消息。但是，此行为会增加路径上攻击者的漏洞，因此不建议使用此行为。"
+    },
+    {
+      "indent": 5,
+      "text": "Mobile node              Home agent          Correspondent node\n    |                         |                         |\n    |                         |                         |\n    |-Home Test Init--------->|------------------------>|\n    |                         |                         |\n    |<------------------------|<--------------Home Test-|\n    |                         |                         |\n    |                         |                         |\n    ~ Handoff                 |                         |\n    |                         |                         |\n    |-Binding Update--------->|                         |\n    |-early Binding Update + Care-of Test Init option-->|\n    |                         |                         |\n    |                         |                         |\n    |<------------Binding Ack-|                         |\n    |<----------early Binding Ack + Care-of Test option-|\n    |                         |                         |\n    |                         |                         |\n    |-Binding Update----------------------------------->|\n    |                         |                         |\n    |                         |                         |\n    |<--------------------------------------Binding Ack-|\n    |                         |                         |",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "Figure 2: Correspondent registration with authentication based on reachability verification at the home address; concurrent care-of address test",
+      "zh-CHS": "图2：基于家庭地址可达性验证的身份验证对应注册；并发地址照管测试"
+    },
+    {
+      "indent": 3,
+      "text": "The mobile node also includes its CGA parameters in the Binding Update message when it intends to renew an existing permanent home keygen token shared with the correspondent node. This is accomplished, as before, by adding to the message one or more CGA Parameters options and a Signature option.",
+      "zh-CHS": "当移动节点打算更新与对应节点共享的现有永久归属密钥根令牌时，移动节点还将其CGA参数包括在绑定更新消息中。与前面一样，这是通过向消息中添加一个或多个CGA参数选项和签名选项来实现的。"
+    },
+    {
+      "indent": 3,
+      "text": "The authenticator for the Binding Update message is calculated based on a permanent or temporary home keygen token. Which type of home keygen token the mobile node uses in calculating the authenticator depends on the authentication method:",
+      "zh-CHS": "绑定更新消息的验证器基于永久或临时home keygen令牌计算。移动节点在计算认证器时使用哪种类型的home keygen令牌取决于认证方法："
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated based on the CGA property of the mobile node's home address, the mobile node MUST use a temporary home keygen token from the correspondent node. The mobile node may already have a valid temporary home keygen token in its Binding Update List entry for the correspondent node, or it may retrieve one through the exchange of a Home Test Init message and a Home Test message.",
+      "zh-CHS": "o 如果绑定更新消息将基于移动节点的归属地址的CGA属性进行身份验证，则移动节点必须使用来自对应节点的临时归属密钥生成令牌。移动节点在其对应节点的绑定更新列表条目中可能已经具有有效的临时home-keygen令牌，或者它可以通过交换home-Test-Init消息和home-Test消息来检索一个。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated by a proof of the mobile node's knowledge of a permanent home keygen token, the mobile node MUST use the permanent home keygen token that is has in its Binding Update List entry for the correspondent node.",
+      "zh-CHS": "o 如果绑定更新消息将通过移动节点知道永久归属密钥根令牌的证明进行认证，则移动节点必须使用其对应节点的绑定更新列表条目中的永久归属密钥根令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated through a proof of reachability at the home address, the mobile node MUST use a temporary home keygen token from the correspondent node. As before, the mobile node may already have a valid temporary home keygen token in its Binding Update List entry for the correspondent node, or it may retrieve one through the exchange of a Home Test Init message and a Home Test message.",
+      "zh-CHS": "o 如果绑定更新消息要通过家庭地址的可达性证明进行身份验证，则移动节点必须使用来自对应节点的临时家庭密钥生成令牌。如前所述，移动节点在其对应节点的绑定更新列表条目中可能已经具有有效的临时home keygen令牌，或者它可以通过交换home Test Init消息和home Test消息来检索一个。"
+    },
+    {
+      "indent": 3,
+      "text": "Unless the purpose of the Binding Update message is to delete an existing binding at the correspondent node, the authenticator is also calculated based on a care-of keygen token. The mobile node selects this as follows:",
+      "zh-CHS": "除非绑定更新消息的目的是删除对应节点上的现有绑定，否则还将基于转交密钥根令牌计算验证器。移动节点按如下方式选择此选项："
+    },
+    {
+      "indent": 3,
+      "text": "o If the mobile node has a valid care-of keygen token for the to-be-registered care-of address in its Binding Update List entry for the correspondent node, the mobile node MUST use this in calculating the authenticator for the Binding Update message. The Binding Update message is in this case \"complete\".",
+      "zh-CHS": "o 如果移动节点在其对应节点的绑定更新列表条目中具有待注册转交地址的有效转交密钥根令牌，则移动节点必须在计算绑定更新消息的验证器时使用该令牌。在本例中，绑定更新消息为“完成”。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the mobile node does not have a valid care-of keygen token in its Binding Update List entry for the correspondent node, the mobile node SHOULD define the care-of keygen token to be zero and use this in calculating the authenticator for the Binding Update message. The Binding Update message is in this case \"early\".",
+      "zh-CHS": "o 如果移动节点在其对应节点的绑定更新列表条目中没有有效的密钥保管令牌，则移动节点应将密钥保管令牌定义为零，并在计算绑定更新消息的验证器时使用该值。在本例中，绑定更新消息为“早”。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the mobile node does not have a valid care-of keygen token in its Binding Update List entry for the correspondent node, the mobile node MAY choose to retrieve a care-of keygen token through the exchange of a Care-of Test Init message and a Care-of Test message, as defined in [1], without sending an early Binding Update message. In this case, the mobile node waits for receipt of the Care-of Test message and uses the care-of keygen token contained therein in calculating the authenticator for a complete Binding Update message. This approach increases the handoff latency, however, and is therefore NOT RECOMMENDED.",
+      "zh-CHS": "o 如果移动节点在其对应节点的绑定更新列表条目中没有有效的密钥代保管令牌，则移动节点可以选择通过交换密钥代保管测试初始消息和密钥代保管测试消息（如[1]中所定义）来检索密钥代保管令牌，而不发送早期绑定更新消息。在这种情况下，移动节点等待接收转交测试消息，并使用其中包含的转交密钥根令牌来计算完整绑定更新消息的验证器。但是，这种方法会增加切换延迟，因此不推荐使用。"
+    },
+    {
+      "indent": 3,
+      "text": "For reduced handoff delays, the mobile node SHOULD simultaneously initiate home and correspondent registrations for a particular care-of address. The mobile node SHOULD also pursue home and correspondent deregistrations in parallel if it wishes to discontinue Mobile IPv6 service while away from its home link. However, when the mobile node commits home and correspondent deregistrations after returning back to the home link after a period of roaming, the mobile",
+      "zh-CHS": "为了减少切换延迟，移动节点应同时启动特定转交地址的归属和对应注册。如果移动节点希望在远离其主链路的情况下中断移动IPv6服务，那么它还应该同时进行主节点和对应节点的注销。然而，当移动节点在漫游一段时间后返回到归属链路后提交归属和对应注销时，移动节点"
+    },
+    {
+      "indent": 3,
+      "text": "node MUST initiate the home deregistration first, and it MUST wait for a Binding Acknowledgment message indicating a successful home deregistration before it initiates the correspondent deregistration. This behavior ensures that the home agent does not proxy the mobile node's home address while the mobile node is on the home link, hence preventing interference between the mobile node and the home agent during Duplicate Address Detection. Since a home deregistration consumes only a link-local round-trip time when the mobile node pursues it from the home link, the cost of not parallelizing it with a correspondent deregistration, in terms of increased handoff delay, is typically negligible.",
+      "zh-CHS": "节点必须首先启动主注销，并且在启动相应的注销之前，必须等待指示成功的主注销的绑定确认消息。此行为确保当移动节点位于归属链路上时归属代理不会代理移动节点的归属地址，因此在重复地址检测期间防止移动节点和归属代理之间的干扰。由于当移动节点从归属链路追踪归属注销时，归属注销仅消耗链路本地往返时间，因此不将其与对应注销并行的成本（就增加的切换延迟而言）通常可以忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "Moreover, when the Binding Update message for the correspondent registration is to be authenticated based on the CGA property of the mobile node's home address or through a proof of reachability at the home address, the mobile node SHOULD initiate the exchange of Home Test Init and Home Test messages prior to handoff in order to proactively elicit a fresh home keygen token from the correspondent node. This reduces handoff delays further. A Home Test Init message may be sent periodically whenever the home keygen token previously acquired from the correspondent node is about to expire. Tokens are valid for 3.5 minutes [1], so the interval between successive Home Test Init messages should be a little less. Alternatively, the mobile node may be able to send the Home Test Init message right in time if its link layer provides a trigger announcing imminent handoff. Proactive home address tests are technically feasible because a home address does not change across handoffs.",
+      "zh-CHS": "此外，当要基于移动节点的归属地址的CGA属性或通过归属地址处的可达性证明来认证对应注册的绑定更新消息时，移动节点应在切换之前发起归属测试初始和归属测试消息的交换，以便主动地从对应节点获取新的归属密钥根令牌。这进一步减少了切换延迟。只要先前从对应节点获取的Home-keygen令牌即将到期，就可以周期性地发送Home-Test-Init消息。令牌的有效期为3.5分钟[1]，因此连续的Home Test Init消息之间的间隔应该稍小一些。或者，如果移动节点的链路层提供了宣布即将到来的切换的触发器，则移动节点可能能够及时发送归属测试初始消息。主动式家庭地址测试在技术上是可行的，因为家庭地址在切换过程中不会改变。"
+    },
+    {
+      "indent": 3,
+      "text": "If the mobile node initiates the home address test from the home link, it MUST address the Home Test Init message directly to the correspondent node. The Home Test message will then be received directly from the correspondent node. If the home address test is initiated from a visited link, the mobile node MUST tunnel the Home Test Init message to the home agent. The Home Test message will then be tunneled back to the mobile node by the home agent. A home address test SHOULD NOT overlap with a home registration or home deregistration since this could result in the loss of the Home Test Init or Home Test message.",
+      "zh-CHS": "如果移动节点从归属链路发起归属地址测试，则它必须将归属测试初始化消息直接寻址到对应节点。然后将直接从对应节点接收Home Test消息。如果从访问的链路发起归属地址测试，则移动节点必须通过隧道将归属测试初始化消息传送到归属代理。然后，归属测试消息将由归属代理通过隧道传回移动节点。家庭地址测试不应与家庭注册或家庭注销重叠，因为这可能导致家庭测试初始化或家庭测试消息丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Update message is early, the mobile node MUST add a Care-of Test Init option (see Section 5.4) to the message, requesting the correspondent node to return a new care-of keygen token. The Care-of Test Init option MUST follow the CGA Parameters and Signature options, if those exist in the Binding Update message. Once a responding Binding Acknowledgment message with a Care-of Test option (see Section 5.5) is received, the mobile node MUST use the care-of",
+      "zh-CHS": "如果绑定更新消息提前，移动节点必须在消息中添加转交测试初始化选项（参见第5.4节），请求对应节点返回新的转交密钥生成令牌。Care of Test Init选项必须遵循CGA参数和签名选项（如果绑定更新消息中存在）。一旦收到带有转交测试选项（参见第5.5节）的响应绑定确认消息，移动节点必须使用转交测试选项"
+    },
+    {
+      "indent": 3,
+      "text": "keygen token contained therein in calculating the authenticator for a complete Binding Update message and send this message to the correspondent node.",
+      "zh-CHS": "其中包含的keygen令牌用于计算完整绑定更新消息的验证器，并将该消息发送到对应节点。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Update message is authenticated based on the CGA property of the mobile node's home address, the mobile node MAY add a CGA Parameters Request option (see Section 5.6) to the Binding Update message so as to request the correspondent node to prove ownership of its IP address within the Binding Acknowledgment message. This ownership proof enables the mobile node to verify that the permanent home keygen token returned in the Binding Acknowledgment message was generated by the right correspondent node.",
+      "zh-CHS": "如果绑定更新消息基于移动节点的归属地址的CGA属性进行认证，则移动节点可以向绑定更新消息添加CGA参数请求选项（参见第5.6节），以便请求对应节点证明其IP地址在绑定确认消息中的所有权。此所有权证明使移动节点能够验证绑定确认消息中返回的永久归属密钥生成令牌是否由正确的对应节点生成。"
+    },
+    {
+      "indent": 3,
+      "text": "The mobile node includes the nonce indices associated with the selected home and care-of keygen tokens in the Binding Update message using a Nonce Indices option [1]. The home nonce index is thereby determined as follows:",
+      "zh-CHS": "移动节点使用nonce索引选项[1]在绑定更新消息中包括与所选的keygen归属和照管令牌相关联的nonce索引。因此，主当前索引确定如下："
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated based on the CGA property of the mobile node's home address, the mobile node uses a temporary home keygen token to calculate the authenticator for the Binding Update message, and the associated home nonce index MUST be taken from the Home Test message with which the home keygen token was obtained.",
+      "zh-CHS": "o 如果绑定更新消息将基于移动节点的归属地址的CGA属性进行认证，则移动节点使用临时归属密钥根令牌来计算绑定更新消息的认证器，并且必须从获得home keygen令牌的home测试消息中获取相关的home nonce索引。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated by a proof of the mobile node's knowledge of a permanent home keygen token, the home nonce index MUST be set to zero.",
+      "zh-CHS": "o 如果绑定更新消息要通过移动节点知道永久归属密钥生成令牌的证明进行身份验证，则归属当前索引必须设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated through a proof of the mobile node's reachability at the home address, the mobile node uses a temporary home keygen token to calculate the authenticator for the Binding Update message, and the associated home nonce index MUST be taken from the Home Test message with which the home keygen token was obtained.",
+      "zh-CHS": "o 如果绑定更新消息将通过移动节点在归属地址处的可达性证明进行认证，则移动节点使用临时归属密钥生成令牌来计算绑定更新消息的认证器，并且必须从获得home keygen令牌的home测试消息中获取相关的home nonce索引。"
+    },
+    {
+      "indent": 3,
+      "text": "The care-of nonce index is determined according to the following rules:",
+      "zh-CHS": "临时护理指数根据以下规则确定："
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is complete, the care-of nonce index is taken from the Care-of Test option or Care-of Test message with which the care-of keygen token (used to calculate the authenticator for the Binding Update message) was obtained.",
+      "zh-CHS": "o 如果绑定更新消息已完成，则从care of Test选项或care of Test message中获取care of keygen令牌（用于计算绑定更新消息的验证器）的care of nonce索引。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is early, the care-of nonce index MUST be set to zero.",
+      "zh-CHS": "o 如果绑定更新消息很早，则care of nonce索引必须设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the purpose of the Binding Update message is to delete a binding at the correspondent node, the care-of nonce index MUST be set to zero.",
+      "zh-CHS": "o 如果绑定更新消息的目的是删除对应节点上的绑定，则care of nonce index必须设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "The Nonce Indices option follows the CGA Parameters, Signature, Care-of Test Init, and CGA Parameters Request options if those are included in the Binding Update message as well.",
+      "zh-CHS": "Nonce index选项遵循CGA参数、签名、Care of Test Init和CGA参数请求选项（如果这些选项也包含在绑定更新消息中）。"
+    },
+    {
+      "indent": 3,
+      "text": "The mobile node finally calculates an authenticator for the Binding Update message based on the selected home and care-of keygen tokens, following the rules described in Section 5.2 and Section 6.2.7 of [1]. For a Binding Update message that requests the deletion of an existing binding at the correspondent node, the authenticator is calculated based on only a home keygen token, and it does not incorporate a care-of keygen token. The authenticator is placed into the Authenticator field of a Binding Authorization Data option [1], which the mobile node adds to the Binding Update message as the last option.",
+      "zh-CHS": "根据[1]第5.2节和第6.2.7节中描述的规则，移动节点最终基于所选的keygen令牌的归属和照顾来计算绑定更新消息的验证器。对于请求删除对应节点上现有绑定的绑定更新消息，验证器仅基于home keygen令牌计算，并且它不包含care of keygen令牌。验证器被放入绑定授权数据选项[1]的验证器字段中，移动节点将该选项作为最后一个选项添加到绑定更新消息中。"
+    },
+    {
+      "indent": 5,
+      "text": "Mobile node               Home agent           Correspondent node\n    |                         |                         |\n    |                         |                         |\n    ~ Handoff                 |                         |\n    |                         |                         |\n    |-Binding Update--------->|                         |\n    |-Care-of Test Init-------------------------------->|\n    |                         |                         |\n    |                         |                         |\n    |<------------Binding Ack-|                         |\n    |<-------------------------------------Care-of Test-|\n    |                         |                         |\n    |                         |                         |\n    |-Binding Update----------------------------------->|\n    |                         |                         |\n    |                         |                         |\n    |<--------------------------------------Binding Ack-|\n    |                         |                         |",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "Figure 3: Correspondent registration with authentication by a proof of the mobile node's knowledge of a permanent home keygen token; explicit care-of address test",
+      "zh-CHS": "图3：通过移动节点知道永久归属密钥生成令牌的证明进行认证的对应注册；显式关心地址测试"
+    },
+    {
+      "indent": 3,
+      "text": "The time-sequence diagrams in Figure 1 through Figure 3 illustrate the operation of Enhanced Route Optimization based on a few selected message exchanges. Figure 1 shows the messages exchanged for a correspondent registration where an early Binding Update message is authenticated by a proof of the mobile node's knowledge of a permanent home keygen token. A Care-of Test Init option in the early",
+      "zh-CHS": "图1到图3中的时间序列图说明了基于几个选定消息交换的增强路由优化的操作。图1显示了为对应注册而交换的消息，其中通过移动节点对永久归属密钥生成令牌的知识证明对早期绑定更新消息进行身份验证。早期的Care-of-Test-Init选项"
+    },
+    {
+      "indent": 3,
+      "text": "Binding Update message requests the correspondent node to add to the Binding Acknowledgment message a fresh care-of keygen token in a Care-of Test option. The mobile node finally concludes the correspondent registration with a complete Binding Update message. Figure 2 shows the procedure of a correspondent registration where the Binding Update message is authenticated with a proof of reachability at the home address. The home address test is proactively performed prior to handoff, permitting the mobile node to issue a Binding Update message directly after the handoff. The Binding Update message is again early, and a care-of keygen token is delivered to the mobile node along with the Binding Acknowledgment message. Figure 3 depicts a correspondent registration where the mobile node initially obtains a fresh care-of keygen token through the dedicated exchange of Care-of Test Init and Care-of Test messages. It subsequently issues a complete Binding Update message that is authenticated with the CGA property of the home address.",
+      "zh-CHS": "Binding Update message请求对应节点在care of Test选项中向绑定确认消息添加一个fresh care of keygen令牌。移动节点最终以完整的绑定更新消息结束相应的注册。图2显示了对应注册的过程，其中绑定更新消息通过家庭地址的可达性证明进行身份验证。在切换之前主动执行归属地址测试，允许移动节点在切换之后直接发出绑定更新消息。绑定更新消息再次提前，并且转交keygen令牌与绑定确认消息一起交付给移动节点。图3描述了一个对应注册，其中移动节点最初通过专用的care of Test Init和care of Test消息交换获得一个新的care of keygen令牌。随后，它会发出一条完整的绑定更新消息，该消息使用home address的CGA属性进行身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Receiving Binding Update Messages",
+      "section_title": true,
+      "zh-CHS": "4.2. 接收绑定更新消息"
+    },
+    {
+      "indent": 3,
+      "text": "When the correspondent node receives a Binding Update message, it must first verify whether the sending mobile node is the legitimate owner of the home address specified in the message. The correspondent node selects the authentication method based on the home nonce index given in the Nonce Indices option of the Binding Update message, and on the existence of CGA Parameters and Signature options in the Binding Update message:",
+      "zh-CHS": "当对应节点接收到绑定更新消息时，它必须首先验证发送移动节点是否是消息中指定的家庭地址的合法所有者。对应节点根据绑定更新消息的nonce index选项中给出的home nonce index以及绑定更新消息中存在的CGA参数和签名选项选择认证方法："
+    },
+    {
+      "indent": 3,
+      "text": "o If the home nonce index is set to a non-null value and the Binding Update message includes one or more CGA Parameters options followed by a Signature option, the correspondent node MUST authenticate the Binding Update message based on the CGA property of the mobile node's home address.",
+      "zh-CHS": "o 如果home nonce index设置为非null值，并且绑定更新消息包括一个或多个CGA参数选项，后跟签名选项，则对应节点必须基于移动节点的home address的CGA属性对绑定更新消息进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the home nonce index is zero and the Binding Update message does not include one or more CGA Parameters options followed by a Signature option, the correspondent node MUST authenticate the Binding Update message by a proof of the mobile node's knowledge of a permanent home keygen token.",
+      "zh-CHS": "o 如果home nonce索引为零，并且绑定更新消息不包括后跟签名选项的一个或多个CGA参数选项，则对应节点必须通过证明移动节点知道永久home keygen令牌来认证绑定更新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the home nonce index is set to a non-null value and the Binding Update message does not include one or more CGA Parameters options followed by a Signature option, the correspondent node MUST authenticate the Binding Update message through a proof of the mobile node's reachability at the home address.",
+      "zh-CHS": "o 如果home nonce index设置为非空值，并且绑定更新消息不包括一个或多个CGA参数选项和签名选项，则对应节点必须通过证明移动节点在home address的可达性来验证绑定更新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the validation procedure for Binding Update messages specified in [1], the correspondent node must take the following additional steps to reject Binding Update messages that are inappropriately authenticated:",
+      "zh-CHS": "除了[1]中指定的绑定更新消息的验证过程外，对应节点还必须采取以下附加步骤来拒绝未经适当身份验证的绑定更新消息："
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message includes one or more CGA Parameters options followed by a Signature option and the home nonce index is zero, the correspondent node MUST send a Binding Acknowledgment message with status code 150 (\"Non-null home nonce index expected\"). This ensures that a Binding Update message that is authenticated based on the CGA property of the mobile node's home address must also provide a proof of the mobile node's reachability at the home address.",
+      "zh-CHS": "o 如果绑定更新消息包括一个或多个CGA参数选项，后跟签名选项，并且主nonce索引为零，则对应节点必须发送状态代码为150的绑定确认消息（“预期为非空主nonce索引”）。这确保了基于移动节点的家庭地址的CGA属性进行身份验证的绑定更新消息也必须提供移动节点在家庭地址的可达性证明。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated by a proof of the mobile node's knowledge of a permanent home keygen token, the correspondent node MUST verify that it has a Binding Cache entry for the mobile node that includes a permanent home keygen token. In case the correspondent node does not have a Binding Cache entry for the mobile node, or if the existing Binding Cache entry for the mobile node does not include a permanent home keygen token, the correspondent node MUST reject the Binding Update message by sending a Binding Acknowledgment message with status code 147 (\"Permanent home keygen token unavailable\").",
+      "zh-CHS": "o 如果绑定更新消息将通过移动节点知道永久归属密钥根令牌的证明进行认证，则对应节点必须验证其具有用于移动节点的绑定缓存项，该绑定缓存项包括永久归属密钥根令牌。在对应节点没有移动节点的绑定缓存项的情况下，或者如果移动节点的现有绑定缓存项不包括永久归属密钥根令牌，则对应节点必须通过发送状态代码为147的绑定确认消息来拒绝绑定更新消息(“永久主密钥生成令牌不可用”）。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated through a proof of the mobile node's reachability at the home address, the correspondent node MUST verify that it does not have a permanent home keygen token in its Binding Cache entry for the mobile node. If the correspondent node has a permanent home keygen token in its Binding Cache entry for the mobile node, it MUST reject the Binding Update message by sending a Binding Acknowledgment message with status code 149 (\"Permanent home keygen token exists\"). This ensures that an attacker cannot downgrade the authentication method to hijack the binding of a legitimate mobile node.",
+      "zh-CHS": "o 如果绑定更新消息要通过移动节点在归属地址处的可达性证明进行身份验证，则对应节点必须验证其在移动节点的绑定缓存条目中没有永久归属密钥根令牌。如果对应节点在其移动节点的绑定缓存条目中具有永久归属密钥根令牌，则它必须通过发送状态代码为149的绑定确认消息（“永久归属密钥根令牌存在”）来拒绝绑定更新消息。这确保攻击者无法降级身份验证方法以劫持合法移动节点的绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "The authenticator for the Binding Update message is calculated based on a permanent or temporary home keygen token. Which type of home keygen token the correspondent node uses in validating the authenticator, and how it retrieves or recomputes the home keygen token, depends on the authentication method:",
+      "zh-CHS": "绑定更新消息的验证器基于永久或临时home keygen令牌计算。对应节点在验证身份验证器时使用哪种类型的home keygen令牌，以及它如何检索或重新计算home keygen令牌，取决于身份验证方法："
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated based on the CGA property of the mobile node's home address, the correspondent node MUST recompute the temporary home keygen token defined by the (non-null) home nonce index in the Nonce Indices option of the Binding Update message, and it MUST use this recomputed token in validating the authenticator of the message.",
+      "zh-CHS": "o 如果绑定更新消息将基于移动节点的家庭地址的CGA属性进行身份验证，则对应节点必须重新计算由绑定更新消息的nonce index选项中的（非空）home nonce index定义的临时home keygen令牌，它必须使用这个重新计算的令牌来验证消息的验证器。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated by a proof of the mobile node's knowledge of a permanent home keygen token, the correspondent node MUST use the permanent home keygen token that it has in its Binding Cache entry for the mobile node in validating the authenticator of the Binding Update message.",
+      "zh-CHS": "o 如果绑定更新消息将通过移动节点知道永久归属密钥根令牌的证明进行认证，则对应节点必须使用其在移动节点的绑定缓存条目中具有的永久归属密钥根令牌来验证绑定更新消息的认证器。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is to be authenticated through verification of the mobile node's reachability at the home address, the correspondent node MUST recompute the temporary home keygen token defined by the (non-null) home nonce index in the Nonce Indices option of the Binding Update message, and it MUST use this recomputed token in validating the authenticator of the message.",
+      "zh-CHS": "o 如果绑定更新消息要通过验证移动节点在归属地址的可达性来进行身份验证，则对应节点必须重新计算由绑定更新消息的nonce index选项中的（非空）home nonce index定义的临时归属keygen令牌，它必须使用这个重新计算的令牌来验证消息的验证器。"
+    },
+    {
+      "indent": 3,
+      "text": "Unless the purpose of the Binding Update message is to delete an existing binding at the correspondent node, the authenticator is also calculated based on a care-of keygen token. Which care-of keygen token the correspondent node uses in validating the authenticator depends on whether the Binding Update message is complete or early:",
+      "zh-CHS": "除非绑定更新消息的目的是删除对应节点上的现有绑定，否则还将基于转交密钥根令牌计算验证器。对应节点在验证身份验证器时使用哪个密钥保管令牌取决于绑定更新消息是完整的还是早期的："
+    },
+    {
+      "indent": 3,
+      "text": "o If the care-of nonce index in the Nonce Indices option of the Binding Update message is set to a non-null value, the Binding Update message is complete. In this case, the correspondent node MUST recompute the care-of keygen token that is identified by the care-of nonce index, and it MUST use this recomputed token in validating the authenticator of the message.",
+      "zh-CHS": "o 如果绑定更新消息的nonce index选项中的care of nonce index设置为非空值，则绑定更新消息完成。在这种情况下，对应节点必须重新计算由care of nonce索引标识的care of keygen令牌，并且必须在验证消息的验证器时使用该重新计算的令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the care-of nonce index in the Nonce Indices option of the Binding Update message is zero, the Binding Update message is early. The care-of keygen token to be used by the correspondent node in validating the authenticator of the Binding Update message is zero in this case.",
+      "zh-CHS": "o 如果绑定更新消息的nonce index选项中的care of nonce index为零，则绑定更新消息为早。在这种情况下，通信节点在验证绑定更新消息的验证器时要使用的转交密钥根令牌为零。"
+    },
+    {
+      "indent": 3,
+      "text": "The correspondent node finally validates the authenticator in the Binding Update message based on the selected home and care-of keygen tokens, following the algorithm described in Section 9.5.1 of [1].",
+      "zh-CHS": "根据[1]第9.5.1节中所述的算法，通信节点最终基于所选的keygen令牌的home和care验证绑定更新消息中的验证器。"
+    },
+    {
+      "indent": 3,
+      "text": "If the validation fails, the correspondent node MUST discard the Binding Update message. The correspondent node may have to send a Binding Acknowledgment message with a status code indicating the failure, as described in [1].",
+      "zh-CHS": "如果验证失败，对应节点必须放弃绑定更新消息。对应节点可能必须发送绑定确认消息，其中状态代码指示故障，如[1]中所述。"
+    },
+    {
+      "indent": 3,
+      "text": "Provided that the validation of the authenticator in the Binding Update message succeeds, the correspondent node registers the mobile node's new care-of address, either updating an existing Binding Cache entry, if one exists, or creating a new Binding Cache entry. The lifetime granted for the binding depends on the lifetime requested by the mobile node in the Lifetime field of the Binding Update message",
+      "zh-CHS": "如果绑定更新消息中的验证器验证成功，则对应节点注册移动节点的新转交地址，或者更新现有绑定缓存条目（如果存在），或者创建新的绑定缓存条目。为绑定授予的生存期取决于移动节点在绑定更新消息的生存期字段中请求的生存期"
+    },
+    {
+      "indent": 3,
+      "text": "and the method by which the Binding Update message is authenticated. If the Binding Update message is authenticated based on the CGA property of the mobile node's home address or by a proof of the mobile node's knowledge of a permanent home keygen token, the lifetime for the binding SHOULD be set to the maximum of MAX_CGA_BINDING_LIFETIME and the value specified in the Lifetime field of the Binding Update message. If the Binding Update message is authenticated through a proof of the mobile node's reachability at the home address, then the lifetime for the binding SHOULD be set to the maximum of MAX_RR_BINDING_LIFETIME [1] and the value specified in the Lifetime field of the Binding Update message. The correspondent node may in either case grant a further reduced lifetime, but it MUST NOT accept a higher lifetime.",
+      "zh-CHS": "以及对绑定更新消息进行身份验证的方法。如果绑定更新消息基于移动节点的家庭地址的CGA属性或通过移动节点知道永久家庭密钥生成令牌的证明进行身份验证，则绑定的生存期应设置为最大MAX_CGA_Binding_生存期和绑定更新消息的生存期字段中指定的值。如果绑定更新消息通过移动节点在家庭地址的可访问性证明进行身份验证，则绑定的生存期应设置为MAX_RR_Binding_life[1]的最大值和绑定更新消息的生存期字段中指定的值。在任何一种情况下，对应节点都可以授予进一步缩短的生存期，但它不能接受更高的生存期。"
+    },
+    {
+      "indent": 3,
+      "text": "The state of the new care-of address depends on whether the Binding Update message is complete or early:",
+      "zh-CHS": "新转交地址的状态取决于绑定更新消息是完整的还是早期的："
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is complete, the new care-of address is set to VERIFIED state. The correspondent node may then immediately send packets to the new care-of address without restrictions.",
+      "zh-CHS": "o 如果绑定更新消息已完成，则新转交地址将设置为已验证状态。对应节点随后可以无限制地立即向新转交地址发送分组。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Binding Update message is early, the new care-of address is set to UNVERIFIED state. The correspondent node MUST then follow the rules defined in Section 4.10 for sending packets to this care-of address until the care-of address is set in VERIFIED state.",
+      "zh-CHS": "o 如果绑定更新消息提前，则新的转交地址将设置为未验证状态。然后，通信节点必须遵循第4.10节中定义的规则，将数据包发送到此转交地址，直到转交地址设置为验证状态。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Update message contains one or multiple CGA Parameters options, the mobile node is requesting the correspondent node to accept the included CGA parameters either for establishing a new, or for renewing an existing permanent home keygen token shared between the mobile node and the correspondent node. The correspondent node MUST in this case check if the CGA Parameters options are directly followed by a Signature option and, if so, validate the CGA parameters and signature as described in Section 4.6.",
+      "zh-CHS": "如果绑定更新消息包含一个或多个CGA参数选项，则移动节点请求对应节点接受所包括的CGA参数，以建立新的CGA参数，或用于更新在移动节点和对应节点之间共享的现有永久归属密钥根令牌。在这种情况下，对应节点必须检查CGA参数选项后面是否紧跟着签名选项，如果是，则按照第4.6节所述验证CGA参数和签名。"
+    },
+    {
+      "indent": 3,
+      "text": "If the CGA Parameters option is not directly followed by a Signature option, or the validation of the included CGA parameters and signature fails, the correspondent node MUST discard the Binding Update message and send a Binding Acknowledgment message with status code 148 (\"CGA and signature verification failed\") to the mobile node.",
+      "zh-CHS": "如果CGA参数选项后面没有直接跟随签名选项，或者包括的CGA参数和签名的验证失败，则对应节点必须丢弃绑定更新消息，并向移动节点发送状态代码为148的绑定确认消息（“CGA和签名验证失败”）。"
+    },
+    {
+      "indent": 3,
+      "text": "Provided that the signature included in the Signature option is correct, the correspondent node generates a permanent home keygen token to be shared with the mobile node and stores it in its Binding Cache entry for the mobile node. The permanent home keygen token is",
+      "zh-CHS": "如果签名选项中包括的签名正确，则对应节点生成要与移动节点共享的永久归属密钥根令牌，并将其存储在移动节点的绑定缓存条目中。永久主密钥生成令牌为"
+    },
+    {
+      "indent": 3,
+      "text": "sent to the mobile node within a Binding Acknowledgment message as described in Section 4.3.",
+      "zh-CHS": "在绑定确认消息中发送到移动节点，如第4.3节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Sending Binding Acknowledgment Messages",
+      "section_title": true,
+      "zh-CHS": "4.3. 发送绑定确认消息"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receipt of a valid Binding Update message, the correspondent node returns to the mobile node a Binding Acknowledgment message in any of the following cases:",
+      "zh-CHS": "在接收到有效的绑定更新消息后，对应节点在以下任何情况下向移动节点返回绑定确认消息："
+    },
+    {
+      "indent": 3,
+      "text": "o The Acknowledge flag in the Binding Update message is set.",
+      "zh-CHS": "o 绑定更新消息中的确认标志已设置。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Binding Update message contains one or multiple CGA Parameters options directly followed by a Signature option, and the signature included in the latter was determined to be correct.",
+      "zh-CHS": "o 绑定更新消息包含一个或多个CGA参数选项，后跟一个签名选项，后者中包含的签名被确定为正确的。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Binding Update message is early and includes a Care-of Test Init option.",
+      "zh-CHS": "o 绑定更新消息很早，包含一个careoftestinit选项。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Update message further contains a CGA Parameters Request option and the correspondent node's IP address is a CGA, the correspondent node MUST include its CGA parameters and signature in the Binding Acknowledgment message by adding one or more CGA Parameters options directly followed by a Signature option. The correspondent node's CGA parameters and signature enable the mobile node to verify that the permanent home keygen token received in the Binding Acknowledgment message was generated by the right correspondent node. If the Binding Update message contains a CGA Parameters Request option, but the correspondent node's IP address is not a CGA, the correspondent node ignores the CGA Parameters Request option and processes the Binding Update message further as described below.",
+      "zh-CHS": "如果绑定更新消息进一步包含CGA参数请求选项，并且对应节点的IP地址是CGA，则对应节点必须通过添加一个或多个CGA参数选项，然后直接添加签名选项，将其CGA参数和签名包含在绑定确认消息中。对应节点的CGA参数和签名使移动节点能够验证在绑定确认消息中接收的永久归属密钥生成令牌是由正确的对应节点生成的。如果绑定更新消息包含CGA参数请求选项，但对应节点的IP地址不是CGA，则对应节点将忽略CGA参数请求选项，并按如下所述进一步处理绑定更新消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Update message contains one or multiple CGA Parameters options directly followed by a Signature option, and the signature included in the latter was determined to be correct, the correspondent node MUST add a Permanent Home Keygen Token option (see Section 5.3) with a new permanent home keygen token to the Binding Acknowledgment message. The correspondent node also stores this permanent home keygen token in its Binding Cache entry for the mobile node.",
+      "zh-CHS": "如果绑定更新消息包含一个或多个CGA参数选项，后跟一个签名选项，且后者中包含的签名被确定为正确，则对应节点必须添加一个永久Home Keygen令牌选项（参见第5.3节）将新的永久home keygen令牌添加到绑定确认消息。对应节点还将该永久归属密钥根令牌存储在移动节点的绑定缓存条目中。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Update message includes a Care-of Test Init option, the correspondent node MUST append to the Binding Acknowledgment message a Care-of Test option with a pseudo-random value in the Care-of Keygen Token field. The Care-of Test option MUST appear after the Permanent Home Keygen Token option in case both options are present in the Binding Acknowledgment message.",
+      "zh-CHS": "如果绑定更新消息包括转交测试初始化选项，则对应节点必须在转交密钥根令牌字段中向绑定确认消息附加一个转交测试选项，该选项具有伪随机值。如果绑定确认消息中存在两个选项，则转交测试选项必须出现在永久Home Keygen令牌选项之后。"
+    },
+    {
+      "indent": 3,
+      "text": "A Binding Authorization Data option must be added to the Binding Acknowledgment message as a last option, as described in Section 5.2 and Section 6.2.7 of [1].",
+      "zh-CHS": "绑定授权数据选项必须作为最后一个选项添加到绑定确认消息中，如[1]第5.2节和第6.2.7节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Receiving Binding Acknowledgment Messages",
+      "section_title": true,
+      "zh-CHS": "4.4. 接收绑定确认消息"
+    },
+    {
+      "indent": 3,
+      "text": "A mobile node first verifies a received Binding Acknowledgment message according to the rules specified in [1]. Provided that the Binding Acknowledgment message is not rejected based on these rules, the mobile node takes the following additional steps.",
+      "zh-CHS": "移动节点首先根据[1]中指定的规则验证接收到的绑定确认消息。如果绑定确认消息没有基于这些规则被拒绝，移动节点将采取以下附加步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "If the mobile node included a CGA Parameters Request option in the Binding Update message and the Binding Acknowledgment message contains a Permanent Home Keygen Token option, the mobile node first processes any CGA Parameters and Signature options in the Binding Acknowledgment message in the following manner. If the Binding Acknowledgment message contains one or more CGA Parameters options that are directly followed by a Signature option, the mobile node MUST check the ownership of the correspondent node's IP address by verifying the included CGA parameters and signature as described in Section 4.6. If the validation of the CGA parameters and signature fails, the mobile node MUST silently discard the Binding Acknowledgment message. The mobile node MUST also silently discard the Binding Acknowledgment message if the message includes one or more CGA Parameters options that are not directly followed by a Signature option, or if the Binding Acknowledgment message lacks any CGA Parameters options in the presence of a Signature option.",
+      "zh-CHS": "如果移动节点在绑定更新消息中包括CGA参数请求选项，并且绑定确认消息包含永久归属Keygen令牌选项，则移动节点首先以以下方式处理绑定确认消息中的任何CGA参数和签名选项。如果绑定确认消息包含一个或多个CGA参数选项，这些选项后面紧跟着签名选项，则移动节点必须按照第4.6节所述验证包含的CGA参数和签名，以检查对应节点IP地址的所有权。如果CGA参数和签名的验证失败，移动节点必须以静默方式放弃绑定确认消息。如果绑定确认消息包括一个或多个CGA参数选项，而这些选项后面没有直接跟随签名选项，或者如果绑定确认消息在存在签名选项的情况下缺少任何CGA参数选项，则移动节点还必须静默地丢弃绑定确认消息。"
+    },
+    {
+      "indent": 3,
+      "text": "If the mobile node did not include a CGA Parameters Request option in the Binding Update message or the Binding Acknowledgment message does not contain a Permanent Home Keygen Token option, the mobile node ignores any CGA Parameters and Signature options that the Binding Acknowledgment message may contain. Careful use of the CGA Parameters Request option in Binding Update messages enables the mobile node to control the processing resources it spends on the verification of a correspondent node's CGA as well as to disable such verification in the case of persistent verification failures, which may be due to misconfigured or outdated CGA software [12] on the correspondent node side or at the mobile node itself. Specifically, if the mobile node repeatedly fails to receive a Binding Acknowledgment message including valid CGA Parameters and Signature options in response to sending a Binding Update message with a CGA Parameters Request option, the mobile node SHOULD refrain from including a CGA Parameters Request option in future Binding Update messages for the same correspondent node.",
+      "zh-CHS": "如果移动节点在绑定更新消息中不包括CGA参数请求选项，或者绑定确认消息不包含永久归属密钥根令牌选项，则移动节点忽略绑定确认消息可能包含的任何CGA参数和签名选项。在绑定更新消息时谨慎使用CGA参数请求选项，使移动节点能够控制其在验证对应节点的CGA上花费的处理资源，并在持续验证失败的情况下禁用此类验证，这可能是由于错误配置或过时的CGA软件[12]在对应节点侧或移动节点本身。具体地说，如果移动节点响应于发送具有CGA参数请求选项的绑定更新消息而重复地未能接收包括有效CGA参数和签名选项的绑定确认消息，移动节点应避免在同一对应节点的未来绑定更新消息中包含CGA参数请求选项。"
+    },
+    {
+      "indent": 3,
+      "text": "If the mobile node included a CGA Parameters Request option in the Binding Update message, but the Binding Acknowledgment message does not contain any CGA Parameters or Signature options, the mobile node cannot be sure if the correspondent node's IP address is simply not a CGA, or if the Binding Acknowledgment message originates from an attacker on the path from the mobile node to the correspondent node. To avoid accepting a permanent home keygen token from an on-path attacker, the mobile node MUST give precedence to Binding Acknowledgment messages that include valid CGA Parameters and Signature options over Binding Acknowledgment messages without such options. One possible algorithm for the mobile node to follow in this regard is to always accept the Binding Acknowledgment message received first, and if this message does not contain valid CGA Parameters or Signature options and another Binding Acknowledgment message including such options is received later on, to revert any state changes involved in accepting the first Binding Acknowledgment in favor of this subsequent Binding Acknowledgment message. Giving precedence to Binding Acknowledgment messages with valid CGA Parameters and Signature options over Binding Acknowledgment messages without such options enables the mobile node to communicate with correspondent nodes that do not use a CGA, and at the same time protects against most on-path attackers. The strategy does not protect against an attacker that can intercept Binding Acknowledgment messages from the correspondent node, but such an attacker could preclude mobility management between the mobile node and the correspondent node anyway. When the mobile node has permanently accepted a Binding Acknowledgment message without valid CGA Parameters and Signature options, the mobile node SHOULD refrain from including a CGA Parameters Request option in future Binding Update messages for the same correspondent node.",
+      "zh-CHS": "如果移动节点在绑定更新消息中包含CGA参数请求选项，但绑定确认消息不包含任何CGA参数或签名选项，则移动节点无法确定对应节点的IP地址是否不是CGA，或者，如果绑定确认消息来源于从移动节点到对应节点的路径上的攻击者。为了避免接受路径上攻击者的永久home keygen令牌，移动节点必须优先于包含有效CGA参数和签名选项的绑定确认消息，而不是不包含此类选项的绑定确认消息。在这方面，移动节点要遵循的一个可能算法是始终接受首先接收的绑定确认消息，并且如果该消息不包含有效的CGA参数或签名选项，并且随后接收包括这些选项的另一个绑定确认消息，恢复接受第一个绑定确认所涉及的任何状态更改，以支持此后续绑定确认消息。将具有有效CGA参数和签名选项的绑定确认消息优先于不具有此类选项的绑定确认消息，使移动节点能够与不使用CGA的对应节点通信，同时防止大多数路径上攻击者。该策略不能防止攻击者截获来自对应节点的绑定确认消息，但这样的攻击者可能会阻止移动节点和对应节点之间的移动性管理。当移动节点已永久接受没有有效CGA参数和签名选项的绑定确认消息时，移动节点应避免在将来针对同一对应节点的绑定更新消息中包括CGA参数请求选项。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Acknowledgment message contains a Permanent Home Keygen Token option, the mobile node extracts the permanent home keygen token included in this option and stores it in its Binding Update List entry for the correspondent node. Future Binding Update messages will then be authenticated by a proof of the mobile node's knowledge of this permanent home keygen token.",
+      "zh-CHS": "如果绑定确认消息包含永久Home Keygen令牌选项，则移动节点提取此选项中包含的永久Home Keygen令牌，并将其存储在对应节点的绑定更新列表条目中。未来的绑定更新消息将通过移动节点知道该永久归属密钥生成令牌的证明进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Binding Acknowledgment message contains a Care-of Test option, the mobile node extracts the care-of keygen token included in this option, stores the token in its Binding Update List entry for the correspondent node, and sends the correspondent node a complete Binding Update message as defined in Section 4.1. Note that the complete Binding Update message will be authenticated based on the CGA property of the mobile node's home address if the Binding Acknowledgment message also includes a Permanent Home Keygen Token option. This is independent of the authentication method that was used for the corresponding early Binding Update message.",
+      "zh-CHS": "如果绑定确认消息包含转交测试选项，则移动节点提取该选项中包含的转交密钥根令牌，将该令牌存储在对应节点的绑定更新列表条目中，并向对应节点发送第4.1节中定义的完整绑定更新消息。注意，如果绑定确认消息还包括永久归属密钥生成令牌选项，则完整的绑定更新消息将基于移动节点的归属地址的CGA属性进行认证。这与用于相应的早期绑定更新消息的身份验证方法无关。"
+    },
+    {
+      "indent": 3,
+      "text": "A mobile node MUST ensure that, while it has a binding for a certain home address at a correspondent node, it also has a valid binding at its home agent for the same home address. This may at times require the mobile node to extend the binding lifetime at the home agent, request a correspondent node to use a binding lifetime less than the permitted maximum, or explicitly deregister an existing binding at a correspondent node.",
+      "zh-CHS": "移动节点必须确保，当它在对应节点上对某个家庭地址具有绑定时，它在其家庭代理上也对同一家庭地址具有有效绑定。这有时可能要求移动节点在归属代理处延长绑定生存期，请求对应节点使用小于允许的最大值的绑定生存期，或者在对应节点处显式取消注册现有绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "If the mobile node authenticates Binding Update messages for a particular correspondent node by proving its knowledge of a permanent home keygen token, but registrations at this correspondent node persistently fail, the mobile node SHOULD renew the permanent home keygen token by sending a Binding Update message that is authenticated based on the CGA property of its home address. This Binding Update message includes the mobile node's CGA parameters and signature, and it requests the correspondent node to generate a new permanent home keygen token and send this to the mobile node within a Binding Acknowledgment message.",
+      "zh-CHS": "如果移动节点通过证明其知道永久归属密钥根令牌来认证特定对应节点的绑定更新消息，但是在该对应节点上的注册持续失败，移动节点应通过发送绑定更新消息来更新永久归属密钥根令牌，该绑定更新消息基于其归属地址的CGA属性进行身份验证。该绑定更新消息包括移动节点的CGA参数和签名，并且它请求对应节点生成新的永久归属keygen令牌，并在绑定确认消息内将其发送给移动节点。"
+    },
+    {
+      "indent": 3,
+      "text": "If the mobile node persistently receives Binding Acknowledgment messages with status code 148 (\"CGA and signature verification failed\") from a correspondent node, the mobile node SHOULD authenticate future Binding Update messages for the same correspondent nodes through a proof of its reachability at the home address. This enables the mobile node to recover from misconfigured or outdated CGA software [12] on the correspondent node side or at the mobile node itself.",
+      "zh-CHS": "如果移动节点持续地从对应节点接收到状态代码为148的绑定确认消息（“CGA和签名验证失败”），则移动节点应通过证明其在归属地址处的可达性来认证相同对应节点的未来绑定更新消息。这使得移动节点能够从对应节点侧或移动节点本身的错误配置或过时的CGA软件[12]中恢复。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Sending CGA Parameters",
+      "section_title": true,
+      "zh-CHS": "4.5. 发送CGA参数"
+    },
+    {
+      "indent": 3,
+      "text": "A mobile node includes its CGA parameters and signature in a Binding Update message for a correspondent node in any of the following situations:",
+      "zh-CHS": "在以下任一情况下，移动节点在对应节点的绑定更新消息中包括其CGA参数和签名："
+    },
+    {
+      "indent": 3,
+      "text": "o To acquire a permanent home keygen token if the mobile node's home address is a CGA, and the mobile node does not yet have a permanent home keygen token from the correspondent node.",
+      "zh-CHS": "o 如果移动节点的归属地址是CGA，并且移动节点还没有来自对应节点的永久归属密钥根令牌，则获取永久归属密钥根令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "o To extend the lifetime of an existing binding if the mobile node already has a permanent home keygen token from the correspondent node, and the lifetime of the binding at the correspondent node is about to expire.",
+      "zh-CHS": "o 如果移动节点已经具有来自对应节点的永久home keygen令牌，并且对应节点处的绑定的生存期即将到期，则延长现有绑定的生存期。"
+    },
+    {
+      "indent": 3,
+      "text": "o To renew an existing permanent home keygen token to prevent replay attacks in the imminent event of a sequence number rollover, or for improved protection against cryptanalysis.",
+      "zh-CHS": "o 更新现有的永久home keygen令牌，以防止在即将发生的序列号翻滚事件中发生重播攻击，或改进对密码分析的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "A correspondent node whose IP address is a CGA includes its CGA parameters and signature in a Binding Acknowledgment message for the mobile node when it receives a Binding Update message with a CGA Parameters Request option.",
+      "zh-CHS": "IP地址为CGA的对应节点在接收到带有CGA参数请求选项的绑定更新消息时，在移动节点的绑定确认消息中包括其CGA参数和签名。"
+    },
+    {
+      "indent": 3,
+      "text": "CGA parameters are transmitted in the format of the CGA Parameters data structure defined in [2]. The CGA Parameters data structure is split over one or more CGA Parameters options as described in Section 5.1. The last CGA Parameters option MUST be directly followed by a Signature option.",
+      "zh-CHS": "CGA参数以[2]中定义的CGA参数数据结构的格式传输。CGA参数数据结构分为一个或多个CGA参数选项，如第5.1节所述。最后一个CGA参数选项后面必须紧跟一个签名选项。"
+    },
+    {
+      "indent": 3,
+      "text": "The value for the Signature field in the Signature option is calculated according to the signature generation algorithm defined in Section 6 of [2]. The value is calculated with the mobile or correspondent node's private key over the following sequence of octets:",
+      "zh-CHS": "签名选项中签名字段的值根据[2]第6节中定义的签名生成算法计算。该值由移动或对应节点的私钥通过以下八位字节序列计算得出："
+    },
+    {
+      "indent": 6,
+      "text": "mobility data = care-of address | correspondent node IP address | MH data",
+      "zh-CHS": "移动性数据=转交地址|对应节点IP地址| MH数据"
+    },
+    {
+      "indent": 3,
+      "text": "where \"|\" denotes concatenation. \"Care-of address\" is the mobile node's care-of address, and \"correspondent node IP address\" is the IP address of the correspondent node that is visible to protocol layers above IP. In case the correspondent node is mobile, \"correspondent node IP address\" refers to the correspondent node's home address. \"MH data\" is the content of the Binding Update or Binding Acknowledgment message including the mobility header and all options up to the last CGA Parameters option. That is, \"MH data\" excludes the IPv6 header and any IPv6 extension headers other than the mobility header itself. The \"mobility data\" constitutes what is referred to as the \"message\" in Section 6 of [2].",
+      "zh-CHS": "其中“|”表示串联。“转交地址”是移动节点的转交地址，“对应节点IP地址”是对IP之上的协议层可见的对应节点的IP地址。如果对应节点是移动的，“对应节点IP地址”指对应节点的家庭地址。“MH数据”是绑定更新或绑定确认消息的内容，包括移动头和所有选项，直到最后一个CGA参数选项。也就是说，“MH数据”不包括IPv6头和除移动头本身以外的任何IPv6扩展头。“移动数据”构成了[2]第6节中所称的“消息”。"
+    },
+    {
+      "indent": 3,
+      "text": "The value for the Signature field is calculated as if the Checksum field in the mobility header was zero. The Checksum field in the transmitted packet is still calculated in the usual manner, with the calculated value in the Signature field being a part of the packet protected by the checksum.",
+      "zh-CHS": "签名字段的值的计算方式与mobility标头中的校验和字段为零一样。发送的分组中的校验和字段仍然以通常的方式计算，签名字段中的计算值是由校验和保护的分组的一部分。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6. Receiving CGA Parameters",
+      "section_title": true,
+      "zh-CHS": "4.6. 接收CGA参数"
+    },
+    {
+      "indent": 3,
+      "text": "Mobile and correspondent nodes that receive a Binding Update or Binding Acknowledgment message including one or more CGA Parameters options directly followed by a Signature option first process the message as described in [1]. This includes a verification of the authenticator in the Authenticator field of the Binding Authorization Data option. If the Binding Update or Binding Acknowledgment message is rejected due to an incorrect authenticator or for any other reason, the message is not processed further.",
+      "zh-CHS": "接收绑定更新或绑定确认消息（包括一个或多个CGA参数选项，后跟签名选项）的移动和对应节点首先处理消息，如[1]所述。这包括在绑定授权数据选项的authenticator字段中验证验证器。如果绑定更新或绑定确认消息由于不正确的验证器或任何其他原因而被拒绝，则不会进一步处理该消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, if the validation of the Binding Update or Binding Acknowledgment message succeeds, the mobile or correspondent node reassembles the CGA Parameters data structure from the CGA Parameters options included in the message as described in Section 5.1, and executes the CGA verification algorithm defined in Section 5 of [2]. The CGA verification algorithm takes the to-be-verified CGA and the reassembled CGA Parameters data structure as input. The to-be-verified CGA is the mobile node's home address when the CGA verification algorithm is executed by the correspondent node. When the mobile node executes the CGA verification algorithm, the to-be-verified CGA is the correspondent node's IP address that is visible to protocol layers above IP. This is the correspondent node's home address in case the correspondent node is mobile. The following steps are skipped if the CGA verification fails.",
+      "zh-CHS": "否则，如果绑定更新或绑定确认消息的验证成功，则移动或对应节点根据第5.1节所述的消息中包含的CGA参数选项重新组装CGA参数数据结构，并执行[2]第5节中定义的CGA验证算法。CGA验证算法将待验证的CGA和重新组装的CGA参数数据结构作为输入。待验证CGA是对应节点执行CGA验证算法时移动节点的家庭地址。当移动节点执行CGA验证算法时，要验证的CGA是对应节点的IP地址，对IP之上的协议层可见。如果对应节点是移动的，则这是对应节点的家庭地址。如果CGA验证失败，则跳过以下步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "If the CGA verification succeeds, the mobile or correspondent node performs a more time-consuming check of the signature. It extracts the signature from the Signature field in the Signature option and executes the signature verification algorithm defined in Section 6 of [2]. The signature verification algorithm takes as input the to-be-verified CGA as defined above, the reassembled CGA Parameters data structure, the MH data as defined in Section 4.5, the CGA Message Type tag of Enhanced Route Optimization as defined in Section 7, and the signature itself.",
+      "zh-CHS": "如果CGA验证成功，移动或通信节点将对签名执行更耗时的检查。它从签名选项中的签名字段中提取签名，并执行[2]第6节中定义的签名验证算法。签名验证算法将上述待验证CGA、重新组装的CGA参数数据结构、第4.5节中定义的MH数据、第7节中定义的增强路由优化的CGA消息类型标签以及签名本身作为输入。"
+    },
+    {
+      "indent": 0,
+      "text": "4.7. Sending Permanent Home Keygen Tokens",
+      "section_title": true,
+      "zh-CHS": "4.7. 发送永久Home Keygen令牌"
+    },
+    {
+      "indent": 3,
+      "text": "A correspondent node assigns a mobile node a new permanent home keygen token after it has received from the mobile node a Binding Update message with included CGA Parameters and Signature options, and these options have been successfully validated as described in Section 4.6. The permanent home keygen token is a 64-bit value randomly generated by the correspondent node. The correspondent node stores the permanent home keygen token in the binding cache entry that it maintains for the mobile node.",
+      "zh-CHS": "通信节点在从移动节点接收到包含CGA参数和签名选项的绑定更新消息后，向移动节点分配一个新的永久home keygen令牌，并且这些选项已如第4.6节所述成功验证。永久home keygen令牌是由对应节点随机生成的64位值。对应节点在为移动节点维护的绑定缓存条目中存储永久归属密钥根令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "The correspondent node sends the permanent home keygen token to the mobile node in encrypted form within a Permanent Home Keygen Token option in a Binding Acknowledgment message. It sends this message even if the Acknowledge flag in the corresponding Binding Update message was clear. The correspondent node encrypts the permanent home keygen token with the mobile node's public key using the RSAES-PKCS1-v1_5 format [4], and places the ciphertext into the Permanent Home Keygen Token field of the Permanent Home Keygen Token option.",
+      "zh-CHS": "对应节点在绑定确认消息中的永久归属密钥生成令牌选项内以加密形式向移动节点发送永久归属密钥生成令牌。即使相应绑定更新消息中的确认标志已清除，它也会发送此消息。对应节点使用RSAES-PKCS1-v1_5格式[4]使用移动节点的公钥加密永久归属密钥生成令牌，并将密文放入永久归属密钥生成令牌选项的永久归属密钥生成令牌字段中。"
+    },
+    {
+      "indent": 3,
+      "text": "The Binding Authorization Data option MUST be the last option in the Binding Acknowledgment message. That is, the authenticator in the",
+      "zh-CHS": "绑定授权数据选项必须是绑定确认消息中的最后一个选项。即，中的身份验证器"
+    },
+    {
+      "indent": 3,
+      "text": "Binding Authorization Data option covers the Permanent Home Keygen Token option.",
+      "zh-CHS": "绑定授权数据选项包括永久Home Keygen令牌选项。"
+    },
+    {
+      "indent": 0,
+      "text": "4.8. Receiving Permanent Home Keygen Tokens",
+      "section_title": true,
+      "zh-CHS": "4.8. 接收永久归属密钥生成令牌"
+    },
+    {
+      "indent": 3,
+      "text": "A mobile node that receives a Binding Acknowledgment message first processes the message as described in [1], independent of whether the message includes a Permanent Home Keygen Token option. This includes a verification of the authenticator in the Authenticator field of the Binding Authorization Data option. If the Binding Acknowledgment message is rejected due to an incorrect authenticator or for any other reason, the mobile node does not process the message further.",
+      "zh-CHS": "接收绑定确认消息的移动节点首先按照[1]中所述处理该消息，与该消息是否包括永久归属密钥生成令牌选项无关。这包括在绑定授权数据选项的authenticator字段中验证验证器。如果绑定确认消息由于不正确的验证器或任何其他原因而被拒绝，则移动节点不会进一步处理该消息。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, if the mobile node accepts the Binding Acknowledgment message and the message includes a Permanent Home Keygen Token option, the mobile node extracts the ciphertext from the Permanent Home Keygen Token field in this option and decrypts it with its private key using the RSAES-PKCS1-v1_5 format [4]. The result of the encryption is the permanent home keygen token to be used in further registrations with the correspondent node. The mobile node stores the permanent home keygen token in the Binding Update List entry that it maintains for the correspondent node.",
+      "zh-CHS": "否则，如果移动节点接受绑定确认消息并且该消息包括永久归属密钥生成令牌选项，则移动节点从该选项中的永久归属密钥生成令牌字段提取密文，并使用RSAES-PKCS1-v1_5格式使用其私钥对其解密[4]。加密的结果是永久的home keygen令牌，用于与对应节点的进一步注册。移动节点在为对应节点维护的绑定更新列表条目中存储永久归属密钥根令牌。"
+    },
+    {
+      "indent": 0,
+      "text": "4.9. Renewing Permanent Home Keygen Tokens",
+      "section_title": true,
+      "zh-CHS": "4.9. 续订永久性Home Keygen代币"
+    },
+    {
+      "indent": 3,
+      "text": "A mobile node that shares a permanent home keygen token with a correspondent node MUST NOT use the same sequence number twice with this permanent home keygen token in order to protect against replay attacks. The mobile node MUST renew the permanent home keygen token by including its CGA parameters and signature in a Binding Update message for the correspondent node when a sequence number rollover is imminent. In addition, the mobile node MAY renew its permanent home keygen token at any time. Periodic renewal of the permanent home keygen token provides increased protection against cryptanalysis. Finally, the mobile node may in most cases want to renew the permanent home keygen token when the lifetime of its binding at the correspondent node expires.",
+      "zh-CHS": "与对应节点共享永久home keygen令牌的移动节点不得与该永久home keygen令牌使用相同的序列号两次，以防止重播攻击。当序列号即将翻转时，移动节点必须通过在对应节点的绑定更新消息中包括其CGA参数和签名来更新永久归属密钥根令牌。此外，移动节点可随时更新其永久归属密钥根令牌。定期更新永久home keygen令牌可提供更高的密码分析保护。最后，在大多数情况下，移动节点可能希望在其在对应节点的绑定的生存期到期时续订永久归属密钥根令牌。"
+    },
+    {
+      "indent": 0,
+      "text": "4.10. Handling Payload Packets",
+      "section_title": true,
+      "zh-CHS": "4.10. 处理有效负载数据包"
+    },
+    {
+      "indent": 3,
+      "text": "The immediate exchange of an early Binding Update message after a handoff on the mobile node side enables mobile and correspondent nodes to quickly reestablish route-optimized communications via the mobile node's new care-of address. The mobile node may send payload packets to the correspondent node from the new care-of address as soon as it has dispatched the early Binding Update message. The correspondent node redirects outgoing payload packets for the mobile node to the new care-of address once it has received the early",
+      "zh-CHS": "在移动节点侧的切换之后立即交换早期绑定更新消息使得移动节点和对应节点能够通过移动节点的新转交地址快速地重新建立路由优化的通信。一旦移动节点已经发送了早期绑定更新消息，它就可以从新的转交地址向对应节点发送有效载荷分组。通信节点一旦接收到早期的有效负载，就将移动节点的传出有效负载分组重定向到新的转交地址"
+    },
+    {
+      "indent": 3,
+      "text": "Binding Update message and registered the new care-of address. Here, a \"payload packet\" is defined as a packet that originates at a protocol layer above IP.",
+      "zh-CHS": "绑定更新消息并注册新的转交地址。这里，“有效载荷分组”被定义为起源于IP之上的协议层的分组。"
+    },
+    {
+      "indent": 3,
+      "text": "        Inbound\n     payload packet\n           |\n           |\n           V\n   _________________                           _____________________\n  /                 \\                         |                     |\n /  Care-of address  \\     Yes                |   Increase credit   |\n|         in          |---------------------> |     counter by      |\n \\  VERIFIED state?  /                        | payload packet size |\n  \\_________________/                         |_____________________|\n           |                                             |\n           |                                             |\n           | No                                          |\n           |                                             V\n           |                                   _____________________\n           |                                  |                     |\n           |                                  |   Deliver payload   |\n           +--------------------------------> |   packet to upper-  |\n                                              |    layer protocol   |\n                                              |_____________________|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 16,
+      "text": "Figure 4: Handling outbound payload packets",
+      "zh-CHS": "图4：处理出站有效负载数据包"
+    },
+    {
+      "indent": 3,
+      "text": "A new care-of address that was registered with an early Binding Update message is maintained in UNVERIFIED state by the correspondent node until the correspondent node receives a complete Binding Update message from the mobile node. The correspondent node then sets the care-of address to VERIFIED state. The state of the care-of address determines the maximum amount of data that the correspondent node is allowed to send to the care-of address, as is necessary to prevent amplified, redirection-based flooding attacks. For this purpose, the correspondent node maintains a \"credit counter\" for each mobile node with an entry in its Binding Cache. Whenever a payload packet arrives from a mobile node with a care-of address in VERIFIED state, the correspondent node SHOULD increase the mobile node's credit counter by the size of the received payload packet. The correspondent node MAY be restricted by policy to increase the credit counter by a lower value or not to increase the credit at all. The credit counter does not change when an inbound payload packet is received from a care-of address in UNVERIFIED state. Figure 4 shows a flow chart of this procedure.",
+      "zh-CHS": "在对应节点从移动节点接收到完整的绑定更新消息之前，在早期绑定更新消息中注册的新转交地址由对应节点保持在未验证状态。然后，对应节点将转交地址设置为已验证状态。转交地址的状态决定了允许对应节点发送到转交地址的最大数据量，这是防止放大的、基于重定向的泛洪攻击所必需的。为此，对应节点为每个移动节点维护一个“信用计数器”，其绑定缓存中有一个条目。无论何时，只要来自移动节点的对应有效负载的已验证的分组的care状态的对应有效负载到达，则来自移动节点的已验证的分组的care大小就应该增加。对应节点可能受到策略的限制，以将信用计数器增加较低的值，或者根本不增加信用。当从处于未验证状态的转交地址接收到入站有效负载数据包时，信用计数器不会更改。图4显示了此过程的流程图。"
+    },
+    {
+      "indent": 3,
+      "text": "        Outbound\n     payload packet\n           |\n           |\n           V\n   _________________                           _____________________\n  /                 \\                         |                     |\n /  Care-of address  \\     Yes                |    Send payload     |\n|         in          |---------------------> |      packet to      |\n \\  VERIFIED state?  /                        |   care-of address   |\n  \\_________________/                         |_____________________|\n           |\n           |                                   _____________________\n           | No                               |                     |\n           |                                  |   Discard payload   |\n           |                      +---------> |        packet       |\n           |                      |           |     immediately     |\n           V                      |           |_____________________|\n   _________________              |            _____________________\n  /                 \\             |           |                     |\n /  Credit counter   \\   Yes     / \\          |    Send payload     |\n|  less than payload  |-------> |   |-------> |      packet to      |\n \\   packet size?    /           \\ /          |    home address     |\n  \\_________________/             |           |_____________________|\n           |                      |            _____________________\n           |                      |           |                     |\n           | No                   |           |   Buffer payload    |\n           |                      +---------> |     packet for      |\n           |                                  | later transmission  |\n           |                                  |_____________________|\n           V\n _____________________                         _____________________\n|                     |                       |                     |\n|    Reduce credit    |                       |    Send payload     |\n|     counter by      |---------------------> |      packet to      |\n| payload packet size |                       |   care-of address   |\n|_____________________|                       |_____________________|",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 16,
+      "text": "Figure 5: Handling outbound payload packets",
+      "zh-CHS": "图5：处理出站有效负载数据包"
+    },
+    {
+      "indent": 3,
+      "text": "When the correspondent node has a payload packet to send to the mobile node, further treatment of the payload packet depends on the state of the mobile node's care-of address and the current value of the mobile node's credit counter, as illustrated in Figure 5: The correspondent node MUST send the payload packet to the mobile node's care-of address if the care-of address is in VERIFIED state. If the care-of address is in UNVERIFIED state and the value of the credit counter is higher than or equal to the size of the payload packet,",
+      "zh-CHS": "当对应节点具有要发送给移动节点的有效载荷分组时，有效载荷分组的进一步处理取决于移动节点的转交地址的状态和移动节点的信用计数器的当前值，如图5所示：如果转交地址处于验证状态，对应节点必须将有效负载数据包发送到移动节点的转交地址。如果转交地址处于未验证状态，并且信用计数器的值大于或等于有效负载数据包的大小，"
+    },
+    {
+      "indent": 3,
+      "text": "the correspondent node MUST reduce the mobile node's credit counter by the size of the payload packet and send the payload packet to the care-of address as well. However, if the care-of address is in UNVERIFIED state and the credit counter is less than the size of the payload packet, the payload packet MUST NOT be sent to the mobile node's care-of address. The correspondent node SHOULD then discard the payload packet, although it MAY alternatively buffer the payload packet until the care-of address moves to VERIFIED state, or send the payload packet to the mobile node's home address. The credit counter of the mobile node does not change when the correspondent node sends a payload packet to the mobile node's care-of address while the care-of address is in VERIFIED state.",
+      "zh-CHS": "对应节点必须将移动节点的信用计数器减少有效负载分组的大小，并将有效负载分组发送到转交地址。然而，如果转交地址处于未验证状态并且信用计数器小于有效载荷分组的大小，则不得将有效载荷分组发送到移动节点的转交地址。对应节点随后应丢弃有效载荷分组，尽管其可替代地缓冲有效载荷分组直到转交地址移动到验证状态，或将有效载荷分组发送到移动节点的归属地址。当代理节点在转交地址处于验证状态时向移动节点的转交地址发送有效负载分组时，移动节点的信用计数器不改变。"
+    },
+    {
+      "indent": 3,
+      "text": "The amount of data that the mobile node may send to the correspondent node is never restricted due to the state of the mobile node's care-of address. The care-of address state also does not change the addressing and routing of payload packets in either traffic direction: All payload packets that originate from the mobile node have the care-of address in the Source Address field of the IPv6 header and the home address in the Home Address option of the IPv6 Destination Options extension header. Vice versa, all payload packets from the correspondent node have the care-of address in the Destination Address field of the IPv6 header and the home address in the IPv6 Routing extension header.",
+      "zh-CHS": "由于移动节点的转交地址的状态，移动节点可发送给对应节点的数据量从未受到限制。转交地址状态也不会在任一通信量方向上更改有效负载数据包的寻址和路由：来自移动节点的所有有效负载数据包在IPv6报头的源地址字段中具有转交地址，在IPv6目的地选项扩展报头的归属地址选项中具有归属地址。反之亦然，来自对应节点的所有有效负载数据包在IPv6报头的目的地地址字段中具有转交地址，在IPv6路由扩展报头中具有归属地址。"
+    },
+    {
+      "indent": 0,
+      "text": "4.11. Credit Aging",
+      "section_title": true,
+      "zh-CHS": "4.11. 信用老化"
+    },
+    {
+      "indent": 3,
+      "text": "A correspondent node ensures that all credit counters that it maintains gradually decrease over time. Each credit counter is multiplied with a factor, CreditAgingFactor, of less than one in fixed time intervals of CreditAgingInterval length. Such \"credit aging\" limits the total credit that a mobile node can earn, provided that the replenishing rate for the credit is constant or nearly constant. It thereby enforces an upper bound on the rate at which the correspondent node can durably sent to the mobile node's care-of address while the care-of address is in UNVERIFIED state. In the absence of credit aging, a malicious node with poor up-link capacity could adopt the role of a mobile node, build up credit at a very slow speed and over a long period, and spend this credit during a much shorter period on redirecting a burst of payload packets to the IP address of a victim.",
+      "zh-CHS": "对应节点确保其维护的所有信用计数器随时间逐渐减少。在CreditAgingInterval长度的固定时间间隔内，每个贷记计数器与小于1的系数CreditAgingFactor相乘。这种“信用老化”限制了移动节点可以获得的总信用，前提是信用的补充率是恒定的或接近恒定的。因此，当转交地址处于未验证状态时，它强制执行对应节点可持久地发送到移动节点的转交地址的速率的上限。在没有信用老化的情况下，具有较差上行链路容量的恶意节点可以扮演移动节点的角色，以非常慢的速度和很长的时间积累信用，并在更短的时间内将该信用用于将突发有效负载数据包重定向到受害者的IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Choosing appropriate values for CreditAgingFactor and CreditAgingInterval is important to facilitate applications where the correspondent node sends at a higher rate than the mobile node. If CreditAgingFactor or CreditAgingInterval is too small, the credit counter might persistently prevent the transmission of payload packets to a care-of address in UNVERIFIED state. The values given",
+      "zh-CHS": "为CreditAgingFactor和CreditAgingInterval选择适当的值对于相应节点以比移动节点更高的速率发送的应用程序非常重要。如果CreditAgingFactor或CreditAgingInterval太小，则信用计数器可能会持续阻止将有效负载数据包传输到处于未验证状态的转交地址。给定的值"
+    },
+    {
+      "indent": 3,
+      "text": "in Section 7 are RECOMMENDED as they work well when the correspondent node transfers a file to the mobile node via a TCP connection and the end-to-end round-trip time does not exceed 500 milliseconds.",
+      "zh-CHS": "建议使用第7节中的方法，因为当对应节点通过TCP连接将文件传输到移动节点时，它们工作良好，且端到端往返时间不超过500毫秒。"
+    },
+    {
+      "indent": 0,
+      "text": "4.12. Simultaneous Movements",
+      "section_title": true,
+      "zh-CHS": "4.12. 同时运动"
+    },
+    {
+      "indent": 3,
+      "text": "As specified in [1], Binding Update messages are sent to a mobile correspondent node's home address. This makes it possible for two mobile nodes to continue communications even if both of them change IP connectivity at the same time.",
+      "zh-CHS": "如[1]所述，绑定更新消息被发送到移动通信节点的家庭地址。这使得两个移动节点可以继续通信，即使它们同时更改IP连接。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Option Formats and Status Codes",
+      "section_title": true,
+      "zh-CHS": "5. 选项格式和状态代码"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization uses a set of new mobility options and status codes in addition to the mobility options and status codes defined in [1]. These are described below.",
+      "zh-CHS": "除了[1]中定义的移动选项和状态代码外，增强型路线优化还使用了一组新的移动选项和状态代码。下文对这些问题进行了说明。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. CGA Parameters Option",
+      "section_title": true,
+      "zh-CHS": "5.1. CGA参数选项"
+    },
+    {
+      "indent": 3,
+      "text": "The CGA Parameters option is used in Binding Update and Binding Acknowledgment messages. It contains part of the mobile or correspondent node's CGA parameters. [1] limits mobility header options to a maximum length of 255 bytes, excluding the Option Type and Option Length fields. Since the CGA parameters are likely to exceed this limit, multiple CGA Parameters options may have to be concatenated to carry all CGA parameters.",
+      "zh-CHS": "CGA参数选项用于绑定更新和绑定确认消息。它包含移动或对应节点的部分CGA参数。[1] 将mobility标头选项的最大长度限制为255字节，不包括选项类型和选项长度字段。由于CGA参数可能超过此限制，因此可能必须连接多个CGA参数选项以承载所有CGA参数。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the CGA Parameters option is as follows:",
+      "zh-CHS": "CGA参数选项的格式如下："
+    },
+    {
+      "indent": 5,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                                |  Option Type  | Option Length |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n:                                                               :\n:                          CGA Parameters                       :\n:                                                               :\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit identifier of the type of this mobility option. Its value is 12.",
+      "zh-CHS": "此移动选项类型的8位标识符。它的值是12。"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit unsigned integer representing the length of the CGA Parameters field in octets.",
+      "zh-CHS": "8位无符号整数，以八位字节表示CGA参数字段的长度。"
+    },
+    {
+      "indent": 3,
+      "text": "CGA Parameters",
+      "zh-CHS": "CGA参数"
+    },
+    {
+      "indent": 6,
+      "text": "This field contains up to 255 bytes of the CGA Parameters data structure defined in [2]. The concatenation of all CGA Parameters options in the order they appear in the Binding Update message MUST result in the original CGA Parameters data structure. All CGA Parameters options in the Binding Update message except the last one MUST contain exactly 255 bytes in the CGA Parameters field, and the Option Length field MUST be set to 255 accordingly. All CGA Parameters options MUST appear directly one after another, that is, a mobility option of a different type MUST NOT be placed in between two CGA Parameters options.",
+      "zh-CHS": "此字段最多包含[2]中定义的255字节CGA参数数据结构。所有CGA参数选项按其在绑定更新消息中出现的顺序串联，必须生成原始CGA参数数据结构。绑定更新消息中的所有CGA参数选项（最后一个选项除外）在CGA参数字段中必须正好包含255个字节，并且选项长度字段必须相应地设置为255。所有CGA参数选项必须一个接一个直接显示，即不同类型的移动选项不得放置在两个CGA参数选项之间。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Signature Option",
+      "section_title": true,
+      "zh-CHS": "5.2. 签名选项"
+    },
+    {
+      "indent": 3,
+      "text": "The Signature option is used in Binding and Binding Acknowledgment Update messages. It contains a signature that the mobile or correspondent node generates with its private key over one or more preceding CGA Parameters options.",
+      "zh-CHS": "签名选项用于绑定和绑定确认更新消息。它包含移动或对应节点通过其私钥通过一个或多个前面的CGA参数选项生成的签名。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the Signature option is as follows:",
+      "zh-CHS": "签名选项的格式如下："
+    },
+    {
+      "indent": 5,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                                |  Option Type  | Option Length |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n:                                                               :\n:                            Signature                          :\n:                                                               :\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit identifier of the type of this mobility option. Its value is 13.",
+      "zh-CHS": "此移动选项类型的8位标识符。它的值是13。"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit unsigned integer representing the length of the Signature field in octets.",
+      "zh-CHS": "8位无符号整数，表示签名字段的长度（以八位字节为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "Signature",
+      "zh-CHS": "签名"
+    },
+    {
+      "indent": 6,
+      "text": "This field contains the mobile or correspondent node's signature, generated with the mobile or correspondent node's private key as specified in Section 4.5.",
+      "zh-CHS": "该字段包含移动或对应节点的签名，该签名由第4.5节规定的移动或对应节点的私钥生成。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Permanent Home Keygen Token Option",
+      "section_title": true,
+      "zh-CHS": "5.3. 永久主密钥生成令牌选项"
+    },
+    {
+      "indent": 3,
+      "text": "The Permanent Home Keygen Token option is used in Binding Acknowledgment messages. It contains a permanent home keygen token, which the correspondent node sends to the mobile node after it has received a Binding Update message containing one or more CGA Parameters options directly followed by a Signature option from the mobile node.",
+      "zh-CHS": "永久Home Keygen令牌选项用于绑定确认消息。它包含一个永久的home-keygen令牌，对应节点在接收到一个绑定更新消息后将该令牌发送给移动节点，该消息包含一个或多个CGA参数选项，后跟来自移动节点的签名选项。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the Permanent Home Keygen Token option is as follows:",
+      "zh-CHS": "永久Home Keygen令牌选项的格式如下："
+    },
+    {
+      "indent": 5,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                                |  Option Type  | Option Length |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n:                                                               :\n:                  Permanent Home Keygen Token                  :\n:                                                               :\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit identifier of the type of this mobility option. Its value is 14.",
+      "zh-CHS": "此移动选项类型的8位标识符。它的值是14。"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit unsigned integer representing the length of the Permanent Home Keygen Token field in octets.",
+      "zh-CHS": "8位无符号整数，表示永久Home Keygen令牌字段的长度（以八位字节为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "Permanent Home Keygen Token",
+      "zh-CHS": "永久归属密钥生成令牌"
+    },
+    {
+      "indent": 6,
+      "text": "This field contains the permanent home keygen token generated by the correspondent node. The content of this field MUST be encrypted with the mobile node's public key as defined in Section 4.7. The length of the permanent home keygen token is 8 octets before encryption, though the ciphertext [4] and, hence, the Permanent Home Keygen Token field may be longer.",
+      "zh-CHS": "此字段包含对应节点生成的永久home keygen令牌。此字段的内容必须使用第4.7节中定义的移动节点公钥进行加密。在加密之前，永久归属密钥生成令牌的长度为8个八位字节，尽管密文[4]和永久归属密钥生成令牌字段可能更长。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Care-of Test Init Option",
+      "section_title": true,
+      "zh-CHS": "5.4. 关心测试初始化选项"
+    },
+    {
+      "indent": 3,
+      "text": "The Care-of Test Init option is included in Binding Update messages. It requests a correspondent node to return a Care-of Test option with a fresh care-of keygen token in the Binding Acknowledgment message.",
+      "zh-CHS": "绑定更新消息中包含了careoftestinit选项。它请求对应节点在绑定确认消息中返回一个Care-of-Test选项和一个新的Care-of-keygen令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the Care-of Test Init option is as follows:",
+      "zh-CHS": "Care of Test Init选项的格式如下："
+    },
+    {
+      "indent": 6,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                               |  Option Type  | Option Length |\n                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit identifier of the type of this mobility option. Its value is 15.",
+      "zh-CHS": "此移动选项类型的8位标识符。它的值是15。"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "This field MUST be set to zero.",
+      "zh-CHS": "此字段必须设置为零。"
+    },
+    {
+      "indent": 0,
+      "text": "5.5. Care-of Test Option",
+      "section_title": true,
+      "zh-CHS": "5.5. 照顾测试选项"
+    },
+    {
+      "indent": 3,
+      "text": "The Care-of Test option is used in Binding Acknowledgment messages. It contains a fresh care-of keygen token, which the correspondent node sends to the mobile node after it has received a Care-of Test Init option in a Binding Update message.",
+      "zh-CHS": "Care-of-Test选项用于绑定确认消息。它包含一个新的密钥保管令牌，对应节点在收到绑定更新消息中的保管测试初始化选项后，将该令牌发送给移动节点。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the Care-of Test option is as follows:",
+      "zh-CHS": "护理测试选项的格式如下所示："
+    },
+    {
+      "indent": 5,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                                |  Option Type  | Option Length |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                                                               |\n+                     Care-of Keygen Token                      +\n|                                                               |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit identifier of the type of this mobility option. Its value is 16.",
+      "zh-CHS": "此移动选项类型的8位标识符。它的值是16。"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "This field MUST be set to 8. It represents the length of the Care-of Keygen Token field in octets.",
+      "zh-CHS": "此字段必须设置为8。它表示密钥保管令牌字段的长度（以八位字节为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "Care-of Keygen Token",
+      "zh-CHS": "保管Keygen代币"
+    },
+    {
+      "indent": 6,
+      "text": "This field contains the care-of keygen token generated by the correspondent node, as specified in Section 4.3.",
+      "zh-CHS": "如第4.3节所述，该字段包含对应节点生成的密钥保管令牌。"
+    },
+    {
+      "indent": 0,
+      "text": "5.6. CGA Parameters Request Option",
+      "section_title": true,
+      "zh-CHS": "5.6. CGA参数请求选项"
+    },
+    {
+      "indent": 3,
+      "text": "The CGA Parameters Request option is included in Binding Update messages that are authenticated based on the CGA property of the mobile node's home address. It requests a correspondent node to return its CGA parameters and signature in the Binding Acknowledgment message, enabling the mobile node to verify that the permanent home keygen token returned in the Binding Acknowledgment message was generated by the right correspondent node.",
+      "zh-CHS": "CGA参数请求选项包含在绑定更新消息中，该消息基于移动节点的家庭地址的CGA属性进行身份验证。它请求对应节点在绑定确认消息中返回其CGA参数和签名，从而使移动节点能够验证在绑定确认消息中返回的永久归属密钥根令牌是否由正确的对应节点生成。"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the CGA Parameters Request option is as follows:",
+      "zh-CHS": "CGA参数请求选项的格式如下："
+    },
+    {
+      "indent": 6,
+      "text": "0                   1                   2                   3\n0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n                               |  Option Type  | Option Length |\n                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Option Type",
+      "zh-CHS": "选项类型"
+    },
+    {
+      "indent": 6,
+      "text": "8-bit identifier of the type of this mobility option. Its value is 11.",
+      "zh-CHS": "此移动选项类型的8位标识符。它的值是11。"
+    },
+    {
+      "indent": 3,
+      "text": "Option Length",
+      "zh-CHS": "选项长度"
+    },
+    {
+      "indent": 6,
+      "text": "This field MUST be set to zero.",
+      "zh-CHS": "此字段必须设置为零。"
+    },
+    {
+      "indent": 0,
+      "text": "5.7. Status Codes",
+      "section_title": true,
+      "zh-CHS": "5.7. 状态代码"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization uses the following four new status codes for Binding Acknowledgment messages in addition to the status codes defined in [1]:",
+      "zh-CHS": "除了[1]中定义的状态代码外，增强路由优化还使用以下四个新的状态代码绑定确认消息："
+    },
+    {
+      "indent": 3,
+      "text": "Permanent home keygen token unavailable (147)",
+      "zh-CHS": "永久主密钥生成令牌不可用（147）"
+    },
+    {
+      "indent": 6,
+      "text": "A correspondent node returns a Binding Acknowledgment message with status code 147 to a mobile node if it has received from the mobile node a Binding Update message that was authenticated",
+      "zh-CHS": "对应节点如果已经从移动节点接收到经认证的绑定更新消息，则将状态代码为147的绑定确认消息返回给移动节点"
+    },
+    {
+      "indent": 6,
+      "text": "through the CGA property of the mobile node's home address, but the correspondent node either does not have a Binding Cache entry for the mobile node, or the existing Binding Cache entry for the mobile node does not contain a permanent home keygen token. A Binding Acknowledgment message with status code 147 indicates to the mobile node that it should request a new permanent home keygen token from the correspondent node by sending the correspondent node a Binding Update message including its CGA parameters and signature. This in particular enables the mobile node to quickly recover from state loss at the correspondent node.",
+      "zh-CHS": "通过移动节点的主地址的CGA属性，但对应节点没有移动节点的绑定缓存项，或者移动节点的现有绑定缓存项不包含永久的home keygen令牌。具有状态代码147的绑定确认消息向移动节点指示其应通过向对应节点发送包括其CGA参数和签名的绑定更新消息来从对应节点请求新的永久归属密钥根令牌。这尤其使得移动节点能够从对应节点处的状态丢失中快速恢复。"
+    },
+    {
+      "indent": 6,
+      "text": "[1] does not allow a correspondent node to send a Binding Acknowledgment message with a status code indicating failure when the authenticator of a received Binding Update message turns out to be incorrect. This causes additional handoff latency with high probability because the mobile node can detect the problem only after the expiration of a retransmission timer. The mobile node is furthermore likely to assume packet loss and resend the incorrectly authenticated Binding Update message additional times. A Binding Acknowledgment message with status code 147 helps the mobile node to identify the underlying problem more efficiently when the correspondent node could not verify the CGA property of the mobile node's home address.",
+      "zh-CHS": "[1] 当接收到的绑定更新消息的验证器不正确时，不允许通信节点发送状态代码指示失败的绑定确认消息。这导致高概率的额外切换延迟，因为移动节点只有在重传计时器过期后才能检测到问题。移动节点还可能承担分组丢失，并额外多次重新发送未正确认证的绑定更新消息。当对应节点无法验证移动节点的归属地址的CGA属性时，具有状态代码147的绑定确认消息帮助移动节点更有效地识别潜在问题。"
+    },
+    {
+      "indent": 3,
+      "text": "CGA and signature verification failed (148)",
+      "zh-CHS": "CGA和签名验证失败（148）"
+    },
+    {
+      "indent": 6,
+      "text": "A correspondent node returns a Binding Acknowledgment message with status code 148 to a mobile node if it has received from the mobile node a Binding Update message that includes one or more CGA Parameters options directly followed by a Signature option, but either the CGA property of the home address cannot be verified based on the contents of the CGA Parameters options, or the verification of the signature in the Signature option has failed.",
+      "zh-CHS": "如果对应节点已从移动节点接收到绑定更新消息，则对应节点将状态代码为148的绑定确认消息返回给移动节点，该绑定更新消息包括一个或多个CGA参数选项，该选项直接后跟签名选项，但要么无法根据CGA参数选项的内容验证家庭地址的CGA属性，要么验证签名选项中的签名失败。"
+    },
+    {
+      "indent": 3,
+      "text": "Permanent home keygen token exists (149)",
+      "zh-CHS": "存在永久主密钥生成令牌（149）"
+    },
+    {
+      "indent": 6,
+      "text": "A correspondent node returns a Binding Acknowledgment message with status code 149 to a mobile node if it has received from the mobile node a Binding Update message that was authenticated through verification of the mobile node's reachability at the home address and does not include one or more CGA Parameters options directly followed by a Signature option, but the correspondent node has a permanent home keygen token in its Binding Cache entry for the mobile node. The Binding Update message is processed further if it includes one or more CGA Parameters options directly followed by a Signature option. This enables a mobile node to obtain a new permanent home keygen token from the correspondent node in case it has lost the existing one, for instance, due to a",
+      "zh-CHS": "如果对应节点已经从移动节点接收到绑定更新消息，则对应节点将状态代码为149的绑定确认消息返回给移动节点，该绑定更新消息是通过验证移动节点在归属地址处的可达性来认证的，并且不包括一个或多个CGA参数选项，该选项后面直接跟随着一个CGA参数选项签名选项，但对应节点在其移动节点的绑定缓存项中具有永久home keygen令牌。如果绑定更新消息包含一个或多个CGA参数选项，并直接后跟签名选项，则会进一步处理该消息。这使得移动节点能够从对应节点获得新的永久归属密钥根令牌，以防其丢失现有的令牌，例如，由于通信中断"
+    },
+    {
+      "indent": 6,
+      "text": "reboot. Whether the correspondent node accepts the Binding Update message in this case depends on the verification of the CGA parameters and the signature provided in the Binding Update message.",
+      "zh-CHS": "重新启动。在这种情况下，对应节点是否接受绑定更新消息取决于对CGA参数和绑定更新消息中提供的签名的验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Non-null home nonce index expected (150)",
+      "zh-CHS": "预期的非空主当前索引（150）"
+    },
+    {
+      "indent": 6,
+      "text": "A correspondent node returns a Binding Acknowledgment message with status code 150 to a mobile node if it has received from the mobile node a Binding Update message that includes one or more CGA Parameters options directly followed by a Signature option, but the home nonce index specified in the Nonce Indices option is zero. This behavior ensures that a Binding Update message that is authenticated based on the CGA property of the mobile node's home address must also provide a proof of the mobile node's reachability at the home address.",
+      "zh-CHS": "如果对应节点已经从移动节点接收到绑定更新消息，该绑定更新消息包括一个或多个CGA参数选项直接后跟签名选项，但是在nonce索引选项中指定的主nonce索引为零，则对应节点将状态代码为150的绑定确认消息返回给移动节点。此行为确保基于移动节点的家庭地址的CGA属性进行身份验证的绑定更新消息还必须提供移动节点在家庭地址的可达性证明。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization differs from base Mobile IPv6 in that it applies a set of optimizations for increased handoff performance, stronger security, and reduced signaling overhead. These optimizations entail the following conceptual changes to the security model [5] of base Mobile IPv6:",
+      "zh-CHS": "增强路由优化与基本移动IPv6的不同之处在于，它应用了一组优化来提高切换性能、增强安全性和减少信令开销。这些优化需要对基本移动IPv6的安全模型[5]进行以下概念性更改："
+    },
+    {
+      "indent": 3,
+      "text": "o Base Mobile IPv6 conducts periodic tests of a mobile node's reachability at the home address as a proof of home address ownership. Enhanced Route Optimization applies an initial cryptographic home address ownership proof in combination with a verification of the mobile node's reachability at the home address in order to securely exchange a secret permanent home keygen token. The permanent home keygen token is used for cryptographic authentication of the mobile node during subsequent correspondent registrations, so that these later correspondent registrations can be securely bound to the initial home address ownership proof. No further periodic reachability verification at the home address tests is performed.",
+      "zh-CHS": "o 基本移动IPv6对移动节点在家庭地址的可达性进行定期测试，作为家庭地址所有权的证明。增强路由优化结合验证移动节点在归属地址处的可达性，应用初始加密归属地址所有权证明，以便安全地交换秘密永久归属密钥令牌。永久归属密钥根令牌用于在后续对应注册期间对移动节点进行加密认证，以便这些后续对应注册可以安全地绑定到初始归属地址所有权证明。没有在家庭地址测试中执行进一步的定期可达性验证。"
+    },
+    {
+      "indent": 3,
+      "text": "o Base Mobile IPv6 requires a mobile node to prove its reachability at a new care-of address during a correspondent registration. This implies that the mobile node and the correspondent node must exchange Care-of Test Init and Care-of Test messages before the mobile node can initiate the binding update proper. Enhanced Route Optimization allows the mobile node to initiate the binding update first and follow up with a proof of reachability at the care-of address. Mobile and correspondent nodes can so resume communications early on after a handoff, while reachability verification proceeds concurrently. The amount of data that the",
+      "zh-CHS": "o 基本移动IPv6要求移动节点在对应注册期间证明其在新转交地址的可达性。这意味着移动节点和对应节点必须在移动节点能够启动绑定更新之前交换Care of Test Init和Care of Test消息。增强的路由优化允许移动节点首先启动绑定更新，然后在转交地址处进行可达性证明。因此，移动和通信节点可以在切换后尽早恢复通信，同时进行可达性验证。所需的数据量"
+    },
+    {
+      "indent": 6,
+      "text": "correspondent node is permitted to send to the care-of address until reachability verification completes is governed by Credit-Based Authorization.",
+      "zh-CHS": "通信节点被允许发送到转交地址，直到可达性验证完成为止，由基于信用的授权进行管理。"
+    },
+    {
+      "indent": 3,
+      "text": "o The maximum binding lifetime for correspondent registrations is 7 minutes in base Mobile IPv6. A mobile node must hence periodically refresh a correspondent registration in cases where it does not change IP connectivity for a while. This protocol increases the maximum binding lifetime to 24 hours, reducing the need for periodic refreshes to a negligible degree.",
+      "zh-CHS": "o 在基本移动IPv6中，对应注册的最大绑定生存期为7分钟。因此，移动节点必须在一段时间内不改变IP连接的情况下定期刷新对应注册。此协议将最大绑定生存期增加到24小时，将定期刷新的需要减少到可以忽略的程度。"
+    },
+    {
+      "indent": 3,
+      "text": "The ensuing discussion addresses the implications that these conceptual changes of the Mobile IPv6 security model have. The discussion ought to be seen in context with the security considerations of [1], [2], and [5].",
+      "zh-CHS": "接下来的讨论讨论了移动IPv6安全模型的这些概念性变化所带来的影响。讨论应该结合[1]、[2]和[5]的安全考虑来看待。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Home Address Ownership",
+      "section_title": true,
+      "zh-CHS": "6.1. 居所拥有权"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization requires a mobile node to deliver a strong cryptographic proof [2] that it is the legitimate owner of the home address it wishes to use. The proof is based on the true home address owner's knowledge of the private component in a public/ private-key pair with the following two properties:",
+      "zh-CHS": "增强的路由优化要求移动节点提供强大的密码证明[2]，证明它是它希望使用的家庭地址的合法所有者。证明基于真实家庭地址所有者对具有以下两个属性的公钥/私钥对中的私有组件的了解："
+    },
+    {
+      "indent": 3,
+      "text": "o As an input to an irreversible CGA generation function along with a set of auxiliary CGA parameters, the public key results in the mobile node's home address.",
+      "zh-CHS": "o 作为不可逆CGA生成函数以及一组辅助CGA参数的输入，公钥产生移动节点的家庭地址。"
+    },
+    {
+      "indent": 3,
+      "text": "o Among the CGA parameters that are fed into the CGA generation function is a modifier that, as an input to an irreversible hash extension function along with the public key, results in a string with a certain minimum number of leading zeroes. Three reserved bits in the home address encode this minimum number.",
+      "zh-CHS": "o 在输入CGA生成函数的CGA参数中，有一个修饰符，该修饰符与公钥一起作为不可逆哈希扩展函数的输入，生成一个前导零数最少的字符串。家庭地址中的三个保留位对这个最小数字进行编码。"
+    },
+    {
+      "indent": 3,
+      "text": "The first property cryptographically binds the home address to the mobile node's public key and, by virtue of public-key cryptography, to the private key. It allows the mobile node to claim ownership of the home address by proving its knowledge of the private key. The second property increases the cost of searching in brute-force manner for a public/private-key pair that suffices the first property. This increases the security of a cryptographically generated home address despite its limitation to 59 bits with cryptographic significance. Solely enforcing the first property would otherwise allow an attacker to find a suitable public/private-key pair in O(2^59) steps. By addition of the second property, the complexity of a brute-force search can be increased to O(2^(59+N)) steps, where N is the minimum number of leading zeroes that the result of the hash extension function is required to have.",
+      "zh-CHS": "第一个属性以加密方式将归属地址绑定到移动节点的公钥，并且借助公钥加密，将归属地址绑定到私钥。它允许移动节点通过证明其对私钥的了解来声明归属地址的所有权。第二个属性增加了以暴力方式搜索满足第一个属性的公钥/私钥对的成本。这增加了加密生成的家庭地址的安全性，尽管其限制为具有加密意义的59位。单独强制第一个属性将允许攻击者在O（2^59）步中找到合适的公钥/私钥对。通过添加第二个属性，暴力搜索的复杂度可以增加到O（2^（59+N））个步骤，其中N是哈希扩展函数的结果需要具有的最小前导零数。"
+    },
+    {
+      "indent": 3,
+      "text": "In practice, for a legitimate mobile node to cryptographically generate a home address, the mobile node must first accomplish a brute-force search for a suitable modifier, and then use this modifier to execute the CGA generation function. An attacker who is willing to spoof the mobile node's home address, so-called \"IP address stealing\" [5], then has two options: It could either generate its own public/private-key pair and perform a brute-force search for a modifier which, in combination with the generated public key, suffices the initially described two properties; or it could integer-factor the mobile node's public key, deduce the corresponding private key, and copy the mobile node's modifier without a brute-force search. The cost of the attack can be determined by the mobile node in either case: Integer-factoring a public key becomes increasingly complex as the length of the public key grows, and the key length is at the discretion of the mobile node. The cost of a brute-force search for a suitable modifier increases with the number of leading zeroes that the result of the hash extension function is required to have. This number, too, is a parameter that the mobile node can choose. Downgrading attacks, where the attacker reduces the cost of spoofing a cryptographically generated home address by choosing a set of CGA parameters that are less secure than the CGA parameters the mobile node has used to generate the home address, are hence impossible.",
+      "zh-CHS": "实际上，对于合法的移动节点，要以加密方式生成家庭地址，移动节点必须首先完成对合适修改器的蛮力搜索，然后使用该修改器执行CGA生成功能。攻击者如果愿意欺骗移动节点的家庭地址，即所谓的“IP地址窃取”[5]，则有两种选择：它可以生成自己的公钥/私钥对，并对修改器执行暴力搜索，该修改器与生成的公钥结合，满足最初描述的两个属性；或者，它可以整数因子移动节点的公钥，推导出相应的私钥，并复制移动节点的修改器，而无需强制搜索。在任何一种情况下，攻击的代价都可以由移动节点确定：公钥的整数分解随着公钥长度的增长变得越来越复杂，密钥长度由移动节点决定。强制搜索合适修饰符的成本随着哈希扩展函数的结果所需的前导零数的增加而增加。这个数字也是移动节点可以选择的参数。降级攻击，即攻击者通过选择一组比移动节点用于生成家庭地址的CGA参数更不安全的CGA参数来降低欺骗加密生成的家庭地址的成本，因此是不可能的。"
+    },
+    {
+      "indent": 3,
+      "text": "The CGA specification [2] requires the use of RSA public and private keys, and it stipulates a minimum key length of 384 bits. This requirement that was tailored to Secure Neighbor Discovery for IPv6 [13], the original CGA application. Enhanced Route Optimization does not increase the minimum key length because, in the absence of downgrading attacks as explained before, the ability to use short keys does not compromise the security of home addresses that were cryptographically generated using longer keys. Moreover, extensions to [2] may eventually permit the use of public/private-key classes other than RSA. Such extensions are compatible with the CGA application of Enhanced Route Optimization. Care must be taken in selecting an appropriate key class and length, however. Home addresses are typically rather stable in nature, so the chosen parameters must be secure for a potentially long home address lifetime. Where RSA keys are used, a minimum key length of 1024 bits is therefore RECOMMENDED.",
+      "zh-CHS": "CGA规范[2]要求使用RSA公钥和私钥，并规定最小密钥长度为384位。这一要求是为IPv6[13]的安全邻居发现而定制的，IPv6[13]是最初的CGA应用程序。增强路由优化不会增加最小密钥长度，因为在没有如前所述的降级攻击的情况下，使用短密钥的能力不会损害使用较长密钥加密生成的家庭地址的安全性。此外，对[2]的扩展可能最终允许使用RSA以外的公钥/私钥类。此类扩展与增强路由优化的CGA应用程序兼容。但是，在选择适当的键类别和长度时必须小心。家庭地址在本质上通常相当稳定，因此所选参数必须在潜在的较长家庭地址生存期内是安全的。如果使用RSA密钥，则建议最小密钥长度为1024位。"
+    },
+    {
+      "indent": 3,
+      "text": "While the CGA generation function cryptographically ties the interface identifier of a home address to the subnet prefix of the home address, the function accepts any subnet prefix and hence does not prevent a node from cryptographically generating a home address with a spoofed subnet prefix. As a consequence, the CGA property of a home address does not guarantee the owner's reachability at the home address. This could be misused for a \"return-to-home flooding",
+      "zh-CHS": "虽然CGA生成函数以加密方式将家庭地址的接口标识符与家庭地址的子网前缀绑定，但该函数接受任何子网前缀，因此不会阻止节点以加密方式生成具有伪造子网前缀的家庭地址。因此，家庭地址的CGA属性不能保证所有者在家庭地址的可达性。这可能被误用为“返乡洪水”"
+    },
+    {
+      "indent": 3,
+      "text": "attack\" [5], where the attacker uses its own public key to cryptographically generate a home address with a subnet prefix from a victim network, requests a correspondent node to bind this to the attacker's current care-of address, initiates the download of a large file via the care-of address, and finally deregisters the binding or lets it expire. The correspondent node would then redirect the packets being downloaded to the victim network identified by the subnet prefix of the attacker's spoofed home address. The protocol defined in this document performs a reachability test for the home address at the time the home address is first registered with the correspondent node. This precludes return-to-home flooding.",
+      "zh-CHS": "攻击“[5]，攻击者使用自己的公钥从受害网络以加密方式生成带有子网前缀的主地址，请求对应节点将其绑定到攻击者的当前转交地址，通过转交地址启动大文件的下载，最后取消注册绑定或使其过期pondent节点随后将下载的数据包重定向到攻击者伪造的家庭地址的子网前缀标识的受害网络。本文档中定义的协议在家庭地址首次注册到对应节点时对家庭地址执行可达性测试。这阻止了返回ho我被洪水淹没了。"
+    },
+    {
+      "indent": 3,
+      "text": "The verification of the CGA property of a mobile node's home address involves asymmetric public-key cryptography, which is relatively complex compared to symmetric cryptography. Enhanced Route Optimization mitigates this disadvantage through the use of symmetric cryptography after an initial public-key-based verification of the mobile node's home address has been performed. Specifically, the correspondent node assigns the mobile node a permanent home keygen token during the initial correspondent registration based on which the mobile node can authenticate to the correspondent node during subsequent correspondent registrations. Such authentication enables the correspondent node to bind a subsequent correspondent registration back to the initial public-key-based verification of the mobile node's home address. The permanent home keygen token is never sent in plain text; it is encrypted with the mobile node's public key when initially assigned, and irreversibly hashed during subsequent correspondent registrations.",
+      "zh-CHS": "移动节点家庭地址的CGA属性的验证涉及非对称公钥加密，这与对称加密相比相对复杂。增强的路由优化通过在对移动节点的归属地址执行了初始的基于公钥的验证之后使用对称加密来缓解这一缺点。具体地，对应节点在初始对应注册期间向移动节点分配永久归属密钥根令牌，移动节点可以基于该令牌在后续对应注册期间向对应节点进行认证。这种认证使得对应节点能够将随后的对应注册绑定回移动节点的家庭地址的初始基于公钥的验证。永久home keygen令牌从不以纯文本形式发送；它在最初分配时使用移动节点的公钥进行加密，并在随后的相应注册过程中进行不可逆的散列。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Care-of Address Ownership",
+      "section_title": true,
+      "zh-CHS": "6.2. 转交地址所有权"
+    },
+    {
+      "indent": 3,
+      "text": "A secure proof of home address ownership can mitigate the threat of IP address stealing, but an attacker may still bind a correct home address to a false care-of address and thereby trick a correspondent node into redirecting packets, which would otherwise be delivered to the attacker itself, to a third party. Neglecting to verify a mobile node's reachability at its claimed care-of address could therefore cause one or multiple correspondent nodes to unknowingly contribute to a redirection-based flooding attack against a victim chosen by the attacker.",
+      "zh-CHS": "家庭地址所有权的安全证明可以减轻IP地址盗窃的威胁，但攻击者仍可能将正确的家庭地址绑定到错误的转交地址，从而诱使通信节点将数据包重定向到第三方，否则这些数据包将被发送给攻击者自己。因此，忽略验证移动节点在其声称的转交地址处的可达性可能会导致一个或多个对应节点在不知不觉中参与针对攻击者选择的受害者的基于重定向的泛洪攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Redirection-based flooding attacks may target a single node, a link, or a router or other critical network device upstream of an entire network. Accordingly, the attacker's spoofed care-of address may be the IP address of a node, a random IP address from a subnet prefix of a particular link, or the IP address of a router or other network device. An attack against a network potentially impacts a larger number of nodes than an attack against a specific node, although",
+      "zh-CHS": "基于重定向的泛洪攻击可能以单个节点、链路、路由器或整个网络上游的其他关键网络设备为目标。因此，攻击者伪造的转交地址可能是节点的IP地址、来自特定链路的子网前缀的随机IP地址或路由器或其他网络设备的IP地址。与针对特定节点的攻击相比，针对网络的攻击可能会影响更多的节点，尽管"
+    },
+    {
+      "indent": 3,
+      "text": "neighbors of a victim node on a broadcast link typically suffer the same damage as the victim itself.",
+      "zh-CHS": "广播链路上受害节点的邻居通常会遭受与受害节点自身相同的损害。"
+    },
+    {
+      "indent": 3,
+      "text": "Requiring mobile nodes to cryptographically generate care-of addresses in the same way as they generate home addresses would mitigate the threat of redirection-based flooding only marginally. While it would prevent an attacker from registering as its care-of address the IP address of a specific victim node, the attacker could still generate a different CGA-based care-of address with the same subnet prefix as that of the victim's IP address. Flooding packets redirected towards this care-of address would then not have to be received and processed by any specific node, but they would impact an entire link or network and thus cause comparable damage. CGA-based care-of addresses therefore have little effectiveness with respect to flooding protection. On the other hand, they would require a computationally expensive, public-key-based ownership proof whenever the care-of address changes. For these reasons, Enhanced Route Optimization uses regular IPv6 care-of addresses.",
+      "zh-CHS": "要求移动节点以与生成家庭地址相同的方式以加密方式生成转交地址，只能略微缓解基于重定向的泛洪威胁。虽然它可以防止攻击者将特定受害者节点的IP地址注册为其转交地址，但攻击者仍然可以生成与受害者IP地址具有相同子网前缀的不同基于CGA的转交地址。重定向到此转交地址的泛洪数据包将不必由任何特定节点接收和处理，但它们将影响整个链路或网络，从而造成类似的损害。因此，基于CGA的转交地址在洪水保护方面几乎没有效果。另一方面，只要转交地址发生变化，它们就需要一个计算代价高昂、基于公钥的所有权证明。出于这些原因，增强路由优化使用常规IPv6托管地址。"
+    },
+    {
+      "indent": 3,
+      "text": "A common misconception is that a strong proof of home address ownership would mitigate the threat of redirection-based flooding and consequently eliminate the need to verify a mobile node's reachability at a new care-of address. This notion may originate from the specification of a base Mobile IPv6 home registration in [1], which calls for the authentication of a mobile node based on an IPsec security association, but does not require this to be supplemented by a verification of the mobile node's reachability at the care-of address. However, the reason not to mandate reachability verification for a home registration is in this case the existence of an administrative relationship between the home agent and the mobile node, rather than the fact that the home agent can securely verify the mobile node's home address ownership, or that the home registration is IPsec-protected. The administrative relationship with the mobile node allows the home agent, first, to trust in the correctness of a mobile node's care-of address and, second, to quickly identify the mobile node should it still start behaving maliciously, for example, due to infection by malware. Section 15.3 in [1] and Section 1.3.2 in [5] explain these prerequisites.",
+      "zh-CHS": "一个常见的误解是，家庭地址所有权的有力证明将减轻基于重定向的洪泛的威胁，从而消除验证移动节点在新转交地址的可达性的需要。该概念可能源于[1]中的基本移动IPv6家庭注册规范，该规范要求基于IPsec安全关联对移动节点进行身份验证，但不要求通过验证移动节点在托管地址的可达性来补充。然而，在这种情况下，不强制进行归属注册的可达性验证的原因是归属代理和移动节点之间存在管理关系，而不是归属代理可以安全地验证移动节点的归属地址所有权，或者归属注册受IPsec保护。与移动节点的管理关系允许归属代理首先信任移动节点的转交地址的正确性，其次，如果移动节点仍然开始恶意行为（例如，由于受到恶意软件的感染），则可以快速识别移动节点。[1]中的第15.3节和[5]中的第1.3.2节解释了这些先决条件。"
+    },
+    {
+      "indent": 3,
+      "text": "Assuming trust, an administrative relationship between the mobile node and its home agent is viable, given that the home agent is an integral part of the mobility services that a mobile user typically subscribes to, sets up her- or himself, or receives based on a business relationship. A Mobile IPv6 extension [14] that leverages a shared authentication key, preconfigured on the mobile node and the correspondent node, preassumes the same relationship between the mobile node and a correspondent node. While this assumption limits the applicability of the protocol (Section 2 of [14] acknowledges",
+      "zh-CHS": "假设信任，移动节点与其归属代理之间的管理关系是可行的，因为归属代理是移动用户通常基于业务关系订阅、设置她或他自己或接收的移动服务的组成部分。移动IPv6扩展[14]利用在移动节点和对应节点上预先配置的共享身份验证密钥，在移动节点和对应节点之间预先假定相同的关系。虽然这一假设限制了协议的适用性（见[14]第2节）"
+    },
+    {
+      "indent": 3,
+      "text": "this), it permits omission of care-of address reachability verification as in the case of the home registration. Enhanced Router Optimization does not make assumptions on the relationship between mobile and correspondent nodes. This renders the protocol applicable to arbitrary scenarios, but necessitates that correspondent nodes must verify a mobile node's reachability at every new care-of address.",
+      "zh-CHS": "这），它允许省略转交地址可达性验证，如在家庭登记的情况下。增强的路由器优化不会对移动节点和对应节点之间的关系进行假设。这使得协议适用于任意场景，但相应节点必须在每个新的转交地址验证移动节点的可达性。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. Credit-Based Authorization",
+      "section_title": true,
+      "zh-CHS": "6.3. 基于信用的授权"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization enables mobile and correspondent nodes to resume bidirectional communications after a handoff on the mobile-node side before the mobile node's reachability at the new care-of address has been verified by the correspondent node. Such concurrency would in the absence of appropriate protection reintroduce the threat of redirection-based flooding, which reachability verification was originally designed to eliminate: Given that the correspondent node is in general unaware of the round-trip time to the mobile node, and since reachability verification may fail due to packet loss, the correspondent node must accept a sufficiently long concurrency period for reachability verification to complete. An attacker could misuse this to temporarily trick the correspondent node into redirecting packets to the IP address of a victim. The attacker may also successively postpone reachability verification in that it registers with the correspondent node anew, possibly with a different spoofed care-of address, shortly before the correspondent node's maximum permitted concurrency period elapses and the correspondent node switches to waiting for the completion of reachability verification without sending further packets. This behavior cannot necessarily be considered malicious on the correspondent node side since even a legitimate mobile node's reachability may fail to become verified before the mobile node's care-of address changes again. This may be due to high mobility on the mobile node side, or to persistent packet loss on the path between the mobile node and the correspondent node. It is generally non-trivial to decide on the correspondent node side whether the party at the other end behaves legitimately under adverse conditions or maliciously.",
+      "zh-CHS": "增强的路由优化使得移动节点和对应节点能够在移动节点侧的切换之后，在对应节点验证移动节点在新转交地址处的可达性之前恢复双向通信。在缺乏适当保护的情况下，这种并发将重新引入基于重定向的泛洪威胁，可达性验证最初旨在消除这种威胁：考虑到通信节点通常不知道到移动节点的往返时间，由于可达性验证可能会由于数据包丢失而失败，相应的节点必须接受足够长的并发时间才能完成可达性验证。攻击者可能会滥用此功能，临时诱使通信节点将数据包重定向到受害者的IP地址。攻击者还可以连续推迟可达性验证，因为它可能使用不同的伪造转交地址重新向对应节点注册，在对应节点的最大允许并发时间过去之前不久，对应节点切换到等待可达性验证完成，而不发送进一步的数据包。这种行为在对应节点端不一定是恶意的，因为在移动节点的转交地址再次更改之前，即使是合法的移动节点的可达性也可能无法得到验证。这可能是由于移动节点侧的高移动性，或者由于移动节点和对应节点之间的路径上的持续分组丢失。通常情况下，在对应节点端决定另一端的一方在不利条件下的行为是合法的还是恶意的是非常重要的。"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization eliminates the threat of redirection-based flooding despite concurrent reachability verification through the use of Credit-Based Authorization. Credit-Based Authorization manages the effort that a correspondent node expends in sending payload packets to a care-of address in UNVERIFIED state. This is accomplished based on the following three hypotheses:",
+      "zh-CHS": "增强的路由优化消除了基于重定向的泛洪威胁，尽管通过使用基于信用的授权进行并发可达性验证。基于信用的授权管理通信节点在未验证状态下向转交地址发送有效负载数据包所花费的工作。这是基于以下三个假设完成的："
+    },
+    {
+      "indent": 3,
+      "text": "1. A flooding attacker typically seeks to shift the burden of assembling and sending flooding packets to a third party. Bandwidth is an ample resource for many attractive victims, so the effort for sending the high rate of flooding packets required to impair the victim's ability to communicate may exceed the attacker's own capacities.",
+      "zh-CHS": "1. 泛洪攻击者通常试图将组装和发送泛洪数据包的负担转移给第三方。对于许多有吸引力的受害者来说，带宽是一个充足的资源，因此，发送高速率的洪泛数据包以削弱受害者的通信能力可能会超过攻击者自身的能力。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The attacker can always flood a victim directly by generating bogus packets itself and sending those to the victim. Such an attack is not amplified, so the attacker must be provisioned enough to generate a packet flood sufficient to bring the victim down.",
+      "zh-CHS": "2. 攻击者总是可以通过自身生成虚假数据包并将这些数据包发送给受害者来直接淹没受害者。这样的攻击不会被放大，因此必须为攻击者提供足够的资源，以产生足以击倒受害者的数据包洪水。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Consequently, the additional effort required to set up and coordinate a redirection-based flooding attack pays off for the attacker only if the correspondent node can be tricked into contributing to and amplifying the attack.",
+      "zh-CHS": "3. 因此，设置和协调基于重定向的泛洪攻击所需的额外努力只有在通信节点被诱骗参与并放大攻击时，才能为攻击者带来回报。"
+    },
+    {
+      "indent": 3,
+      "text": "Non-amplified redirection-based flooding is hence, from an attacker's perspective, no more attractive than pure direct flooding, where the attacker itself sends bogus packets to the victim. It is actually less attractive given that the attacker needs to maintain a context for mobility management in order to coordinate the redirection. On this basis, Credit-Based Authorization extinguishes the motivation for redirection-based flooding by preventing the amplification that could be reached through it, rather than eliminating malicious packet redirection in the first place. The ability to send unrequested packets is an inherent property of packet-oriented networks, and direct flooding is a threat that results from this. Since direct flooding exists with and without mobility support, it constitutes a reasonable measure in comparing the security provided by Enhanced Route Optimization to the security of the non-mobile Internet. Through the use of Credit-Based Authorization, Enhanced Route Optimization satisfies the objective to provide a security level comparable to that of the non-mobile Internet.",
+      "zh-CHS": "因此，从攻击者的角度来看，基于非放大重定向的泛洪并不比纯粹的直接泛洪更具吸引力，即攻击者自己向受害者发送虚假数据包。考虑到攻击者需要维护移动管理的上下文以协调重定向，因此它实际上没有那么吸引人。在此基础上，基于信用的授权通过防止可能通过它达到的放大而不是首先消除恶意数据包重定向，从而消除基于重定向的泛洪动机。发送未请求的数据包的能力是面向数据包的网络的固有特性，直接泛洪是由此产生的威胁。由于直接泛洪存在于有和无移动性支持的情况下，因此将增强路由优化提供的安全性与非移动互联网的安全性进行比较是一种合理的措施。通过使用基于信用的授权，增强的路由优化满足了提供与非移动互联网相当的安全级别的目标。"
+    },
+    {
+      "indent": 3,
+      "text": "Since the perpetrator of a redirection-based flooding attack would take on the role of a mobile node, Credit-Based Authorization must be enforced on the correspondent node side. The correspondent node continuously monitors the effort that the mobile node spends in communicating with the correspondent node. The mobile node's effort is then taken as a limit on the effort that the correspondent node may spend in sending payload packets when the mobile node's care-of address is in UNVERIFIED state. The permission for the correspondent node to send a limited amount of payload packets to a care-of address in UNVERIFIED state enables immediate resumption of bidirectional communications once the mobile node has registered a new IP address with the correspondent node after a handoff.",
+      "zh-CHS": "由于基于重定向的泛洪攻击的实施者将扮演移动节点的角色，因此必须在相应的节点端实施基于信用的授权。对应节点持续监视移动节点在与对应节点通信时花费的精力。然后，当移动节点的转交地址处于未验证状态时，移动节点的努力被视为对应节点在发送有效负载分组时可能花费的努力的限制。一旦移动节点在切换后向对应节点注册了新IP地址，对应节点在未验证状态下向转交地址发送有限数量的有效载荷分组的许可使得能够立即恢复双向通信。"
+    },
+    {
+      "indent": 3,
+      "text": "If what appears to be a mobile node is in fact an attacker who tricks the correspondent node into redirecting payload packets to the IP address of a victim, Credit-Based Authorization ensures that the stream of flooding packets ceases before the effort that the correspondent node spends on generating the stream exceeds the effort that the attacker has recently spent itself. The flooding attack is therefore at most as effective as a direct flooding attack, and consequently fails to produce any amplification.",
+      "zh-CHS": "如果看似移动节点的实际上是一名攻击者，他欺骗通信节点将有效负载数据包重定向到受害者的IP地址，基于信用的授权可确保泛洪数据包流在对应节点生成数据流所花费的精力超过攻击者最近花费的精力之前停止。因此，泛洪攻击最多与直接泛洪攻击一样有效，因此无法产生任何放大效果。"
+    },
+    {
+      "indent": 3,
+      "text": "Another property of Credit-Based Authorization is that it does not assign a mobile node credit while its care-of addresses is in UNVERIFIED state. This deserves justification since it would technically be feasible to assign credit independent of the state of the mobile node's care-of address. However, the assignment of credit for packets received from a care-of address in UNVERIFIED state would introduce a vulnerability to sustained reflection attacks. Specifically, an attacker could cause a correspondent node to redirect packets for the attacker to the IP address of a victim, and sustain the packet flow towards the victim in that it continuously replenishes its credit by sending packets to the correspondent node. Although such a redirection-based reflection attack would fail to produce any amplification, it may still be appealing to an attacker who wishes to pursue an initial transport protocol handshake with the correspondent node -- which typically requires the attacker to receive some unguessable data -- and redirect the download to the victim's IP address afterwards. Credit-Based Authorization ensures that the attacker in this case cannot acquire additional credit once the download has been redirected, and thereby forces the attack to end quickly.",
+      "zh-CHS": "基于信用的授权的另一个特性是，当其转交地址处于未验证状态时，它不会分配移动节点信用。这值得证明，因为独立于移动节点的转交地址的状态分配信用在技术上是可行的。然而，在未验证状态下为从转交地址接收的数据包分配信用将引入持续反射攻击的漏洞。具体地说，攻击者可以使对应节点将攻击者的数据包重定向到受害者的IP地址，并维持向受害者的数据包流，因为它通过向对应节点发送数据包来不断补充其信用。尽管这种基于重定向的反射攻击无法产生任何放大效果，它可能仍然吸引希望与对应节点进行初始传输协议握手的攻击者，这通常要求攻击者接收一些不可用的数据，然后将下载重定向到受害者的IP地址。基于信用的授权可确保在这种情况下，一旦下载被重定向，攻击者就无法获得额外信用，从而迫使攻击迅速结束。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4. Time Shifting Attacks",
+      "section_title": true,
+      "zh-CHS": "6.4. 时移攻击"
+    },
+    {
+      "indent": 3,
+      "text": "Base Mobile IPv6 limits the lifetime of a correspondent registration to 7 minutes and so arranges that a mobile node's reachability at its home and care-of addresses is reverified periodically. This ensures that the return routability procedure's vulnerability to eavesdropping cannot be exploited by an attacker that is only temporarily on the path between the correspondent node and the spoofed home or care-of address. Such \"time shifting attacks\" [5] could otherwise be misused for off-path IP address stealing, return-to-home flooding, or flooding against care-of addresses.",
+      "zh-CHS": "基本移动IPv6将对应注册的生存期限制为7分钟，因此安排移动节点在其家中的可访问性和转交地址定期重新验证。这可确保仅临时位于通信节点和伪造的home或care-of地址之间的路径上的攻击者无法利用return routability过程的窃听漏洞。这种“时移攻击”[5]可能会被误用为非路径IP地址窃取、返回家庭洪水泛滥或针对托管地址的洪水泛滥。"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization repeats neither the initial home address test nor any care-of address test in order to decrease handoff delays and signaling overhead. This does not limit the protocol's robustness to IP address stealing attacks because the required CGA-based ownership proof for home addresses already eliminates such attacks. Reachability verification does not add further protection in this regard. On the other hand, the restriction to an initial reachability verification facilitates time-shifted, off-path flooding attacks -- either against home addresses with incorrect prefixes or against spoofed care-of addresses -- if the perpetrator can interpose in the exchange before it moves to a different location.",
+      "zh-CHS": "增强路由优化既不重复初始归属地址测试，也不重复任何转交地址测试，以减少切换延迟和信令开销。这并不限制协议对IP地址窃取攻击的鲁棒性，因为所需的基于CGA的家庭地址所有权证明已经消除了此类攻击。可达性验证并没有在这方面增加进一步的保护。另一方面，对初始可达性验证的限制有助于时移、非路径洪泛攻击——要么针对前缀不正确的家庭地址，要么针对伪造的转交地址——如果攻击者可以在交换移动到其他位置之前介入交换。"
+    },
+    {
+      "indent": 3,
+      "text": "The design choice against repeated home and care-of address tests was made based on the observation that time shifting attacks are already an existing threat in the non-mobile Internet of today. Specifically, an attacker can temporarily move onto the path between a victim and a correspondent node, request a stream of packets from the correspondent node on behalf of the victim, and then move to a different location. Most transport protocols do not verify an initiator's reachability at the claimed IP address after an initial verification during connection establishment. It enables an attacker to participate only in connection establishment and then move to an off-path position, from where it can spoof acknowledgments to feign continued presence at the victim's IP address. The threat of time shifting hence already applies to the non-mobile Internet.",
+      "zh-CHS": "针对重复的家庭和照顾地址测试的设计选择是基于观察到的时间转移攻击已经是当今非移动互联网中存在的威胁。具体而言，攻击者可以临时移动到受害者和对应节点之间的路径上，代表受害者从对应节点请求数据包流，然后移动到其他位置。在连接建立期间进行初始验证之后，大多数传输协议不会验证启动器在声明的IP地址的可达性。它使攻击者能够仅参与建立连接，然后移动到非路径位置，从该位置可以伪造确认，以假装继续存在于受害者的IP地址。因此，时间转移的威胁已经适用于非移动互联网。"
+    },
+    {
+      "indent": 3,
+      "text": "It should still be acknowledged that the time at which Enhanced Route Optimization verifies a mobile node's reachability at a home or care-of address may well antecede the establishment of any transport layer connection. This gives an attacker more time to move away from the path between the correspondent node and the victim and so makes a time shifting attack more practicable. If the lack of periodic reachability verification is considered too risky, a correspondent node may enforce reruns of home or care-of address tests by limiting the registration lifetime, or by sending Binding Refresh Request messages to a mobile node.",
+      "zh-CHS": "仍然应当承认，增强路由优化验证移动节点在家庭或照顾地址的可达性的时间可能早于任何传输层连接的建立。这使攻击者有更多的时间离开对应节点和受害者之间的路径，从而使时移攻击更加可行。如果缺乏定期可达性验证被认为风险太大，则对应节点可通过限制注册生存期或通过向移动节点发送绑定刷新请求消息来强制重新运行归属或转交地址测试。"
+    },
+    {
+      "indent": 0,
+      "text": "6.5. Replay Attacks",
+      "section_title": true,
+      "zh-CHS": "6.5. 攻击回放"
+    },
+    {
+      "indent": 3,
+      "text": "The protocol specified in this document relies on 16-bit base Mobile IPv6 sequence numbers and periodic rekeying to avoid replay attacks. Rekeying allows mobile and correspondent nodes to reuse sequence numbers without exposing themselves to replay attacks. It must be pursued at least once every 24 hours due to the maximum permitted binding lifetime for correspondent registrations. Mobile and correspondent nodes also rekey whenever a rollover in sequence number space becomes imminent. This is unlikely to happen frequently, however, given that available sequence numbers are sufficient for up to 32768 correspondent registrations, each consisting of an early and a complete Binding Update message. The sequence number space thus permits an average rate of 22 correspondent registrations per minute without exposing a need to rekey throughout the 24-hour binding lifetime.",
+      "zh-CHS": "本文档中指定的协议依赖于16位基本移动IPv6序列号和定期密钥更新，以避免重播攻击。密钥更新允许移动节点和对应节点重复使用序列号，而不会暴露于重播攻击。由于对应注册的最大允许绑定寿命，必须至少每24小时执行一次。当序列号空间即将发生翻滚时，移动节点和对应节点也会重新设置密钥。然而，这不太可能经常发生，因为可用的序列号足以进行多达32768个对应注册，每个注册包含一个早期和完整的绑定更新消息。因此，序列号空间允许每分钟22个对应注册的平均速率，而无需在整个24小时绑定生命周期内重新注册。"
+    },
+    {
+      "indent": 0,
+      "text": "6.6. Resource Exhaustion",
+      "section_title": true,
+      "zh-CHS": "6.6. 资源耗竭"
+    },
+    {
+      "indent": 3,
+      "text": "While a CGA-based home address ownership proof provides protection against unauthenticated Binding Update messages, it can expose a correspondent node to denial-of-service attacks since it requires computationally expensive public-key cryptography. Enhanced Route Optimization limits the use of public-key cryptography to only the first correspondent registration and if/when rekeying is needed. It is RECOMMENDED that correspondent nodes in addition track the amount of processing resources they spend on CGA-based home address ownership verification, and that they reject new correspondent registrations that involve public-key cryptography when these resources exceed a predefined limit. [2] discusses the feasibility of CGA-based resource exhaustion attacks in depth.",
+      "zh-CHS": "虽然基于CGA的家庭地址所有权证明提供了针对未经身份验证的绑定更新消息的保护，但它可能使对应节点遭受拒绝服务攻击，因为它需要计算成本高昂的公钥加密。增强的路由优化将公钥密码的使用限制为仅在第一次对应注册以及需要重新键入密钥时使用。此外，建议通信节点跟踪它们在基于CGA的家庭地址所有权验证上花费的处理资源量，并且当这些资源超过预定义限制时，它们拒绝涉及公钥加密的新通信注册。[2] 深入讨论了基于CGA的资源耗尽攻击的可行性。"
+    },
+    {
+      "indent": 0,
+      "text": "6.7. IP Address Ownership of Correspondent Node",
+      "section_title": true,
+      "zh-CHS": "6.7. 对应节点的IP地址所有权"
+    },
+    {
+      "indent": 3,
+      "text": "Enhanced Route Optimization enables mobile nodes to authenticate a received Binding Acknowledgment message based on a CGA property of the correspondent node's IP address, provided that the correspondent node has a CGA. The mobile node requests this authentication by including a CGA Parameters Request option in the Binding Update message that it sends to the correspondent node, and the correspondent node responds by adding its CGA parameters and signature to the Binding Acknowledgment message within CGA Parameters and Signature options. Proving ownership of the correspondent node's IP address protects the mobile node from accepting a spoofed Binding Acknowledgment message and from storing the included permanent home keygen token for use during future correspondent registrations. Such an attack would result in denial of service against the mobile node because it would prevent the mobile node from transacting any binding",
+      "zh-CHS": "增强的路由优化使移动节点能够基于对应节点的IP地址的CGA属性对接收到的绑定确认消息进行身份验证，前提是对应节点具有CGA。移动节点通过在其发送给对应节点的绑定更新消息中包括CGA参数请求选项来请求该认证，并且对应节点通过将其CGA参数和签名添加到CGA参数和签名选项中的绑定确认消息来响应。证明对应节点的IP地址的所有权可以保护移动节点不接受伪造的绑定确认消息，并且不存储所包括的永久归属密钥根令牌以供将来的对应注册期间使用。这种攻击会导致移动节点拒绝服务，因为它会阻止移动节点处理任何绑定"
+    },
+    {
+      "indent": 3,
+      "text": "updates with the obtained permanent home keygen token. Enhanced Route Optimization recommends renewal of a permanent home keygen token in case of persistent correspondent registration failures, allowing mobile nodes to recover from denial-of-service attacks that involve spoofed permanent home keygen tokens.",
+      "zh-CHS": "使用获得的永久home keygen令牌进行更新。增强的路由优化建议在持续的对应注册失败的情况下更新永久的home keygen令牌，从而允许移动节点从涉及伪造永久home keygen令牌的拒绝服务攻击中恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "The threat of the described denial-of-service attack is to some extent mitigated by requirements on the attacker's location: A Binding Update message that requests a correspondent node to provide a permanent home keygen token is authenticated based on the CGA property of the mobile node's home address. This authentication method involves a home address test, providing the mobile node with a home keygen token based on which it can calculate the authenticator of the Binding Update message. Since the mobile node expects the authenticator of the returning Binding Acknowledgment message to be calculated with the same home keygen token, an attacker that is willing to spoof a Binding Acknowledgment message that includes a permanent home keygen token must eavesdrop on the home address test. The attacker must hence be present on the path from the correspondent node to the mobile node's home agent while the home address test proceeds. Moreover, if the Binding Update message requesting the permanent home keygen token is complete, its authenticator is further calculated based on a care-of keygen token. The attacker must then also know this care-of keygen token to generate the authenticator of the Binding Acknowledgment message. This requires the attacker to be on the path from the correspondent node to the mobile node's current IP attachment at the time the correspondent node sends the care-of keygen token to the mobile node within a Care-of Test message or the Care-of Test option of a Binding Acknowledgment message.",
+      "zh-CHS": "所述拒绝服务攻击的威胁在某种程度上通过攻击者位置的要求得到缓解：请求对应节点提供永久归属密钥根令牌的绑定更新消息根据移动节点的归属地址的CGA属性进行身份验证。该认证方法涉及家庭地址测试，向移动节点提供家庭密钥生成令牌，移动节点可以基于该令牌计算绑定更新消息的认证者。由于移动节点期望返回的绑定确认消息的验证器使用相同的home keygen令牌进行计算，因此愿意欺骗包含永久home keygen令牌的绑定确认消息的攻击者必须窃听home address测试。因此，在进行归属地址测试时，攻击者必须位于从对应节点到移动节点的归属代理的路径上。此外，如果请求永久归属keygen令牌的绑定更新消息已完成，则其验证器将基于转交keygen令牌进一步计算。然后，攻击者还必须知道该密钥保管令牌，以生成绑定确认消息的验证器。这要求攻击者在代理节点在转交测试消息或绑定确认消息的转交测试选项内向移动节点发送转交密钥根令牌时，位于从代理节点到移动节点当前IP附件的路径上。"
+    },
+    {
+      "indent": 3,
+      "text": "Since a mobile node in general does not know whether a particular correspondent node's IP address is a CGA, the mobile node must be prepared to receive a Binding Acknowledgment message without CGA Parameters and Signature options in response to sending a Binding Update message with an included CGA Parameters Request option. Per se, this mandatory behavior may enable downgrading attacks where the attacker would send, on the correspondent node's behalf, a Binding Acknowledgment message without CGA Parameters and Signature options, claiming that the correspondent node's IP address is not a CGA. Enhanced Route Optimization mitigates this threat in that it calls for mobile nodes to prioritize Binding Acknowledgment messages with valid CGA Parameters and Signature options over Binding Acknowledgment messages without such options. This protects against downgrading attacks unless the attacker can intercept Binding Acknowledgment messages from the correspondent node. Given that the attacker must be on the path from the correspondent node to the mobile node's home agent at roughly the same time as explained above, the attacker may not be able to intercept the correspondent node's",
+      "zh-CHS": "由于移动节点通常不知道特定对应节点的IP地址是否为CGA，因此移动节点必须准备好接收不带CGA参数和签名选项的绑定确认消息，以响应发送带有包括的CGA参数请求选项的绑定更新消息。就其本身而言，这种强制行为可能会导致降级攻击，攻击者会代表对应节点发送一条绑定确认消息，而不包含CGA参数和签名选项，声称对应节点的IP地址不是CGA。增强的路由优化减轻了这一威胁，因为它要求移动节点将具有有效CGA参数和签名选项的绑定确认消息优先于没有此类选项的绑定确认消息。这可以防止降级攻击，除非攻击者可以截获来自相应节点的绑定确认消息。鉴于攻击者必须大致同时处于从对应节点到移动节点的归属代理的路径上（如上所述），攻击者可能无法拦截对应节点的地址"
+    },
+    {
+      "indent": 3,
+      "text": "Binding Acknowledgment messages. On the other hand, an attacker that can intercept Binding Acknowledgment messages from the correspondent node is anyway in a position where it can pursue denial of service against the mobile node and the correspondent node. This is a threat that already exists in the non-mobile Internet, and it is not specific to Enhanced Route Optimization.",
+      "zh-CHS": "绑定确认消息。另一方面，能够截获来自对应节点的绑定确认消息的攻击者无论如何都处于可以对移动节点和对应节点实施拒绝服务的位置。这是一种已经存在于非移动互联网中的威胁，并且它并不特定于增强的路由优化。"
+    },
+    {
+      "indent": 3,
+      "text": "External mechanisms may enable the mobile node to obtain certainty about whether a particular correspondent node's IP address is a CGA. The mobile node may then insist on an IP address ownership proof from the correspondent node, in which case it would discard any received Binding Acknowledgment messages that do not contain valid CGA Parameters and Signature options. One conceivable means for mobile nodes to distinguish between standard IPv6 addresses and CGAs might be an extension to the Domain Name System.",
+      "zh-CHS": "外部机制可使移动节点能够获得关于特定对应节点的IP地址是否为CGA的确定性。然后，移动节点可以坚持来自对应节点的IP地址所有权证明，在这种情况下，它将丢弃任何接收到的不包含有效CGA参数和签名选项的绑定确认消息。移动节点区分标准IPv6地址和CGA的一种可能的方法可能是对域名系统的扩展。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Protocol Constants and Configuration Variables",
+      "section_title": true,
+      "zh-CHS": "7. 协议常数和配置变量"
+    },
+    {
+      "indent": 3,
+      "text": "[2] defines a CGA Message Type namespace from which CGA applications draw CGA Message Type tags to be used in signature calculations. Enhanced Route Optimization uses the following constant, randomly generated CGA Message Type tag:",
+      "zh-CHS": "[2] 定义CGA消息类型命名空间，CGA应用程序从该命名空间绘制用于签名计算的CGA消息类型标记。增强型路由优化使用以下恒定、随机生成的CGA消息类型标记："
+    },
+    {
+      "indent": 6,
+      "text": "0x5F27 0586 8D6C 4C56 A246 9EBB 9B2A 2E13",
+      "zh-CHS": "0x5F27 0586 8D6C 4C56 A246 9EBB 9B2A 2E13"
+    },
+    {
+      "indent": 3,
+      "text": "[1] bounds the lifetime for bindings that were established with correspondent nodes by way of the return routability procedure to MAX_RR_BINDING_LIFETIME. Enhanced Route Optimization adopts this limit for bindings that are authenticated through a proof of the mobile node's reachability at the home address. However, the binding lifetime is limited to the more generous constant value of MAX_CGA_BINDING_LIFETIME when the binding is authenticated through the CGA property of the mobile node's home address:",
+      "zh-CHS": "[1] 通过返回可路由性过程，将与相应节点建立的绑定的生存期限制为MAX_RR_BINDING_life。增强路由优化对绑定采用此限制，这些绑定通过移动节点在主地址的可达性证明进行身份验证。然而，当绑定通过移动节点的主地址的CGA属性进行身份验证时，绑定生存期被限制为更大的常量值MAX_CGA_binding_life："
+    },
+    {
+      "indent": 6,
+      "text": "MAX_CGA_BINDING_LIFETIME 86400 seconds",
+      "zh-CHS": "最大CGA绑定寿命86400秒"
+    },
+    {
+      "indent": 3,
+      "text": "Credit aging incorporates two configuration variables to gradually decrease a mobile node's credit counter over time. It is RECOMMENDED that a correspondent node uses the following values:",
+      "zh-CHS": "信用老化包括两个配置变量，以随着时间的推移逐渐减少移动节点的信用计数器。建议对应节点使用以下值："
+    },
+    {
+      "indent": 6,
+      "text": "CreditAgingFactor 7/8 CreditAgingInterval 5 seconds",
+      "zh-CHS": "CreditAgingFactor 7/8 CreditAgingInterval 5秒"
+    },
+    {
+      "indent": 0,
+      "text": "8. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "8. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the following six new mobility options, which must be assigned type values within the mobility option numbering space of [1]:",
+      "zh-CHS": "本文件定义了以下六个新的移动选项，这些选项必须在[1]的移动选项编号空间内分配类型值："
+    },
+    {
+      "indent": 3,
+      "text": "o CGA Parameters Request mobility option (11)",
+      "zh-CHS": "o CGA参数请求移动选项（11）"
+    },
+    {
+      "indent": 3,
+      "text": "o CGA Parameters mobility option (12)",
+      "zh-CHS": "o CGA参数移动选项（12）"
+    },
+    {
+      "indent": 3,
+      "text": "o Signature mobility option (13)",
+      "zh-CHS": "o 签名移动选项（13）"
+    },
+    {
+      "indent": 3,
+      "text": "o Permanent Home Keygen Token mobility option (14)",
+      "zh-CHS": "o 永久归属密钥生成令牌移动选项（14）"
+    },
+    {
+      "indent": 3,
+      "text": "o Care-of Test Init mobility option (15)",
+      "zh-CHS": "o 维护测试初始移动性选项（15）"
+    },
+    {
+      "indent": 3,
+      "text": "o Care-of Test mobility option (16)",
+      "zh-CHS": "o 照顾测试移动性选项（16）"
+    },
+    {
+      "indent": 3,
+      "text": "This document allocates the following four new status codes for Binding Acknowledgment messages:",
+      "zh-CHS": "本文档为绑定确认消息分配以下四个新状态代码："
+    },
+    {
+      "indent": 3,
+      "text": "o \"Permanent home keygen token unavailable\" (147)",
+      "zh-CHS": "o “永久主密钥生成令牌不可用”（147）"
+    },
+    {
+      "indent": 3,
+      "text": "o \"CGA and signature verification failed\" (148)",
+      "zh-CHS": "o “CGA和签名验证失败”（148）"
+    },
+    {
+      "indent": 3,
+      "text": "o \"Permanent home keygen token exists\" (149)",
+      "zh-CHS": "o “存在永久主密钥生成令牌”（149）"
+    },
+    {
+      "indent": 3,
+      "text": "o \"Non-null home nonce index expected\" (150)",
+      "zh-CHS": "o “需要非空的主当前索引”（150）"
+    },
+    {
+      "indent": 3,
+      "text": "The values to be assigned for these status codes must all be greater than or equal to 128, indicating that the respective Binding Update message was rejected by the receiving correspondent node.",
+      "zh-CHS": "要为这些状态代码分配的值必须全部大于或等于128，这表示相应的绑定更新消息已被接收的对应节点拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also defines a new 128-bit value under the CGA Message Type namespace [2].",
+      "zh-CHS": "本文档还在CGA消息类型命名空间[2]下定义了一个新的128位值。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Tuomas Aura, Gabriel Montenegro, Pekka Nikander, Mike Roe, Greg O'Shea, Vesa Torvinen (in alphabetical order) for valuable and interesting discussions around cryptographically generated addresses.",
+      "zh-CHS": "作者要感谢Tuomas Aura、Gabriel Montegon、Pekka Nikander、Mike Roe、Greg O'Shea、Vesa Torvinen（按字母顺序）围绕加密生成的地址进行了有价值和有趣的讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would also like to thank Marcelo Bagnulo, Roland Bless, Zhen Cao, Samita Chakrabarti, Greg Daley, Vijay Devarapalli, Mark Doll, Lakshminath Dondeti, Francis Dupont, Lars Eggert, Eric Gray, Manhee Jo, James Kempf, Suresh Krishnan, Tobias Kuefner, Lila Madour, Vidya Narayanan, Mohan Parthasarathy, Alice Qinxia, and Behcet",
+      "zh-CHS": "作者还想感谢马塞洛·巴格鲁、罗兰·布莱斯、曹真、萨米塔·查克拉巴蒂、格雷格·戴利、维杰·德瓦拉帕利、马克·多尔、拉克希米纳·顿代蒂、弗朗西斯·杜邦、拉尔斯·艾格特、埃里克·格雷、曼希·乔、詹姆斯·肯普夫、苏雷什·克里希南、托拜厄斯·库夫纳、莉拉·马杜、维迪亚·纳拉亚南、莫汉·帕塔萨拉萨拉蒂、爱丽丝·钦霞和贝塞特"
+    },
+    {
+      "indent": 3,
+      "text": "Sarikaya (in alphabetical order) for their reviews of and important comments on this document and the predecessors of this document.",
+      "zh-CHS": "Sarikaya（按字母顺序）感谢他们对本文件和本文件前身的审查和重要评论。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the authors would also like to emphasize that [15] pioneered the use of cryptographically generated addresses in the context of Mobile IPv6 route optimization, and that this document consists largely of material from [16], [17], and [18] and the contributions of their authors.",
+      "zh-CHS": "最后，作者还想强调的是[15]开创了在移动IPv6路由优化环境下使用加密生成地址的先河，本文件主要包括[16]、[17]和[18]中的材料及其作者的贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Johnson, D., Perkins, C., and J. Arkko, \"Mobility Support in IPv6\", RFC 3775, June 2004.",
+      "zh-CHS": "[1] Johnson，D.，Perkins，C.，和J.Arkko，“IPv6中的移动支持”，RFC 37752004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Aura, T., \"Cryptographically Generated Addresses (CGA)\", RFC 3972, March 2005.",
+      "zh-CHS": "[2] Aura，T.，“加密生成地址（CGA）”，RFC 39722005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Bradner, S., \"Key Words for Use in RFCs to Indicate Requirement Levels\", IETF BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[3] Bradner，S.，“RFC中用于表示需求水平的关键词”，IETF BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Jonsson, J. and B. Kaliski, \"Public-Key Cryptography Standards (PKCS) #1: RSA Cryptography Specifications Version 2.1\", RFC 3447, February 2003.",
+      "zh-CHS": "[4] Jonsson，J.和B.Kaliski，“公钥密码标准（PKCS）#1:RSA密码规范版本2.1”，RFC 3447，2003年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Nikander, P., Arkko, J., Aura, T., Montenegro, G., and E. Nordmark, \"Mobile IP Version 6 Route Optimization Security Design Background\", RFC 4225, December 2005.",
+      "zh-CHS": "[5] Nikander，P.，Arkko，J.，Aura，T.，黑山，G.，和E.Nordmark，“移动IP版本6路由优化安全设计背景”，RFC 42252005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Vogt, C. and J. Arkko, \"A Taxonomy and Analysis of Enhancements to Mobile IPv6 Route Optimization\", RFC 4651, February 2007.",
+      "zh-CHS": "[6] Vogt，C.和J.Arkko，“移动IPv6路由优化增强的分类和分析”，RFC 4651，2007年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Vogt, C. and M. Doll, \"Efficient End-to-End Mobility Support in IPv6\", Proceedings of the IEEE Wireless Communications and Networking Conference, IEEE, April 2006.",
+      "zh-CHS": "[7] Vogt，C.和M.Doll，“IPv6中有效的端到端移动支持”，IEEE无线通信和网络会议记录，IEEE，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Mirkovic, J. and P. Reiher, \"A Taxonomy of DDoS Attack and DDoS Defense Mechanisms\", ACM SIGCOMM Computer Communication Review, Vol. 34, No. 2, ACM Press, April 2004.",
+      "zh-CHS": "[8] Mirkovic，J.和P.Reisher，“DDoS攻击和DDoS防御机制的分类”，ACM SIGCOMM计算机通信评论，第34卷，第2期，ACM出版社，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Arkko, J. and C. Vogt, \"Credit-Based Authorization for Binding Lifetime Extension\", Work in Progress, May 2004.",
+      "zh-CHS": "[9] Arkko，J.和C.Vogt，“基于信用的具有约束力的寿命延长授权”，正在进行的工作，2004年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] O'Shea, G. and M. Roe, \"Child-Proof Authentication for MIPv6 (CAM)\", ACM SIGCOMM Computer Communication Review, ACM Press, Vol. 31, No. 2, April 2001.",
+      "zh-CHS": "[10] O'Shea，G.和M.Roe，“MIPv6（CAM）的儿童验证”，ACM SIGCOMM计算机通信评论，ACM出版社，第31卷，第2期，2001年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Nikander, P., \"Denial-of-Service, Address Ownership, and Early Authentication in the IPv6 World\", Revised papers from the International Workshop on Security Protocols, Springer-Verlag, April 2002.",
+      "zh-CHS": "[11] Nikander，P.，“IPv6世界中的拒绝服务、地址所有权和早期认证”，安全协议国际研讨会的修订论文，Springer Verlag，2002年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Bagnulo, M. and J. Arkko, \"Support for Multiple Hash Algorithms in Cryptographically Generated Addresses (CGAs)\", Work in Progress, April 2007.",
+      "zh-CHS": "[12] Bagnulo，M.和J.Arkko，“在加密生成地址（CGA）中支持多散列算法”，正在进行的工作，2007年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Arkko, J., Kempf, J., Zill, B., and P. Nikander, \"SEcure Neighbor Discovery (SEND)\", RFC 3971, March 2005.",
+      "zh-CHS": "[13] Arkko，J.，Kempf，J.，Zill，B.，和P.Nikander，“安全邻居发现（SEND）”，RFC 39712005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Perkins, C., \"Securing Mobile IPv6 Route Optimization Using a Static Shared Key\", RFC 4449, June 2006.",
+      "zh-CHS": "[14] Perkins，C.，“使用静态共享密钥保护移动IPv6路由优化”，RFC 4449，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[15] Roe, M., Aura, T., O'Shea, G., and J. Arkko, \"Authentication of Mobile IPv6 Binding Updates and Acknowledgments\", Work in Progress, March 2002.",
+      "zh-CHS": "[15] Roe，M.，Aura，T.，O'Shea，G.，和J.Arkko，“移动IPv6绑定更新和确认的认证”，正在进行的工作，2002年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[16] Haddad, W., Madour, L., Arkko, J., and F. Dupont, \"Applying Cryptographically Generated Addresses to Optimize MIPv6 (CGA-OMIPv6)\", Work Progress, May 2005.",
+      "zh-CHS": "[16] Haddad，W.，Madour，L.，Arkko，J.，和F.Dupont，“应用加密生成的地址优化MIPv6（CGA-OMIPv6）”，工作进展，2005年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[17] Vogt, C., Bless, R., Doll, M., and T. Kuefner, \"Early Binding Updates for Mobile IPv6\", Work in Progress, February 2004.",
+      "zh-CHS": "[17] Vogt，C.，Bless，R.，Doll，M.，和T.Kuefner，“移动IPv6的早期绑定更新”，正在进行的工作，2004年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[18] Vogt, C., Arkko, J., Bless, R., Doll, M., and T. Kuefner, \"Credit-Based Authorization for Mobile IPv6 Early Binding Updates\", Work in Progress, May 2004.",
+      "zh-CHS": "[18] Vogt，C.，Arkko，J.，Bless，R.，Doll，M.，和T.Kuefner，“移动IPv6早期绑定更新的基于信用的授权”，正在进行的工作，2004年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Jari Arkko Ericsson Research NomadicLab FI-02420 Jorvas Finland",
+      "zh-CHS": "雅丽阿尔科爱立信游牧研究实验室FI-02420 Jorvas芬兰"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jari.arkko@ericsson.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Christian Vogt Institute of Telematics Universitaet Karlsruhe (TH) P.O. Box 6980 76128 Karlsruhe Germany",
+      "zh-CHS": "克里斯蒂安·沃格特远程通信研究所卡尔斯鲁厄大学（TH）邮政信箱6980 76128德国卡尔斯鲁厄"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: chvogt@tm.uka.de",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Wassim Haddad Ericsson Research 8400, Decarie Blvd Town of Mount Royal Quebec H4P 2N2, Canada",
+      "zh-CHS": "Wassim Haddad Ericsson Research 8400，加拿大魁北克皇家山戴克里大道镇H4P 2N2"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: wassim.haddad@ericsson.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

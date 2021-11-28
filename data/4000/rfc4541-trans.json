@@ -1,0 +1,744 @@
+{
+  "title": {
+    "text": "RFC 4541: Considerations for Internet Group Management Protocol (IGMP) and Multicast Listener Discovery (MLD) Snooping Switches",
+    "zh-CHS": "RFC 4541"
+  },
+  "number": 4541,
+  "created_at": "2021-11-14 05:58:42.436526+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                     M. Christensen\nRequest for Comments: 4541                               Thrane & Thrane\nCategory: Informational                                       K. Kimball\n                                                         Hewlett-Packard\n                                                             F. Solensky\n                                                                   Calix\n                                                                May 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Considerations for Internet Group Management Protocol (IGMP) and Multicast Listener Discovery (MLD) Snooping Switches",
+      "zh-CHS": "Internet组管理协议（IGMP）和多播侦听器发现（MLD）侦听交换机的注意事项"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This memo describes the recommendations for Internet Group Management Protocol (IGMP) and Multicast Listener Discovery (MLD) snooping switches. These are based on best current practices for IGMPv2, with further considerations for IGMPv3- and MLDv2-snooping. Additional areas of relevance, such as link layer topology changes and Ethernet-specific encapsulation issues, are also considered.",
+      "zh-CHS": "本备忘录介绍了有关Internet组管理协议（IGMP）和多播侦听器发现（MLD）侦听交换机的建议。这些基于IGMPv2的当前最佳实践，并进一步考虑IGMPv3和MLDv2的窥探。还考虑了其他相关领域，如链路层拓扑变化和以太网特定封装问题。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The IEEE bridge standard [BRIDGE] specifies how LAN packets are 'bridged', or as is more commonly used today, switched between LAN segments. The operation of a switch with respect to multicast packets can be summarized as follows. When processing a packet whose destination MAC address is a multicast address, the switch will forward a copy of the packet into each of the remaining network interfaces that are in the forwarding state in accordance with [BRIDGE]. The spanning tree algorithm ensures that the application of this rule at every switch in the network will make the packet accessible to all nodes connected to the network.",
+      "zh-CHS": "IEEE网桥标准[bridge]规定了如何“桥接”LAN数据包，或者像今天更常用的那样，在LAN网段之间进行交换。交换机对多播分组的操作可总结如下。当处理其目的地MAC地址为多播地址的分组时，交换机将根据[网桥]将分组的副本转发到处于转发状态的每个剩余网络接口中。生成树算法确保在网络中的每个交换机上应用此规则将使连接到网络的所有节点都可以访问数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "This behaviour works well for broadcast packets that are intended to be seen or processed by all connected nodes. In the case of multicast packets, however, this approach could lead to less efficient use of network bandwidth, particularly when the packet is",
+      "zh-CHS": "这种行为适用于所有连接节点都希望看到或处理的广播数据包。然而，在多播数据包的情况下，这种方法可能导致网络带宽的使用效率较低，特别是当数据包被删除时"
+    },
+    {
+      "indent": 3,
+      "text": "intended for only a small number of nodes. Packets will be flooded into network segments where no node has any interest in receiving the packet. While nodes will rarely incur any processing overhead to filter packets addressed to unrequested group addresses, they are unable to transmit new packets onto the shared media for the period of time that the multicast packet is flooded. In general, significant bandwidth can be wasted by flooding.",
+      "zh-CHS": "仅适用于少量节点。数据包将被淹没到没有节点对接收数据包感兴趣的网段中。虽然节点很少会产生任何处理开销来过滤寻址到未请求组地址的数据包，但在多播数据包被淹没的时间段内，它们无法将新数据包传输到共享媒体上。一般来说，大量带宽可能会因洪水而浪费。"
+    },
+    {
+      "indent": 3,
+      "text": "In recent years, a number of commercial vendors have introduced products described as \"IGMP snooping switches\" to the market. These devices do not adhere to the conceptual model that provides the strict separation of functionality between different communications layers in the ISO model, and instead utilize information in the upper level protocol headers as factors to be considered in processing at the lower levels. This is analogous to the manner in which a router can act as a firewall by looking into the transport protocol's header before allowing a packet to be forwarded to its destination address.",
+      "zh-CHS": "近年来，许多商业供应商向市场推出了被称为“IGMP窥探开关”的产品。这些设备不遵循ISO模型中不同通信层之间提供严格功能分离的概念模型，而是利用上层协议头中的信息作为下层处理中要考虑的因素。这类似于路由器在允许数据包转发到其目的地址之前通过查看传输协议的报头充当防火墙的方式。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of IP multicast traffic, an IGMP snooping switch provides the benefit of conserving bandwidth on those segments of the network where no node has expressed interest in receiving packets addressed to the group address. This is in contrast to normal switch behavior where multicast traffic is typically forwarded on all interfaces.",
+      "zh-CHS": "在IP多播业务的情况下，IGMP侦听交换机提供了在没有节点表示有兴趣接收发往组地址的分组的网络段上节省带宽的好处。这与正常交换机行为不同，在正常交换机行为中，多播流量通常在所有接口上转发。"
+    },
+    {
+      "indent": 3,
+      "text": "Many switch datasheets state support for IGMP snooping, but no recommendations for this exist today. It is the authors' hope that the information presented in this document will supply this foundation.",
+      "zh-CHS": "许多交换机数据表表示支持IGMP窥探，但目前还没有这方面的建议。作者希望本文中所提供的信息能提供这个基础。"
+    },
+    {
+      "indent": 3,
+      "text": "The recommendations presented here are based on the following information sources: The IGMP specifications [RFC1112], [RFC2236] and [IGMPv3], vendor-supplied technical documents [CISCO], bug reports [MSOFT], discussions with people involved in the design of IGMP snooping switches, MAGMA mailing list discussions, and on replies by switch vendors to an implementation questionnaire.",
+      "zh-CHS": "此处提出的建议基于以下信息来源：IGMP规范[RFC1112]、[RFC2236]和[IGMPv3]、供应商提供的技术文件[CISCO]、错误报告[MSOFT]、与参与IGMP窥探交换机设计的人员的讨论、MAGMA邮件列表讨论、，以及交换机供应商对实施问卷的回复。"
+    },
+    {
+      "indent": 3,
+      "text": "Interoperability issues that arise between different versions of IGMP are not the focus of this document. Interested readers are directed to [IGMPv3] for a thorough description of problem areas.",
+      "zh-CHS": "IGMP不同版本之间出现的互操作性问题不是本文档的重点。感兴趣的读者请访问[IGMPv3]以获得问题领域的详细说明。"
+    },
+    {
+      "indent": 3,
+      "text": "The suggestions in this document are based on IGMP, which applies only to IPv4. For IPv6, Multicast Listener Discovery [MLD] must be used instead. Because MLD is based on IGMP, we do not repeat the entire description and recommendations for MLD snooping switches. Instead, we point out the few cases where there are differences from IGMP.",
+      "zh-CHS": "本文档中的建议基于IGMP，它仅适用于IPv4。对于IPv6，必须改用多播侦听器发现[MLD]。因为MLD是基于IGMP的，所以我们不重复MLD窥探交换机的全部描述和建议。相反，我们指出了与IGMP不同的少数情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the IGMP snooping function should apply only to IPv4 multicasts. Other multicast packets, such as IPv6, might be suppressed by IGMP snooping if additional care is not taken in the implementation as mentioned in the recommendations section. It is desired not to restrict the flow of non-IPv4 multicasts other than to the degree which would happen as a result of regular bridging functions. Likewise, MLD snooping switches are discouraged from using topological information learned from IPv6 traffic to alter the forwarding of IPv4 multicast packets.",
+      "zh-CHS": "请注意，IGMP侦听功能应仅适用于IPv4多播。如果在实施过程中没有如建议部分所述采取额外的注意，其他多播数据包（如IPv6）可能会被IGMP侦听抑制。希望不要限制非IPv4多播的流量，除非限制到常规桥接功能可能导致的程度。同样，不鼓励MLD窥探交换机使用从IPv6流量中学习的拓扑信息来改变IPv4多播数据包的转发。"
+    },
+    {
+      "indent": 0,
+      "text": "2. IGMP Snooping Recommendations",
+      "section_title": true,
+      "zh-CHS": "2. IGMP窥探建议"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections list the recommendations for an IGMP snooping switch. The recommendation is stated and is supplemented by a description of a possible implementation approach. All implementation discussions are examples only and there may well be other ways to achieve the same functionality.",
+      "zh-CHS": "以下部分列出了IGMP窥探开关的建议。对该建议进行了说明，并对可能的实施方法进行了说明。所有实现讨论都只是示例，很可能还有其他方法来实现相同的功能。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Forwarding rules",
+      "section_title": true,
+      "zh-CHS": "2.1. 转发规则"
+    },
+    {
+      "indent": 3,
+      "text": "The IGMP snooping functionality is separated into a control section (IGMP forwarding) and a data section (Data forwarding).",
+      "zh-CHS": "IGMP监听功能分为控制部分（IGMP转发）和数据部分（数据转发）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1.1. IGMP Forwarding Rules",
+      "section_title": true,
+      "zh-CHS": "2.1.1. IGMP转发规则"
+    },
+    {
+      "indent": 3,
+      "text": "1) A snooping switch should forward IGMP Membership Reports only to those ports where multicast routers are attached.",
+      "zh-CHS": "1) 窥探交换机应仅将IGMP成员资格报告转发到连接了多播路由器的端口。"
+    },
+    {
+      "indent": 6,
+      "text": "Alternatively stated: a snooping switch should not forward IGMP Membership Reports to ports on which only hosts are attached. An administrative control may be provided to override this restriction, allowing the report messages to be flooded to other ports.",
+      "zh-CHS": "或者说明：窥探交换机不应将IGMP成员资格报告转发到仅连接主机的端口。可以提供管理控制来覆盖此限制，允许报告消息被淹没到其他端口。"
+    },
+    {
+      "indent": 6,
+      "text": "This is the main IGMP snooping functionality for the control path.",
+      "zh-CHS": "这是控制路径的主要IGMP侦听功能。"
+    },
+    {
+      "indent": 6,
+      "text": "Sending membership reports to other hosts can result, for IGMPv1 and IGMPv2, in unintentionally preventing a host from joining a specific multicast group.",
+      "zh-CHS": "对于IGMPv1和IGMPv2，向其他主机发送成员报告可能会导致无意中阻止主机加入特定的多播组。"
+    },
+    {
+      "indent": 6,
+      "text": "When an IGMPv1 or IGMPv2 host receives a membership report for a group address that it intends to join, the host will suppress its own membership report for the same group. This join or message suppression is a requirement for IGMPv1 and IGMPv2 hosts. However, if a switch does not receive a membership report from the host it will not forward multicast data to it.",
+      "zh-CHS": "当IGMPv1或IGMPv2主机收到其打算加入的组地址的成员资格报告时，该主机将抑制其自己的同一组成员资格报告。这种连接或消息抑制是IGMPv1和IGMPv2主机的要求。但是，如果交换机没有从主机接收成员资格报告，它将不会向其转发多播数据。"
+    },
+    {
+      "indent": 6,
+      "text": "This is not a problem in an IGMPv3-only network because there is no suppression of IGMP Membership reports.",
+      "zh-CHS": "这在仅IGMPv3的网络中不是问题，因为没有抑制IGMP成员报告。"
+    },
+    {
+      "indent": 6,
+      "text": "The administrative control allows IGMP Membership Report messages to be processed by network monitoring equipment such as packet analyzers or port replicators.",
+      "zh-CHS": "管理控制允许网络监控设备（如数据包分析器或端口复制器）处理IGMP成员报告消息。"
+    },
+    {
+      "indent": 6,
+      "text": "The switch supporting IGMP snooping must maintain a list of multicast routers and the ports on which they are attached. This list can be constructed in any combination of the following ways:",
+      "zh-CHS": "支持IGMP侦听的交换机必须维护多播路由器及其连接端口的列表。此列表可以通过以下方式的任意组合构建："
+    },
+    {
+      "indent": 6,
+      "text": "a) This list should be built by the snooping switch sending Multicast Router Solicitation messages as described in IGMP Multicast Router Discovery [MRDISC]. It may also snoop Multicast Router Advertisement messages sent by and to other nodes.",
+      "zh-CHS": "a) 此列表应由发送多播路由器请求消息的侦听交换机生成，如IGMP多播路由器发现[MRDISC]中所述。它还可以窥探由其他节点发送或发送到其他节点的多播路由器广告消息。"
+    },
+    {
+      "indent": 6,
+      "text": "b) The arrival port for IGMP Queries (sent by multicast routers) where the source address is not 0.0.0.0.",
+      "zh-CHS": "b) IGMP查询（由多播路由器发送）的到达端口，其中源地址不是0.0.0.0。"
+    },
+    {
+      "indent": 9,
+      "text": "The 0.0.0.0 address represents a special case where the switch is proxying IGMP Queries for faster network convergence, but is not itself the Querier. The switch does not use its own IP address (even if it has one), because this would cause the Queries to be seen as coming from a newly elected Querier. The 0.0.0.0 address is used to indicate that the Query packets are NOT from a multicast router.",
+      "zh-CHS": "0.0.0.0地址代表一种特殊情况，交换机代理IGMP查询以加快网络收敛，但其本身不是查询者。交换机不使用自己的IP地址（即使有），因为这会导致查询被视为来自新选择的查询器。0.0.0.0地址用于指示查询数据包不是来自多播路由器。"
+    },
+    {
+      "indent": 6,
+      "text": "c) Ports explicitly configured by management to be IGMP-forwarding ports, in addition to or instead of any of the above methods to detect router ports.",
+      "zh-CHS": "c) 管理层明确配置为IGMP转发端口的端口，附加或替代上述任何检测路由器端口的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "2) IGMP networks may also include devices that implement \"proxy-reporting\", in which reports received from downstream hosts are summarized and used to build internal membership states. Such proxy-reporting devices may use the all-zeros IP Source-Address when forwarding any summarized reports upstream. For this reason, IGMP membership reports received by the snooping switch must not be rejected because the source IP address is set to 0.0.0.0.",
+      "zh-CHS": "2) IGMP网络还可以包括实现“代理报告”的设备，其中从下游主机接收的报告被汇总并用于建立内部成员状态。此类代理报告设备在向上游转发任何汇总报告时可使用全零IP源地址。因此，窥探交换机收到的IGMP成员资格报告不得被拒绝，因为源IP地址设置为0.0.0.0。"
+    },
+    {
+      "indent": 3,
+      "text": "3) The switch that supports IGMP snooping must flood all unrecognized IGMP messages to all other ports and must not attempt to make use of any information beyond the end of the network layer header.",
+      "zh-CHS": "3) 支持IGMP窥探的交换机必须将所有无法识别的IGMP消息全部发送到所有其他端口，并且不得尝试使用网络层标头末尾以外的任何信息。"
+    },
+    {
+      "indent": 6,
+      "text": "In addition, earlier versions of IGMP should interpret IGMP fields as defined for their versions and must not alter these fields when forwarding the message. When generating new messages, a given IGMP version should set fields to the appropriate values for its",
+      "zh-CHS": "此外，IGMP的早期版本应按照其版本的定义解释IGMP字段，并且在转发消息时不得更改这些字段。生成新消息时，给定的IGMP版本应将字段设置为其相应的值"
+    },
+    {
+      "indent": 6,
+      "text": "own version. If any fields are reserved or otherwise undefined for a given IGMP version, the fields should be ignored when parsing the message and must be set to zeroes when new messages are generated by implementations of that IGMP version. An exception may occur if the switch is performing a spoofing function, and is aware of the settings for new or reserved fields that would be required to correctly spoof for a different IGMP version.",
+      "zh-CHS": "自己的版本。如果为给定的IGMP版本保留或未定义任何字段，则在解析消息时应忽略这些字段，并且在该IGMP版本的实现生成新消息时，必须将这些字段设置为零。如果交换机正在执行欺骗功能，并且知道正确欺骗不同IGMP版本所需的新字段或保留字段的设置，则可能会发生异常。"
+    },
+    {
+      "indent": 6,
+      "text": "The reason to worry about these trivialities is that IGMPv3 overloads the old IGMP query message using the same type number (0x11) but with an extended header. Therefore there is a risk that IGMPv3 queries may be interpreted as older version queries by, for example, IGMPv2 snooping switches. This has already been reported [IETF56] and is discussed in section 2.2.",
+      "zh-CHS": "担心这些琐事的原因是，IGMPv3使用相同的类型号（0x11）重载旧的IGMP查询消息，但带有扩展头。因此，存在IGMPv3查询可能被IGMPv2窥探交换机等解释为旧版本查询的风险。这已在[IETF56]中报告，并在第2.2节中讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "4) An IGMP snooping switch should be aware of link layer topology changes caused by Spanning Tree operation. When a port is enabled or disabled by Spanning Tree, a General Query may be sent on all active non-router ports in order to reduce network convergence time. Non-Querier switches should be aware of whether the Querier is in IGMPv3 mode. If so, the switch should not spoof any General Queries unless it is able to send an IGMPv3 Query that adheres to the most recent information sent by the true Querier. In no case should a switch introduce a spoofed IGMPv2 Query into an IGMPv3 network, as this may create excessive network disruption.",
+      "zh-CHS": "4) IGMP窥探交换机应该知道由生成树操作引起的链路层拓扑变化。当通过生成树启用或禁用端口时，可以在所有活动的非路由器端口上发送常规查询，以减少网络收敛时间。非查询器交换机应该知道查询器是否处于IGMPv3模式。如果是这样，交换机不应欺骗任何常规查询，除非它能够发送符合真实查询器发送的最新信息的IGMPv3查询。在任何情况下，交换机都不应将伪造的IGMPv2查询引入IGMPv3网络，因为这可能会造成过度的网络中断。"
+    },
+    {
+      "indent": 6,
+      "text": "If the switch is not the Querier, it should use the 'all-zeros' IP Source Address in these proxy queries (even though some hosts may elect to not process queries with a 0.0.0.0 IP Source Address). When such proxy queries are received, they must not be included in the Querier election process.",
+      "zh-CHS": "如果交换机不是查询器，则应在这些代理查询中使用“全零”IP源地址（即使某些主机可能选择不处理具有0.0.0.0 IP源地址的查询）。收到此类代理查询时，不得将其包括在查询者选举过程中。"
+    },
+    {
+      "indent": 3,
+      "text": "5) An IGMP snooping switch must not make use of information in IGMP packets where the IP or IGMP headers have checksum or integrity errors. The switch should not flood such packets but if it does, it should also take some note of the event (i.e., increment a counter). These errors and their processing are further discussed in [IGMPv3], [MLD] and [MLDv2].",
+      "zh-CHS": "5) 当IP或IGMP报头有校验和或完整性错误时，IGMP侦听交换机不得使用IGMP数据包中的信息。交换机不应淹没此类数据包，但如果确实如此，则还应注意事件（即，增加计数器）。这些错误及其处理将在[IGMPv3]、[MLD]和[MLDv2]中进一步讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "6) The snooping switch must not rely exclusively on the appearance of IGMP Group Leave announcements to determine when entries should be removed from the forwarding table. It should implement a membership timeout mechanism such as the router-side functionality of the IGMP protocol as described in the IGMP and MLD specifications (See Normative Reference section for IGMPv1-3 and MLDv1-2) on all its non-router ports. This timeout value should be configurable.",
+      "zh-CHS": "6) 窥探开关不能完全依赖IGMP组离开通知的外观来确定何时应从转发表中删除条目。它应在其所有非路由器端口上实现成员超时机制，如IGMP和MLD规范中所述的IGMP协议的路由器端功能（参见IGMPv1-3和MLDv1-2的标准参考部分）。此超时值应该是可配置的。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1.2. Data Forwarding Rules",
+      "section_title": true,
+      "zh-CHS": "2.1.2. 数据转发规则"
+    },
+    {
+      "indent": 3,
+      "text": "1) Packets with a destination IP address outside 224.0.0.X which are not IGMP should be forwarded according to group-based port membership tables and must also be forwarded on router ports.",
+      "zh-CHS": "1) 目标IP地址在224.0.0.X之外且不是IGMP的数据包应根据基于组的端口成员表转发，并且还必须在路由器端口上转发。"
+    },
+    {
+      "indent": 6,
+      "text": "This is the main IGMP snooping functionality for the data path. One approach that an implementation could take would be to maintain separate membership and multicast router tables in software and then \"merge\" these tables into a forwarding cache.",
+      "zh-CHS": "这是数据路径的主要IGMP侦听功能。实现可以采取的一种方法是在软件中维护单独的成员资格和多播路由器表，然后将这些表“合并”到转发缓存中。"
+    },
+    {
+      "indent": 3,
+      "text": "2) Packets with a destination IP (DIP) address in the 224.0.0.X range which are not IGMP must be forwarded on all ports.",
+      "zh-CHS": "2) 目标IP（DIP）地址在224.0.0.X范围内且不是IGMP的数据包必须在所有端口上转发。"
+    },
+    {
+      "indent": 6,
+      "text": "This recommendation is based on the fact that many host systems do not send Join IP multicast addresses in this range before sending or listening to IP multicast packets. Furthermore, since the 224.0.0.X address range is defined as link-local (not to be routed), it seems unnecessary to keep the state for each address in this range. Additionally, some routers operate in the 224.0.0.X address range without issuing IGMP Joins, and these applications would break if the switch were to prune them due to not having seen a Join Group message from the router.",
+      "zh-CHS": "此建议基于以下事实：许多主机系统在发送或侦听IP多播数据包之前不发送此范围内的加入IP多播地址。此外，由于224.0.0.X地址范围定义为链路本地（不路由），因此似乎没有必要将每个地址的状态保持在该范围内。此外，一些路由器在224.0.0.X地址范围内运行，而不发出IGMP连接，如果交换机由于没有看到来自路由器的连接组消息而删除这些应用程序，则这些应用程序将中断。"
+    },
+    {
+      "indent": 3,
+      "text": "3) An unregistered packet is defined as an IPv4 multicast packet with a destination address which does not match any of the groups announced in earlier IGMP Membership Reports.",
+      "zh-CHS": "3) 未注册数据包定义为目标地址与早期IGMP成员资格报告中宣布的任何组不匹配的IPv4多播数据包。"
+    },
+    {
+      "indent": 6,
+      "text": "If a switch receives an unregistered packet, it must forward that packet on all ports to which an IGMP router is attached. A switch may default to forwarding unregistered packets on all ports. Switches that do not forward unregistered packets to all ports must include a configuration option to force the flooding of unregistered packets on specified ports.",
+      "zh-CHS": "如果交换机接收到未注册的数据包，它必须在连接IGMP路由器的所有端口上转发该数据包。交换机可能默认在所有端口上转发未注册的数据包。不将未注册数据包转发到所有端口的交换机必须包含一个配置选项，以强制在指定端口上淹没未注册数据包。"
+    },
+    {
+      "indent": 6,
+      "text": "In an environment where IGMPv3 hosts are mixed with snooping switches that do not yet support IGMPv3, the switch's failure to flood unregistered streams could prevent v3 hosts from receiving their traffic. Alternatively, in environments where the snooping switch supports all of the IGMP versions that are present, flooding unregistered streams may cause IGMP hosts to be overwhelmed by multicast traffic, even to the point of not receiving Queries and failing to issue new membership reports for their own groups.",
+      "zh-CHS": "在IGMPv3主机与不支持IGMPv3的窥探交换机混合的环境中，交换机无法淹没未注册的流可能会阻止v3主机接收其流量。或者，如果IGMP组中的所有流都支持未注册的多播，则可能会导致接收IGMP组中的所有流的IGMP版本的流量都被淹没，甚至可能会导致接收IGMP组中的所有流的IGMP版本的流量都无法满负荷。"
+    },
+    {
+      "indent": 6,
+      "text": "It is encouraged that snooping switches at least recognize and process IGMPv3 Join Reports, even if this processing is limited to the behavior for IGMPv2 Joins, i.e., is done without considering",
+      "zh-CHS": "鼓励窥探交换机至少识别和处理IGMPv3连接报告，即使此处理仅限于IGMPv2连接的行为，即在不考虑"
+    },
+    {
+      "indent": 6,
+      "text": "any additional \"include source\" or \"exclude source\" filtering. When IGMPv3 Joins are not recognized, a snooping switch may incorrectly prune off the unregistered data streams for the groups (as noted above); alternatively, it may fail to add in forwarding to any new IGMPv3 hosts if the group has previously been joined as IGMPv2 (because the data stream is seen as already having been registered).",
+      "zh-CHS": "任何附加的“包含源”或“排除源”筛选。当IGMPv3连接未被识别时，监听开关可能会错误地删除组的未注册数据流（如上所述）；或者，如果该组以前已作为IGMPv2加入，则它可能无法向任何新的IGMPv3主机添加转发（因为数据流被视为已注册）。"
+    },
+    {
+      "indent": 3,
+      "text": "4) All non-IPv4 multicast packets should continue to be flooded out to all remaining ports in the forwarding state as per normal IEEE bridging operations.",
+      "zh-CHS": "4) 按照正常的IEEE桥接操作，所有非IPv4多播数据包应继续被淹没到处于转发状态的所有剩余端口。"
+    },
+    {
+      "indent": 6,
+      "text": "This recommendation is a result of the fact that groups made up of IPv4 hosts and IPv6 hosts are completely separate and distinct groups. As a result, information gleaned from the topology between members of an IPv4 group would not be applicable when forming the topology between members of an IPv6 group.",
+      "zh-CHS": "此建议是因为由IPv4主机和IPv6主机组成的组是完全独立和不同的组。因此，在IPv6组成员之间形成拓扑时，从IPv4组成员之间的拓扑收集的信息将不适用。"
+    },
+    {
+      "indent": 3,
+      "text": "5) IGMP snooping switches may maintain forwarding tables based on either MAC addresses or IP addresses. If a switch supports both types of forwarding tables then the default behavior should be to use IP addresses. IP address based forwarding is preferred because the mapping between IP multicast addresses and link-layer multicast addresses is ambiguous. In the case of Ethernet, there is a multiplicity of 1 Ethernet address to 32 IP addresses [RFC1112].",
+      "zh-CHS": "5) IGMP侦听交换机可以基于MAC地址或IP地址维护转发表。如果交换机支持这两种类型的转发表，那么默认行为应该是使用IP地址。首选基于IP地址的转发，因为IP多播地址和链路层多播地址之间的映射不明确。在以太网的情况下，存在1个以太网地址到32个IP地址的多重性[RFC1112]。"
+    },
+    {
+      "indent": 3,
+      "text": "6) Switches which rely on information in the IP header should verify that the IP header checksum is correct. If the checksum fails, the information in the packet must not be incorporated into the forwarding table. Further, the packet should be discarded.",
+      "zh-CHS": "6) 依赖IP报头中信息的交换机应验证IP报头校验和是否正确。如果校验和失败，则数据包中的信息不得合并到转发表中。此外，应该丢弃该分组。"
+    },
+    {
+      "indent": 3,
+      "text": "7) When IGMPv3 \"include source\" and \"exclude source\" membership reports are received on shared segments, the switch needs to forward the superset of all received membership reports on to the shared segment. Forwarding of traffic from a particular source S to a group G must happen if at least one host on the shared segment reports an IGMPv3 membership of the type INCLUDE(G, Slist1) or EXCLUDE(G, Slist2), where S is an element of Slist1 and not an element of Slist2.",
+      "zh-CHS": "7) 当在共享段上接收到IGMPv3“包含源”和“排除源”成员资格报告时，交换机需要将所有接收到的成员资格报告的超集转发到共享段。如果共享段上至少有一台主机报告了INCLUDE（G，Slist1）或EXCLUDE（G，Slist2）类型的IGMPv3成员身份，则必须将流量从特定源S转发到组G，其中S是Slist1的元素，而不是Slist2的元素。"
+    },
+    {
+      "indent": 6,
+      "text": "The practical implementation of the (G,S1,S2,...) based data forwarding tables are not within the scope of this document. However, one possibility is to maintain two (G,S) forwarding lists: one for the INCLUDE filter where a match of a specific (G,S) is required before forwarding will happen, and one for the EXCLUDE filter where a match of a specific (G,S) will result in no forwarding.",
+      "zh-CHS": "基于（G，S1，S2，…）的数据转发表的实际实现不在本文件的范围内。但是，一种可能性是维护两个（G，S）转发列表：一个用于在转发之前需要匹配特定（G，S）的INCLUDE筛选器，另一个用于匹配特定（G，S）的EXCLUDE筛选器，将导致不转发。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. IGMP Snooping-Related Problems",
+      "section_title": true,
+      "zh-CHS": "2.2. IGMP窥探相关问题"
+    },
+    {
+      "indent": 3,
+      "text": "A special problem arises in networks consisting of IGMPv3 routers as well as IGMPv2 and IGMPv3 hosts interconnected by an IGMPv2 snooping switch as recently reported [IETF56]. The router will continue to maintain IGMPv3 even in the presence of IGMPv2 hosts, and thus the network will not converge on IGMPv2. But it is likely that the IGMPv2 snooping switch will not recognize or process the IGMPv3 membership reports. Groups for these unrecognized reports will then either be flooded (with all of the problems that may create for hosts in a network with a heavy multicast load) or pruned by the snooping switch.",
+      "zh-CHS": "在由IGMPv3路由器以及IGMPv2和IGMPv3主机组成的网络中出现了一个特殊问题，这些主机由IGMPv2侦听交换机互连，如最近报告的[IETF56]。即使存在IGMPv2主机，路由器也将继续维护IGMPv3，因此网络不会在IGMPv2上聚合。但IGMPv2侦听开关可能无法识别或处理IGMPv3成员资格报告。然后，这些未识别报告的组将被淹没（带有可能为多播负载沉重的网络中的主机造成的所有问题），或者被窥探交换机删除。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, it is recommended that in such a network, the multicast router be configured to use IGMPv2. If this is not possible, and if the snooping switch cannot recognize and process the IGMPv3 membership reports, it is instead recommended that the switch's IGMP snooping functionality be disabled, as there is no clear solution to this problem.",
+      "zh-CHS": "因此，建议在这样的网络中，多播路由器被配置为使用IGMPv2。如果这是不可能的，并且如果侦听交换机无法识别和处理IGMPv3成员资格报告，则建议禁用交换机的IGMP侦听功能，因为此问题没有明确的解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "3. IPv6 Considerations",
+      "section_title": true,
+      "zh-CHS": "3. IPv6注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "In order to avoid confusion, the previous discussions have been based on the IGMP protocol which only applies to IPv4 multicast. In the case of IPv6, most of the above discussions are still valid with a few exceptions that we will describe here.",
+      "zh-CHS": "为了避免混淆，之前的讨论是基于只适用于IPv4多播的IGMP协议的。在IPv6的情况下，上述大多数讨论仍然有效，我们将在这里介绍一些例外情况。"
+    },
+    {
+      "indent": 3,
+      "text": "The control and data forwarding rules in the IGMP section can, with a few considerations, also be applied to MLD. This means that the basic functionality of intercepting MLD packets, and building membership lists and multicast router lists, is the same as for IGMP.",
+      "zh-CHS": "IGMP部分中的控制和数据转发规则也可以应用于MLD，但需要考虑一些因素。这意味着拦截MLD数据包、建立成员列表和多播路由器列表的基本功能与IGMP相同。"
+    },
+    {
+      "indent": 3,
+      "text": "In IPv6, the data forwarding rules are more straight forward because MLD is mandated for addresses with scope 2 (link-scope) or greater. The only exception is the address FF02::1 which is the all hosts link-scope address for which MLD messages are never sent. Packets with the all hosts link-scope address should be forwarded on all ports.",
+      "zh-CHS": "在IPv6中，数据转发规则更加直截了当，因为MLD被强制用于作用域2（链路作用域）或更大的地址。唯一的例外是地址FF02:：1，它是永远不会发送MLD消息的所有主机链接作用域地址。具有所有主机链接作用域地址的数据包应在所有端口上转发。"
+    },
+    {
+      "indent": 3,
+      "text": "MLD messages are also not sent regarding groups with addresses in the range FF00::/15 (which encompasses both the reserved FF00::/16 and node-local FF01::/16 IPv6 address spaces). These addresses should never appear in packets on the link.",
+      "zh-CHS": "对于地址范围为FF00:：/15（包括保留的FF00:：/16和节点本地FF01:：/16 IPv6地址空间）的组，也不会发送MLD消息。这些地址不应出现在链路上的数据包中。"
+    },
+    {
+      "indent": 3,
+      "text": "Equivalent to the IPv4 behaviors regarding the null IP Source address, MLD membership reports must not be rejected by an MLD snooping switch because of an unspecified IP source address (::). Additionally, if a non-Querier switch spoofs any General Queries (as",
+      "zh-CHS": "与关于空IP源地址的IPv4行为相同，MLD成员身份报告不能因为未指定的IP源地址（：）而被MLD侦听交换机拒绝。此外，如果非查询器开关欺骗任何常规查询（如"
+    },
+    {
+      "indent": 3,
+      "text": "addressed in Section 2.1 above, for Spanning Tree topology changes), the switch should use the null IP source address (::) when sending said queries. When such proxy queries are received, they must not be included in the Querier election process.",
+      "zh-CHS": "如上文第2.1节所述，对于生成树拓扑更改），交换机在发送所述查询时应使用空IP源地址（：）。收到此类代理查询时，不得将其包括在查询者选举过程中。"
+    },
+    {
+      "indent": 3,
+      "text": "The three major differences between IPv4 and IPv6 in relation to multicast are:",
+      "zh-CHS": "IPv4和IPv6在多播方面的三个主要区别是："
+    },
+    {
+      "indent": 3,
+      "text": "- The IPv6 protocol for multicast group maintenance is called Multicast Listener Discovery [MLDv2]. MLDv2 uses ICMPv6 message types instead of IGMP message types.",
+      "zh-CHS": "- 用于多播组维护的IPv6协议称为多播侦听器发现[MLDv2]。MLDv2使用ICMPv6消息类型而不是IGMP消息类型。"
+    },
+    {
+      "indent": 3,
+      "text": "- The RFCs [IPV6-ETHER] and [IPV6-FDDI] describe how 32 of the 128 bit DIP addresses are used to form the 48 bit DMAC addresses for multicast groups, while [IPV6-TOKEN] describes the mapping for token ring DMAC addresses by using three low-order bits. The specification [IPV6-1394] makes use of a 6 bit channel number.",
+      "zh-CHS": "- RFCs[IPV6-ETHER]和[IPV6-FDDI]描述了128位DIP地址中的32位如何用于形成多播组的48位DMAC地址，而[IPV6-TOKEN]描述了通过使用三个低阶位来映射令牌环DMAC地址。规范[IPV6-1394]使用6位通道号。"
+    },
+    {
+      "indent": 3,
+      "text": "- Multicast router discovery is accomplished using the Multicast Router Discovery Protocol (MRDISC) defined in [MRDISC].",
+      "zh-CHS": "- 多播路由器发现使用[MRDISC]中定义的多播路由器发现协议（MRDISC）完成。"
+    },
+    {
+      "indent": 3,
+      "text": "The IPv6 packet header does not include a checksum field. Nevertheless, the switch should detect other packet integrity issues such as address version and payload length consistencies if possible. When the snooping switch detects such an error, it must not include information from the corresponding packet in the MLD forwarding table. The forwarding code should instead drop the packet and take further reasonable actions as advocated above.",
+      "zh-CHS": "IPv6数据包标头不包括校验和字段。然而，如果可能，交换机应检测其他数据包完整性问题，例如地址版本和有效负载长度一致性。当侦听交换机检测到此类错误时，它不得在MLD转发表中包含来自相应数据包的信息。相反，转发代码应该丢弃数据包，并采取上述进一步的合理措施。"
+    },
+    {
+      "indent": 3,
+      "text": "The fact that MLDv2 is using ICMPv6 adds new requirements to a snooping switch because ICMPv6 has multiple uses aside from MLD. This means that it is no longer sufficient to detect that the next-header field of the IP header is ICMPv6 in order to identify packets relevant for MLD snooping. A software-based implementation which treats all ICMPv6 packets as candidates for MLD snooping could easily fill its receive queue and bog down the CPU with irrelevant packets. This would prevent the snooping functionality from performing its intended purpose and the non-MLD packets destined for other hosts could be lost.",
+      "zh-CHS": "MLDv2正在使用ICMPv6这一事实为监听交换机增加了新的要求，因为ICMPv6除了MLD之外还有多种用途。这意味着检测IP报头的下一个报头字段是ICMPv6以识别与MLD窥探相关的数据包已不再足够。基于软件的实现将所有ICMPv6数据包视为MLD窥探的候选数据包，可以很容易地填充其接收队列，并用不相关的数据包阻塞CPU。这将阻止窥探功能执行其预期目的，并且目的地为其他主机的非MLD数据包可能会丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "A solution is either to require that the snooping switch looks further into the packets, or to be able to detect a multicast DMAC address in conjunction with ICMPv6. The first solution is desirable when a configuration option allows the administrator to specify which ICMPv6 message types should trigger a CPU redirect and which should not. The reason is that a hardcoding of message types is inflexible for the introduction of new message types. The second solution introduces the risk that new protocols that use ICMPv6 and multicast",
+      "zh-CHS": "一种解决方案是要求监听交换机进一步查看数据包，或者能够结合ICMPv6检测多播DMAC地址。当配置选项允许管理员指定哪些ICMPv6消息类型应触发CPU重定向，哪些不应触发CPU重定向时，第一种解决方案是可取的。原因是消息类型的硬编码对于引入新的消息类型是不灵活的。第二种解决方案引入了使用ICMPv6和多播的新协议的风险"
+    },
+    {
+      "indent": 3,
+      "text": "DMAC addresses could be incorrectly identified as MLD. It is suggested that solution one is preferred when the configuration option is provided. If this is not the case, then the implementor should seriously consider making it available since Neighbor Discovery messages would be among those that fall into this false positive case and are vital for the operational integrity of IPv6 networks.",
+      "zh-CHS": "DMAC地址可能被错误地标识为MLD。建议在提供配置选项时，首选解决方案1。如果不是这样的话，那么实现者应该认真考虑它是可用的，因为邻居发现消息将属于那些陷入这种错误的积极情况并且对IPv6网络的操作完整性至关重要。"
+    },
+    {
+      "indent": 3,
+      "text": "The mapping from IP multicast addresses to multicast DMAC addresses introduces a potentially enormous overlap. The structure of an IPv6 multicast address is shown in the figure below. As a result, there are 2 ** (112 - 32), or more than 1.2e24 unique DIP addresses which map into a single DMAC address in Ethernet and FDDI. This should be compared to 2**5 in the case of IPv4.",
+      "zh-CHS": "从IP多播地址到多播DMAC地址的映射引入了潜在的巨大重叠。IPv6多播地址的结构如下图所示。因此，在以太网和FDDI中，有2个**（112-32）或1.2e24个以上的唯一DIP地址映射到单个DMAC地址。这应该与IPv4情况下的2**5进行比较。"
+    },
+    {
+      "indent": 3,
+      "text": "Initial allocation of IPv6 multicast addresses, as described in [RFC3307], however, cover only the lower 32 bits of group ID. While this reduces the problem of address ambiguity to group IDs with different flag and scope values for now, it should be noted that the allocation policy may change in the future. Because of the potential overlap it is recommended that IPv6 address based forwarding is preferred to MAC address based forwarding.",
+      "zh-CHS": "然而，如[RFC3307]中所述，IPv6多播地址的初始分配仅覆盖组ID的较低32位。虽然这减少了目前具有不同标志和作用域值的组ID的地址模糊问题，但应注意，分配策略将来可能会改变。由于可能存在重叠，建议首选基于IPv6地址的转发，而不是基于MAC地址的转发。"
+    },
+    {
+      "indent": 6,
+      "text": "|   8    |  4 |  4 |             112 bits                  |\n+--------+----+----+---------------------------------------+\n|11111111|flgs|scop|             group ID                  |\n+--------+----+----+---------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4. IGMP Questionnaire",
+      "section_title": true,
+      "zh-CHS": "4. IGMP问卷"
+    },
+    {
+      "indent": 3,
+      "text": "As part of this work, the following questions were asked on the MAGMA discussion list and were sent to known switch vendors implementing IGMP snooping. The individual contributions have been anonymized upon request and do not necessarily apply to all of the vendors' products.",
+      "zh-CHS": "作为这项工作的一部分，在MAGMA讨论列表中提出了以下问题，并发送给实施IGMP窥探的已知交换机供应商。个人捐款已根据要求匿名，不一定适用于所有供应商的产品。"
+    },
+    {
+      "indent": 3,
+      "text": "The questions were:",
+      "zh-CHS": "问题是："
+    },
+    {
+      "indent": 6,
+      "text": "Q1 Do your switches perform IGMP Join aggregation? In other words, are IGMP joins intercepted, absorbed by the hardware/software so that only one Join is forwarded to the querier?",
+      "zh-CHS": "Q1您的交换机是否执行IGMP连接聚合？换句话说，IGMP连接是否被硬件/软件截获、吸收，以便只将一个连接转发给查询者？"
+    },
+    {
+      "indent": 6,
+      "text": "Q2 Is multicast forwarding based on MAC addresses? Would datagrams addressed to multicast IP addresses 224.1.2.3 and 239.129.2.3 be forwarded on the same ports-groups?",
+      "zh-CHS": "问题2：多播转发是否基于MAC地址？发往多播IP地址224.1.2.3和239.129.2.3的数据报会在相同的端口组上转发吗？"
+    },
+    {
+      "indent": 6,
+      "text": "Q3 Is it possible to forward multicast datagrams based on IP addresses (not routed)? In other words, could 224.1.2.3 and 239.129.2.3 be forwarded on different port-groups with unaltered TTL?",
+      "zh-CHS": "Q3是否可以基于IP地址转发多播数据报（未路由）？换句话说，224.1.2.3和239.129.2.3是否可以在不同的端口组上以不变的TTL转发？"
+    },
+    {
+      "indent": 6,
+      "text": "Q4 Are multicast datagrams within the range 224.0.0.1 to 224.0.0.255 forwarded on all ports whether or not IGMP Joins have been sent?",
+      "zh-CHS": "Q4是否在所有端口上转发224.0.0.1至224.0.0.255范围内的多播数据报，无论是否发送了IGMP联接？"
+    },
+    {
+      "indent": 6,
+      "text": "Q5  Are multicast frames within the MAC address range\n    01:00:5E:00:00:01 to 01:00:5E:00:00:FF forwarded on all ports\n    whether or not IGMP joins have been sent?",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Q6 Does your switch support forwarding to ports on which IP multicast routers are attached in addition to the ports where IGMP Joins have been received?",
+      "zh-CHS": "Q6除了接收IGMP连接的端口外，您的交换机是否还支持转发到连接了IP多播路由器的端口？"
+    },
+    {
+      "indent": 6,
+      "text": "Q7 Is your IGMP snooping functionality fully implemented in hardware?",
+      "zh-CHS": "Q7您的IGMP窥探功能是否完全在硬件中实现？"
+    },
+    {
+      "indent": 6,
+      "text": "Q8 Is your IGMP snooping functionality partly software implemented?",
+      "zh-CHS": "Q8您的IGMP窥探功能是否部分由软件实现？"
+    },
+    {
+      "indent": 6,
+      "text": "Q9 Can topology changes (for example spanning tree configuration changes) be detected by the IGMP snooping functionality so that for example new queries can be sent or tables can be updated to ensure robustness?",
+      "zh-CHS": "Q9 IGMP窥探功能是否可以检测拓扑更改（例如生成树配置更改），以便发送新查询或更新表以确保健壮性？"
+    },
+    {
+      "indent": 3,
+      "text": "The answers were:\n      ---------------------------+-----------------------+\n                                 |     Switch Vendor     |\n      ---------------------------+---+---+---+---+---+---+\n                                 | 1 | 2 | 3 | 4 | 5 | 6 |\n      ---------------------------+---+---+---+---+---+---+\n      Q1 Join aggregation        | x | x | x |   | x | x |\n      Q2 Layer-2 forwarding      | x | x | x | x |(1)|   |\n      Q3 Layer-3 forwarding      |(1)|   |(1)|   |(1)| x |\n      Q4 224.0.0.X aware         |(1)| x |(1)|(2)| x | x |\n      Q5 01:00:5e:00:00:XX aware | x | x | x |(2)| x | x |\n      Q6 Mcast router list       | x | x | x | x | x | x |\n      Q7 Hardware implemented    |   |   |   |   |   |   |\n      Q8 Software assisted       | x | x | x | x | x | x |\n      Q9 Topology change aware   | x | x | x | x |   |(2)|\n      ---------------------------+---+---+---+---+---+---+\n                x  Means that the answer was Yes.\n  (1) In some products (typically high-end) Yes; in others No.\n  (2) Not at the time that the questionnaire was received\n      but expected in the near future.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "5. References",
+      "section_title": true,
+      "zh-CHS": "5. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "5.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[BRIDGE] IEEE Std. 802.1D-2004 IEEE Standard for Local and metropolitan area networks, Media Access Control (MAC) Bridges",
+      "zh-CHS": "[网桥]IEEE标准802.1D-2004 IEEE局域网和城域网标准，媒体访问控制（MAC）网桥"
+    },
+    {
+      "indent": 3,
+      "text": "[IGMPv3] Cain, B., Deering, S., Kouvelas, I., Fenner, B., and A. Thyagarajan, \"Internet Group Management Protocol, Version 3\", RFC 3376, October 2002.",
+      "zh-CHS": "[IGMPv3]Cain，B.，Deering，S.，Kouvelas，I.，Fenner，B.，和A.Thyagarajan，“互联网组管理协议，第3版”，RFC 3376，2002年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IPV6-1394] Fujisawa, K. and A. Onoe, \"Transmission of IPv6 Packets over IEEE 1394 Networks\", RFC 3146, October 2001.",
+      "zh-CHS": "[IPV6-1394]Fujisawa，K.和A.Onoe，“通过IEEE 1394网络传输IPV6数据包”，RFC 3146，2001年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IPV6-ETHER] Crawford, M., \"Transmission of IPv6 Packets over Ethernet Networks\", RFC 2464, December 1998.",
+      "zh-CHS": "[IPV6-Ethernet]Crawford，M.，“通过以太网传输IPV6数据包”，RFC 2464，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IPV6-FDDI] Crawford, M., \"Transmission of IPv6 Packets over FDDI Networks\", RFC 2467, December 1998.",
+      "zh-CHS": "[IPV6-FDDI]克劳福德，M.，“通过FDDI网络传输IPV6数据包”，RFC 2467，1998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IPV6-TOKEN] Crawford, M., Narten, T., and S. Thomas, \"Transmission of IPv6 Packets over Token Ring Networks\", RFC 2470, December 1998.",
+      "zh-CHS": "[IPV6-TOKEN]Crawford，M.，Narten，T.，和S.Thomas，“通过令牌环网络传输IPV6数据包”，RFC 24701998年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MLD] Deering, S., Fenner, W., and B. Haberman, \"Multicast Listener Discovery (MLD) for IPv6\", RFC 2710, October 1999.",
+      "zh-CHS": "[MLD]Deering，S.，Fenner，W.和B.Haberman，“IPv6的多播侦听器发现（MLD）”，RFC 2710，1999年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MLDv2] Vida, R. and L. Costa, \"Multicast Listener Discovery Version 2 (MLDv2) for IPv6\", RFC 3810, June 2004.",
+      "zh-CHS": "[MLDv2]Vida，R.和L.Costa，“IPv6多播侦听器发现版本2（MLDv2）”，RFC 3810，2004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MRDISC] Haberman, B. and J. Martin, \"Multicast Router Discovery\", RFC 4286, December 2005.",
+      "zh-CHS": "[MRDISC]Haberman，B.和J.Martin，“多播路由器发现”，RFC 42862005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1112] Deering, S., \"Host extensions for IP multicasting\", STD 5, RFC 1112, August 1989.",
+      "zh-CHS": "[RFC1112]Deering，S.，“IP多播的主机扩展”，STD 5，RFC11121989年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2236] Fenner, W., \"Internet Group Management Protocol, Version 2\", RFC 2236, November 1997.",
+      "zh-CHS": "[RFC2236]Fenner，W.，“互联网组管理协议，第2版”，RFC 2236，1997年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3307] Haberman, B., \"Allocation Guidelines for IPv6 Multicast Addresses\", RFC 3307, August 2002.",
+      "zh-CHS": "[RFC3307]Haberman，B.，“IPv6多播地址的分配指南”，RFC3307，2002年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "5.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[CISCO]      Cisco Tech Notes, \"Multicast In a Campus Network: CGMP\n             and IGMP snooping\",\n             http://www.cisco.com/warp/public/473/22.html",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[IETF56]     Briefing by Dave Thaler, Microsoft, presented to the\n             MAGMA WG at the 56'th IETF meeting in San Francisco,\n             http://www.ietf.org/proceedings/03mar/index.html",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[MSOFT]      Microsoft support article Q223136, \"Some LAN Switches\n             with IGMP Snooping Stop Forwarding Multicast Packets on\n             RRAS Startup\", http://support.microsoft.com/\n             support/articles/Q223/1/36.ASP",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Under normal network operation, the snooping switch is expected to improve overall network performance by limiting the scope of multicast flooding to a smaller portion of the local network. In the event of forged IGMP messages, the benefits of using a snooping switch might be reduced or eliminated.",
+      "zh-CHS": "在正常网络操作下，通过将多播泛洪的范围限制在本地网络的较小部分，窥探交换机有望提高整体网络性能。在伪造IGMP消息的情况下，使用监听开关的好处可能会减少或消除。"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations for IGMPv3 at the network layer of the protocol stack are described in [IGMPv3]. The introduction of IGMP snooping functionality does not alter the handling of multicast packets by the router as it does not make use of link layer information.",
+      "zh-CHS": "[IGMPv3]中描述了协议栈网络层IGMPv3的安全注意事项。IGMP窥探功能的引入不会改变路由器对多播数据包的处理，因为它不使用链路层信息。"
+    },
+    {
+      "indent": 3,
+      "text": "There are, however, changes in the way that the IGMP snooping switch handles multicast packets within the local network. In particular:",
+      "zh-CHS": "然而，IGMP侦听交换机处理本地网络内的多播数据包的方式有所改变。特别地："
+    },
+    {
+      "indent": 3,
+      "text": "- A Query message with a forged source address which is less than that of the current Querier could cause snooping switches to forward subsequent Membership reports to the wrong network interface. It is for this reason that IGMP Membership Reports should be sent to all multicast routers as well as the current Querier.",
+      "zh-CHS": "- 伪造源地址小于当前查询者地址的查询消息可能会导致窥探交换机将后续成员身份报告转发到错误的网络接口。正是由于这个原因，IGMP成员资格报告应该发送到所有多播路由器以及当前查询器。"
+    },
+    {
+      "indent": 3,
+      "text": "- It is possible for a host on the local network to generate Current-State Report Messages that would cause the switch to incorrectly believe that there is a multicast listener on the same network segment as the originator of the forged message. This will cause unrequested multicast packets to be forwarded into the network segments between the source and the router. If the router requires that all Multicast Report messages be authenticated as described in section 9.4 of [IGMPv3], it will discard the forged Report message from the host inside the network in the same way",
+      "zh-CHS": "- 本地网络上的主机可能会生成当前状态报告消息，这将导致交换机错误地认为伪造消息的发起人所在的网段上存在多播侦听器。这将导致未请求的多播数据包被转发到源和路由器之间的网段中。如果路由器要求按照[IGMPv3]第9.4节所述对所有多播报告消息进行身份验证，它将以相同的方式丢弃来自网络内主机的伪造报告消息"
+    },
+    {
+      "indent": 6,
+      "text": "that it would discard one which originates from a remote location. It is worth noting that if the router accepts unauthenticated Report messages by virtue of them having arrived over a network interface associated with the internal network, investigating the affected network segments will quickly narrow the search for the source of the forged messages.",
+      "zh-CHS": "它将丢弃来自远程位置的数据。值得注意的是，如果路由器通过与内部网络相关联的网络接口接收未经验证的报告消息，则调查受影响的网段将迅速缩小对伪造消息源的搜索范围。"
+    },
+    {
+      "indent": 3,
+      "text": "- As noted in [IGMPv3], there is little motivation for an attacker to forge a Membership report message since joining a group is generally an unprivileged operation. The sender of the forged Membership report will be the only recipient of the multicast traffic to that group. This is in contrast to a shared LAN segment (HUB) or network without snooping switches, where all other hosts on the same segment would be unable to transmit when the network segment is flooding the unwanted traffic.",
+      "zh-CHS": "- 如[IGMPv3]中所述，攻击者伪造成员资格报告消息的动机很小，因为加入一个组通常是一种不受权限的操作。伪造成员资格报告的发件人将是该组的多播流量的唯一收件人。这与没有监听交换机的共享LAN段（集线器）或网络形成对比，在共享LAN段（集线器）或网络中，当网段溢出不需要的流量时，同一网段上的所有其他主机将无法传输。"
+    },
+    {
+      "indent": 3,
+      "text": "The worst case result for each attack would remove the performance improvements that the snooping functionality would otherwise provide. It would, however, be no worse than that experienced on a network with switches that do not perform multicast snooping.",
+      "zh-CHS": "每一次攻击的最坏结果都会消除窥探功能本来可以提供的性能改进。然而，这并不比在具有不执行多播监听的交换机的网络上所经历的情况更糟糕。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We would like to thank Martin Bak, Les Bell, Yiqun Cai, Ben Carter, Paul Congdon, Toerless Eckert, Bill Fenner, Brian Haberman, Edward Hilquist, Hugh Holbrook, Kevin Humphries, Isidor Kouvelas, Pekka Savola, Suzuki Shinsuke, Jaff Thomas, Rolland Vida, and Margaret Wasserman for comments and suggestions on this document.",
+      "zh-CHS": "我们要感谢马丁·巴克、莱斯·贝尔、蔡益群、本·卡特、保罗·康登、无趾埃克特、比尔·芬纳、布赖恩·哈伯曼、爱德华·希尔奎斯特、休·霍尔布鲁克、凯文·汉弗莱斯、伊西多·库韦拉斯、佩卡·萨沃拉、铃木新介、杰夫·托马斯、罗兰·维达和玛格丽特·瓦瑟曼对本文件的评论和建议。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, the following companies are acknowledged for their contributions: 3Com, Alcatel, Cisco Systems, Enterasys Networks, Hewlett-Packard, Vitesse Semiconductor Corporation, Thrane & Thrane. The ordering of these names do not necessarily correspond to the column numbers in the response table.",
+      "zh-CHS": "此外，以下公司因其贡献而受到表彰：3Com、阿尔卡特、思科系统、Enterasys Networks、惠普、维特斯半导体公司、Thrane&Thrane。这些名称的顺序不一定与响应表中的列号对应。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Morten Jagd Christensen Thrane & Thrane Lundtoftegaardsvej 93 D 2800 Lyngby DENMARK",
+      "zh-CHS": "Morten Jagd Christensen Thane&Thane Lundtoftegaardsvej 93 D 2800 Lyngby丹麦"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mjc@tt.dk",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Karen Kimball Hewlett-Packard 8000 Foothills Blvd. Roseville, CA 95747 USA",
+      "zh-CHS": "凯伦·金博尔惠普8000山麓大道。美国加利福尼亚州罗斯维尔95747"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: karen.kimball@hp.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Frank Solensky Calix 43 Nanog Park Acton, MA 01720 USA",
+      "zh-CHS": "Frank Solensky Calix 43 Nanog Park Acton，马萨诸塞州01720美国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: frank.solensky@calix.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

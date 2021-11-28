@@ -1,0 +1,508 @@
+{
+  "title": {
+    "text": "RFC 5864: DNS SRV Resource Records for AFS",
+    "zh-CHS": "RFC 5864"
+  },
+  "number": 5864,
+  "created_at": "2021-11-09 02:38:30.047645+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                        R. Allbery\nRequest for Comments: 5864                           Stanford University\nUpdates: 1183                                                 April 2010\nCategory: Standards Track\nISSN: 2070-1721",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 20,
+      "text": "DNS SRV Resource Records for AFS",
+      "zh-CHS": "AFS的DNS SRV资源记录"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies how to use DNS (Domain Name Service) SRV RRs (Resource Records) to locate services for the AFS distributed file system and how the priority and weight values of the SRV RR should be interpreted in the server ranking system used by AFS. It updates RFC 1183 to deprecate the use of the AFSDB RR to locate AFS cell database servers and provides guidance for backward compatibility.",
+      "zh-CHS": "本文档规定了如何使用DNS（域名服务）SRV RRs（资源记录）来定位AFS分布式文件系统的服务，以及如何在AFS使用的服务器排名系统中解释SRV RR的优先级和权重值。它更新了RFC 1183，以禁止使用AFSDB RR定位AFS单元数据库服务器，并提供了向后兼容性指南。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc5864.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc5864."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2010 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2010 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Overview and Rationale ..........................................2\n2. Scope ...........................................................3\n3. Requirements Notation ...........................................3\n4. DNS SRV RRs for AFS .............................................4\n   4.1. Interpretation as AFS Preference Ranks .....................5\n5. Use of AFSDB RRs ................................................6\n6. Example .........................................................8\n7. Security Considerations .........................................9\n8. References ......................................................9\n   8.1. Normative References .......................................9\n   8.2. Informative References ....................................10",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Overview and Rationale",
+      "section_title": true,
+      "zh-CHS": "1. 概述和理由"
+    },
+    {
+      "indent": 3,
+      "text": "AFS (a registered trademark of IBM Corporation) is a distributed file system (see [AFS1] and [AFS2]). Its most widely used implementations are [OPENAFS] and [ARLA].",
+      "zh-CHS": "AFS（IBM Corporation的注册商标）是一种分布式文件系统（请参见[AFS1]和[AFS2]）。它最广泛使用的实现是[OPENAFS]和[ARLA]。"
+    },
+    {
+      "indent": 3,
+      "text": "AFS is organized administratively into cells. Each AFS cell consists of one or more Volume Location Database (VLDB) servers, one or more Protection Service (PTS) servers, and one or more file servers and volume servers, plus possible additional services not relevant to this document. Data stored in AFS is divided into collections of files called volumes. An AFS protocol client, when accessing a file within a specific AFS cell, first contacts a VLDB server for that cell to determine the file server for the AFS volume in which that file is located, and then contacts that file server directly to access the file. A client may also need to contact a PTS server for that cell to register before accessing files in that cell or to query protection database information.",
+      "zh-CHS": "AFS以管理方式组织成细胞。每个AFS单元包括一个或多个卷位置数据库（VLDB）服务器、一个或多个保护服务（PTS）服务器、一个或多个文件服务器和卷服务器，以及可能与本文档无关的其他服务。存储在AFS中的数据被划分为称为卷的文件集合。AFS协议客户端在访问特定AFS单元内的文件时，首先联系该单元的VLDB服务器以确定该文件所在AFS卷的文件服务器，然后直接联系该文件服务器以访问该文件。客户端可能还需要联系PTS服务器，以便该单元在访问该单元中的文件或查询保护数据库信息之前进行注册。"
+    },
+    {
+      "indent": 3,
+      "text": "An AFS client therefore needs to determine, for a given AFS cell, the VLDB and possibly the PTS servers for that cell. (Traditionally, the VLDB and PTS servers are provided by the same host.) Once the client is in contact with the VLDB server, it locates file and volume servers through AFS protocol queries to the VLDB server. Originally, VLDB server information was configured separately on each client in a file called the CellServDB file. [RFC1183] specified the DNS RR (Resource Record) AFSDB to locate VLDB servers for AFS.",
+      "zh-CHS": "因此，对于给定的AFS单元，AFS客户端需要确定VLDB，可能还需要确定该单元的PTS服务器。（传统上，VLDB和PTS服务器由同一主机提供。）一旦客户机与VLDB服务器联系，它将通过对VLDB服务器的AFS协议查询来定位文件和卷服务器。最初，VLDB服务器信息在每个客户机上分别配置在一个名为CellServDB文件的文件中。[RFC1183]指定DNS RR（资源记录）AFSDB以定位AFS的VLDB服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Subsequent to [RFC1183], a general DNS RR was defined by [RFC2782] for service location for any service. This DNS SRV RR has several advantages over the AFSDB RR:",
+      "zh-CHS": "[RFC1183]之后，[RFC2782]为任何服务的服务位置定义了通用DNS RR。与AFSDB RR相比，此DNS SRV RR有几个优点："
+    },
+    {
+      "indent": 3,
+      "text": "o AFSDB RRs do not support priority or ranking, leaving AFS cell administrators without a way to indicate which VLDB servers clients should prefer.",
+      "zh-CHS": "o AFSDB RRs不支持优先级或排名，这使得AFS单元管理员无法指示客户端应该选择哪个VLDB服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "o AFSDB RRs do not include protocol or port information, implicitly assuming that all VLDB servers will be contacted over the standard port and the UDP. Future changes to the AFS protocol may require separate VLDB server lists for UDP and TCP traffic, and some uses of AFS, such as providing VLDB service for multiple cells from the same systems, require use of different ports.",
+      "zh-CHS": "o AFSDB RRs不包括协议或端口信息，隐式假设所有VLDB服务器将通过标准端口和UDP进行联系。AFS协议的未来更改可能需要UDP和TCP流量的单独VLDB服务器列表，并且AFS的某些用途（例如为来自同一系统的多个小区提供VLDB服务）需要使用不同的端口。"
+    },
+    {
+      "indent": 3,
+      "text": "o Clients using AFSDB RRs must assume that VLDB and PTS services are provided by the same host, but it may be useful to separate VLDB servers from PTS servers.",
+      "zh-CHS": "o 使用AFSDB RRs的客户机必须假定VLDB和PTS服务由同一主机提供，但将VLDB服务器与PTS服务器分开可能很有用。"
+    },
+    {
+      "indent": 3,
+      "text": "o DNS SRV RRs are in widespread use, whereas AFSDB RRs are a little-known and little-supported corner of the DNS protocol.",
+      "zh-CHS": "o DNS SRV RRs被广泛使用，而AFSDB RRs是DNS协议中鲜为人知且不受支持的一个角落。"
+    },
+    {
+      "indent": 3,
+      "text": "For those reasons, it is desirable to move AFS service location from the AFSDB RR to DNS SRV RRs.",
+      "zh-CHS": "出于这些原因，希望将AFS服务位置从AFSDB RR移动到DNS SRV RRs。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Scope",
+      "section_title": true,
+      "zh-CHS": "2. 范围"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the format and use of DNS SRV RRs for AFS service location and deprecates the AFSDB RR. It also provides guidance for transition from the AFSDB RR to DNS SRV RRs and recommendations for backward compatibility.",
+      "zh-CHS": "本文档描述了用于AFS服务位置的DNS SRV RRs的格式和使用，并不推荐AFSDB RR。它还提供了从AFSDB RR到DNS SRV RRs的转换指南，以及向后兼容性的建议。"
+    },
+    {
+      "indent": 3,
+      "text": "Documentation of the AFS protocol, the exact purpose and use of the VLDB and PTS services, and other information about AFS are outside the scope of this document.",
+      "zh-CHS": "AFS协议的文件、VLDB和PTS服务的确切用途和使用以及其他有关AFS的信息不在本文件范围内。"
+    },
+    {
+      "indent": 3,
+      "text": "AFSDB RRs may also be used for locating servers for the Open Software Foundation's (OSF's) Distributed Computing Environment (DCE) authenticated naming system, as described in [RFC1183]. Service location for DCE servers is outside the scope of this document and is not modified by this specification.",
+      "zh-CHS": "AFSDB RRs还可用于定位开放软件基金会（OSF）分布式计算环境（DCE）认证命名系统的服务器，如[RFC1183]所述。DCE服务器的服务位置不在本文档的范围内，不受本规范的修改。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Requirements Notation",
+      "section_title": true,
+      "zh-CHS": "3. 需求符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "4. DNS SRV RRs for AFS",
+      "section_title": true,
+      "zh-CHS": "4. 用于AFS的DNS SRV RRs"
+    },
+    {
+      "indent": 3,
+      "text": "The label of a DNS SRV RR, as defined in [RFC2782], is:",
+      "zh-CHS": "[RFC2782]中定义的DNS SRV RR的标签为："
+    },
+    {
+      "indent": 7,
+      "text": "_<service>._<proto>.<name>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The following values for <service> advertise servers providing AFS services:",
+      "zh-CHS": "提供AFS服务的<service>播发服务器的以下值："
+    },
+    {
+      "indent": 3,
+      "text": "afs3-vlserver: servers providing AFS VLDB services.",
+      "zh-CHS": "afs3 vlserver：提供AFS VLDB服务的服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "afs3-prserver: servers providing AFS PTS services.",
+      "zh-CHS": "afs3 prserver：提供AFS PTS服务的服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Other AFS services, such as file and volume management services, are located through the VLDB service and therefore do not use DNS SRV RRs.",
+      "zh-CHS": "其他AFS服务（如文件和卷管理服务）通过VLDB服务定位，因此不使用DNS SRV RRs。"
+    },
+    {
+      "indent": 3,
+      "text": "<proto> MUST be \"udp\" for the current AFS protocol, which uses Rx over UDP. Other values may be used for future revisions of the AFS protocol supporting other protocols, such as Rx over TCP.",
+      "zh-CHS": "<proto>必须是当前AFS协议的“udp”，该协议使用Rx over udp。其他值可用于支持其他协议（例如TCP上的Rx）的AFS协议的未来版本。"
+    },
+    {
+      "indent": 3,
+      "text": "<name> MUST be the AFS cell name for which the identified server provides AFS services. Clients MUST query DNS SRV RRs only for a <name> value exactly matching the AFS cell of interest. They MUST NOT remove leading components to search for more general DNS SRV RRs. The AFS cell \"prod.example.com\" and the AFS cell \"example.com\" are entirely different cells in the AFS protocol and VLDB servers for the latter cannot provide information for the former.",
+      "zh-CHS": "<name>必须是已标识服务器为其提供AFS服务的AFS单元名称。客户端必须仅查询与感兴趣的AFS单元完全匹配的<name>值的DNS SRV RRs。他们不得删除主要组件以搜索更通用的DNS SRV RRs。AFS单元“prod.example.com”和AFS单元“example.com”是AFS协议中完全不同的单元，后者的VLDB服务器无法为前者提供信息。"
+    },
+    {
+      "indent": 6,
+      "text": "NOTE: As with AFSDB RRs, this means that DNS SRV RRs can only be used to locate AFS services for cells whose naming matches the structure of the DNS. This is not a requirement of the AFS protocol, but sites creating new AFS cells SHOULD use names that follow the structure of the DNS and that result in DNS SRV RRs under their administrative control. This both permits use of DNS SRV RRs instead of client configuration and helps avoid naming conflicts between separate AFS cells.",
+      "zh-CHS": "注意：与AFSDB RRs一样，这意味着DNS SRV RRs只能用于为命名与DNS结构匹配的小区定位AFS服务。这不是AFS协议的要求，但创建新AFS单元的站点应使用符合DNS结构的名称，并在其管理控制下生成DNS SRV RRs。这既允许使用DNS SRV RRs代替客户端配置，又有助于避免单独AFS单元之间的命名冲突。"
+    },
+    {
+      "indent": 3,
+      "text": "DNS SRV RRs include a priority and a weight. As defined in the DNS SRV RR specification [RFC2782], clients MUST attempt to contact the target host with the lowest-numbered priority they can reach. AFS clients that use a ranked algorithm to determine which server to contact MUST therefore assign a sufficiently distinct rank to targets with different priorities such that targets with a higher-numbered priority are only contacted if all targets with a lower-numbered priority are inaccessible. See Section 4.1 for more information.",
+      "zh-CHS": "DNS SRV RRs包括优先级和权重。根据DNS SRV RR规范[RFC2782]中的定义，客户端必须尝试以其能够达到的最低编号优先级联系目标主机。因此，使用排序算法确定联系哪台服务器的AFS客户端必须为具有不同优先级的目标分配一个充分不同的排序，以便只有当具有较低优先级的所有目标都无法访问时，才联系具有较高编号优先级的目标。详见第4.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "If there are multiple targets with an equal priority, the weight value of the DNS SRV RR SHOULD be used as input to a weighted algorithm for selecting servers. As specified by [RFC2782], larger weights SHOULD be given a proportionately higher probability of being selected. In the presence of records containing weights greater than 0, records with weight 0 should have a very small chance of being selected. A weight of 0 SHOULD be used if all targets with that priority are weighted equally. AFS clients MAY take into account network performance and other protocol metrics along with SRV RR weights when selecting servers, thereby possibly selecting different servers than a system based purely on the SRV RRs would indicate. However, such information MUST NOT override the priority information in the SRV RR.",
+      "zh-CHS": "如果有多个具有相同优先级的目标，则应将DNS SRV RR的权重值用作选择服务器的加权算法的输入。根据[RFC2782]的规定，较大的权重应按比例给出较高的被选择概率。在存在权重大于0的记录的情况下，权重为0的记录被选中的几率应该很小。如果具有该优先级的所有目标的权重相等，则应使用0的权重。AFS客户端在选择服务器时可能会考虑网络性能和其他协议度量以及SRV RR权重，因此可能会选择不同于纯粹基于SRV RRs的系统的服务器。但是，此类信息不得覆盖SRV RR中的优先级信息。"
+    },
+    {
+      "indent": 3,
+      "text": "DNS SRV RRs, like all DNS RRs, have a time-to-live (TTL), after which the SRV record information is no longer valid (see [RFC1034]). DNS RRs SHOULD be discarded after their TTL, and after the DNS query repeated. This applies to DNS SRV RRs for AFS as it does for any other DNS RR. Any information derived from the DNS SRV RRs, such as preference ranks, MUST be discarded when the DNS SRV RR is expired.",
+      "zh-CHS": "与所有DNS RRs一样，DNS SRV RRs也有一个生存时间（TTL），在此时间之后，SRV记录信息不再有效（请参见[RFC1034]）。DNS RRs应在其TTL之后以及在DNS查询重复之后丢弃。这适用于AFS的DNS SRV RRs，就像适用于任何其他DNS RR一样。当DNS SRV RR过期时，必须丢弃从DNS SRV RRs派生的任何信息，如首选项等级。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations are not required to re-run the weighted server selection algorithm for each call. Instead, they MAY reuse the results of the algorithm until the DNS SRV RRs expire. Clients could therefore use a specific server for the lifetime of the DNS SRV records, which may affect the load distribution properties that DNS SRV records provide. Server operators should account for this effect when setting the TTL of those records.",
+      "zh-CHS": "无需为每个调用重新运行加权服务器选择算法。相反，他们可以重用算法的结果，直到DNS SRV RRs过期。因此，客户端可以在DNS SRV记录的生存期内使用特定服务器，这可能会影响DNS SRV记录提供的负载分布属性。服务器操作员在设置这些记录的TTL时应考虑到这种影响。"
+    },
+    {
+      "indent": 3,
+      "text": "AFS clients MAY remember which targets are inaccessible by that client and ignore those targets when determining which server to contact first. Clients that do this SHOULD have a mechanism to retry targets that were previously inaccessible and reconsider them according to their current priority and weight if they become accessible again.",
+      "zh-CHS": "AFS客户端可能会记住该客户端无法访问的目标，并在确定首先联系哪台服务器时忽略这些目标。这样做的客户端应该有一种机制来重试以前不可访问的目标，并根据它们当前的优先级和权重重新考虑它们（如果它们再次可访问）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Interpretation as AFS Preference Ranks",
+      "section_title": true,
+      "zh-CHS": "4.1. 解释为AFS优先等级"
+    },
+    {
+      "indent": 3,
+      "text": "Several AFS implementations use a ranking algorithm that assigns numbers representing a preference rank to each server when the client first contacts that AFS cell and then prefers the server with the lowest rank unless that server goes down. Clients using this algorithm SHOULD assign their ranks as follows:",
+      "zh-CHS": "一些AFS实现使用一种排名算法，当客户机第一次接触到该AFS单元时，该算法将代表偏好等级的数字分配给每个服务器，然后偏好等级最低的服务器，除非该服务器停机。使用此算法的客户端应按如下方式分配其等级："
+    },
+    {
+      "indent": 3,
+      "text": "1. Sort targets by priority and assign a base rank value to each target based on its priority. Each base rank value MUST be sufficiently different from the base rank assigned to any higher-numbered priority so that higher-numbered targets will only be",
+      "zh-CHS": "1. 按优先级对目标进行排序，并根据每个目标的优先级为其分配基本秩值。每个基本秩值必须与分配给任何更高编号优先级的基本秩有足够的不同，以便仅分配编号更高的目标"
+    },
+    {
+      "indent": 7,
+      "text": "attempted if lower-numbered targets cannot be reached. It MUST, in other words, be farther from the base rank of any distinct priority than any possible automatic adjustment in the rank. When calculating base ranks, observe that the numeric value of a priority has no meaning. Only the ordering of distinct priority values between multiple SRV RR targets needs to be reflected in the base ranks.",
+      "zh-CHS": "如果无法达到编号较低的目标，则尝试。换言之，它必须距离任何不同优先级的基本秩远于秩中任何可能的自动调整。计算基本列组时，请注意优先级的数值没有意义。基本列组中只需反映多个SRV RR目标之间不同优先级值的顺序。"
+    },
+    {
+      "indent": 3,
+      "text": "2. For each group of targets with the same priority, follow the algorithm in [RFC2782] to order those targets. Then, assign those targets ranks formed by incrementing the base weight for that priority such that the first selected target has the lowest rank, the second selected target has the next-lowest rank, and so on.",
+      "zh-CHS": "2. 对于具有相同优先级的每组目标，按照[RFC2782]中的算法对这些目标进行排序。然后，分配通过增加该优先级的基本权重而形成的目标等级，以使第一个选定目标具有最低等级，第二个选定目标具有下一个最低等级，依此类推。"
+    },
+    {
+      "indent": 3,
+      "text": "After assignment of ranks, the AFS client MAY then adjust the ranks dynamically based on network performance and other protocol metrics, provided that such adjustments are sufficiently small compared to the difference between base ranks that they cannot cause servers with a higher-numbered priority to be contacted instead of a server with a lower-numbered priority.",
+      "zh-CHS": "在分配秩之后，AFS客户端可以基于网络性能和其他协议度量动态地调整秩，前提是，与基本列组之间的差异相比，此类调整足够小，因此它们不能导致联系具有较高编号优先级的服务器而不是具有较低编号优先级的服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "The TTL of the DNS SRV RRs MUST be honored by invalidating and regenerating the server preference ranks with new DNS information once that TTL has expired. However, accumulated network and protocol metrics may be retained and reapplied to the new rankings.",
+      "zh-CHS": "DNS SRV RRs的TTL必须通过在TTL过期后使用新的DNS信息使服务器首选项列无效并重新生成来遵守。然而，累积的网络和协议指标可能会被保留并重新应用到新的排名中。"
+    },
+    {
+      "indent": 3,
+      "text": "AFS server preference ranks are conventionally numbers between 1 and 65535. DNS SRV RR priorities are numbers between 0 and 65535. Implementations following this algorithm could therefore encounter problems assigning sufficiently distinct base rank values in exceptional cases of very large numbers of DNS SRV RR targets with different priorities. However, an AFS cell configuration with thousands of DNS SRV RR targets for an AFS VLDB or PTS service with meaningfully distinct priorities is highly improbable. AFS client implementations encountering a DNS SRV RR containing targets with more distinct priority values than can be correctly represented as base ranks SHOULD fall back to generating ranks based solely on priorities, ignoring other rank inputs, and disabling dynamic adjustment of ranks. Implementations MUST be able to assign distinct base ranks as described above for at least ten distinct priority values.",
+      "zh-CHS": "AFS服务器首选级别通常是介于1和65535之间的数字。DNS SRV RR优先级是介于0和65535之间的数字。因此，在具有不同优先级的大量DNS SRV RR目标的例外情况下，遵循此算法的实现可能会遇到分配足够不同的基秩值的问题。然而，对于具有明显不同优先级的AFS VLDB或PTS服务，具有数千个DNS SRV RR目标的AFS小区配置是极不可能的。AFS客户端实现遇到DNS SRV RR，其中包含的目标具有比基本列组更明显的优先级值，应退回到仅基于优先级生成列组，忽略其他列组输入，并禁用列组的动态调整。实现必须能够如上所述为至少十个不同的优先级值分配不同的基本列组。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Use of AFSDB RRs",
+      "section_title": true,
+      "zh-CHS": "5. AFSDB RRs的使用"
+    },
+    {
+      "indent": 3,
+      "text": "Since many AFS client implementations currently support AFSDB RRs but do not support DNS SRV RRs, AFS cells providing DNS SRV RRs SHOULD also provide AFSDB RRs. However, be aware that AFSDB RRs do not",
+      "zh-CHS": "由于许多AFS客户端实现目前支持AFSDB RRs，但不支持DNS SRV RRs，因此提供DNS SRV RRs的AFS单元也应提供AFSDB RRs。但是，请注意，AFSDB RRs不会"
+    },
+    {
+      "indent": 3,
+      "text": "provide priority or weighting information; all servers listed in ASFDB RRs are treated as equal. AFSDB RRs also do not provide port information.",
+      "zh-CHS": "提供优先级或权重信息；ASFDB RRs中列出的所有服务器都被视为同等服务器。AFSDB RRs也不提供端口信息。"
+    },
+    {
+      "indent": 3,
+      "text": "An AFS cell using DNS SRV RRs SHOULD therefore also provide an AFSDB RR listing all AFS servers for which the following statements are all true:",
+      "zh-CHS": "因此，使用DNS SRV RRs的AFS单元还应提供AFSDB RR，列出所有AFS服务器，以下语句均为真："
+    },
+    {
+      "indent": 3,
+      "text": "o The server provides both VLDB and PTS service on the standard ports (7003 and 7002, respectively).",
+      "zh-CHS": "o 服务器在标准端口（分别为7003和7002）上提供VLDB和PTS服务。"
+    },
+    {
+      "indent": 3,
+      "text": "o The server provides these services via Rx over UDP.",
+      "zh-CHS": "o 服务器通过UDP上的Rx提供这些服务。"
+    },
+    {
+      "indent": 3,
+      "text": "o The server either has the lowest-numbered priority of those listed in the DNS SRV RRs or the AFS cell administrator believes it reasonable for clients using AFSDB RRs to use this server by preference.",
+      "zh-CHS": "o 服务器具有DNS SRV RRs中列出的最低编号优先级，或者AFS小区管理员认为使用AFSDB RRs的客户端优先使用此服务器是合理的。"
+    },
+    {
+      "indent": 3,
+      "text": "The above is a default recommendation. AFS cell administrators MAY use different lists of servers in the AFSDB RRs and DNS SRV RRs if desired for specific effects based on local knowledge of which clients use AFSDB RRs and which clients use DNS SRV RRs. However, AFS servers SHOULD NOT be advertised with AFSDB RRs unless they provide VLDB and PTS services via UDP on the standard ports. (This falls shy of MUST NOT because it may be useful in some unusual circumstances to advertise, via an AFSDB RR, a server that provides only one of the two services, but be aware that such a configuration may confuse legacy clients.)",
+      "zh-CHS": "以上是默认建议。如果需要特定效果，AFS小区管理员可以使用AFSDB RRs和DNS SRV RRs中的不同服务器列表，具体效果基于哪些客户端使用AFSDB RRs，哪些客户端使用DNS SRV RRs的本地知识。但是，除非AFS服务器通过标准端口上的UDP提供VLDB和PTS服务，否则不应向AFS服务器播发AFSDB RRs。（这是因为在某些特殊情况下，通过AFSDB RR公布仅提供两种服务中的一种的服务器可能很有用，但请注意，这种配置可能会混淆传统客户端。）"
+    },
+    {
+      "indent": 3,
+      "text": "An AFS cell SHOULD have at least one VLDB and at least one PTS server providing service on the standard ports of 7003 and 7002, respectively, since clients without DNS SRV RR support cannot locate servers on non-standard ports.",
+      "zh-CHS": "AFS单元应至少有一个VLDB和至少一个PTS服务器，分别在7003和7002的标准端口上提供服务，因为没有DNS SRV RR支持的客户端无法在非标准端口上定位服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients SHOULD query DNS SRV RRs by default but SHOULD then fall back on AFSDB RRs if no DNS SRV RRs are found. In the absence of DNS SRV RRs, an AFSDB RR of <subtype> 1 SHOULD be treated as equivalent to the following pair of DNS SRV RRs:",
+      "zh-CHS": "默认情况下，客户端应查询DNS SRV RRs，但如果未找到DNS SRV RRs，则应返回AFSDB RRs。在没有DNS SRV RRs的情况下，<subtype>1的AFSDB RR应被视为等同于以下一对DNS SRV RRs："
+    },
+    {
+      "indent": 7,
+      "text": "_afs3-vlserver._udp.<cell> <ttl> IN SRV 0 0 7003 <hostname>\n_afs3-prserver._udp.<cell> <ttl> IN SRV 0 0 7002 <hostname>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "<cell> is the label of the AFSDB RR, <ttl> is its TTL and <hostname> is the <hostname> value of the AFSDB RR as specified in [RFC1183]. This is the fully-qualified domain name of the server.",
+      "zh-CHS": "<cell>是AFSDB RR的标签，<ttl>是其ttl，<hostname>是[RFC1183]中指定的AFSDB RR的<hostname>值。这是服务器的完全限定域名。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Example",
+      "section_title": true,
+      "zh-CHS": "6. 实例"
+    },
+    {
+      "indent": 3,
+      "text": "The following example includes TCP AFS services, separation of a PTS server from a VLDB server, and use of non-standard ports, all features that either assume future AFS protocol development or are not widely supported by current clients. This example is intended to show the range of possibilities for AFS DNS SRV RRs, not as a practical example for an existing cell. This is a part of the zone file for a fictional example.com domain with AFS services.",
+      "zh-CHS": "下面的示例包括TCP AFS服务、PTS服务器与VLDB服务器的分离以及非标准端口的使用，所有这些功能要么假设将来会开发AFS协议，要么当前客户端不广泛支持。此示例旨在显示AFS DNS SRV RRs的可能性范围，而不是作为现有小区的实际示例。这是带有AFS服务的虚构example.com域的区域文件的一部分。"
+    },
+    {
+      "indent": 7,
+      "text": "$ORIGIN example.com. @ SOA dns.example.com. root.example.com. ( 2009100201 3600 3600 604800 86400 ) NS dns.example.com. _afs3-vlserver._udp SRV 0 2 7003 afsdb1.example.com. _afs3-vlserver._udp SRV 0 4 7003 afsdb2.example.com. _afs3-vlserver._udp SRV 1 0 65500 afsdb3.example.com.",
+      "zh-CHS": "$ORIGIN example.com@soadns.example.com。root.example.com。（2009100201 3600 3600 604800 86400）NS dns.example.com_afs3 vlserver._UDPSRV 0 2 7003 afsdb1.example.com_afs3 vlserver._UDPSRV 0 4 7003 afsdb2.example.com_afs3 vlserver._UDPSRV 1 0 65500 afsdb3.example.com。"
+    },
+    {
+      "indent": 7,
+      "text": "_afs3-vlserver._tcp SRV 0 0 7003 afsdb3.example.com.",
+      "zh-CHS": "_afs3 vlserver._TCPSRV 0 0 7003 afsdb3.example.com。"
+    },
+    {
+      "indent": 7,
+      "text": "_afs3-prserver._udp SRV 0 0 7002 afsdb1.example.com.",
+      "zh-CHS": "_afs3 prserver._UDPSRV 0 0 7002 afsdb1.example.com。"
+    },
+    {
+      "indent": 7,
+      "text": "_afs3-prserver._tcp SRV 0 0 7002 afsdb3.example.com.",
+      "zh-CHS": "_afs3 prserver.\\u tcp SRV 0 0 7002 afsdb3.example.com。"
+    },
+    {
+      "indent": 7,
+      "text": "@ AFSDB 1 afsdb1.example.com.",
+      "zh-CHS": "@AFSDB 1 afsdb1.example.com。"
+    },
+    {
+      "indent": 7,
+      "text": "dns A 192.0.2.9 afsdb1 A 192.0.2.10 afsdb2 A 192.0.2.11 afsdb3 A 192.0.2.12",
+      "zh-CHS": "dns A 192.0.2.9 afsdb1 A 192.0.2.10 afsdb2 A 192.0.2.11 afsdb3 A 192.0.2.12"
+    },
+    {
+      "indent": 3,
+      "text": "In this example, the AFS cell name is example.com.",
+      "zh-CHS": "在本例中，AFS单元名称为example.com。"
+    },
+    {
+      "indent": 3,
+      "text": "afsdb1, afsdb2, and afsdb3 all provide VLDB service via UDP. The first two have the same priority but have weights indicating that afsdb1 should get about twice as many clients as afsdb2. afsdb3 should only be used for UDP VLDB service if afsdb1 and afsdb2 are not accessible and provides that service on a non-standard port (65500).",
+      "zh-CHS": "afsdb1、afsdb2和afsdb3都通过UDP提供VLDB服务。前两个具有相同的优先级，但其权重表明afsdb1应获得大约两倍于afsdb2的客户端。如果afsdb1和afsdb2不可访问，并且在非标准端口（65500）上提供该服务，则afsdb3只能用于UDP VLDB服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Only one host, afsdb1, provides UDP PTS service.",
+      "zh-CHS": "只有一台主机afsdb1提供UDP PTS服务。"
+    },
+    {
+      "indent": 3,
+      "text": "afsdb3 provides a hypothetical TCP version of AFS VLDB and PTS service on the standard ports and is the only server providing these services over TCP for this cell. Such a TCP-based AFS protocol did not exist at the time this document was written. This example only shows what the record would look like in a hypothetical future if such a protocol were developed.",
+      "zh-CHS": "afsdb3在标准端口上提供了AFS VLDB和PTS服务的假设TCP版本，并且是通过TCP为该单元提供这些服务的唯一服务器。在编写本文档时，这种基于TCP的AFS协议并不存在。本例仅显示了如果开发了这样一个协议，在假设的未来记录会是什么样子。"
+    },
+    {
+      "indent": 3,
+      "text": "An AFSDB RR is provided for backward compatibility with older clients. It lists only afsdb1, since only that host provides both VLDB and PTS service over UDP on the standard ports.",
+      "zh-CHS": "提供AFSDB RR是为了与旧客户端向后兼容。它只列出afsdb1，因为只有该主机在标准端口上通过UDP提供VLDB和PTS服务。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Use of DNS SRV RRs for AFS service locations poses the same security issues as the existing AFSDB RRs. Specifically, unless the integrity and authenticity of the DNS response are checked, an attacker may forge DNS replies and thereby direct clients at a VLDB or PTS server under the control of the attacker. From there, the attacker may deceive an AFS client about the volumes and file servers in a cell and about the contents of files and directories in that cell. If the client uses cell data in a trusted way, such as by executing programs out of that AFS cell or using data from the cell as input to other programs, the attacker may be able to further compromise the security of the client and trick it into taking action under the attacker's control.",
+      "zh-CHS": "对AFS服务位置使用DNS SRV RRs会带来与现有AFSDB RRs相同的安全问题。具体而言，除非检查DNS响应的完整性和真实性，否则攻击者可能伪造DNS响应，从而在攻击者的控制下将客户端指向VLDB或PTS服务器。从那里，攻击者可以就单元中的卷和文件服务器以及该单元中的文件和目录内容欺骗AFS客户端。如果客户端以可信的方式使用单元数据，例如通过在该AFS单元外执行程序或使用该单元的数据作为其他程序的输入，则攻击者可能会进一步危害客户端的安全性，并诱使其在攻击者的控制下采取行动。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack can be prevented if the server is authenticated, since the client can then detect a failure to authenticate the attacker's servers and thereby detect possible impersonation. However, this applies only to authenticated AFS access, and much AFS access is unauthenticated. Furthermore, clients after failure to authenticate may fall back to unauthenticated access, which the attacker's servers may permit.",
+      "zh-CHS": "如果服务器经过身份验证，则可以防止此攻击，因为客户端随后可以检测到对攻击者的服务器进行身份验证的失败，从而检测可能的模拟。然而，这仅适用于经过身份验证的AFS访问，而且许多AFS访问都是未经身份验证的。此外，未通过身份验证的客户端可能会退回到未经身份验证的访问，攻击者的服务器可能会允许这种访问。"
+    },
+    {
+      "indent": 3,
+      "text": "Using an integrity-protected DNS system such as DNS Security (DNSSEC) [RFC4033] can prevent this attack via DNS. However, the underlying vulnerability is inherent in the current AFS protocol and may be exploited in ways other than DNS forgery, such as by forging the results of VLDB queries for an AFS cell. Addressing it properly requires changes to the AFS protocol allowing clients to always authenticate AFS services and discard unauthenticated data. Even in the absence of a DNS system with integrity protection, addition of DNS SRV RRs does not make this vulnerability more severe, only opens another equivalent point of attack.",
+      "zh-CHS": "使用完整性保护的DNS系统，如DNS安全（DNSSEC）[RFC4033]可以通过DNS防止此攻击。然而，潜在的漏洞是当前AFS协议中固有的，可通过DNS伪造以外的方式加以利用，例如伪造AFS单元的VLDB查询结果。正确地寻址需要对AFS协议进行更改，以允许客户端始终对AFS服务进行身份验证并丢弃未经身份验证的数据。即使在没有具有完整性保护的DNS系统的情况下，添加DNS SRV RRs也不会使此漏洞更加严重，只会打开另一个等效的攻击点。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1034] Mockapetris, P., \"Domain names - concepts and facilities\", STD 13, RFC 1034, November 1987.",
+      "zh-CHS": "[RFC1034]Mockapetris，P.，“域名-概念和设施”，STD 13，RFC 1034，1987年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1183] Everhart, C., Mamakos, L., Ullmann, R., and P. Mockapetris, \"New DNS RR Definitions\", RFC 1183, October 1990.",
+      "zh-CHS": "[RFC1183]Everhart，C.，Mamakos，L.，Ullmann，R.，和P.Mockapetris，“新的DNS RR定义”，RFC 1183，1990年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2782] Gulbrandsen, A., Vixie, P., and L. Esibov, \"A DNS RR for specifying the location of services (DNS SRV)\", RFC 2782, February 2000.",
+      "zh-CHS": "[RFC2782]Gulbrandsen，A.，Vixie，P.和L.Esibov，“用于指定服务位置（DNS SRV）的DNS RR”，RFC 2782，2000年2月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[AFS1] Howard, J., Kazar, M., Menees, S., Nichols, D., Satyanarayanan, M., Sidebotham, R., and M. West, \"Scale and Performance in a Distributed File System\", ACM Trans. on Computer Systems 6(1), February 1988.",
+      "zh-CHS": "[AFS1]Howard，J.，Kazar，M.，Menees，S.，Nichols，D.，Satyanarayanan，M.，Sidebotham，R.，和M.West，“分布式文件系统中的规模和性能”，ACM Trans。关于计算机系统6（1），1988年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[AFS2] Howard, J., \"An Overview of the Andrew File System\", CMU-ITC 88-062, February 1988.",
+      "zh-CHS": "[AFS2]Howard，J.，“Andrew文件系统概述”，CMU-ITC 88-062，1988年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ARLA] Assar Westerlund, et al., \"Arla\", May 2001, <http://www.stacken.kth.se/project/arla/html/arla.html>.",
+      "zh-CHS": "[ARLA]Assar Westerlund等人，“ARLA”，2001年5月<http://www.stacken.kth.se/project/arla/html/arla.html>."
+    },
+    {
+      "indent": 3,
+      "text": "[OPENAFS] IBM Corporation, et al., \"OpenAFS Documentation\", April 2000, <http://docs.openafs.org/>.",
+      "zh-CHS": "[OPENAFS]IBM公司等，“OPENAFS文档”，2000年4月<http://docs.openafs.org/>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4033] Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose, \"DNS Security Introduction and Requirements\", RFC 4033, March 2005.",
+      "zh-CHS": "[RFC4033]Arends，R.，Austein，R.，Larson，M.，Massey，D.，和S.Rose，“DNS安全介绍和要求”，RFC 4033，2005年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Russ Allbery Stanford University P.O. Box 20066 Stanford, CA 94309 US",
+      "zh-CHS": "Russ Allbery斯坦福大学邮政信箱20066美国加利福尼亚州斯坦福94309"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: rra@stanford.edu\nURI:   http://www.eyrie.org/~eagle/",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

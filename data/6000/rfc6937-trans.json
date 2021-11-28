@@ -1,0 +1,688 @@
+{
+  "title": {
+    "text": "RFC 6937: Proportional Rate Reduction for TCP",
+    "zh-CHS": "RFC 6937"
+  },
+  "number": 6937,
+  "created_at": "2021-11-22 05:51:27.461603+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                         M. Mathis\nRequest for Comments: 6937                                  N. Dukkipati\nCategory: Experimental                                          Y. Cheng\nISSN: 2070-1721                                             Google, Inc.\n                                                                May 2013",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Proportional Rate Reduction for TCP",
+      "zh-CHS": "TCP的比例速率降低"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an experimental Proportional Rate Reduction (PRR) algorithm as an alternative to the widely deployed Fast Recovery and Rate-Halving algorithms. These algorithms determine the amount of data sent by TCP during loss recovery. PRR minimizes excess window adjustments, and the actual window size at the end of recovery will be as close as possible to the ssthresh, as determined by the congestion control algorithm.",
+      "zh-CHS": "本文描述了一种实验性比例速率降低（PRR）算法，作为广泛部署的快速恢复和速率减半算法的替代方案。这些算法确定丢失恢复期间TCP发送的数据量。PRR最小化了过多的窗口调整，恢复结束时的实际窗口大小将尽可能接近ssthresh，这由拥塞控制算法确定。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for examination, experimental implementation, and evaluation.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为检查、实验实施和评估而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an Experimental Protocol for the Internet community. This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文档为互联网社区定义了一个实验协议。本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6937.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6937."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2013 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2013 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Definitions .....................................................5\n3. Algorithms ......................................................6\n   3.1. Examples ...................................................6\n4. Properties ......................................................9\n5. Measurements ...................................................11\n6. Conclusion and Recommendations .................................12\n7. Acknowledgements ...............................................13\n8. Security Considerations ........................................13\n9. References .....................................................13\n   9.1. Normative References ......................................13\n   9.2. Informative References ....................................14\nAppendix A. Strong Packet Conservation Bound ......................15",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes an experimental algorithm, PRR, to improve the accuracy of the amount of data sent by TCP during loss recovery.",
+      "zh-CHS": "本文介绍了一种实验算法PRR，用于提高丢失恢复期间TCP发送的数据量的准确性。"
+    },
+    {
+      "indent": 3,
+      "text": "Standard congestion control [RFC5681] requires that TCP (and other protocols) reduce their congestion window (cwnd) in response to losses. Fast Recovery, described in the same document, is the reference algorithm for making this adjustment. Its stated goal is to recover TCP's self clock by relying on returning ACKs during recovery to clock more data into the network. Fast Recovery typically adjusts the window by waiting for one half round-trip time (RTT) of ACKs to pass before sending any data. It is fragile because it cannot compensate for the implicit window reduction caused by the losses themselves.",
+      "zh-CHS": "标准拥塞控制[RFC5681]要求TCP（和其他协议）减少其拥塞窗口（cwnd）以响应丢失。同一文档中描述的快速恢复是进行此调整的参考算法。其既定目标是通过在恢复过程中返回ACK来恢复TCP的自时钟，从而将更多数据时钟记录到网络中。快速恢复通常通过在发送任何数据之前等待ACK的一半往返时间（RTT）来调整窗口。它是脆弱的，因为它无法补偿损失本身造成的隐式窗口减少。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 6675 [RFC6675] makes Fast Recovery with Selective Acknowledgement (SACK) [RFC2018] more accurate by computing \"pipe\", a sender side estimate of the number of bytes still outstanding in the network. With RFC 6675, Fast Recovery is implemented by sending data as necessary on each ACK to prevent pipe from falling below slow-start threshold (ssthresh), the window size as determined by the congestion control algorithm. This protects Fast Recovery from timeouts in many cases where there are heavy losses, although not if the entire second half of the window of data or ACKs are lost. However, a single ACK carrying a SACK option that implies a large quantity of missing data can cause a step discontinuity in the pipe estimator, which can cause Fast Retransmit to send a burst of data.",
+      "zh-CHS": "RFC 6675[RFC6675]通过计算“管道”（发送方对网络中仍然未完成的字节数的估计），使具有选择性确认（SACK）[RFC2018]的快速恢复更加准确。使用RFC 6675，通过在每个ACK上发送必要的数据来实现快速恢复，以防止管道下降到慢启动阈值（ssthresh）以下，慢启动阈值是由拥塞控制算法确定的窗口大小。这可以在许多情况下保护快速恢复免受超时的影响，这些情况下会出现严重的丢失，但如果数据或确认窗口的整个后半部分都丢失了，则情况并非如此。然而，携带SACK选项的单个ACK（意味着大量缺失数据）可能会导致管道估计器中的阶跃不连续，这可能会导致快速重传以发送突发数据。"
+    },
+    {
+      "indent": 3,
+      "text": "The Rate-Halving algorithm sends data on alternate ACKs during recovery, such that after 1 RTT the window has been halved. Rate-Halving is implemented in Linux after only being informally published [RHweb], including an uncompleted document [RHID]. Rate-Halving also does not adequately compensate for the implicit window reduction caused by the losses and assumes a net 50% window reduction, which was completely standard at the time it was written but not appropriate for modern congestion control algorithms, such as CUBIC [CUBIC], which reduce the window by less than 50%. As a consequence, Rate-Halving often allows the window to fall further than necessary, reducing performance and increasing the risk of timeouts if there are additional losses.",
+      "zh-CHS": "速率减半算法在恢复期间在备用ack上发送数据，这样在1rtt之后，窗口已减半。在Linux中，减半速率是在非正式发布[RHweb]后实现的，其中包括一个未完成的文档[RHID]。减半速率也不能充分补偿损失造成的隐式窗口减少，并假设窗口净减少50%，这在编写时是完全标准的，但不适用于现代拥塞控制算法，如CUBIC[CUBIC]，它将窗口减少不到50%。因此，利率减半通常会使窗口下降得超出必要范围，从而降低性能，并在出现额外损失时增加超时风险。"
+    },
+    {
+      "indent": 3,
+      "text": "PRR avoids these excess window adjustments such that at the end of recovery the actual window size will be as close as possible to ssthresh, the window size as determined by the congestion control algorithm. It is patterned after Rate-Halving, but using the fraction that is appropriate for the target window chosen by the congestion control algorithm. During PRR, one of two additional Reduction Bound algorithms limits the total window reduction due to all mechanisms, including transient application stalls and the losses themselves.",
+      "zh-CHS": "PRR避免了这些过多的窗口调整，因此在恢复结束时，实际窗口大小将尽可能接近ssthresh，即由拥塞控制算法确定的窗口大小。它在速率减半后形成模式，但使用适合于拥塞控制算法选择的目标窗口的分数。在PRR期间，两个附加的缩减界限算法中的一个会限制由于所有机制（包括瞬态应用程序暂停和损失本身）而导致的总窗口缩减。"
+    },
+    {
+      "indent": 3,
+      "text": "We describe two slightly different Reduction Bound algorithms: Conservative Reduction Bound (CRB), which is strictly packet conserving; and a Slow Start Reduction Bound (SSRB), which is more aggressive than CRB by, at most, 1 segment per ACK. PRR-CRB meets the Strong Packet Conservation Bound described in Appendix A; however, in real networks it does not perform as well as the algorithms described in RFC 6675, which prove to be more aggressive in a significant number of cases. SSRB offers a compromise by allowing TCP to send 1 additional segment per ACK relative to CRB in some situations. Although SSRB is less aggressive than RFC 6675",
+      "zh-CHS": "我们描述了两种稍有不同的约化界算法：保守约化界（CRB），它是严格的包守恒算法；和慢启动减少界限（SSRB），它比CRB更具攻击性，每个ACK最多1段。PRR-CRB满足附录A中描述的强数据包保护界限；然而，在实际网络中，它的性能不如RFC 6675中描述的算法，RFC 6675在许多情况下被证明更具攻击性。SSRB提供了一种折衷方案，允许TCP在某些情况下，相对于CRB，每个ACK额外发送1个段。尽管SSRB的攻击性不如RFC 6675"
+    },
+    {
+      "indent": 3,
+      "text": "(transmitting fewer segments or taking more time to transmit them), it outperforms it, due to the lower probability of additional losses during recovery.",
+      "zh-CHS": "（传输更少的数据段或需要更多的时间来传输数据段），由于在恢复过程中发生额外损失的概率较低，因此它的性能优于它。"
+    },
+    {
+      "indent": 3,
+      "text": "The Strong Packet Conservation Bound on which PRR and both Reduction Bounds are based is patterned after Van Jacobson's packet conservation principle: segments delivered to the receiver are used as the clock to trigger sending the same number of segments back into the network. As much as possible, PRR and the Reduction Bound algorithms rely on this self clock process, and are only slightly affected by the accuracy of other estimators, such as pipe [RFC6675] and cwnd. This is what gives the algorithms their precision in the presence of events that cause uncertainty in other estimators.",
+      "zh-CHS": "PRR和这两个缩减边界所基于的强数据包守恒边界是根据Van Jacobson的数据包守恒原理设计的：发送到接收器的数据段被用作时钟，以触发将相同数量的数据段发送回网络。PRR和约化界算法尽可能依赖于这种自时钟过程，并且只受其他估计器（如pipe[RFC6675]和cwnd）的精度的轻微影响。这就是算法在存在导致其他估计器不确定性的事件时的精度。"
+    },
+    {
+      "indent": 3,
+      "text": "The original definition of the packet conservation principle [Jacobson88] treated packets that are presumed to be lost (e.g., marked as candidates for retransmission) as having left the network. This idea is reflected in the pipe estimator defined in RFC 6675 and used here, but it is distinct from the Strong Packet Conservation Bound as described in Appendix A, which is defined solely on the basis of data arriving at the receiver.",
+      "zh-CHS": "分组保护原则的原始定义[Jacobson88]将假定丢失的分组（例如，标记为重传候选）视为已离开网络。这一思想反映在RFC 6675中定义并在此处使用的管道估计器中，但它与附录A中描述的强数据包守恒界限不同，后者仅根据到达接收器的数据定义。"
+    },
+    {
+      "indent": 3,
+      "text": "We evaluated these and other algorithms in a large scale measurement study presented in a companion paper [IMC11] and summarized in Section 5. This measurement study was based on RFC 3517 [RFC3517], which has since been superseded by RFC 6675. Since there are slight differences between the two specifications, and we were meticulous about our implementation of RFC 3517, we are not comfortable unconditionally asserting that our measurement results apply to RFC 6675, although we believe this to be the case. We have instead chosen to be pedantic about describing measurement results relative to RFC 3517, on which they were actually based. General discussions of algorithms and their properties have been updated to refer to RFC 6675.",
+      "zh-CHS": "我们在一篇配套论文[IMC11]中介绍的大规模测量研究中评估了这些算法和其他算法，并在第5节中进行了总结。本测量研究基于RFC 3517[RFC3517]，该研究已被RFC 6675取代。由于两个规范之间存在细微差异，并且我们对RFC 3517的实施非常谨慎，因此我们不愿意无条件地断言我们的测量结果适用于RFC 6675，尽管我们认为情况确实如此。相反，我们选择了迂腐的方式来描述与RFC3517相关的测量结果，而RFC3517实际上是基于RFC3517。算法及其属性的一般讨论已更新，以参考RFC 6675。"
+    },
+    {
+      "indent": 3,
+      "text": "We found that for authentic network traffic, PRR-SSRB outperforms both RFC 3517 and Linux Rate-Halving even though it is less aggressive than RFC 3517. We believe that these results apply to RFC 6675 as well.",
+      "zh-CHS": "我们发现，对于真实的网络流量，PRR-SSRB的性能优于RFC3517和Linux，尽管其攻击性不如RFC3517。我们相信这些结果也适用于RFC 6675。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithms are described as modifications to RFC 5681 [RFC5681], \"TCP Congestion Control\", using concepts drawn from the pipe algorithm [RFC6675]. They are most accurate and more easily implemented with SACK [RFC2018], but do not require SACK.",
+      "zh-CHS": "这些算法被描述为对RFC 5681[RFC5681]，“TCP拥塞控制”的修改，使用的概念来自管道算法[RFC6675]。它们最准确，更容易用SACK[RFC2018]实现，但不需要SACK。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Definitions",
+      "section_title": true,
+      "zh-CHS": "2. 定义"
+    },
+    {
+      "indent": 3,
+      "text": "The following terms, parameters, and state variables are used as they are defined in earlier documents:",
+      "zh-CHS": "以下术语、参数和状态变量的使用与早期文档中的定义相同："
+    },
+    {
+      "indent": 3,
+      "text": "RFC 793: snd.una (send unacknowledged)",
+      "zh-CHS": "RFC 793:snd.una（未确认发送）"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 5681: duplicate ACK, FlightSize, Sender Maximum Segment Size (SMSS)",
+      "zh-CHS": "RFC 5681:重复确认、FlightSize、发送方最大段大小（SMSS）"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 6675: covered (as in \"covered sequence numbers\")",
+      "zh-CHS": "RFC 6675：覆盖（如“覆盖序列号”）"
+    },
+    {
+      "indent": 3,
+      "text": "Voluntary window reductions: choosing not to send data in response to some ACKs, for the purpose of reducing the sending window size and data rate",
+      "zh-CHS": "自愿窗口缩减：选择不发送数据以响应某些ACK，以减少发送窗口大小和数据速率"
+    },
+    {
+      "indent": 3,
+      "text": "We define some additional variables:",
+      "zh-CHS": "我们定义了一些附加变量："
+    },
+    {
+      "indent": 3,
+      "text": "SACKd: The total number of bytes that the scoreboard indicates have been delivered to the receiver. This can be computed by scanning the scoreboard and counting the total number of bytes covered by all SACK blocks. If SACK is not in use, SACKd is not defined.",
+      "zh-CHS": "SACKd：记分板指示已传递给接收器的字节总数。这可以通过扫描记分板并计算所有SACK块覆盖的字节总数来计算。如果未使用SACK，则未定义SACKd。"
+    },
+    {
+      "indent": 3,
+      "text": "DeliveredData: The total number of bytes that the current ACK indicates have been delivered to the receiver. When not in recovery, DeliveredData is the change in snd.una. With SACK, DeliveredData can be computed precisely as the change in snd.una, plus the (signed) change in SACKd. In recovery without SACK, DeliveredData is estimated to be 1 SMSS on duplicate acknowledgements, and on a subsequent partial or full ACK, DeliveredData is estimated to be the change in snd.una, minus 1 SMSS for each preceding duplicate ACK.",
+      "zh-CHS": "DeliveredData：当前ACK指示已发送到接收器的总字节数。未恢复时，DeliveredData是snd.una中的变化。使用SACK，DeliveredData可以精确地计算为snd.una中的更改加上SACK中的（签名）更改。在无SACK的恢复中，在重复确认时，DeliveredData估计为1个SMS，在后续部分或完整确认时，DeliveredData估计为snd.una中的变化，减去之前每个重复确认的1个SMS。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that DeliveredData is robust; for TCP using SACK, DeliveredData can be precisely computed anywhere in the network just by inspecting the returning ACKs. The consequence of missing ACKs is that later ACKs will show a larger DeliveredData. Furthermore, for any TCP (with or without SACK), the sum of DeliveredData must agree with the forward progress over the same time interval.",
+      "zh-CHS": "注意deliveredata是健壮的；对于使用SACK的TCP，只需检查返回的ACK，即可精确计算网络中任何位置的DeliveredData。缺少ACK的结果是，以后的ACK将显示更大的DeliveredData。此外，对于任何TCP（带或不带SACK），DeliveredData的总和必须与相同时间间隔内的转发进度一致。"
+    },
+    {
+      "indent": 3,
+      "text": "We introduce a local variable \"sndcnt\", which indicates exactly how many bytes should be sent in response to each ACK. Note that the decision of which data to send (e.g., retransmit missing data or send more new data) is out of scope for this document.",
+      "zh-CHS": "我们引入了一个局部变量“sndcnt”，它精确地指示响应每个ACK应该发送多少字节。请注意，发送哪些数据（例如，重新传输丢失的数据或发送更多新数据）的决定超出了本文档的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Algorithms",
+      "section_title": true,
+      "zh-CHS": "3. 算法"
+    },
+    {
+      "indent": 3,
+      "text": "At the beginning of recovery, initialize PRR state. This assumes a modern congestion control algorithm, CongCtrlAlg(), that might set ssthresh to something other than FlightSize/2:",
+      "zh-CHS": "在恢复开始时，初始化PRR状态。这假设了一种现代拥塞控制算法CongCtrlAlg（），该算法可能会将ssthresh设置为FlightSize/2以外的值："
+    },
+    {
+      "indent": 6,
+      "text": "ssthresh = CongCtrlAlg()  // Target cwnd after recovery\nprr_delivered = 0         // Total bytes delivered during recovery\nprr_out = 0               // Total bytes sent during recovery\nRecoverFS = snd.nxt-snd.una // FlightSize at the start of recovery",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "On every ACK during recovery compute:",
+      "zh-CHS": "在恢复计算期间的每个ACK上："
+    },
+    {
+      "indent": 6,
+      "text": "DeliveredData = change_in(snd.una) + change_in(SACKd)\nprr_delivered += DeliveredData\npipe = (RFC 6675 pipe algorithm)\nif (pipe > ssthresh) {\n   // Proportional Rate Reduction\n   sndcnt = CEIL(prr_delivered * ssthresh / RecoverFS) - prr_out\n} else {\n   // Two versions of the Reduction Bound\n   if (conservative) {    // PRR-CRB\n     limit = prr_delivered - prr_out\n   } else {               // PRR-SSRB\n     limit = MAX(prr_delivered - prr_out, DeliveredData) + MSS\n   }\n   // Attempt to catch up, as permitted by limit\n   sndcnt = MIN(ssthresh - pipe, limit)\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "On any data transmission or retransmission:",
+      "zh-CHS": "在任何数据传输或重新传输时："
+    },
+    {
+      "indent": 6,
+      "text": "prr_out += (data sent) // strictly less than or equal to sndcnt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Examples",
+      "section_title": true,
+      "zh-CHS": "3.1. 例子"
+    },
+    {
+      "indent": 3,
+      "text": "We illustrate these algorithms by showing their different behaviors for two scenarios: TCP experiencing either a single loss or a burst of 15 consecutive losses. In all cases we assume bulk data (no application pauses), standard Additive Increase Multiplicative Decrease (AIMD) congestion control, and cwnd = FlightSize = pipe = 20 segments, so ssthresh will be set to 10 at the beginning of recovery. We also assume standard Fast Retransmit and Limited Transmit [RFC3042], so TCP will send 2 new segments followed by 1 retransmit in response to the first 3 duplicate ACKs following the losses.",
+      "zh-CHS": "我们通过展示两种情况下的不同行为来说明这些算法：TCP经历一次丢失或连续15次丢失。在所有情况下，我们都假设批量数据（无应用程序暂停）、标准加法-递增-乘法-递减（AIMD）拥塞控制以及cwnd=FlightSize=pipe=20段，因此ssthresh将在恢复开始时设置为10。我们还假设标准的快速重传和有限传输[RFC3042]，因此TCP将发送2个新段，然后再发送1个重传，以响应丢失后的前3个重复ACK。"
+    },
+    {
+      "indent": 3,
+      "text": "Each of the diagrams below shows the per ACK response to the first round trip for the various recovery algorithms when the zeroth segment is lost. The top line indicates the transmitted segment number triggering the ACKs, with an X for the lost segment. \"cwnd\" and \"pipe\" indicate the values of these algorithms after processing each returning ACK. \"Sent\" indicates how much 'N'ew or 'R'etransmitted data would be sent. Note that the algorithms for deciding which data to send are out of scope of this document.",
+      "zh-CHS": "下图显示了当第0段丢失时，各种恢复算法对第一次往返的每ACK响应。顶行表示触发ACK的传输段编号，X表示丢失的段。“cwnd”和“pipe”表示在处理每个返回的ACK之后这些算法的值。“已发送”表示将发送多少“N'ew”或“R”电子传输数据。请注意，决定发送哪些数据的算法超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "When there is a single loss, PRR with either of the Reduction Bound algorithms has the same behavior. We show \"RB\", a flag indicating which Reduction Bound subexpression ultimately determined the value of sndcnt. When there are minimal losses, \"limit\" (both algorithms) will always be larger than ssthresh - pipe, so the sndcnt will be ssthresh - pipe, indicated by \"s\" in the \"RB\" row.",
+      "zh-CHS": "当存在单一损失时，使用任一缩减界限算法的PRR具有相同的行为。我们显示“RB”，这是一个标志，指示哪一个归约子表达式最终决定了sndcnt的值。当损失最小时，“limit”（两种算法）将始终大于ssthresh-pipe，因此sndcnt将是ssthresh-pipe，在“RB”行中用“s”表示。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 6675 ack# X 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 cwnd: 20 20 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 pipe: 19 19 18 18 17 16 15 14 13 12 11 10 10 10 10 10 10 10 10 sent: N N R N N N N N N N N",
+      "zh-CHS": "RFC 6675确认#X 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 17 18 19 cwnd:20 11 11 11 11 11 11 11管道：19 19 19 18 17 15 14 12 11 10 10 10 10 10 10 10 10 10 10发送：N N R N N N N N N N N N N N"
+    },
+    {
+      "indent": 3,
+      "text": "Rate-Halving (Linux) ack# X 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 cwnd: 20 20 19 18 18 17 17 16 16 15 15 14 14 13 13 12 12 11 11 pipe: 19 19 18 18 17 17 16 16 15 15 14 14 13 13 12 12 11 11 10 sent: N N R N N N N N N N N",
+      "zh-CHS": "速率减半（Linux）ack#x12 3 4 5 7 8 9 10 11 12 13 14 16 17 18 19 cwnd:20 19 18 17 16 15 14 13 12 11管道：19 19 18 17 16 15 14 13 12 11 11发送：N N R N N N N N N N N N N N N N N N"
+    },
+    {
+      "indent": 3,
+      "text": "PRR ack# X 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 pipe: 19 19 18 18 18 17 17 16 16 15 15 14 14 13 13 12 12 11 10 sent: N N R N N N N N N N N RB: s s",
+      "zh-CHS": "PRR ack#X 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 18 19管道：19 19 18 18 17 16 15 14 13 13 12 11 10发送：N R N N N N N RB:s"
+    },
+    {
+      "indent": 7,
+      "text": "Cwnd is not shown because PRR does not use it.",
+      "zh-CHS": "未显示Cwnd，因为PRR不使用它。"
+    },
+    {
+      "indent": 3,
+      "text": "Key for RB s: sndcnt = ssthresh - pipe // from ssthresh b: sndcnt = prr_delivered - prr_out + SMSS // from banked d: sndcnt = DeliveredData + SMSS // from DeliveredData (Sometimes, more than one applies.)",
+      "zh-CHS": "RB s的键：sndcnt=ssthresh-pipe//from ssthresh b:sndcnt=prr\\u delivered-prr\\u out+SMSS//from banked d:sndcnt=DeliveredData+SMSS//from DeliveredData（有时，不止一个适用）"
+    },
+    {
+      "indent": 3,
+      "text": "Note that all 3 algorithms send the same total amount of data. RFC 6675 experiences a \"half window of silence\", while the Rate-Halving and PRR spread the voluntary window reduction across an entire RTT.",
+      "zh-CHS": "请注意，所有3种算法发送的数据总量相同。RFC 6675经历了一个“半沉默窗口”，而减半率和PRR将自愿窗口减少扩展到整个RTT。"
+    },
+    {
+      "indent": 3,
+      "text": "Next, we consider the same initial conditions when the first 15 packets (0-14) are lost. During the remainder of the lossy RTT, only 5 ACKs are returned to the sender. We examine each of these algorithms in succession.",
+      "zh-CHS": "接下来，当前15个分组（0～14）丢失时，我们考虑相同的初始条件。在有损RTT的剩余时间内，只有5个ACK返回给发送方。我们依次检查这些算法。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 6675 ack# X X X X X X X X X X X X X X X 15 16 17 18 19 cwnd: 20 20 11 11 11 pipe: 19 19 4 10 10 sent: N N 7R R R",
+      "zh-CHS": "RFC 6675确认X X X X X X X X 15 16 17 18 19 cwnd:20 20 11 11管道：19 19 4 10发送：N N 7R"
+    },
+    {
+      "indent": 3,
+      "text": "Rate-Halving (Linux) ack# X X X X X X X X X X X X X X X 15 16 17 18 19 cwnd: 20 20 5 5 5 pipe: 19 19 4 4 4 sent: N N R R R",
+      "zh-CHS": "速率减半（Linux）确认#X X X X X X 15 16 17 18 19 cwnd:20 20 5 5 5管道：19 19 4 4 4已发送：N N R R R"
+    },
+    {
+      "indent": 3,
+      "text": "PRR-CRB ack# X X X X X X X X X X X X X X X 15 16 17 18 19 pipe: 19 19 4 4 4 sent: N N R R R RB: b b b",
+      "zh-CHS": "PRR-CRB确认#X X X X X 15 16 17 18 19管道：19 19 4 4发送：N N R R RB:b"
+    },
+    {
+      "indent": 3,
+      "text": "PRR-SSRB ack# X X X X X X X X X X X X X X X 15 16 17 18 19 pipe: 19 19 4 5 6 sent: N N 2R 2R 2R RB: bd d d",
+      "zh-CHS": "PRR-SSRB应答#X X X X X X X 15 16 17 18 19管道：19 19 4 5 6发送：N N 2R 2R 2R RB:bd d"
+    },
+    {
+      "indent": 3,
+      "text": "In this specific situation, RFC 6675 is more aggressive because once Fast Retransmit is triggered (on the ACK for segment 17), TCP immediately retransmits sufficient data to bring pipe up to cwnd. Our measurement data (see Section 5) indicates that RFC 6675 significantly outperforms Rate-Halving, PRR-CRB, and some other similarly conservative algorithms that we tested, showing that it is significantly common for the actual losses to exceed the window reduction determined by the congestion control algorithm.",
+      "zh-CHS": "在这种特定情况下，RFC 6675更具攻击性，因为一旦触发快速重传（在段17的ACK上），TCP立即重传足够的数据，以使管道达到cwnd。我们的测量数据（见第5节）表明，RFC 6675明显优于我们测试的速率减半、PRR-CRB和其他一些类似的保守算法，表明实际损失超过拥塞控制算法确定的窗口减少是非常常见的。"
+    },
+    {
+      "indent": 3,
+      "text": "The Linux implementation of Rate-Halving includes an early version of the Conservative Reduction Bound [RHweb]. In this situation, the 5 ACKs trigger exactly 1 transmission each (2 new data, 3 old data), and cwnd is set to 5. At a window size of 5, it takes 3 round trips to retransmit all 15 lost segments. Rate-Halving does not raise the window at all during recovery, so when recovery finally completes, TCP will slow start cwnd from 5 up to 10. In this example, TCP operates at half of the window chosen by the congestion control for more than 3 RTTs, increasing the elapsed time and exposing it to timeouts in the event that there are additional losses.",
+      "zh-CHS": "速率减半的Linux实现包括保守缩减界限[RHweb]的早期版本。在这种情况下，5个ACK每次正好触发1个传输（2个新数据，3个旧数据），并且cwnd设置为5。在窗口大小为5的情况下，需要3次往返才能重新传输所有15个丢失的段。速率减半在恢复期间根本不会提高窗口，因此当恢复最终完成时，TCP会将启动cwnd的速度从5降低到10。在本例中，TCP在拥塞控制选择的窗口的一半上运行超过3个RTT，增加了运行时间，并在出现额外损失时使其超时。"
+    },
+    {
+      "indent": 3,
+      "text": "PRR-CRB implements a Conservative Reduction Bound. Since the total losses bring pipe below ssthresh, data is sent such that the total data transmitted, prr_out, follows the total data delivered to the receiver as reported by returning ACKs. Transmission is controlled by the sending limit, which is set to prr_delivered - prr_out. This is indicated by the RB:b tagging in the figure. In this case, PRR-CRB is exposed to exactly the same problems as Rate-Halving; the excess window reduction causes it to take excessively long to recover the losses and exposes it to additional timeouts.",
+      "zh-CHS": "PRR-CRB实现了一个保守的约化界。由于总损耗使管道低于ssthresh，因此发送数据时，发送的总数据prr_out遵循返回ACK报告的发送至接收器的总数据。传输由发送限制控制，该限制设置为prr_delivered-prr_out。图中的RB:b标记表明了这一点。在这种情况下，PRR-CRB面临的问题与减半速率完全相同；过度的窗口缩减会导致恢复损失所需的时间过长，并使其面临额外的超时。"
+    },
+    {
+      "indent": 3,
+      "text": "PRR-SSRB increases the window by exactly 1 segment per ACK until pipe rises to ssthresh during recovery. This is accomplished by setting limit to one greater than the data reported to have been delivered to the receiver on this ACK, implementing slow start during recovery, and indicated by RB:d tagging in the figure. Although increasing the window during recovery seems to be ill advised, it is important to remember that this is actually less aggressive than permitted by RFC 5681, which sends the same quantity of additional data as a single burst in response to the ACK that triggered Fast Retransmit.",
+      "zh-CHS": "PRR-SSRB将窗口每ACK增加1段，直到管道在恢复期间上升到ssthresh。这是通过将限制设置为大于此ACK上报告已发送给接收器的数据的一个，在恢复期间实现慢启动，并通过图中的RB:d标记来指示。虽然在恢复期间增加窗口似乎是不明智的，重要的是要记住，这实际上比RFC 5681允许的攻击性小，RFC 5681发送与单个突发相同数量的附加数据，以响应触发快速重传的ACK。"
+    },
+    {
+      "indent": 3,
+      "text": "For less extreme events, where the total losses are smaller than the difference between FlightSize and ssthresh, PRR-CRB and PRR-SSRB have identical behaviors.",
+      "zh-CHS": "对于总损失小于FlightSize和ssthresh之差的非极端事件，PRR-CRB和PRR-SSRB具有相同的行为。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Properties",
+      "section_title": true,
+      "zh-CHS": "4. 性质"
+    },
+    {
+      "indent": 3,
+      "text": "The following properties are common to both PRR-CRB and PRR-SSRB, except as noted:",
+      "zh-CHS": "以下特性对于PRR-CRB和PRR-SSRB都是通用的，除非另有说明："
+    },
+    {
+      "indent": 3,
+      "text": "PRR maintains TCP's ACK clocking across most recovery events, including burst losses. RFC 6675 can send large unclocked bursts following burst losses.",
+      "zh-CHS": "PRR在大多数恢复事件（包括突发丢失）中保持TCP的ACK时钟。RFC 6675可以在突发丢失后发送大型未锁定突发。"
+    },
+    {
+      "indent": 3,
+      "text": "Normally, PRR will spread voluntary window reductions out evenly across a full RTT. This has the potential to generally reduce the burstiness of Internet traffic, and could be considered to be a type of soft pacing. Hypothetically, any pacing increases the probability that different flows are interleaved, reducing the opportunity for ACK compression and other phenomena that increase traffic burstiness. However, these effects have not been quantified.",
+      "zh-CHS": "通常，PRR将在整个RTT中均匀分布自愿窗口缩小。这有可能降低互联网流量的突发性，可以被认为是一种软起搏。假设，任何调整都会增加不同流交错的概率，从而减少ACK压缩的机会和其他增加流量突发性的现象。然而，这些影响尚未量化。"
+    },
+    {
+      "indent": 3,
+      "text": "If there are minimal losses, PRR will converge to exactly the target window chosen by the congestion control algorithm. Note that as TCP approaches the end of recovery, prr_delivered will approach RecoverFS and sndcnt will be computed such that prr_out approaches ssthresh.",
+      "zh-CHS": "如果损失最小，PRR将精确地收敛到拥塞控制算法选择的目标窗口。请注意，当TCP接近恢复结束时，交付的prr_将接近RecoverFS，并且将计算sndcnt，以便prr_out接近ssthresh。"
+    },
+    {
+      "indent": 3,
+      "text": "Implicit window reductions, due to multiple isolated losses during recovery, cause later voluntary reductions to be skipped. For small numbers of losses, the window size ends at exactly the window chosen by the congestion control algorithm.",
+      "zh-CHS": "由于恢复过程中的多个孤立损失，隐式窗口缩减会导致以后的自愿缩减被跳过。对于少量的损失，窗口大小正好在拥塞控制算法选择的窗口处结束。"
+    },
+    {
+      "indent": 3,
+      "text": "For burst losses, earlier voluntary window reductions can be undone by sending extra segments in response to ACKs arriving later during recovery. Note that as long as some voluntary window reductions are not undone, the final value for pipe will be the same as ssthresh, the target cwnd value chosen by the congestion control algorithm.",
+      "zh-CHS": "对于突发丢失，可以通过发送额外的段来响应恢复过程中稍后到达的ack，从而撤消先前的自愿窗口缩减。请注意，只要未撤消某些自愿窗口缩减，pipe的最终值将与ssthresh相同，即拥塞控制算法选择的目标cwnd值。"
+    },
+    {
+      "indent": 3,
+      "text": "PRR with either Reduction Bound improves the situation when there are application stalls, e.g., when the sending application does not queue data for transmission quickly enough or the receiver stops advancing rwnd (receiver window). When there is an application stall early during recovery, prr_out will fall behind the sum of the transmissions permitted by sndcnt. The missed opportunities to send due to stalls are treated like banked voluntary window reductions; specifically, they cause prr_delivered - prr_out to be significantly positive. If the application catches up while TCP is still in recovery, TCP will send a partial window burst to catch up to exactly where it would have been had the application never stalled. Although this burst might be viewed as being hard on the network, this is exactly what happens every time there is a partial RTT application stall while not in recovery. We have made the partial RTT stall behavior uniform in all states. Changing this behavior is out of scope for this document.",
+      "zh-CHS": "具有任一缩减边界的PRR改善了应用程序暂停时的情况，例如，当发送应用程序没有足够快地将数据排队以进行传输或接收器停止推进rwnd（接收器窗口）时。当恢复过程中早期出现应用程序暂停时，prr_out将落后于sndcnt允许的传输总数。由于摊位而错过的发送机会被视为银行自愿减窗；具体而言，它们导致prr_交付-prr_输出显著为正。如果应用程序在TCP仍处于恢复状态时赶上，TCP将发送一个部分窗口突发，以赶上应用程序从未停止的确切位置。虽然这种突发在网络上可能会被视为很困难，但每次RTT应用程序在未恢复时出现部分暂停时，都会发生这种情况。我们已经使部分RTT失速行为在所有状态下都是一致的。更改此行为超出此文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "PRR with Reduction Bound is less sensitive to errors in the pipe estimator. While in recovery, pipe is intrinsically an estimator, using incomplete information to estimate if un-SACKed segments are actually lost or merely out of order in the network. Under some conditions, pipe can have significant errors; for example, pipe is underestimated when a burst of reordered data is prematurely assumed to be lost and marked for retransmission. If the transmissions are regulated directly by pipe as they are with RFC 6675, a step discontinuity in the pipe estimator causes a burst of data, which cannot be retracted once the pipe estimator is corrected a few ACKs later. For PRR, pipe merely determines which algorithm, PRR or the Reduction Bound, is used to compute sndcnt from DeliveredData. While pipe is underestimated, the algorithms are different by at most 1 segment per ACK. Once pipe is updated, they converge to the same final window at the end of recovery.",
+      "zh-CHS": "具有约化界的PRR对管道估计器中的误差不太敏感。在恢复过程中，管道本质上是一个估计器，它使用不完全信息来估计未打包的段是否确实丢失或仅仅是网络中的故障。在某些情况下，管道可能会有明显的误差；例如，当重新排序的数据突发被过早地假定为丢失并标记为重新传输时，管道被低估。如果传输直接由管道调节，就像RFC 6675一样，管道估计器中的阶跃不连续会导致数据突发，一旦管道估计器在几次确认后纠正，数据就无法收回。对于PRR，pipe仅确定使用哪种算法（PRR或缩减界限）从DeliveredData计算sndcnt。虽然低估了管道，但算法的不同之处在于每个ACK最多有1个段。更新管道后，它们会在恢复结束时聚合到同一个最终窗口。"
+    },
+    {
+      "indent": 3,
+      "text": "Under all conditions and sequences of events during recovery, PRR-CRB strictly bounds the data transmitted to be equal to or less than the amount of data delivered to the receiver. We claim that this Strong Packet Conservation Bound is the most aggressive algorithm that does",
+      "zh-CHS": "在恢复期间的所有条件和事件序列下，PRR-CRB严格限制传输的数据等于或小于发送给接收器的数据量。我们声称，这种强大的数据包保护界限是最具攻击性的算法"
+    },
+    {
+      "indent": 3,
+      "text": "not lead to additional forced losses in some environments. It has the property that if there is a standing queue at a bottleneck with no cross traffic, the queue will maintain exactly constant length for the duration of the recovery, except for +1/-1 fluctuation due to differences in packet arrival and exit times. See Appendix A for a detailed discussion of this property.",
+      "zh-CHS": "在某些环境中不会导致额外的强制损失。它的特性是，如果瓶颈处有一个没有交叉流量的固定队列，则该队列在恢复期间将保持完全恒定的长度，但由于数据包到达和退出时间的差异而产生的+1/-1波动除外。有关该物业的详细讨论，请参见附录A。"
+    },
+    {
+      "indent": 3,
+      "text": "Although the Strong Packet Conservation Bound is very appealing for a number of reasons, our measurements summarized in Section 5 demonstrate that it is less aggressive and does not perform as well as RFC 6675, which permits bursts of data when there are bursts of losses. PRR-SSRB is a compromise that permits TCP to send 1 extra segment per ACK as compared to the Packet Conserving Bound. From the perspective of a strict Packet Conserving Bound, PRR-SSRB does indeed open the window during recovery; however, it is significantly less aggressive than RFC 6675 in the presence of burst losses.",
+      "zh-CHS": "尽管由于许多原因，强数据包保护界限非常吸引人，但我们在第5节中总结的测量结果表明，它的攻击性较小，性能不如RFC 6675，RFC 6675允许在突发丢失时突发数据。PRR-SSRB是一种折衷方案，它允许TCP在每个ACK上发送一个额外的数据段，而不是数据包保存边界。从严格的数据包保护范围来看，PRR-SSRB确实在恢复期间打开了窗口；然而，在出现突发损失的情况下，其攻击性明显低于RFC 6675。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Measurements",
+      "section_title": true,
+      "zh-CHS": "5. 测量"
+    },
+    {
+      "indent": 3,
+      "text": "In a companion IMC11 paper [IMC11], we describe some measurements comparing the various strategies for reducing the window during recovery. The experiments were performed on servers carrying Google production traffic and are briefly summarized here.",
+      "zh-CHS": "在IMC11的配套论文[IMC11]中，我们描述了一些测量方法，比较了在恢复期间减少窗口的各种策略。这些实验是在承载Google生产流量的服务器上进行的，下面简要总结一下。"
+    },
+    {
+      "indent": 3,
+      "text": "The various window reduction algorithms and extensive instrumentation were all implemented in Linux 2.6. We used the uniform set of algorithms present in the base Linux implementation, including CUBIC [CUBIC], Limited Transmit [RFC3042], threshold transmit (Section 3.1 in [FACK]) (this algorithm was not present in RFC 3517, but a similar algorithm has been added to RFC 6675), and lost retransmission detection algorithms. We confirmed that the behaviors of Rate-Halving (the Linux default), RFC 3517, and PRR were authentic to their respective specifications and that performance and features were comparable to the kernels in production use. All of the different window reduction algorithms were all present in a common kernel and could be selected with a sysctl, such that we had an absolutely uniform baseline for comparing them.",
+      "zh-CHS": "各种窗口缩减算法和大量工具都是在Linux2.6中实现的。我们使用了基本Linux实现中的统一算法集，包括立方[CUBIC]、有限传输[RFC3042]、阈值传输（在[FACK]中的第3.1节）（RFC 3517中没有此算法，但RFC 6675中添加了类似的算法）和丢失重传检测算法。我们确认速率减半（Linux默认）、RFC3517和PRR的行为符合各自的规范，并且性能和功能与生产中使用的内核相当。所有不同的窗口缩减算法都存在于一个共同的内核中，可以使用sysctl进行选择，这样我们就有了一个绝对统一的基线来比较它们。"
+    },
+    {
+      "indent": 3,
+      "text": "Our experiments included an additional algorithm, PRR with an unlimited bound (PRR-UB), which sends ssthresh-pipe bursts when pipe falls below ssthresh. This behavior parallels RFC 3517.",
+      "zh-CHS": "我们的实验包括一个额外的算法，PRR无限界（PRR-UB），当管道低于ssthresh时发送ssthresh管道爆裂。这种行为与RFC3517类似。"
+    },
+    {
+      "indent": 3,
+      "text": "An important detail of this configuration is that CUBIC only reduces the window by 30%, as opposed to the 50% reduction used by traditional congestion control algorithms. This accentuates the tendency for RFC 3517 and PRR-UB to send a burst at the point when Fast Retransmit gets triggered because pipe is likely to already be below ssthresh. Precisely this condition was observed for 32% of the",
+      "zh-CHS": "这种配置的一个重要细节是CUBIC只减少了30%的窗口，而传统拥塞控制算法只减少了50%。这加剧了RFC 3517和PRR-UB在触发快速重传时发送突发的趋势，因为管道可能已经低于ssthresh。32%的患者观察到了这种情况"
+    },
+    {
+      "indent": 3,
+      "text": "recovery events: pipe fell below ssthresh before Fast Retransmit was triggered, thus the various PRR algorithms started in the Reduction Bound phase, and RFC 3517 sent bursts of segments with the Fast Retransmit.",
+      "zh-CHS": "恢复事件：在触发快速重传之前，管道下降到ssthresh以下，因此各种PRR算法在缩减限制阶段开始，RFC 3517通过快速重传发送突发段。"
+    },
+    {
+      "indent": 3,
+      "text": "In the companion paper, we observe that PRR-SSRB spends the least time in recovery of all the algorithms tested, largely because it experiences fewer timeouts once it is already in recovery.",
+      "zh-CHS": "在配套论文中，我们观察到PRR-SSRB在所有测试算法中花费的恢复时间最少，这主要是因为它在恢复过程中经历的超时更少。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3517 experiences 29% more detected lost retransmissions and 2.6% more timeouts (presumably due to undetected lost retransmissions) than PRR-SSRB. These results are representative of PRR-UB and other algorithms that send bursts when pipe falls below ssthresh.",
+      "zh-CHS": "与PRR-SSRB相比，RFC 3517的检测丢失重传比PRR-SSRB多29%，超时比PRR-SSRB多2.6%。这些结果代表了PRR-UB和其他当管道低于ssthresh时发送爆炸的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Rate-Halving experiences 5% more timeouts and significantly smaller final cwnd values at the end of recovery. The smaller cwnd sometimes causes the recovery itself to take extra round trips. These results are representative of PRR-CRB and other algorithms that implement strict packet conservation during recovery.",
+      "zh-CHS": "减半率在恢复结束时会经历5%以上的超时和明显较小的最终cwnd值。较小的cwnd有时会导致恢复本身需要额外的往返行程。这些结果代表了PRR-CRB和其他在恢复期间实现严格数据包保护的算法。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Conclusion and Recommendations",
+      "section_title": true,
+      "zh-CHS": "6. 结论和建议"
+    },
+    {
+      "indent": 3,
+      "text": "Although the Strong Packet Conservation Bound used in PRR-CRB is very appealing for a number of reasons, our measurements show that it is less aggressive and does not perform as well as RFC 3517 (and by implication RFC 6675), which permits bursts of data when there are bursts of losses. RFC 3517 and RFC 6675 are conservative in the original sense of Van Jacobson's packet conservation principle, which included the assumption that presumed lost segments have indeed left the network. PRR-CRB makes no such assumption, following instead a Strong Packet Conservation Bound in which only packets that have actually arrived at the receiver are considered to have left the network. PRR-SSRB is a compromise that permits TCP to send 1 extra segment per ACK relative to the Strong Packet Conservation Bound, to partially compensate for excess losses.",
+      "zh-CHS": "尽管PRR-CRB中使用的强数据包保护界限出于许多原因非常吸引人，但我们的测量结果表明，它的攻击性较小，性能不如RFC 3517（以及暗示的RFC 6675），RFC 3517在出现突发丢失时允许数据突发。RFC 3517和RFC 6675在Van Jacobson的数据包保护原则的原始意义上是保守的，其中包括假定丢失的数据段确实已离开网络的假设。PRR-CRB不做这样的假设，而是遵循一个强数据包保护界限，在这个界限中，只有实际到达接收器的数据包才被认为离开了网络。PRR-SSRB是一种折衷方案，允许TCP相对于强数据包保护界限，在每个ACK上发送一个额外的段，以部分补偿额外的丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "From the perspective of the Strong Packet Conservation Bound, PRR-SSRB does indeed open the window during recovery; however, it is significantly less aggressive than RFC 3517 (and RFC 6675) in the presence of burst losses. Even so, it often outperforms RFC 3517 (and presumably RFC 6675) because it avoids some of the self-inflicted losses caused by bursts.",
+      "zh-CHS": "从强数据包保护界的角度来看，PRR-SSRB确实在恢复期间打开了窗口；然而，在出现突发损失的情况下，其攻击性明显低于RFC 3517（和RFC 6675）。即便如此，它的表现也往往优于RFC3517（可能是RFC6675），因为它避免了一些由爆发造成的自我造成的损失。"
+    },
+    {
+      "indent": 3,
+      "text": "At this time, we see no reason not to test and deploy PRR-SSRB on a large scale. Implementers worried about any potential impact of raising the window during recovery may want to optionally support PRR-CRB (which is actually simpler to implement) for comparison",
+      "zh-CHS": "目前，我们认为没有理由不大规模测试和部署PRR-SSRB。担心在恢复过程中提高窗口可能会产生任何潜在影响的实现者可能希望有选择地支持PRR-CRB（实际上更容易实现）进行比较"
+    },
+    {
+      "indent": 3,
+      "text": "studies. Furthermore, there is one minor detail of PRR that can be improved by replacing pipe by total_pipe, as defined by Laminar TCP [Laminar].",
+      "zh-CHS": "学习此外，PRR的一个小细节可以通过将管道替换为总管道来改进，如层流TCP[层流]所定义。"
+    },
+    {
+      "indent": 3,
+      "text": "One final comment about terminology: we expect that common usage will drop \"Slow Start Reduction Bound\" from the algorithm name. This document needed to be pedantic about having distinct names for PRR and every variant of the Reduction Bound. However, we do not anticipate any future exploration of the alternative Reduction Bounds.",
+      "zh-CHS": "关于术语的最后一点意见是：我们希望常见用法会从算法名称中删除“慢启动缩减界限”。这篇文档需要学究式地描述PRR和还原边界的每个变体的不同名称。然而，我们预计未来不会对替代还原界限进行任何探索。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This document is based in part on previous incomplete work by Matt Mathis, Jeff Semke, and Jamshid Mahdavi [RHID] and influenced by several discussions with John Heffner.",
+      "zh-CHS": "本文件部分基于Matt Mathis、Jeff Semke和Jamshid Mahdavi[RHID]之前未完成的工作，并受到与John Heffner的几次讨论的影响。"
+    },
+    {
+      "indent": 3,
+      "text": "Monia Ghobadi and Sivasankar Radhakrishnan helped analyze the experiments.",
+      "zh-CHS": "莫尼亚·戈巴迪和西瓦桑卡尔·拉德哈克里希南帮助分析了这些实验。"
+    },
+    {
+      "indent": 3,
+      "text": "Ilpo Jarvinen reviewed the code.",
+      "zh-CHS": "Ilpo Jarvinen审查了代码。"
+    },
+    {
+      "indent": 3,
+      "text": "Mark Allman improved the document through his insightful review.",
+      "zh-CHS": "马克·奥尔曼通过富有洞察力的评论改进了该文件。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "PRR does not change the risk profile for TCP.",
+      "zh-CHS": "PRR不会改变TCP的风险状况。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementers that change PRR from counting bytes to segments have to be cautious about the effects of ACK splitting attacks [Savage99], where the receiver acknowledges partial segments for the purpose of confusing the sender's congestion accounting.",
+      "zh-CHS": "将PRR从计数字节更改为段的实现者必须小心ACK分裂攻击的影响[Savage99]，其中接收方确认部分段以混淆发送方的拥塞统计。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC0793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[RFC0793]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2018] Mathis, M., Mahdavi, J., Floyd, S., and A. Romanow, \"TCP Selective Acknowledgment Options\", RFC 2018, October 1996.",
+      "zh-CHS": "[RFC2018]Mathis，M.，Mahdavi，J.，Floyd，S.，和A.Romanow，“TCP选择性确认选项”，RFC 2018，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5681] Allman, M., Paxson, V., and E. Blanton, \"TCP Congestion Control\", RFC 5681, September 2009.",
+      "zh-CHS": "[RFC5681]Allman，M.，Paxson，V.和E.Blanton，“TCP拥塞控制”，RFC 56812009年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6675] Blanton, E., Allman, M., Wang, L., Jarvinen, I., Kojo, M., and Y. Nishida, \"A Conservative Loss Recovery Algorithm Based on Selective Acknowledgment (SACK) for TCP\", RFC 6675, August 2012.",
+      "zh-CHS": "[RFC6675]Blanton，E.，Allman，M.，Wang，L.，Jarvinen，I.，Kojo，M.，和Y.Nishida，“基于TCP选择性确认（SACK）的保守丢失恢复算法”，RFC 6675，2012年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3042] Allman, M., Balakrishnan, H., and S. Floyd, \"Enhancing TCP's Loss Recovery Using Limited Transmit\", RFC 3042, January 2001.",
+      "zh-CHS": "[RFC3042]Allman，M.，Balakrishnan，H.，和S.Floyd，“使用有限传输增强TCP的丢失恢复”，RFC 3042，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3517] Blanton, E., Allman, M., Fall, K., and L. Wang, \"A Conservative Selective Acknowledgment (SACK)-based Loss Recovery Algorithm for TCP\", RFC 3517, April 2003.",
+      "zh-CHS": "[RFC3517]Blanton，E.，Allman，M.，Fall，K.，和L.Wang，“基于保守选择确认（SACK）的TCP丢失恢复算法”，RFC 3517，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IMC11] Dukkipati, N., Mathis, M., Cheng, Y., and M. Ghobadi, \"Proportional Rate Reduction for TCP\", Proceedings of the 11th ACM SIGCOMM Conference on Internet Measurement 2011, Berlin, Germany, November 2011.",
+      "zh-CHS": "[IMC11]Dukkipati，N.，Mathis，M.，Cheng，Y.，和M.Ghobadi，“TCP的比例速率降低”，2011年11月在德国柏林召开的第11届ACM SIGCOMM互联网测量会议记录。"
+    },
+    {
+      "indent": 3,
+      "text": "[FACK] Mathis, M. and J. Mahdavi, \"Forward Acknowledgment: Refining TCP Congestion Control\", ACM SIGCOMM SIGCOMM96, August 1996.",
+      "zh-CHS": "[FACK]Mathis，M.和J.Mahdavi，“前向确认：改进TCP拥塞控制”，ACM SIGCOMM SIGCOM96，1996年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RHID] Mathis, M., Semke, J., and J. Mahdavi, \"The Rate-Halving Algorithm for TCP Congestion Control\", Work in Progress, August 1999.",
+      "zh-CHS": "[RHID]Mathis，M.，Semke，J.，和J.Mahdavi，“TCP拥塞控制的速率减半算法”，正在进行的工作，1999年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RHweb] Mathis, M. and J. Mahdavi, \"TCP Rate-Halving with Bounding Parameters\", Web publication, December 1997, <http://www.psc.edu/networking/papers/FACKnotes/current/>.",
+      "zh-CHS": "[RHweb]Mathis，M.和J.Mahdavi，“带边界参数的TCP速率减半”，网络出版物，1997年12月<http://www.psc.edu/networking/papers/FACKnotes/current/>."
+    },
+    {
+      "indent": 3,
+      "text": "[CUBIC] Rhee, I. and L. Xu, \"CUBIC: A new TCP-friendly high-speed TCP variant\", PFLDnet 2005, February 2005.",
+      "zh-CHS": "[CUBIC]Rhee，I.和L.Xu，“CUBIC：一种新的TCP友好型高速TCP变体”，PFLDnet 2005，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Jacobson88] Jacobson, V., \"Congestion Avoidance and Control\", SIGCOMM Comput. Commun. Rev. 18(4), August 1988.",
+      "zh-CHS": "[Jacobson88]Jacobson，V.，“拥塞避免和控制”，SIGCOMM计算机。公社。牧师。1988年8月18日（4）。"
+    },
+    {
+      "indent": 3,
+      "text": "[Savage99] Savage, S., Cardwell, N., Wetherall, D., and T. Anderson, \"TCP congestion control with a misbehaving receiver\", SIGCOMM Comput. Commun. Rev. 29(5), October 1999.",
+      "zh-CHS": "[Savage99]Savage，S.，Cardwell，N.，Wetheral，D.，和T.Anderson，“TCP拥塞控制与行为不当的接收器”，SIGCOMCompute。公社。牧师。1999年10月29日（5）。"
+    },
+    {
+      "indent": 3,
+      "text": "[Laminar] Mathis, M., \"Laminar TCP and the case for refactoring TCP congestion control\", Work in Progress, July 2012.",
+      "zh-CHS": "[层流]Mathis，M.，“层流TCP和重构TCP拥塞控制的案例”，正在进行的工作，2012年7月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Strong Packet Conservation Bound",
+      "section_title": true,
+      "zh-CHS": "附录A.强数据包保护边界"
+    },
+    {
+      "indent": 3,
+      "text": "PRR-CRB is based on a conservative, philosophically pure, and aesthetically appealing Strong Packet Conservation Bound, described here. Although inspired by Van Jacobson's packet conservation principle [Jacobson88], it differs in how it treats segments that are missing and presumed lost. Under all conditions and sequences of events during recovery, PRR-CRB strictly bounds the data transmitted to be equal to or less than the amount of data delivered to the receiver. Note that the effects of presumed losses are included in the pipe calculation, but do not affect the outcome of PRR-CRB, once pipe has fallen below ssthresh.",
+      "zh-CHS": "PRR-CRB基于一个保守的、哲学上纯粹的、美学上吸引人的强数据包保护边界，如本文所述。尽管受到Van Jacobson的数据包保护原则[Jacobson88]的启发，但它在处理丢失和假定丢失的数据段方面有所不同。在恢复期间的所有条件和事件序列下，PRR-CRB严格限制传输的数据等于或小于发送给接收器的数据量。请注意，假定损失的影响包括在管道计算中，但一旦管道降至ssthresh以下，则不会影响PRR-CRB的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "We claim that this Strong Packet Conservation Bound is the most aggressive algorithm that does not lead to additional forced losses in some environments. It has the property that if there is a standing queue at a bottleneck that is carrying no other traffic, the queue will maintain exactly constant length for the entire duration of the recovery, except for +1/-1 fluctuation due to differences in packet arrival and exit times. Any less aggressive algorithm will result in a declining queue at the bottleneck. Any more aggressive algorithm will result in an increasing queue or additional losses if it is a full drop tail queue.",
+      "zh-CHS": "我们声称，这种强数据包保护界限是最激进的算法，在某些环境中不会导致额外的强制丢失。它的特性是，如果瓶颈处有一个不承载任何其他流量的固定队列，则该队列将在整个恢复期间保持完全恒定的长度，但由于数据包到达和退出时间的差异而产生的+1/-1波动除外。任何攻击性较小的算法都会导致瓶颈处的队列减少。任何更激进的算法都会导致队列增加，如果是完全丢弃尾队列，则会导致额外的损失。"
+    },
+    {
+      "indent": 3,
+      "text": "We demonstrate this property with a little thought experiment:",
+      "zh-CHS": "我们通过一个小小的思考实验来证明这一特性："
+    },
+    {
+      "indent": 3,
+      "text": "Imagine a network path that has insignificant delays in both directions, except for the processing time and queue at a single bottleneck in the forward path. By insignificant delay, we mean when a packet is \"served\" at the head of the bottleneck queue, the following events happen in much less than one bottleneck packet time: the packet arrives at the receiver; the receiver sends an ACK that arrives at the sender; the sender processes the ACK and sends some data; the data is queued at the bottleneck.",
+      "zh-CHS": "设想一条网络路径，除了处理时间和前进路径中单个瓶颈处的队列外，它在两个方向上都有微不足道的延迟。所谓不显著延迟，我们的意思是，当一个数据包在瓶颈队列的前端被“服务”时，以下事件在远远少于一个瓶颈数据包的时间内发生：数据包到达接收方；接收方发送到达发送方的ACK；发送方处理ACK并发送一些数据；数据在瓶颈处排队。"
+    },
+    {
+      "indent": 3,
+      "text": "If sndcnt is set to DeliveredData and nothing else is inhibiting sending data, then clearly the data arriving at the bottleneck queue will exactly replace the data that was served at the head of the queue, so the queue will have a constant length. If queue is drop tail and full, then the queue will stay exactly full. Losses or reordering on the ACK path only cause wider fluctuations in the queue size, but do not raise its peak size, independent of whether the data is in order or out of order (including loss recovery from an earlier RTT). Any more aggressive algorithm that sends additional data will overflow the drop tail queue and cause loss. Any less aggressive algorithm will under-fill the queue. Therefore, setting sndcnt to DeliveredData is the most aggressive algorithm that does not cause forced losses in this simple network. Relaxing the assumptions",
+      "zh-CHS": "如果sndcnt被设置为DeliveredData，并且没有其他任何东西禁止发送数据，那么很明显，到达瓶颈队列的数据将完全替换在队列头部提供的数据，因此队列将具有恒定的长度。如果队列为落尾且已满，则队列将保持完全满。ACK路径上的丢失或重新排序只会导致队列大小的更大波动，但不会提高其峰值大小，这与数据是否有序无关（包括从早期RTT恢复的丢失）。任何发送额外数据的更激进的算法都会使丢弃尾队列溢出并导致丢失。任何攻击性较小的算法都会使队列不足。因此，将sndcnt设置为DeliveredData是最激进的算法，在这个简单的网络中不会造成强制损失。放宽假设"
+    },
+    {
+      "indent": 3,
+      "text": "(e.g., making delays more authentic and adding more flows, delayed ACKs, etc.) is likely to increase the fine grained fluctuations in queue size but does not change its basic behavior.",
+      "zh-CHS": "（例如，使延迟更真实，并添加更多流、延迟的ack等）可能会增加队列大小的细粒度波动，但不会改变其基本行为。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the congestion control algorithm implements a broader notion of optimal that includes appropriately sharing the network. Typical congestion control algorithms are likely to reduce the data sent relative to the Packet Conserving Bound implemented by PRR, bringing TCP's actual window down to ssthresh.",
+      "zh-CHS": "请注意，拥塞控制算法实现了更广泛的优化概念，包括适当地共享网络。典型的拥塞控制算法可能会减少相对于PRR实现的数据包保存界限发送的数据，从而使TCP的实际窗口降低到ssthresh。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Matt Mathis Google, Inc. 1600 Amphitheatre Parkway Mountain View, California 94043 USA",
+      "zh-CHS": "Matt Mathis Google，Inc.美国加利福尼亚州山景大道1600号圆形剧场94043"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mattmathis@google.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Nandita Dukkipati Google, Inc. 1600 Amphitheatre Parkway Mountain View, California 94043 USA",
+      "zh-CHS": "Nandita Dukkipati Google，Inc.美国加利福尼亚州山景大道1600号圆形剧场94043"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: nanditad@google.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Yuchung Cheng Google, Inc. 1600 Amphitheatre Parkway Mountain View, California 94043 USA",
+      "zh-CHS": "美国加利福尼亚州山景公园道1600圆形剧场谷歌公司，邮编94043"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: ycheng@google.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

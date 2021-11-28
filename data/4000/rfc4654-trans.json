@@ -1,0 +1,1528 @@
+{
+  "title": {
+    "text": "RFC 4654: TCP-Friendly Multicast Congestion Control (TFMCC): Protocol Specification",
+    "zh-CHS": "RFC 4654"
+  },
+  "number": 4654,
+  "created_at": "2021-11-14 13:52:34.414500+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          J. Widmer\nRequest for Comments: 4654                              DoCoMo Euro-Labs\nCategory: Experimental                                        M. Handley\n                                                                     UCL\n                                                             August 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "TCP-Friendly Multicast Congestion Control (TFMCC): Protocol Specification",
+      "zh-CHS": "TCP友好多播拥塞控制（TFMCC）：协议规范"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines an Experimental Protocol for the Internet community. It does not specify an Internet standard of any kind. Discussion and suggestions for improvement are requested. Distribution of this memo is unlimited.",
+      "zh-CHS": "这份备忘录为互联网社区定义了一个实验性协议。它没有规定任何类型的互联网标准。要求进行讨论并提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies TCP-Friendly Multicast Congestion Control (TFMCC). TFMCC is a congestion control mechanism for multicast transmissions in a best-effort Internet environment. It is a single-rate congestion control scheme, where the sending rate is adapted to the receiver experiencing the worst network conditions. TFMCC is reasonably fair when competing for bandwidth with TCP flows and has a relatively low variation of throughput over time, making it suitable for applications where a relatively smooth sending rate is of importance, such as streaming media.",
+      "zh-CHS": "本文档指定TCP友好多播拥塞控制（TFMCC）。TFMCC是一种在尽力而为的Internet环境中用于多播传输的拥塞控制机制。它是一种单速率拥塞控制方案，其中发送速率适用于经历最恶劣网络条件的接收器。TFMCC在与TCP流竞争带宽时相当公平，吞吐量随时间的变化相对较小，因此适合于发送速率相对平稳的应用，如流媒体。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Related Documents ..........................................4\n   1.2. Environmental Requirements and Considerations ..............4\n2. Protocol Overview ...............................................5\n   2.1. TCP Throughput Equation ....................................6\n   2.2. Packet Contents ............................................7\n        2.2.1. Sender Packets ......................................8\n        2.2.2. Feedback Packets ....................................9\n3. Data Sender Protocol ...........................................10\n   3.1. Sender Initialization .....................................10\n   3.2. Determining the Maximum RTT ...............................10\n   3.3. Adjusting the Sending Rate ................................11\n   3.4. Controlling Receiver Feedback .............................12\n   3.5. Assisting Receiver-Side RTT Measurements ..................14\n   3.6. Slowstart .................................................15\n   3.7. Scheduling of Packet Transmissions ........................15\n4. Data Receiver Protocol .........................................16\n   4.1. Receiver Initialization ...................................17\n   4.2. Receiver Leave ............................................17\n   4.3. Measurement of the Network Conditions .....................17\n        4.3.1. Updating the Loss Event Rate .......................17\n        4.3.2. Basic Round-Trip Time Measurement ..................17\n        4.3.3. One-Way Delay Adjustments ..........................18\n        4.3.4. Receive Rate Measurements ..........................19\n   4.4. Setting the Desired Rate ..................................19\n   4.5. Feedback and Feedback Suppression .........................20\n5. Calculation of the Loss Event Rate .............................22\n   5.1. Detection of Lost or Marked Packets .......................22\n   5.2. Translation from Loss History to Loss Events ..............23\n   5.3. Inter-Loss Event Interval .................................24\n   5.4. Average Loss Interval .....................................24\n   5.5. History Discounting .......................................25\n   5.6. Initializing the Loss History after the First Loss Event ..27\n6. Security Considerations ........................................28\n7. Acknowledgments ................................................29\n8. References .....................................................29\n   8.1. Normative References ......................................29\n   8.2. Informative References ....................................29",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies TCP-Friendly Multicast Congestion Control (TFMCC) [3]. TFMCC is a source-based, single-rate congestion control scheme that builds upon the unicast TCP-Friendly Rate Control mechanism (TFRC) [4]. TFMCC is stable and responsive under a wide range of network conditions and scales to receiver sets on the order of several thousand receivers. To support scalability, as much congestion control functionality as possible is located at the receivers. Each receiver continuously determines a desired receive rate that is TCP-friendly for the path from the sender to this receiver. Selected receivers then report the rate to the sender in feedback packets.",
+      "zh-CHS": "本文档规定了TCP友好多播拥塞控制（TFMCC）[3]。TFMCC是一种基于源的单速率拥塞控制方案，它建立在单播TCP友好速率控制机制（TFRC）[4]的基础上。TFMCC在广泛的网络条件下稳定且响应迅速，可扩展到数千个接收器。为了支持可伸缩性，尽可能多的拥塞控制功能位于接收器处。每个接收器连续确定从发送方到该接收器的路径的TCP友好的期望接收速率。然后，选定的接收者在反馈数据包中向发送者报告速率。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is a building block as defined in RFC 3048 [1]. Instead of specifying a complete protocol, this document simply specifies a congestion control mechanism that could be used in a transport protocol such as RTP [11], in an application incorporating end-to-end congestion control at the application level. This document does not discuss packet formats, reliability, or implementation-related issues.",
+      "zh-CHS": "TFMCC是RFC 3048[1]中定义的构建块。本文档没有指定完整的协议，而是简单地指定了一种拥塞控制机制，该机制可用于传输协议（如RTP[11]），应用程序在应用程序级别合并了端到端拥塞控制。本文档不讨论数据包格式、可靠性或与实现相关的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is designed to be reasonably fair when competing for bandwidth with TCP flows. A multicast flow is \"reasonably fair\" if its sending rate is generally within a factor of two of the sending rate of a TCP flow from the sender to the slowest receiver of the multicast group under the same network conditions.",
+      "zh-CHS": "TFMCC设计为在与TCP流竞争带宽时合理公平。如果在相同的网络条件下，多播流的发送速率通常在从发送方到多播组的最慢接收方的TCP流的发送速率的两倍以内，则多播流是“合理公平的”。"
+    },
+    {
+      "indent": 3,
+      "text": "In general, TFMCC has a low variation of throughput, which makes it suitable for applications where a relatively smooth sending rate is of importance, such as streaming media. The penalty of having smooth throughput while competing fairly for bandwidth is a reduced responsiveness to changes in available bandwidth. Thus TFMCC should be used when the application has a requirement for smooth throughput, in particular, avoiding halving of the sending rate in response to a single packet drop. For applications that simply need to multicast as much data as possible in as short a time as possible, PGMCC [10] may be more suitable.",
+      "zh-CHS": "一般来说，TFMCC的吞吐量变化较小，这使得它适用于相对平稳的发送速率非常重要的应用程序，如流媒体。在公平竞争带宽的同时获得平滑吞吐量的代价是降低了对可用带宽变化的响应能力。因此，当应用程序需要平滑吞吐量时，尤其是避免响应单个数据包丢失而将发送速率减半时，应使用TFMCC。对于只需要在尽可能短的时间内多播尽可能多的数据的应用程序，PGMCC[10]可能更合适。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo contains part of the definitions necessary to fully specify a Reliable Multicast Transport protocol in accordance with RFC 2357. As per RFC 2357, the use of any reliable multicast protocol in the Internet requires an adequate congestion control scheme. This document specifies an experimental congestion control scheme. While waiting for initial deployment and experience to show this scheme to be effective and scalable, the IETF publishes this scheme in the \"Experimental\" category.",
+      "zh-CHS": "本备忘录包含根据RFC 2357完全指定可靠多播传输协议所需的部分定义。根据RFC2357，在互联网上使用任何可靠的多播协议都需要适当的拥塞控制方案。本文件规定了一个实验性的拥塞控制方案。在等待初始部署和经验证明此方案有效和可扩展时，IETF将此方案发布为“实验”类别。"
+    },
+    {
+      "indent": 3,
+      "text": "It is the intent of the Reliable Multicast Transport (RMT) Working Group to re-submit the specification as an IETF Proposed Standard as soon as the scheme is deemed adequate.",
+      "zh-CHS": "可靠多播传输（RMT）工作组的目的是，一旦方案被认为是适当的，就将规范作为IETF建议的标准重新提交。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Related Documents",
+      "section_title": true,
+      "zh-CHS": "1.1. 相关文件"
+    },
+    {
+      "indent": 3,
+      "text": "As described in RFC 3048 [1], TFMCC is a building block that is intended to be used, in conjunction with other building blocks, to help specify a protocol instantiation. It follows the general guidelines provided in RFC 3269 [2]. In particular, TFMCC is a suitable congestion control building block for NACK-Oriented Reliable Multicast (NORM) [5].",
+      "zh-CHS": "如RFC 3048[1]所述，TFMCC是一个构建块，旨在与其他构建块一起使用，以帮助指定协议实例化。它遵循RFC 3269[2]中提供的一般指南。特别是，TFMCC是面向NACK的可靠多播（NORM）的合适拥塞控制构建块[5]。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Environmental Requirements and Considerations",
+      "section_title": true,
+      "zh-CHS": "1.2. 环境要求和考虑"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is intended to be a congestion control scheme that can be used in a complete protocol instantiation that delivers objects and streams (both reliable content delivery and streaming of multimedia information).",
+      "zh-CHS": "TFMCC旨在成为一种拥塞控制方案，可用于交付对象和流（可靠内容交付和多媒体信息流）的完整协议实例化。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is most applicable for sessions that deliver a substantial amount of data (i.e., in length from hundreds of kilobytes to many gigabytes) and whose duration is on the order of tens of seconds or more.",
+      "zh-CHS": "TFMCC最适用于传输大量数据（即长度从数百KB到数千GB）且持续时间为数十秒或更长的会话。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is intended for multicast delivery. There are currently two models of multicast delivery: the Any-Source Multicast (ASM) model as defined in [6] and the Source-Specific Multicast (SSM) model as defined in [7]. TFMCC works with both multicast models, but in a slightly different way. When ASM is used, feedback from the receivers is multicast to the sender, as well as to all other receivers. Feedback can be either multicast on the same group address used for sending data or on a separate multicast feedback group address. For SSM, the receivers must unicast the feedback directly to the sender. Hence, feedback from a receiver will not be received by other receivers.",
+      "zh-CHS": "TFMCC用于多播传送。目前有两种多播交付模型：如[6]中定义的任意源多播（ASM）模型和如[7]中定义的源特定多播（SSM）模型。TFMCC可用于这两种多播模型，但方式略有不同。当使用ASM时，来自接收者的反馈被多播到发送者以及所有其他接收者。反馈可以是在用于发送数据的相同组地址上的多播，也可以是在单独的多播反馈组地址上的多播。对于SSM，接收方必须将反馈直接单播给发送方。因此，来自接收器的反馈不会被其他接收器接收。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC inherently works with all types of networks that allow bi-directional communication, including LANs, WANs, Intranets, the Internet, asymmetric networks, wireless networks, and satellite networks. However, in some network environments varying the sending rate to the receivers may not be advantageous (e.g., for a satellite or wireless network, there may be no mechanism for receivers to effectively reduce their reception rate since there may be a fixed transmission rate allocated to the session).",
+      "zh-CHS": "TFMCC固有地适用于允许双向通信的所有类型的网络，包括LAN、WAN、内部网、Internet、非对称网络、无线网络和卫星网络。然而，在一些网络环境中，改变对接收器的发送速率可能不是有利的（例如，对于卫星或无线网络，可能没有用于接收器有效降低其接收速率的机制，因为可能存在分配给会话的固定传输速率）。"
+    },
+    {
+      "indent": 3,
+      "text": "The difference in responsiveness of TFMCC and TCP may result in significant throughput differences in case of a very low bitrate. TFMCC requires an estimate of the loss event rate to calculate a fair sending rate. This estimate may be inaccurate in case TFMCC receives only very few packets per RTT. TFMCC should not be used together with TCP if the capacity of the bottleneck link is less than 30KBit/s (e.g., a very slow modem connection). TFMCC may also achieve a rate that is very different from the average TCP rate in case buffer space at the bottleneck is severely underprovisioned. In particular, TFMCC is less susceptible to small buffer sizes since TFMCC spaces out packets in time, whereas TCP sends them back to back. Thus TCP is much more likely to see a packet loss if buffer space is scarce.",
+      "zh-CHS": "在极低比特率的情况下，TFMCC和TCP的响应性差异可能导致显著的吞吐量差异。TFMCC需要对丢失事件速率进行估计，以计算公平发送速率。如果TFMCC每个RTT只接收很少的数据包，则此估计可能不准确。如果瓶颈链路的容量小于30KBit/s（例如，非常慢的调制解调器连接），则TFMCC不应与TCP一起使用。如果瓶颈处的缓冲区空间严重不足，TFMCC也可能实现与平均TCP速率非常不同的速率。特别是，TFMCC不太容易受到较小的缓冲区大小的影响，因为TFMCC会及时将数据包隔开，而TCP会将数据包背靠背发送。因此，如果缓冲区空间不足，TCP更可能出现数据包丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is designed for applications that use a fixed packet size and vary their sending rate in packets per second in response to congestion. Some applications (e.g., those using audio) require a fixed interval of time between packets and vary their packet size instead of their packet rate in response to congestion. The congestion control mechanism in this document cannot be used by those applications.",
+      "zh-CHS": "TFMCC设计用于使用固定数据包大小的应用程序，并根据拥塞情况以每秒数据包的形式改变其发送速率。一些应用程序（例如，使用音频的应用程序）要求数据包之间有固定的时间间隔，并根据拥塞情况改变数据包大小而不是数据包速率。这些应用程序不能使用本文档中的拥塞控制机制。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Protocol Overview",
+      "section_title": true,
+      "zh-CHS": "2. 协议概述"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC extends the basic mechanisms of TFRC into the multicast domain. In order to compete fairly with TCP, TFMCC receivers individually measure the prevalent network conditions and calculate a rate that is TCP-friendly on the path from the sender to themselves. The rate is determined using an equation for TCP throughput, which roughly describes TCP's sending rate as a function of the loss event rate, round-trip time (RTT), and packet size. We define a loss event as one or more lost or marked packets from the packets received during one RTT, where a marked packet refers to a congestion indication from Explicit Congestion Notification (ECN) [9]. The sending rate of the multicast transmission is adapted to the receiver experiencing the worst network conditions.",
+      "zh-CHS": "TFMCC将TFRC的基本机制扩展到多播域。为了与TCP公平竞争，TFMCC接收器单独测量当前的网络条件，并计算从发送方到自身的路径上TCP友好的速率。该速率使用TCP吞吐量方程确定，该方程将TCP的发送速率大致描述为丢失事件速率、往返时间（RTT）和数据包大小的函数。我们将丢失事件定义为一个RTT期间接收的数据包中的一个或多个丢失或标记的数据包，其中标记的数据包指的是来自显式拥塞通知（ECN）的拥塞指示[9]。多播传输的发送速率适合于经历最坏网络条件的接收器。"
+    },
+    {
+      "indent": 3,
+      "text": "Basically, TFMCC's congestion control mechanism works as follows:",
+      "zh-CHS": "基本上，TFMCC的拥塞控制机制工作如下："
+    },
+    {
+      "indent": 3,
+      "text": "o Each receiver measures the loss event rate and its RTT to the sender.",
+      "zh-CHS": "o 每个接收者测量丢失事件率及其对发送者的RTT。"
+    },
+    {
+      "indent": 3,
+      "text": "o Each receiver then uses this information, together with an equation for TCP throughput, to derive a TCP-friendly sending rate.",
+      "zh-CHS": "o 然后，每个接收器使用此信息以及TCP吞吐量的等式来推导TCP友好的发送速率。"
+    },
+    {
+      "indent": 3,
+      "text": "o Through a distributed feedback suppression mechanism, only a subset of the receivers are allowed to give feedback to prevent a feedback implosion at the sender. The feedback mechanism ensures that receivers reporting a low desired transmission rate have a high probability of sending feedback.",
+      "zh-CHS": "o 通过分布式反馈抑制机制，仅允许接收机的子集提供反馈，以防止反馈在发送方内爆。反馈机制确保报告低期望传输速率的接收机具有发送反馈的高概率。"
+    },
+    {
+      "indent": 3,
+      "text": "o Receivers whose feedback is not suppressed report the calculated transmission rate back to the sender in so-called receiver reports. The receiver reports serve two purposes: they inform the sender about the appropriate transmit rate, and they allow the receivers to measure their RTT.",
+      "zh-CHS": "o 反馈未被抑制的接收器在所谓的接收器报告中向发送者报告计算出的传输速率。接收方报告有两个目的：它们通知发送方适当的传输速率，并允许接收方测量其RTT。"
+    },
+    {
+      "indent": 3,
+      "text": "o The sender selects the receiver that reports the lowest rate as current limiting receiver (CLR). Whenever feedback with an even lower rate reaches the sender, the corresponding receiver becomes CLR and the sending rate is reduced to match that receiver's calculated rate. The sending rate increases when the CLR reports a calculated rate higher than the current sending rate.",
+      "zh-CHS": "o 发送方选择报告最低速率的接收器作为限流接收器（CLR）。无论何时，只要发送方的发送速率与接收方的发送速率达到偶数，发送方的发送速率就会降低。当CLR报告的计算速率高于当前发送速率时，发送速率将增加。"
+    },
+    {
+      "indent": 3,
+      "text": "The dynamics of TFMCC are sensitive to how the measurements are performed and applied and to what feedback suppression mechanism is chosen. We recommend specific mechanisms below to perform and apply these measurements. Other mechanisms are possible, but it is important to understand how the interactions between mechanisms affect the dynamics of TFMCC.",
+      "zh-CHS": "TFMCC的动态特性对如何执行和应用测量以及选择何种反馈抑制机制非常敏感。我们建议使用以下特定机制来执行和应用这些测量。其他机制也是可能的，但了解机制之间的相互作用如何影响TFMCC的动力学很重要。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. TCP Throughput Equation",
+      "section_title": true,
+      "zh-CHS": "2.1. TCP吞吐量方程"
+    },
+    {
+      "indent": 3,
+      "text": "Any realistic equation giving TCP throughput as a function of loss event rate and RTT should be suitable for use in TFMCC. However, we note that the TCP throughput equation used must reflect TCP's retransmit timeout behavior, as this dominates TCP throughput at higher loss rates. We also note that the assumptions implicit in the throughput equation about the loss event rate parameter have to be a reasonable match to how the loss rate or loss event rate is actually measured. While this match is not perfect for the throughput equation and loss rate measurement mechanisms given below, in practice the assumptions turn out to be close enough.",
+      "zh-CHS": "任何将TCP吞吐量作为丢失事件率和RTT函数的现实方程都应适用于TFMCC。然而，我们注意到，所使用的TCP吞吐量方程必须反映TCP的重传超时行为，因为这在较高的丢失率下控制着TCP吞吐量。我们还注意到，吞吐量方程中关于损失事件率参数的隐含假设必须与实际测量损失率或损失事件率的方式合理匹配。虽然这种匹配对于下面给出的吞吐量方程和损失率测量机制并不完美，但在实践中，这些假设证明足够接近。"
+    },
+    {
+      "indent": 3,
+      "text": "The throughput equation we currently recommend for TFMCC is a slightly simplified version of the throughput equation for Reno TCP from [8]:",
+      "zh-CHS": "我们目前推荐的TFMCC吞吐量方程是[8]中雷诺TCP吞吐量方程的稍微简化版本："
+    },
+    {
+      "indent": 3,
+      "text": "                               8 s\nX =  ---------------------------------------------------------   (1)\n      R * (sqrt(2*p/3) + (12*sqrt(3*p/8) * p * (1+32*p^2)))",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where",
+      "zh-CHS": "哪里"
+    },
+    {
+      "indent": 6,
+      "text": "X is the transmit rate in bits/second.",
+      "zh-CHS": "X是以位/秒为单位的传输速率。"
+    },
+    {
+      "indent": 6,
+      "text": "s is the packet size in bytes.",
+      "zh-CHS": "s是以字节为单位的数据包大小。"
+    },
+    {
+      "indent": 6,
+      "text": "R is the round-trip time in seconds.",
+      "zh-CHS": "R是以秒为单位的往返时间。"
+    },
+    {
+      "indent": 6,
+      "text": "p is the loss event rate, between 0.0 and 1.0, of the number of loss events as a fraction of the number of packets transmitted.",
+      "zh-CHS": "p是丢失事件数的丢失事件率，介于0.0和1.0之间，作为传输数据包数的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "In the future, different TCP equations may be substituted for this equation. The requirement is that the throughput equation be a reasonable approximation of the sending rate of TCP for conformant TCP congestion control.",
+      "zh-CHS": "将来，可以用不同的TCP方程代替该方程。要求吞吐量方程是一致TCP拥塞控制的TCP发送速率的合理近似值。"
+    },
+    {
+      "indent": 3,
+      "text": "The parameters s (packet size), p (loss event rate), and R (RTT) need to be measured or calculated by a TFMCC implementation. The measurement of R is specified in Section 4.3.2, and the measurement of p is specified in Section 5. The parameter s (packet size) is normally known to an application. This may not be so in two cases:",
+      "zh-CHS": "TFMCC实现需要测量或计算参数s（数据包大小）、p（丢失事件率）和R（RTT）。第4.3.2节规定了R的测量，第5节规定了p的测量。应用程序通常知道参数s（数据包大小）。在两种情况下可能并非如此："
+    },
+    {
+      "indent": 3,
+      "text": "o The packet size naturally varies depending on the data. In this case, although the packet size varies, that variation is not coupled to the transmit rate. It should normally be safe to use an estimate of the mean packet size for s.",
+      "zh-CHS": "o 数据包大小自然随数据而变化。在这种情况下，尽管分组大小变化，但该变化不与传输速率耦合。使用s的平均数据包大小的估计值通常是安全的。"
+    },
+    {
+      "indent": 3,
+      "text": "o The application needs to change the packet size rather than the number of packets per second to perform congestion control. This would normally be the case with packet audio applications where a fixed interval of time needs to be represented by each packet. Such applications need to have a different way of measuring parameters.",
+      "zh-CHS": "o 应用程序需要更改数据包大小，而不是每秒的数据包数，以执行拥塞控制。这通常是分组音频应用的情况，其中每个分组需要表示固定的时间间隔。此类应用需要有不同的参数测量方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Currently, TFMCC cannot be used for the second class of applications.",
+      "zh-CHS": "目前，TFMCC不能用于第二类应用程序。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Packet Contents",
+      "section_title": true,
+      "zh-CHS": "2.2. 包内容"
+    },
+    {
+      "indent": 3,
+      "text": "Before specifying the sender and receiver functionality, we describe the congestion control information contained in packets sent by the sender and feedback packets from the receivers. Information from the sender can either be sent in separate congestion control messages or piggybacked onto data packets. If separate congestion control messages are sent at time intervals larger than the time interval between data packets (e.g., once per feedback round), it is necessary to be able to include timestamp information destined for more than one receiver to allow a sufficient number of receivers to measure their RTT.",
+      "zh-CHS": "在指定发送方和接收方功能之前，我们描述了发送方发送的数据包和接收方反馈数据包中包含的拥塞控制信息。来自发送方的信息可以通过单独的拥塞控制消息发送，也可以通过数据包发送。如果以大于数据分组之间的时间间隔的时间间隔发送单独的拥塞控制消息（例如，每反馈轮一次），则必须能够包括发送给多个接收器的时间戳信息，以允许足够数量的接收器测量其RTT。"
+    },
+    {
+      "indent": 3,
+      "text": "As TFMCC will be used along with a transport protocol, we do not specify packet formats, since these depend on the details of the transport protocol used. The recommended representation of the header fields is given below. Alternatively, if the computational overhead of a floating point representation is prohibitive, fixed point arithmetic can be used at the expense of larger packet headers. Sender and receivers of a specific TFMCC instance need to agree on a common encoding for the header fields.",
+      "zh-CHS": "由于TFMCC将与传输协议一起使用，因此我们不指定数据包格式，因为这些格式取决于所用传输协议的详细信息。标题字段的建议表示形式如下所示。或者，如果浮点表示的计算开销是禁止的，则可以使用定点算法，但代价是较大的数据包头。特定TFMCC实例的发送方和接收方需要就标头字段的通用编码达成一致。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.1. Sender Packets",
+      "section_title": true,
+      "zh-CHS": "2.2.1. 发送方数据包"
+    },
+    {
+      "indent": 3,
+      "text": "Each packet sent by the data sender contains the following information:",
+      "zh-CHS": "数据发送方发送的每个数据包包含以下信息："
+    },
+    {
+      "indent": 3,
+      "text": "o A sequence number i. This number is incremented by one for each data packet transmitted. The field must be sufficiently large that it does not wrap, causing two different packets with the same sequence number to be in the receiver's recent packet history at the same time. In most cases, the sequence number will be supplied by the transport protocol used along with TFMCC.",
+      "zh-CHS": "o 序列号i。对于传输的每个数据包，该数字增加1。该字段必须足够大，以使其不会包装，从而导致具有相同序列号的两个不同数据包同时出现在接收器的最近数据包历史记录中。在大多数情况下，序列号将由与TFMCC一起使用的传输协议提供。"
+    },
+    {
+      "indent": 3,
+      "text": "o A suppression rate X_supp in bits/s. Only receivers with a calculated rate lower than the suppression rate are eligible to give feedback, unless their RTT is higher than the maximum RTT described below, in which case they are also eligible to give feedback. The suppression rate should be represented as a 12-bit floating point value with 5 bits for the unsigned exponent and 7 bits for the unsigned mantissa (to represent rates from 100 bit/s to 400 Gbit/s with an error of less than 1%).",
+      "zh-CHS": "o 抑制率X_supp，单位为位/秒。只有计算速率低于抑制速率的接收机才有资格给出反馈，除非其RTT高于下文所述的最大RTT，在这种情况下，它们也有资格给出反馈。抑制率应表示为12位浮点值，无符号指数为5位，无符号尾数为7位（表示100位/s到400 Gbit/s的速率，误差小于1%）。"
+    },
+    {
+      "indent": 3,
+      "text": "o A timestamp ts_i indicating when the packet is sent. The resolution of the timestamp should typically be milliseconds, and the timestamp should be an unsigned integer value no less than 16 bits wide.",
+      "zh-CHS": "o 指示数据包何时发送的时间戳ts_i。时间戳的分辨率通常应为毫秒，时间戳应为不小于16位宽的无符号整数值。"
+    },
+    {
+      "indent": 3,
+      "text": "o A receiver ID r and a copy of the timestamp tr_r' = tr_r of that receiver's last report, which allows the receiver to measure its RTT. If there is a delay ts_d between receiving the report from receiver r and sending the data packet, then tr_r' = tr_r + ts_d is included in the packet instead. The receiver ID is described in the next section. The resolution of the timestamp echo should be milliseconds, and the timestamp should be an unsigned integer value no less than 16 bits wide. If separate congestion control messages are used instead of piggybacked ones, the packet needs to contain a list of receiver IDs with corresponding timestamps to allow a sufficient number of receivers to simultaneously measure their RTT. For the default values used for the feedback process, this corresponds to a list size on the order of 10 to 20 entries.",
+      "zh-CHS": "o 接收机ID r和该接收机的上一个报告的时间戳tr_r'=tr_r的副本，允许接收机测量其RTT。如果在从接收器r接收报告和发送数据分组之间存在延迟ts_d，则tr_r'=tr_r+ts_d被包括在分组中。接收机ID将在下一节中描述。时间戳回显的分辨率应为毫秒，时间戳应为不小于16位宽的无符号整数值。如果使用单独的拥塞控制消息而不是背负的消息，则数据包需要包含具有相应时间戳的接收器ID列表，以允许足够数量的接收器同时测量其RTT。对于用于反馈过程的默认值，这对应于10到20个条目的列表大小。"
+    },
+    {
+      "indent": 3,
+      "text": "o A flag is_CLR indicating whether the receiver with ID r is the CLR.",
+      "zh-CHS": "o 标志是_CLR，指示ID为r的接收器是否为CLR。"
+    },
+    {
+      "indent": 3,
+      "text": "o A feedback round counter fb_nr. This counter is incremented by the sender at the beginning of a new feedback round to notify the receivers that all feedback for older rounds should be suppressed. The feedback round counter should be at least 4 bits wide.",
+      "zh-CHS": "o 反馈轮计数器fb_nr。发送方在新的反馈轮开始时增加此计数器，以通知接收方应抑制旧轮的所有反馈。反馈圆形计数器的宽度应至少为4位。"
+    },
+    {
+      "indent": 3,
+      "text": "o A maximum RTT value R_max, representing the maximum of the RTTs of all receivers. The RTT should be measured in milliseconds. An 8-bit floating point value with 4 bits for the unsigned exponent and 4 bits for the unsigned mantissa (to represent RTTs from 1 millisecond to 64 seconds with an error of ca. 6%) should be used for the representation.",
+      "zh-CHS": "o 最大RTT值R_max，表示所有接收机的最大RTT。RTT应以毫秒为单位进行测量。表示应使用8位浮点值，其中4位表示无符号指数，4位表示无符号尾数（表示从1毫秒到64秒的RTT，误差约为6%）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.2. Feedback Packets",
+      "section_title": true,
+      "zh-CHS": "2.2.2. 反馈包"
+    },
+    {
+      "indent": 5,
+      "text": "Each feedback packet sent by a data receiver contains the following information:",
+      "zh-CHS": "数据接收器发送的每个反馈数据包包含以下信息："
+    },
+    {
+      "indent": 3,
+      "text": "o A unique receiver ID r. In most cases, the receiver ID will be supplied by the transport protocol, but it may simply be the IP address of the receiver.",
+      "zh-CHS": "o 唯一的接收器ID r。在大多数情况下，接收方ID将由传输协议提供，但它可能只是接收方的IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "o A flag have_RTT indicating whether the receiver has made at least one RTT measurement since it joined the session.",
+      "zh-CHS": "o 一个标志具有_RTT，指示自加入会话以来接收器是否至少进行了一次RTT测量。"
+    },
+    {
+      "indent": 3,
+      "text": "o A flag have_loss indicating whether the receiver experienced at least one loss event since it joined the session.",
+      "zh-CHS": "o 一个标志have_loss，指示自加入会话以来，接收方是否至少经历了一次丢失事件。"
+    },
+    {
+      "indent": 3,
+      "text": "o A flag receiver_leave indicating that the receiver will leave the session (and should therefore not be CLR).",
+      "zh-CHS": "o receiver_leave标志，指示接收方将离开会话（因此不应为CLR）。"
+    },
+    {
+      "indent": 3,
+      "text": "o A timestamp tr_r indicating when the feedback packet is sent. The representation of the timestamp should be the same as that of the timestamp echo in the data packets.",
+      "zh-CHS": "o 指示何时发送反馈数据包的时间戳tr_r。时间戳的表示应与数据包中的时间戳回显相同。"
+    },
+    {
+      "indent": 3,
+      "text": "o An echo ts_i' of the timestamp of the last data packet received. If the last packet received at the receiver has sequence number i, then ts_i' = ts_i is included in the feedback. If there is a delay tr_d between receiving that last data packet and sending feedback, then ts_i' = ts_i + tr_d is included in the feedback instead. The representation of the timestamp echo should be the same as that of the timestamp in the data packets.",
+      "zh-CHS": "o 接收到的最后一个数据包的时间戳的回声。如果在接收器处接收的最后一个分组具有序列号i，则ts_i'=ts_i被包括在反馈中。如果在接收最后一个数据包和发送反馈之间存在延迟tr_d，则ts_i'=ts_i+tr_d被包括在反馈中。时间戳回音的表示应与数据包中的时间戳的表示相同。"
+    },
+    {
+      "indent": 3,
+      "text": "o A feedback round echo fb_nr, reflecting the highest feedback round counter value received so far. The representation of the feedback round echo should be the same as the one used for the feedback round counter in the data packets.",
+      "zh-CHS": "o 反馈圆形回波fb_nr，反映迄今为止收到的最高反馈圆形计数器值。反馈圆回波的表示应与数据包中反馈圆计数器的表示相同。"
+    },
+    {
+      "indent": 3,
+      "text": "o The desired sending rate X_r. This is the rate calculated by the receiver to be TCP-friendly on the path from the sender to this receiver. The representation of the desired sending rate should be the same as that of the suppression rate in the data packets.",
+      "zh-CHS": "o 所需的发送速率X\\u r。这是接收方计算出的从发送方到该接收方的路径上TCP友好的速率。期望发送速率的表示应与数据包中抑制速率的表示相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Data Sender Protocol",
+      "section_title": true,
+      "zh-CHS": "3. 数据发送方协议"
+    },
+    {
+      "indent": 3,
+      "text": "The data sender multicasts a stream of data packets to the data receivers at a controlled rate. Whenever feedback is received, the sender checks if it is necessary to switch CLRs and to readjust the sending rate.",
+      "zh-CHS": "数据发送方以受控速率向数据接收方多播数据分组流。无论何时收到反馈，发送者都会检查是否有必要切换CLR并重新调整发送速率。"
+    },
+    {
+      "indent": 3,
+      "text": "The main tasks that have to be provided by a TFMCC sender are:",
+      "zh-CHS": "TFMCC发送方必须提供的主要任务包括："
+    },
+    {
+      "indent": 3,
+      "text": "o adjusting the sending rate,",
+      "zh-CHS": "o 调整发送速率，"
+    },
+    {
+      "indent": 3,
+      "text": "o controlling receiver feedback, and",
+      "zh-CHS": "o 控制接收器反馈，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o assisting receiver-side RTT measurements.",
+      "zh-CHS": "o 协助接收端RTT测量。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Sender Initialization",
+      "section_title": true,
+      "zh-CHS": "3.1. 发送方初始化"
+    },
+    {
+      "indent": 3,
+      "text": "At initialization of the sender, the maximum RTT is set to a value that should be larger than the highest RTT to any of the receivers. It should not be smaller than 500 milliseconds for operation in the public Internet. The sending rate X is initialized to 1 packet per maximum RTT.",
+      "zh-CHS": "在发送方初始化时，将最大RTT设置为一个值，该值应大于任何接收方的最高RTT。在公共互联网上运行的时间不应小于500毫秒。发送速率X初始化为每最大RTT 1个数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Determining the Maximum RTT",
+      "section_title": true,
+      "zh-CHS": "3.2. 确定最大RTT"
+    },
+    {
+      "indent": 3,
+      "text": "For each feedback packet that arrives at the sender, the sender computes the instantaneous RTT to the receiver as",
+      "zh-CHS": "对于到达发送方的每个反馈数据包，发送方计算发送给接收方的瞬时RTT，如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "R_r = ts_now - ts_i'",
+      "zh-CHS": "R_R=t_now-t_i'"
+    },
+    {
+      "indent": 3,
+      "text": "where ts_now is the time the feedback packet arrived. Receivers will have adjusted ts_i' for the time interval between receiving the last data packet and sending the corresponding report so that this interval will not be included in R_r. If the actual RTT is smaller than the resolution of the timestamps and ts_now equals ts_i', then R_r is set to the smallest positive RTT value larger than 0 (i.e., 1 millisecond in our case). If the instantaneous RTT is larger than the current maximum RTT, the maximum RTT is increased to that value:",
+      "zh-CHS": "其中ts_now是反馈数据包到达的时间。接收机将调整ts_i'以获得从接收最后一个数据包到发送相应报告之间的时间间隔，以便该时间间隔不包括在R_R中。如果实际RTT小于时间戳的分辨率，并且ts_现在等于ts_i'，则R_R被设置为大于0的最小正RTT值（即，在我们的情况下为1毫秒）。如果瞬时RTT大于当前最大RTT，则最大RTT增加至该值："
+    },
+    {
+      "indent": 6,
+      "text": "R_max = R_r",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, if no feedback with a higher instantaneous RTT than the maximum RTT is received during a feedback round (see Section 3.4), the maximum RTT is reduced to",
+      "zh-CHS": "否则，如果在反馈回合期间未收到瞬时RTT高于最大RTT的反馈（见第3.4节），则最大RTT将降低至"
+    },
+    {
+      "indent": 6,
+      "text": "R_max = MAX(R_max * 0.9, R_peak)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where R_peak is the peak receiver RTT measured during the feedback round.",
+      "zh-CHS": "其中R_peak是在反馈回合期间测量的峰值接收器RTT。"
+    },
+    {
+      "indent": 3,
+      "text": "The maximum RTT is mainly used for feedback suppression among receivers with heterogeneous RTTs. Feedback suppression is closely coupled to the sending of data packets, and for this reason, the maximum RTT must not decrease below the maximum time interval between consecutive data packets:",
+      "zh-CHS": "最大RTT主要用于具有异构RTT的接收机之间的反馈抑制。反馈抑制与数据包的发送紧密耦合，因此，最大RTT不得小于连续数据包之间的最大时间间隔："
+    },
+    {
+      "indent": 6,
+      "text": "R_max = max(R_max, 8s/X + ts_gran)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where ts_gran is the granularity of the sender's system clock (see Section 3.7).",
+      "zh-CHS": "其中ts_gran是发送方系统时钟的粒度（见第3.7节）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Adjusting the Sending Rate",
+      "section_title": true,
+      "zh-CHS": "3.3. 调整发送速率"
+    },
+    {
+      "indent": 3,
+      "text": "When a feedback packet from receiver r arrives at the sender, the sender has to check whether it is necessary to adjust the transmission rate and to switch to a new CLR.",
+      "zh-CHS": "当来自接收器r的反馈数据包到达发送方时，发送方必须检查是否有必要调整传输速率并切换到新的CLR。"
+    },
+    {
+      "indent": 3,
+      "text": "How the rate is adjusted depends on the desired rate X_r of the receiver report. We distinguish four cases:",
+      "zh-CHS": "如何调整速率取决于接收器报告的期望速率X_r。我们区分了四种情况："
+    },
+    {
+      "indent": 3,
+      "text": "1. If no CLR is present, receiver r becomes the current limiting receiver. The sending rate X is directly set to X_r, so long as this would result in a rate increase of less than 8s/R_max bits/s (i.e., 1 packet per R_max). Otherwise X is gradually increased to X_r at an increase rate of no more than 8s/R_max bits/s every R_max seconds.",
+      "zh-CHS": "1. If no CLR is present, receiver r becomes the current limiting receiver. The sending rate X is directly set to X_r, so long as this would result in a rate increase of less than 8s/R_max bits/s (i.e., 1 packet per R_max). Otherwise X is gradually increased to X_r at an increase rate of no more than 8s/R_max bits/s every R_max seconds.translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "2. If receiver r is not the CLR but a CLR is present, then receiver r becomes the current limiting receiver if X_r is less than the current sending rate X and the receiver_leave flag of that receiver's report is not set. Furthermore, the sending rate is reduced to X_r.",
+      "zh-CHS": "2. 如果接收器r不是CLR但存在CLR，则如果X_r小于当前发送速率X且未设置该接收器报告的接收器离开标志，则接收器r将成为限流接收器。此外，发送速率降低到X_r。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If receiver r is not the CLR but a CLR is present and the receiver_leave flag of the CLR's last report was set, then receiver r becomes the current limiting receiver. However, if X_r > X, the sending rate is not increased to X_r for the duration of a feedback round to allow other (lower rate) receivers to give feedback and be selected as CLR.",
+      "zh-CHS": "3. 如果接收器r不是CLR，但存在CLR，并且设置了CLR上次报告的接收器离开标志，则接收器r成为限流接收器。但是，如果X_r>X，则在反馈回合期间，发送速率不会增加到X_r，以允许其他（较低速率）接收器提供反馈并被选择为CLR。"
+    },
+    {
+      "indent": 3,
+      "text": "4. If receiver r is the CLR, the sending rate is set to the minimum of X_r and X + 8s/R_max bits/s.",
+      "zh-CHS": "4. 如果接收器r是CLR，则发送速率设置为最小X_r和X+8s/r_max bits/s。"
+    },
+    {
+      "indent": 3,
+      "text": "If the receiver has not yet measured its RTT but already experienced packet loss (indicated by the corresponding flags in the receiver report), the receiver report will include a desired rate that is based on the maximum RTT rather than the actual RTT to that receiver. In this case, the sender adjusts the desired rate using its measurement of the instantaneous RTT R_r to that receiver:",
+      "zh-CHS": "如果接收器尚未测量其RTT，但已经经历了分组丢失（由接收器报告中的相应标志指示），则接收器报告将包括基于最大RTT而非对该接收器的实际RTT的期望速率。在这种情况下，发送方使用其对该接收方的瞬时RTT R_R的测量来调整所需速率："
+    },
+    {
+      "indent": 6,
+      "text": "X_r' = X_r * R_max / R_r",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "X_r' is then used instead of X_r to detect whether to switch to a new CLR.",
+      "zh-CHS": "然后使用X_r'而不是X_r来检测是否切换到新的CLR。"
+    },
+    {
+      "indent": 3,
+      "text": "If the TFMCC sender receives no reports from the CLR for 4 RTTs, the sending rate is cut in half unless the CLR was selected less than 10 RTTs ago. In addition, if the sender receives no reports from the CLR for at least 10 RTTs, it assumes that the CLR crashed or left the group. A new CLR is selected from the feedback that subsequently arrives at the sender, and we increase as in case 3, above.",
+      "zh-CHS": "如果TFMCC发送方没有收到来自CLR的4个RTT的报告，则发送速率将减半，除非在10个RTT之前选择了CLR。此外，如果发送方在至少10个RTT内未收到来自CLR的报告，则假定CLR崩溃或离开组。从随后到达发送方的反馈中选择一个新的CLR，我们将增加，如上面的案例3所示。"
+    },
+    {
+      "indent": 3,
+      "text": "If no new CLR can be selected (i.e., in the absence of any feedback from any of the receivers) it is necessary to reduce the sending rate further. For every 10 consecutive RTTs without feedback, the sending rate is cut in half. The rate is at most reduced to one packet every 8 seconds.",
+      "zh-CHS": "如果无法选择新的CLR（即，在没有来自任何接收器的任何反馈的情况下），则有必要进一步降低发送速率。对于每10个没有反馈的连续RTT，发送速率将减半。速率最多降低为每8秒一个数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that when receivers stop receiving data packets, they will stop sending feedback. This eventually causes the sending rate to be reduced in the case of network failure. If the network subsequently recovers, a linear increase to the calculated rate of the CLR will occur at 8s/R_max bits/s every R_max.",
+      "zh-CHS": "请注意，当接收器停止接收数据包时，它们将停止发送反馈。这最终会导致在网络故障的情况下降低发送速率。如果网络随后恢复，则CLR的计算速率将以8s/R_max bits/s每R_max线性增加一次。"
+    },
+    {
+      "indent": 3,
+      "text": "An application using TFMCC may have a minimum sending rate requirement, where the application becomes unusable if the sending rate continuously falls below this minimum rate. The application should exclude receivers that report such a low rate from the multicast group. The specific mechanism to do this is application dependent and beyond the scope of this document.",
+      "zh-CHS": "使用TFMCC的应用程序可能具有最低发送速率要求，如果发送速率持续低于此最低速率，则应用程序将变得不可用。应用程序应从多播组中排除报告如此低速率的接收器。执行此操作的具体机制取决于应用程序，超出了本文档的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Controlling Receiver Feedback",
+      "section_title": true,
+      "zh-CHS": "3.4. 控制接收机反馈"
+    },
+    {
+      "indent": 3,
+      "text": "The receivers allowed to send a receiver report are determined in so-called feedback rounds. Feedback rounds have a duration T of six times the maximum RTT. In case the multicast model is ASM (i.e., receiver feedback is multicast to the whole group) the duration of a feedback round may be reduced to four times the maximum RTT.",
+      "zh-CHS": "允许发送接收者报告的接收者在所谓的反馈回合中确定。反馈回合的持续时间T为最大RTT的六倍。如果多播模型是ASM（即，接收器反馈是对整个组的多播），则反馈回合的持续时间可以减少到最大RTT的四倍。"
+    },
+    {
+      "indent": 3,
+      "text": "Only receivers wishing to report a rate that is lower than the suppression rate X_supp or those with a higher RTT than R_max may send feedback. At the beginning of each feedback round, X_supp is set to the highest possible value that can be represented. When feedback arrives at the sender over the course of a feedback round, X_supp is decreased such that more and more feedback is suppressed towards the end of the round. How receiver feedback is spread out over the feedback round is discussed in Section 4.5.",
+      "zh-CHS": "只有希望报告低于抑制率X_supp或RTT高于R_max的速率的接收机可以发送反馈。在每轮反馈开始时，X_supp设置为可以表示的最高可能值。当反馈在一轮反馈过程中到达发送者时，X_supp减小，使得越来越多的反馈在接近一轮反馈结束时被抑制。第4.5节讨论了接收器反馈在反馈回合中的分布情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever non-CLR feedback for the current round arrives at the sender, X_supp is reduced to",
+      "zh-CHS": "当当前回合的非CLR反馈到达发送方时，X_supp将减少为"
+    },
+    {
+      "indent": 6,
+      "text": "X_supp = (1-g) * X_r",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "if X_supp > X_r. Feedback that causes the corresponding receiver to be selected as CLR, but that was from a non-CLR receiver at the time of sending, also contributes to the feedback suppression. Note that X_r must not be adjusted by the sender to reflect the receiver's real RTT in case X_r was calculated using the maximum RTT, as is done for setting the sending rate (Section 3.3); otherwise, a feedback implosion is possible. The parameter g determines to what extent higher rate feedback can suppress lower rate feedback. This mechanism guarantees that the lowest calculated rate reported lies within a factor of g of the actual lowest calculated rate of the receiver set (see [13]). A value of g of 0.1 is recommended.",
+      "zh-CHS": "如果X_supp>X_r。导致相应接收器被选择为CLR，但在发送时来自非CLR接收器的反馈也有助于抑制反馈。注意，如果使用最大RTT计算X_r，发送方不得调整X_r以反映接收方的实际RTT，如设置发送速率所做的（第3.3节）；否则，反馈内爆是可能的。参数g决定了高速率反馈在多大程度上可以抑制低速率反馈。该机制确保报告的最低计算速率位于接收器集的实际最低计算速率的g系数内（见[13]）。建议g值为0.1。"
+    },
+    {
+      "indent": 3,
+      "text": "To allow receivers to suppress their feedback, the sender's suppression rate needs to be updated whenever feedback is received. This suppression rate has to be communicated to the receivers in a timely manner, either by including it in the data packet header or, if separate congestion control messages are used, by sending a message with the suppression rate whenever the rate changes significantly (i.e., when it is reduced to less than (1-g) times the previously advertised suppression rate).",
+      "zh-CHS": "为了允许接收者抑制其反馈，无论何时收到反馈，都需要更新发送者的抑制率。必须及时将该抑制率传达给接收机，方法是将其包括在数据分组报头中，或者，如果使用单独的拥塞控制消息，则在速率显著变化时（即，当速率降低到小于（1-g）时）发送具有抑制率的消息乘以先前公布的抑制率）。"
+    },
+    {
+      "indent": 3,
+      "text": "After a time span of T, the feedback round ends if non-CLR feedback was received during that time. Otherwise, the feedback round ends as soon as the first non-CLR feedback message arrives at the sender but at most after 2T. The feedback round counter is incremented by one, and the suppression rate X_supp is reset to the highest representable value. The feedback round counter restarts with round 0 after a wrap-around.",
+      "zh-CHS": "在时间跨度T之后，如果在此期间收到非CLR反馈，则反馈回合结束。否则，当第一条非CLR反馈消息到达发送方时，反馈回合结束，但最多在2T之后结束。反馈循环计数器增加1，抑制率X_supp重置为最高代表值。回绕后，反馈回合计数器以回合0重新启动。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Assisting Receiver-Side RTT Measurements",
+      "section_title": true,
+      "zh-CHS": "3.5. 辅助接收端RTT测量"
+    },
+    {
+      "indent": 3,
+      "text": "Receivers measure their RTT by sending a timestamp with a receiver report, which is echoed by the sender. If congestion control information is piggybacked onto data packets, usually only one receiver ID and timestamp can be included. If multiple feedback messages from different receivers arrive at the sender during the time interval between two data packets, the sender has to decide which receiver to allow to measure the RTT. The same applies if separate congestion control messages allow echoing multiple receiver timestamps simultaneously, but the number of receivers that gave feedback since the last congestion control message exceeds the list size.",
+      "zh-CHS": "接收者通过发送带有接收者报告的时间戳来测量他们的RTT，该报告由发送者响应。如果拥塞控制信息被携带到数据包上，通常只能包含一个接收方ID和时间戳。如果在两个数据包之间的时间间隔内，来自不同接收者的多个反馈消息到达发送者，发送者必须决定允许哪个接收者测量RTT。如果单独的拥塞控制消息允许同时回显多个接收器时间戳，但自上次拥塞控制消息以来提供反馈的接收器数量超过列表大小，则同样适用。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender's timestamp echoes are prioritized in the following order:",
+      "zh-CHS": "发送方的时间戳回音按以下顺序排列优先级："
+    },
+    {
+      "indent": 3,
+      "text": "1. a new CLR (after a change of CLR's) or a CLR without any previous RTT measurements",
+      "zh-CHS": "1. 新的CLR（更改CLR后）或没有任何先前RTT测量的CLR"
+    },
+    {
+      "indent": 3,
+      "text": "2. receivers without any previous RTT measurements in the order of the feedback round echo of the corresponding receiver report (i.e., older feedback first)",
+      "zh-CHS": "2. 未进行任何先前RTT测量的接收器，其顺序为相应接收器报告的反馈圆回波（即，先进行旧反馈）"
+    },
+    {
+      "indent": 3,
+      "text": "3. non-CLR receivers with previous RTT measurements, again in ascending order of the feedback round echo of the report",
+      "zh-CHS": "3. 具有先前RTT测量的非CLR接收机，同样按照报告的反馈圆回波的升序排列"
+    },
+    {
+      "indent": 3,
+      "text": "4. the CLR",
+      "zh-CHS": "4. CLR"
+    },
+    {
+      "indent": 3,
+      "text": "Ties are broken in favor of the receiver with the lowest reported rate.",
+      "zh-CHS": "打破联系有利于报告率最低的接收者。"
+    },
+    {
+      "indent": 3,
+      "text": "It is necessary to account for the time that elapses between receiving a report and sending the next data packet. This time needs to be deducted from the RTT and thus has to be added to the receiver's timestamp value.",
+      "zh-CHS": "必须考虑从接收报告到发送下一个数据包之间经过的时间。该时间需要从RTT中扣除，因此必须添加到接收器的时间戳值中。"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever no feedback packets arrive in the interval between two data packets, the CLR's last timestamp, adjusted by the appropriate offset, is echoed. When the number of packets per RTT is so low that all packets carry a non-CLR receiver's timestamp, the CLR's timestamp and ID are included in a data packet at least once per feedback round.",
+      "zh-CHS": "每当在两个数据包之间的间隔内没有反馈包到达时，CLR的最后一个时间戳（通过适当的偏移量进行调整）将被回显。当每个RTT的数据包数量很低，以至于所有数据包都带有非CLR接收器的时间戳时，CLR的时间戳和ID在数据包中至少每反馈一次。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Slowstart",
+      "section_title": true,
+      "zh-CHS": "3.6. 斯洛斯特"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC uses a slowstart mechanism to quickly approach its fair bandwidth share at the start of a session. During slowstart, the sending rate increases exponentially. The rate increase is limited to the minimum of the rates included in the receiver reports, and receivers report twice the rate at which they currently receive data. As in normal congestion control mode, the receiver with the smallest reported rate becomes CLR. Since a receiver can never receive data at a rate higher than its link bandwidth, this effectively limits the overshoot to twice this bandwidth. In case the resulting increase over R_max is less than 8s/R_max bits/s, the sender may choose to increase the rate by up to 8s/R_max bits/s every R_max. The current sending rate is gradually adjusted to the target rate reported in the receiver reports over the course of an RTT. Slowstart is terminated as soon as any one of the receivers experiences its first packet loss. Since that receiver's calculated rate will be lower than the current sending rate, the receiver will be selected as CLR.",
+      "zh-CHS": "TFMCC使用slowstart机制在会话开始时快速接近其公平带宽共享。在慢启动期间，发送速率呈指数增长。速率增加仅限于接收器报告中包含的最小速率，接收器报告的速率是其当前接收数据速率的两倍。与正常拥塞控制模式一样，具有最小报告速率的接收器变为CLR。由于接收器接收数据的速率永远不会高于其链路带宽，因此这有效地将超调限制为该带宽的两倍。如果在R_max上产生的增加小于8s/R_max bits/s，则发送方可选择每R_max将速率增加8s/R_max bits/s。在RTT过程中，当前发送速率逐渐调整为接收机报告中报告的目标速率。当任何一个接收器经历其第一个数据包丢失时，Slowstart立即终止。由于该接收器的计算速率将低于当前发送速率，因此该接收器将被选择为CLR。"
+    },
+    {
+      "indent": 3,
+      "text": "During slowstart, the upper bound on the rate increase of 8s/R_max bits/s every RTT does not apply. Only after the TFMCC sender receives the first report with the have_loss flag set is the rate increase limited in this way.",
+      "zh-CHS": "在slowstart期间，每个RTT速率增加8s/R_max bits/s的上限不适用。只有在TFMCC发送方收到设置了have_loss标志的第一份报告后，才会以这种方式限制速率增加。"
+    },
+    {
+      "indent": 3,
+      "text": "Slowstart may also be used after the sender has been idle for some time, to quickly reach the previous sending rate. When the sender stops sending data packets, it records the current sending rate X' = X. Every 10 RTTs, the allowed sending rate will be halved due to lack of receiver feedback, as specified in Section 3.3. This halving may take place multiple times. When the sender resumes, it may perform a slowstart from the current allowed rate up to the recorded rate X'. Slowstart ends after the first packet loss by any of the receivers or as soon as X' is reached.",
+      "zh-CHS": "在发送器空闲一段时间后，也可以使用Slowstart，以快速达到先前的发送速率。当发送方停止发送数据包时，它会记录当前发送速率X'=X。每10次RTT，由于缺乏接收方反馈，允许的发送速率将减半，如第3.3节所述。这种减半可能会发生多次。当发送方恢复时，它可以执行从当前允许速率到记录速率X'的慢启动。Slowstart在任何接收器的第一个数据包丢失后或到达X'时结束。"
+    },
+    {
+      "indent": 3,
+      "text": "To this end, receivers have to clear the have_loss flag after 10 RTTs without data packets as specified in Section 4.3.1. The have_loss flag is only used during slowstart. Therefore, clearing the flag has no effect if no packets arrived due to network partitioning or packet loss.",
+      "zh-CHS": "为此，按照第4.3.1节的规定，在没有数据包的情况下进行10次RTT后，接收机必须清除have_loss标志。have_loss标志仅在slowstart期间使用。因此，如果由于网络分区或数据包丢失而没有数据包到达，则清除标志无效。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. Scheduling of Packet Transmissions",
+      "section_title": true,
+      "zh-CHS": "3.7. 分组传输的调度"
+    },
+    {
+      "indent": 3,
+      "text": "As TFMCC is rate-based, and as operating systems typically cannot schedule events precisely, it is necessary to be opportunistic about sending data packets so that the correct average rate is maintained despite the coarse-grain or irregular scheduling of the operating system. Thus, a typical sending loop will calculate the correct inter-packet interval, ts_ipi, as follows:",
+      "zh-CHS": "由于TFMCC是基于速率的，并且由于操作系统通常无法精确地调度事件，因此在发送数据包时必须机会主义，以便在操作系统的粗粒度或不规则调度的情况下保持正确的平均速率。因此，典型的发送循环将计算正确的包间间隔ts_ipi，如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "ts_ipi = 8s/X",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When a sender first starts sending at time t_0, it calculates ts_ipi and calculates a nominal send time, t_1 = t_0 + ts_ipi, for packet 1. When the application becomes idle, it checks the current time, ts_now, and then requests re-scheduling after (ts_ipi - (ts_now - t_0)) seconds. When the application is re-scheduled, it checks the current time, ts_now, again. If (ts_now > t_1 - delta) then packet 1 is sent (see below for delta).",
+      "zh-CHS": "当发送方第一次在时间t_0开始发送时，它计算ts_ipi并计算分组1的标称发送时间t_1=t_0+ts_ipi。当应用程序空闲时，它检查当前时间ts_now，然后在（ts_ipi-（ts_now-t_0））秒后请求重新调度。当重新安排应用程序时，它会再次检查当前时间ts_now。如果（ts_now>t_1-delta），则发送数据包1（见下文delta）。"
+    },
+    {
+      "indent": 3,
+      "text": "Now, a new ts_ipi may be calculated and used to calculate a nominal send time, t_2, for packet 2: t_2 = t_1 + ts_ipi. The process then repeats with each successive packet's send time being calculated from the nominal send time of the previous packet. Note that the actual send time ts_i, and not the nominal send time, is included as timestamp in the packet header.",
+      "zh-CHS": "现在，可以计算新的ts_ipi并使用它来计算分组2的标称发送时间t_2：t_2＝t_1+ts_ipi。然后，该过程重复，每个连续数据包的发送时间从前一个数据包的标称发送时间计算出来。注意，实际发送时间ts_i而不是标称发送时间作为时间戳包括在分组报头中。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, when the nominal send time, t_i, of the next packet is calculated, it may already be the case that ts_now > t_i - delta. In such a case, the packet should be sent immediately. Thus, if the operating system has coarse timer granularity and the transmit rate is high, then TFMCC may send short bursts of several packets separated by intervals of the OS timer granularity.",
+      "zh-CHS": "在某些情况下，当计算下一个分组的标称发送时间t_i时，可能已经是t_now>t_i-delta的情况。在这种情况下，应立即发送数据包。因此，如果操作系统具有粗略的定时器粒度并且传输速率高，则TFMCC可以发送由OS定时器粒度的间隔分隔的多个分组的短突发。"
+    },
+    {
+      "indent": 3,
+      "text": "The parameter delta is to allow a degree of flexibility in the send time of a packet. If the operating system has a scheduling timer granularity of ts_gran seconds, then delta would typically be set to:",
+      "zh-CHS": "参数delta允许数据包的发送时间具有一定程度的灵活性。如果操作系统的调度计时器粒度为ts_gran seconds，则delta通常会设置为："
+    },
+    {
+      "indent": 6,
+      "text": "delta = min(ts_ipi/2, ts_gran/2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "ts_gran is 10 milliseconds on many Unix systems. If ts_gran is not known, a value of 10 milliseconds can be safely assumed.",
+      "zh-CHS": "在许多Unix系统上，Tsu gran为10毫秒。如果不知道ts_gran，可以安全地假定值为10毫秒。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Data Receiver Protocol",
+      "section_title": true,
+      "zh-CHS": "4. 数据接收协议"
+    },
+    {
+      "indent": 3,
+      "text": "Receivers measure the current network conditions (namely, RTT and loss event rate) and use this information to calculate a rate that is fair to competing traffic. The rate is then communicated to the sender in receiver reports. Due to the potentially large number of receivers, it is undesirable that all receivers send reports, especially not at the same time.",
+      "zh-CHS": "接收器测量当前网络状况（即RTT和丢失事件率），并使用此信息计算公平竞争流量的速率。然后，在接收方报告中将速率传达给发送方。由于潜在的大量接收器，不希望所有接收器都发送报告，尤其是不同时发送报告。"
+    },
+    {
+      "indent": 3,
+      "text": "In the description of the receiver functionality, we will first address how the receivers measure the network parameters and then discuss the feedback process.",
+      "zh-CHS": "在对接收器功能的描述中，我们将首先讨论接收器如何测量网络参数，然后讨论反馈过程。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Receiver Initialization",
+      "section_title": true,
+      "zh-CHS": "4.1. 接收机初始化"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver is initialized when it receives the first data packet. The RTT is set to the maximum RTT value contained in the data packet. This initial value is used as the receiver's RTT until the first real RTT measurement is made. The loss event rate is initialized to 0. Also, the flags receiver_leave, have_RTT, and have_loss are cleared.",
+      "zh-CHS": "接收器在接收到第一个数据包时初始化。RTT设置为数据包中包含的最大RTT值。该初始值用作接收器的RTT，直到进行第一次实际RTT测量。丢失事件率初始化为0。此外，接收器离开、已RTT和已丢失的标志也被清除。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Receiver Leave",
+      "section_title": true,
+      "zh-CHS": "4.2. 接受者休假"
+    },
+    {
+      "indent": 3,
+      "text": "A receiver that sends feedback but wishes to leave the TFMCC session within the next feedback round may indicate the pending leave by setting the receiver_leave flag in its report. If the leaving receiver is the CLR, the receiver_leave flag should be set for all the reports within the feedback round before the leave takes effect.",
+      "zh-CHS": "发送反馈但希望在下一轮反馈中离开TFMCC会话的接收者可以通过在其报告中设置接收者离开标志来指示等待离开。如果离开接收者是CLR，则在离开生效之前，应对反馈回合内的所有报告设置接收者离开标志。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Measurement of the Network Conditions",
+      "section_title": true,
+      "zh-CHS": "4.3. 网络状况的测量"
+    },
+    {
+      "indent": 3,
+      "text": "Receivers have to update their estimate of the network parameters with each new data packet they receive.",
+      "zh-CHS": "接收机必须使用接收到的每个新数据包更新其对网络参数的估计。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.1. Updating the Loss Event Rate",
+      "section_title": true,
+      "zh-CHS": "4.3.1. 更新损失事件率"
+    },
+    {
+      "indent": 3,
+      "text": "When a data packet is received, the receiver adds the packet to the packet history. It then recalculates the new value of the loss event rate p. The loss event rate measurement mechanism is described separately in Section 5.",
+      "zh-CHS": "当接收到数据分组时，接收器将该分组添加到分组历史记录中。然后重新计算损失事件率p的新值。损失事件率测量机制在第5节中单独描述。"
+    },
+    {
+      "indent": 3,
+      "text": "When a loss event is detected, the flag have_loss is set. In case no data packets are received for 10 consecutive RTTs, the flag is cleared to allow the sender to slowstart. It is set again when new data packets arrive and a loss event is detected.",
+      "zh-CHS": "当检测到丢失事件时，将设置“已丢失”标志。如果连续10次RTT未收到任何数据包，则清除该标志以允许发送方缓慢启动。当新数据包到达并检测到丢失事件时，将再次设置。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.2. Basic Round-Trip Time Measurement",
+      "section_title": true,
+      "zh-CHS": "4.3.2. 基本往返时间测量"
+    },
+    {
+      "indent": 3,
+      "text": "When a receiver gets a data packet that carries the receiver's own ID in the r field, the receiver updates its RTT estimate.",
+      "zh-CHS": "当接收器获得在r字段中携带接收器自己的ID的数据包时，接收器更新其RTT估计。"
+    },
+    {
+      "indent": 3,
+      "text": "1. The current RTT is calculated as:",
+      "zh-CHS": "1. 当前RTT的计算公式为："
+    },
+    {
+      "indent": 7,
+      "text": "R_sample = tr_now - tr_r'",
+      "zh-CHS": "R_样本=tr_now-tr_R'"
+    },
+    {
+      "indent": 7,
+      "text": "where tr_now is the time the data packet arrives at the receiver and tr_r' is the receiver report timestamp echoed in the data packet. If the actual RTT is smaller than the resolution of the timestamps and tr_now equals tr_r', then R_sample is set to the smallest positive RTT value larger than 0 (i.e., 1 millisecond in our case).",
+      "zh-CHS": "其中tr_now是数据包到达接收器的时间，tr_r'是数据包中回显的接收器报告时间戳。如果实际RTT小于时间戳的分辨率，并且tr_现在等于tr_r'，则r_sample被设置为大于0的最小正RTT值（即，在我们的例子中为1毫秒）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The smoothed RTT estimate R is updated:",
+      "zh-CHS": "2. 平滑的RTT估计值R将更新："
+    },
+    {
+      "indent": 7,
+      "text": "If no feedback has been received before R = R_sample",
+      "zh-CHS": "如果在R=R_样本之前未收到反馈"
+    },
+    {
+      "indent": 7,
+      "text": "Else\n    R = q*R + (1-q)*R_sample",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "A filter parameter q of 0.5 is recommended for non-CLR receivers. The CLR performs RTT measurements much more frequently and hence should use a higher filter value. We recommend using q=0.9. Note that TFMCC is not sensitive to the precise value for the filter constant.",
+      "zh-CHS": "对于非CLR接收机，建议滤波器参数q为0.5。CLR更频繁地执行RTT测量，因此应使用更高的过滤器值。我们建议使用q=0.9。请注意，TFMCC对过滤器常数的精确值不敏感。"
+    },
+    {
+      "indent": 3,
+      "text": "Optionally, sender-based RTT measurements may be used instead of receiver-based ones. The sender already determines the RTT to a receiver from the receiver's echo of the sender's own timestamp for the calculation of the maximum RTT. For sender-based RTT measurements, this RTT measurement needs to be communicated to the receiver. Instead of including an echo of the receiver's timestamp, the sender includes the receiver's RTT in the next data packet, using the prioritization rules described in Section 3.5.",
+      "zh-CHS": "可选地，可以使用基于发送方的RTT测量来代替基于接收方的RTT测量。发送方已经根据接收方对发送方自己的时间戳的回波来确定发送给接收方的RTT，以计算最大RTT。对于基于发送方的RTT测量，需要将此RTT测量传达给接收方。使用第3.5节中描述的优先级规则，发送方在下一个数据包中包括接收方的RTT，而不是包括接收方时间戳的回波。"
+    },
+    {
+      "indent": 3,
+      "text": "To simplify sender operation, smoothing of RTT samples as described above should still be done at the receiver.",
+      "zh-CHS": "为了简化发送方操作，如上所述的RTT样本平滑仍应在接收方完成。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.3. One-Way Delay Adjustments",
+      "section_title": true,
+      "zh-CHS": "4.3.3. 单向延迟调整"
+    },
+    {
+      "indent": 3,
+      "text": "When an RTT measurement is performed, the receiver also determines the one-way delay D_r from itself to the sender:",
+      "zh-CHS": "当执行RTT测量时，接收器还确定从其自身到发送器的单向延迟D_r："
+    },
+    {
+      "indent": 6,
+      "text": "D_r = tr_r' - ts_i",
+      "zh-CHS": "D_r=tr_r'-ts_i"
+    },
+    {
+      "indent": 3,
+      "text": "where ts_i and tr_r' are the timestamp and receiver report timestamp echo contained in the data packet. With each new data packet j, the receiver can now calculate an updated RTT estimate as:",
+      "zh-CHS": "其中，ts_i和tr_r’是数据分组中包含的时间戳和接收器报告时间戳回波。对于每个新数据分组j，接收机现在可以计算更新的RTT估计，如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "R' = max(D_r + tr_now - ts_j, 1 millisecond)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In between RTT measurements, the updated R' is used instead of the smoothed RTT R. Like the RTT samples, R' must be strictly positive. When a new measurement is made, all interim one-way delay measurements are discarded (i.e., the smoothed RTT is updated according to Section 4.3.2 without taking the interim one-way delay adjustments into account).",
+      "zh-CHS": "在RTT测量之间，使用更新的R'代替平滑的RTT R。与RTT样本一样，R'必须严格为正。当进行新的测量时，所有临时单向延迟测量都被丢弃（即，根据第4.3.2节更新平滑RTT，而不考虑临时单向延迟调整）。"
+    },
+    {
+      "indent": 3,
+      "text": "For the one-way delay measurements, the clocks of sender and receivers need not be synchronized. Clock skew will cancel itself out when both one-way measurements are added to form an RTT estimate, as long as clock drift between real RTT measurements is negligible.",
+      "zh-CHS": "对于单向延迟测量，发送方和接收方的时钟不需要同步。只要实际RTT测量值之间的时钟漂移可以忽略不计，当两个单向测量值相加以形成RTT估计值时，时钟偏移将自行抵消。"
+    },
+    {
+      "indent": 3,
+      "text": "The same one-way delay adjustments should be applied to the RTT supplied by the sender when using sender-based RTT measurements.",
+      "zh-CHS": "当使用基于发送方的RTT测量时，发送方提供的RTT应采用相同的单向延迟调整。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.4. Receive Rate Measurements",
+      "section_title": true,
+      "zh-CHS": "4.3.4. 接收速率测量"
+    },
+    {
+      "indent": 3,
+      "text": "When a receiver has not experienced any loss events, it cannot calculate a TCP-friendly rate to include in the receiver reports. Instead, the receiver measures the current receive rate and sets the desired rate X_r to twice the receive rate.",
+      "zh-CHS": "当接收方未经历任何丢失事件时，它无法计算TCP友好速率以包含在接收方报告中。相反，接收器测量当前接收速率并将期望速率X_r设置为接收速率的两倍。"
+    },
+    {
+      "indent": 3,
+      "text": "The receive rate in bits/s is measured as the number of bits received over the last k RTTs, taking into account the IP and transport packet headers, but excluding the link-layer packet headers. A value for k between 2 and 4 is recommended.",
+      "zh-CHS": "以比特/秒为单位的接收速率被测量为在最后k个RTT上接收的比特数，考虑到IP和传输分组报头，但不包括链路层分组报头。建议k值介于2和4之间。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Setting the Desired Rate",
+      "section_title": true,
+      "zh-CHS": "4.4. 设置所需的速率"
+    },
+    {
+      "indent": 3,
+      "text": "When a receiver measures a non-zero loss event rate, it calculates the desired rate using Equation (1). In case no RTT measurement is available yet, the maximum RTT is used instead of the receiver's RTT. The desired rate X_r is updated whenever the loss event rate or the RTT changes.",
+      "zh-CHS": "当接收器测量非零损失事件率时，它使用等式（1）计算期望的速率。如果还没有可用的RTT测量，则使用最大RTT代替接收器的RTT。当丢失事件速率或RTT发生变化时，所需速率X_r将更新。"
+    },
+    {
+      "indent": 3,
+      "text": "A receiver may decide not to report desired rates that are below 1 packet per 8 seconds, since a sender is very slow to recover from such low sending rates. In this case, the receiver reports a desired rate of 1 packet per 8 seconds. However, it must leave the multicast group if for more than 120 seconds, the calculated rate falls below the reported rate and the current sending rate is higher than the receiver's calculated rate.",
+      "zh-CHS": "接收方可能决定不报告低于每8秒1个数据包的期望速率，因为发送方从如此低的发送速率恢复非常缓慢。在这种情况下，接收器报告每8秒1个分组的期望速率。但是，如果计算速率低于报告速率且当前发送速率高于接收器的计算速率超过120秒，则它必须离开多播组。"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned above, calculation of the desired rate is not possible before the receiver experiences the first loss event. In that case, twice the rate at which data is received is included in the receiver reports as X_r to allow the sender to slowstart as described in Section 3.6. This is also done when the sender resumes sending data packets after the have_loss flag was cleared due to the sender being idle.",
+      "zh-CHS": "如上所述，在接收器经历第一次丢失事件之前，不可能计算期望速率。在这种情况下，接收方报告中包含两倍于接收数据速率的X_r，以允许发送方如第3.6节所述缓慢启动。由于发送方空闲，清除have_loss标志后，发送方恢复发送数据包时，也会执行此操作。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Feedback and Feedback Suppression",
+      "section_title": true,
+      "zh-CHS": "4.5. 反馈与反馈抑制"
+    },
+    {
+      "indent": 3,
+      "text": "Let fb_nr be the highest feedback round counter value received by a receiver. When a new data packet arrives with a higher feedback round counter than fb_nr, a new feedback round begins and fb_nr is updated. Outstanding feedback for the old round is canceled. In case a feedback number with a value that is more than half the feedback number space lower than fb_nr is received, the receiver assumes that the feedback round counter wrapped and also cancels the feedback timer and updates fb_nr.",
+      "zh-CHS": "设fb_nr为接收器接收到的最高反馈轮计数器值。当新数据包到达时，反馈轮计数器高于fb_nr，新的反馈轮开始并更新fb_nr。取消旧回合的未完成反馈。如果接收到的反馈号的值超过反馈号空间小于fb_nr的一半，则接收器假定反馈轮计数器已包装，并且还取消反馈计时器并更新fb_nr。"
+    },
+    {
+      "indent": 3,
+      "text": "The CLR sends its feedback independently from all the other receivers once per RTT. Its feedback does not suppress other feedback and cannot be suppressed by other receiver's feedback.",
+      "zh-CHS": "CLR每个RTT独立于所有其他接收器发送一次反馈。它的反馈不抑制其他反馈，也不能被其他接收者的反馈抑制。"
+    },
+    {
+      "indent": 3,
+      "text": "Non-CLR receivers set a feedback timer at the beginning of a feedback round. Using an exponentially weighted random timer mechanism, the feedback timer is set to expire after",
+      "zh-CHS": "非CLR接收器在反馈回合开始时设置反馈计时器。使用指数加权随机计时器机制，反馈计时器设置为在"
+    },
+    {
+      "indent": 6,
+      "text": "t = max(T * (1 + log(x)/log(N)), 0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where",
+      "zh-CHS": "哪里"
+    },
+    {
+      "indent": 6,
+      "text": "x is a random variable uniformly distributed in (0,1],",
+      "zh-CHS": "x是均匀分布在（0,1）中的随机变量，"
+    },
+    {
+      "indent": 6,
+      "text": "T is the duration of a feedback round (i.e., 6 * R_max),",
+      "zh-CHS": "T是一轮反馈的持续时间（即6*R_max），"
+    },
+    {
+      "indent": 6,
+      "text": "N is an estimated upper bound on the number of receivers.",
+      "zh-CHS": "N是接收机数量的估计上限。"
+    },
+    {
+      "indent": 3,
+      "text": "N is a constant specific to the TFMCC protocol. Since TFMCC scales to up to thousands of receivers, setting N to 10,000 for all receivers (and limiting the TFMCC session to at most 10,000 receivers) is recommended.",
+      "zh-CHS": "N是特定于TFMCC协议的常数。由于TFMCC可扩展到数千个接收器，因此建议将所有接收器的N设置为10000（并将TFMCC会话限制为最多10000个接收器）。"
+    },
+    {
+      "indent": 3,
+      "text": "A feedback packet is sent when the feedback timer expires, unless the timer is canceled beforehand. When the multicast model is ASM, feedback is multicast to the whole group; otherwise, the feedback is unicast to the sender. The feedback packet includes the calculated rate valid at the time the feedback packet is sent (not the rate at the point of time when the feedback timer is set). The copy of the timestamp ts_i of the last data packet received, which is included in the feedback packet, needs to be adjusted by the time interval between receiving the data packet and sending the report to allow the sender to correctly infer the instantaneous RTT (i.e., that time interval has to be added to the timestamp value).",
+      "zh-CHS": "反馈定时器到期时发送反馈数据包，除非事先取消定时器。当多播模型为ASM时，反馈为多播到整个组；否则，反馈将单播给发送者。反馈分组包括在发送反馈分组时有效的计算速率（而不是在设置反馈定时器时的速率）。包括在反馈分组中的最后接收的数据分组的时间戳ts_i的副本需要通过接收数据分组和发送报告之间的时间间隔来调整，以允许发送方正确地推断瞬时RTT（即，该时间间隔必须添加到时间戳值）。"
+    },
+    {
+      "indent": 3,
+      "text": "The timer is canceled if a data packet is received that has a lower suppression rate than the receiver's calculated rate and a higher or equal maximum RTT than the receiver's RTT. Likewise, a data packet indicating the beginning of a new feedback round cancels all feedback for older rounds. In case of ASM, the timer is also canceled if a feedback packet is received from another non-CLR receiver reporting a lower rate.",
+      "zh-CHS": "如果接收到的数据包的抑制率低于接收器的计算速率，且最大RTT高于或等于接收器的RTT，则定时器被取消。同样，指示新一轮反馈开始的数据包将取消旧一轮的所有反馈。对于ASM，如果从另一个报告较低速率的非CLR接收器接收到反馈数据包，则计时器也将取消。"
+    },
+    {
+      "indent": 3,
+      "text": "The feedback suppression process is complicated by the fact that the calculated rates of the receivers will change during a feedback round. If the calculated rates decrease rapidly for all receivers, feedback suppression can no longer prevent a feedback implosion, since earlier feedback will always report a higher rate than current feedback. To make the feedback suppression mechanism robust in the face of changing rates, it is necessary to introduce X_fbr, the calculated rate of a receiver at the beginning of a feedback round. A receiver needs to suppress its feedback not only when the suppression rate is less than the receiver's current calculated rate but also in the case that the suppression rate falls below X_fbr.",
+      "zh-CHS": "反馈抑制过程由于接收机的计算速率在反馈回合中会发生变化而变得复杂。如果所有接收器的计算速率都迅速下降，反馈抑制就不能再防止反馈内爆，因为早期反馈报告的速率总是高于当前反馈。为了使反馈抑制机制在面对变化的速率时具有鲁棒性，有必要引入X_fbr，即反馈回合开始时接收机的计算速率。接收机不仅需要在抑制速率小于接收机当前计算速率时抑制其反馈，而且还需要在抑制速率低于X_fbr的情况下抑制其反馈。"
+    },
+    {
+      "indent": 3,
+      "text": "When the maximum RTT changes significantly during one feedback round, it is necessary to reschedule the feedback timer in proportion to the change.",
+      "zh-CHS": "当最大RTT在一轮反馈中发生显著变化时，有必要按照变化的比例重新安排反馈计时器。"
+    },
+    {
+      "indent": 6,
+      "text": "t = t * R_max / R_max'",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where R_max is the new maximum RTT and R_max' is the previous maximum RTT. The same considerations hold when the last data packets were received more than a time interval of R_max ago. In this case, it is necessary to add the difference of the inter-packet gap and the maximum RTT to the feedback time to prevent a feedback implosion (e.g., in case the sender crashed).",
+      "zh-CHS": "其中R_max是新的最大RTT，R_max'是先前的最大RTT。当最后一个数据包的接收时间间隔超过R_max之前时，同样的考虑也适用。在这种情况下，有必要将包间间隙和最大RTT的差值添加到反馈时间，以防止反馈内爆（例如，在发送方崩溃的情况下）。"
+    },
+    {
+      "indent": 6,
+      "text": "t = t + max(tr_now - tr_i - R_max, 0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where tr_i is the time when the last data packet arrived at the receiver.",
+      "zh-CHS": "其中tr_i是最后一个数据包到达接收器的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "More details on the characteristics of the feedback suppression mechanism can be found in [13] and [3].",
+      "zh-CHS": "有关反馈抑制机制特性的更多详细信息，请参见[13]和[3]。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Calculation of the Loss Event Rate",
+      "section_title": true,
+      "zh-CHS": "5. 损失事件率的计算"
+    },
+    {
+      "indent": 3,
+      "text": "Obtaining an accurate and stable measurement of the loss event rate is of primary importance for TFMCC. Loss rate measurement is performed at the receiver, based on the detection of lost or marked packets from the sequence numbers of arriving packets.",
+      "zh-CHS": "准确、稳定地测量损失事件率对于TFMCC至关重要。丢失率测量在接收机处执行，基于从到达的分组的序列号中检测丢失或标记的分组。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Detection of Lost or Marked Packets",
+      "section_title": true,
+      "zh-CHS": "5.1. 检测丢失或标记的数据包"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC assumes that all packets contain a sequence number that is incremented by one for each packet that is sent. For the purposes of this specification, we require that if a lost packet is retransmitted, the retransmission is given a new sequence number that is the latest in the transmission sequence, and not the same sequence number as the packet that was lost. If a transport protocol has the requirement that it must retransmit with the original sequence number, then the transport protocol designer must figure out how to distinguish delayed from retransmitted packets and how to detect lost retransmissions.",
+      "zh-CHS": "TFMCC假设所有数据包都包含一个序列号，该序列号对于发送的每个数据包递增一。出于本规范的目的，我们要求，如果重新传输丢失的数据包，则重新传输将获得传输序列中最新的新序列号，而不是与丢失的数据包相同的序列号。如果传输协议要求必须使用原始序列号重新传输，那么传输协议设计者必须弄清楚如何区分延迟数据包和重新传输的数据包，以及如何检测丢失的重新传输。"
+    },
+    {
+      "indent": 3,
+      "text": "The receivers each maintain a data structure that keeps track of which packets have arrived and which are missing. For the purposes of specification, we assume that the data structure consists of a list of packets that have arrived along with the timestamp when each packet was received. In practice, this data structure will normally be stored in a more compact representation, but this is implementation-specific.",
+      "zh-CHS": "接收器各自维护一个数据结构，该结构跟踪哪些数据包已经到达，哪些数据包丢失。为了规范的目的，我们假设数据结构由一个包列表组成，当每个包被接收时，这些包已经到达并带有时间戳。实际上，此数据结构通常以更紧凑的表示形式存储，但这是特定于实现的。"
+    },
+    {
+      "indent": 3,
+      "text": "The loss of a packet is detected by the arrival of at least three packets with a higher sequence number than the lost packet. The requirement for three subsequent packets is the same as with TCP, and it is to make TFMCC more robust in the presence of reordering. In contrast to TCP, if a packet arrives late (after 3 subsequent packets arrived) at a receiver, the late packet can fill the hole in the reception record, and the receiver can recalculate the loss event rate. Future versions of TFMCC might make the requirement for three subsequent packets adaptive based on experienced packet reordering, but we do not specify such a mechanism here.",
+      "zh-CHS": "通过至少三个序列号高于丢失分组的分组的到达来检测分组的丢失。对三个后续数据包的要求与TCP相同，这是为了使TFMCC在出现重新排序时更加健壮。与TCP不同的是，如果一个数据包延迟到达接收器（在随后的3个数据包到达之后），那么延迟的数据包可以填充接收记录中的漏洞，并且接收器可以重新计算丢失事件率。TFMCC的未来版本可能会根据经验丰富的数据包重新排序，使对三个后续数据包的要求具有自适应性，但我们在此不指定这种机制。"
+    },
+    {
+      "indent": 3,
+      "text": "For an ECN-capable connection, a marked packet is detected as a congestion event as soon as it arrives, without having to wait for the arrival of subsequent packets.",
+      "zh-CHS": "对于支持ECN的连接，标记的数据包一到达即被检测为拥塞事件，而不必等待后续数据包的到达。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Translation from Loss History to Loss Events",
+      "section_title": true,
+      "zh-CHS": "5.2. 从损失历史到损失事件的转换"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC requires that the loss event rate be robust to several consecutive packets lost where those packets are part of the same loss event. This is similar to TCP, which (typically) only performs one halving of the congestion window during any single RTT. Thus the receivers need to map the packet loss history into a loss event record, where a loss event is one or more packets lost in an RTT.",
+      "zh-CHS": "TFMCC要求丢失事件速率对多个连续丢失的数据包具有鲁棒性，其中这些数据包是同一丢失事件的一部分。这与TCP类似，TCP（通常）在任何单个RTT期间只执行拥塞窗口的一半。因此，接收机需要将分组丢失历史映射到丢失事件记录中，其中丢失事件是在RTT中丢失的一个或多个分组。"
+    },
+    {
+      "indent": 3,
+      "text": "To determine whether a lost or marked packet should start a new loss event or be counted as part of an existing loss event, we need to compare the sequence numbers and timestamps of the packets that arrived at the receiver. For a marked packet S_new, its reception time T_new can be noted directly. For a lost packet, we can interpolate to infer the nominal \"arrival time\". Assume:",
+      "zh-CHS": "为了确定丢失或标记的数据包是否应该启动新的丢失事件，或者作为现有丢失事件的一部分计算，我们需要比较到达接收器的数据包的序列号和时间戳。对于标记的数据包S_new，其接收时间T_new可以直接记录。对于丢失的数据包，我们可以插值来推断名义上的“到达时间”。假设："
+    },
+    {
+      "indent": 3,
+      "text": "S_loss is the sequence number of a lost packet.",
+      "zh-CHS": "S_loss是丢失数据包的序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "S_before is the sequence number of the last packet to arrive with sequence number before S_loss.",
+      "zh-CHS": "S_before是最后一个到达的数据包的序列号，序列号在S_丢失之前。"
+    },
+    {
+      "indent": 3,
+      "text": "S_after is the sequence number of the first packet to arrive with sequence number after S_loss.",
+      "zh-CHS": "S_after是S_丢失后第一个到达的数据包的序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "T_before is the reception time of S_before.",
+      "zh-CHS": "T_before是S_before的接收时间。"
+    },
+    {
+      "indent": 3,
+      "text": "T_after is the reception time of S_after.",
+      "zh-CHS": "T_after是S_after的接收时间。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that T_before can be either before or after T_after due to reordering.",
+      "zh-CHS": "注意，由于重新排序，T_before可以是T_after之前或之后。"
+    },
+    {
+      "indent": 3,
+      "text": "For a lost packet S_loss, we can interpolate its nominal \"arrival time\" at the receiver from the arrival times of S_before and S_after. Thus",
+      "zh-CHS": "对于丢失的数据包S_丢失，我们可以从S_之前和S_之后的到达时间内插其在接收器的标称“到达时间”。因此"
+    },
+    {
+      "indent": 6,
+      "text": "T_loss = T_before + ( (T_after - T_before)\n            * (S_loss - S_before)/(S_after - S_before) );",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that if the sequence space wrapped between S_before and S_after,\nthe sequence numbers must be modified to take this into account\nbefore the calculation is performed.  If the largest possible\nsequence number is S_max, and S_before > S_after, then modifying each\nsequence number S by S' = (S + (S_max + 1)/2) mod (S_max + 1) would\nnormally be sufficient.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the lost packet S_old was determined to have started the previous loss event, and if we have just determined that S_new has been lost, then we interpolate the nominal arrival times of S_old and S_new, called T_old and T_new, respectively.",
+      "zh-CHS": "如果确定丢失的数据包S_old已经开始了前一个丢失事件，并且我们刚刚确定S_new已经丢失，那么我们将插入S_old和S_new的标称到达时间，分别称为T_old和T_new。"
+    },
+    {
+      "indent": 3,
+      "text": "If T_old + R >= T_new, then S_new is part of the existing loss event. Otherwise, S_new is the first packet of a new loss event.",
+      "zh-CHS": "如果T_old+R>=T_new，则S_new是现有损失事件的一部分。否则，S_new是新丢失事件的第一个数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Inter-Loss Event Interval",
+      "section_title": true,
+      "zh-CHS": "5.3. 损失事件间隔"
+    },
+    {
+      "indent": 3,
+      "text": "If a loss interval, A, is determined to have started with packet sequence number S_A and the next loss interval, B, started with packet sequence number S_B, then the number of packets in loss interval A is given by (S_B - S_A).",
+      "zh-CHS": "如果确定丢失间隔a以分组序列号S_a开始，而下一个丢失间隔B以分组序列号S_B开始，则丢失间隔a中的分组数由（S_B-S_a）给出。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Average Loss Interval",
+      "section_title": true,
+      "zh-CHS": "5.4. 平均损失间隔"
+    },
+    {
+      "indent": 3,
+      "text": "To calculate the loss event rate p, we first calculate the average loss interval. This is done using a filter that weights the n most recent loss event intervals in such a way that the measured loss event rate changes smoothly.",
+      "zh-CHS": "为了计算损失事件率p，我们首先计算平均损失间隔。这是通过使用一个过滤器来完成的，该过滤器对n个最近的损失事件间隔进行加权，从而使测量的损失事件率平稳变化。"
+    },
+    {
+      "indent": 3,
+      "text": "Weights w_0 to w_(n-1) are calculated as:",
+      "zh-CHS": "权重w_0至w_（n-1）的计算公式如下："
+    },
+    {
+      "indent": 8,
+      "text": "If (i < n/2)\n   w_i = 1;\nElse\n   w_i = 1 - (i - (n/2 - 1))/(n/2 + 1);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Thus if n=8, the values of w_0 to w_7 are:",
+      "zh-CHS": "因此，如果n=8，则w_0至w_7的值为："
+    },
+    {
+      "indent": 8,
+      "text": "1.0, 1.0, 1.0, 1.0, 0.8, 0.6, 0.4, 0.2",
+      "zh-CHS": "1.0, 1.0, 1.0, 1.0, 0.8, 0.6, 0.4, 0.2"
+    },
+    {
+      "indent": 3,
+      "text": "The value n for the number of loss intervals used in calculating the loss event rate determines TFMCC's speed in responding to changes in the level of congestion. As currently specified, TFMCC should not be used for values of n significantly greater than 8, for traffic that might compete in the global Internet with TCP. At the very least, safe operation with values of n greater than 8 would require a slight change to TFMCC's mechanisms to include a more severe response to two or more round-trip times with heavy packet loss.",
+      "zh-CHS": "用于计算丢失事件率的丢失间隔数的值n决定了TFMCC响应拥塞级别变化的速度。按照目前的规定，对于可能在全球互联网上与TCP竞争的流量，TFMCC不应用于显著大于8的n值。至少，在n值大于8的情况下，安全运行需要对TFMCC的机制进行轻微更改，以包括对两个或多个往返时间的严重数据包丢失的更严重响应。"
+    },
+    {
+      "indent": 3,
+      "text": "When calculating the average loss interval, we need to decide whether to include the interval since the most recent packet loss event. We only do this if it is sufficiently large to increase the average loss interval.",
+      "zh-CHS": "在计算平均丢失间隔时，我们需要决定是否包括自最近的丢包事件以来的间隔。只有当它足够大以增加平均损失间隔时，我们才会这样做。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, if the most recent loss intervals are I_0 to I_n, with I_0 being the interval since the most recent loss event, then we calculate the average loss interval I_mean as:",
+      "zh-CHS": "因此，如果最近的损失间隔是I_0到I_n，I_0是自最近的损失事件以来的间隔，那么我们计算平均损失间隔I_平均值为："
+    },
+    {
+      "indent": 5,
+      "text": "I_tot0 = 0;\nI_tot1 = 0;\nW_tot = 0;\nfor (i = 0 to n-1) {\n  I_tot0 = I_tot0 + (I_i * w_i);\n  W_tot = W_tot + w_i;\n}\nfor (i = 1 to n) {\n  I_tot1 = I_tot1 + (I_i * w_(i-1));\n}\nI_tot = max(I_tot0, I_tot1);\nI_mean = I_tot/W_tot;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The loss event rate, p is simply:",
+      "zh-CHS": "损失事件率p简单地表示为："
+    },
+    {
+      "indent": 5,
+      "text": "p = 1 / I_mean;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "5.5. History Discounting",
+      "section_title": true,
+      "zh-CHS": "5.5. 历史贴现"
+    },
+    {
+      "indent": 3,
+      "text": "As described in Section 5.4, the most recent loss interval is only assigned 4/(3*n) of the total weight in calculating the average loss interval, regardless of the size of the most recent loss interval. This section describes an optional history discounting mechanism that allows the TFMCC receivers to adjust the weights, concentrating more of the relative weight on the most recent loss interval, when the most recent loss interval is more than twice as large as the computed average loss interval.",
+      "zh-CHS": "如第5.4节所述，在计算平均损耗间隔时，最新损耗间隔仅为总重量的4/（3*n），与最新损耗间隔的大小无关。本节描述了可选的历史贴现机制，该机制允许TFMCC接收者调整权重，当最近的损失间隔大于计算的平均损失间隔的两倍时，将更多的相对权重集中在最近的损失间隔上。"
+    },
+    {
+      "indent": 3,
+      "text": "To carry out history discounting, we associate a discount factor DF_i with each loss interval L_i, where each discount factor is a floating point number. The discount array maintains the cumulative history of discounting for each loss interval. At the beginning, the values of DF_i in the discount array are initialized to 1:",
+      "zh-CHS": "为了进行历史贴现，我们将贴现因子DF_i与每个损失区间L_i相关联，其中每个贴现因子都是一个浮点数。折扣数组维护每个损失间隔的累计折扣历史记录。开始时，折扣数组中DF_i的值初始化为1："
+    },
+    {
+      "indent": 5,
+      "text": "for (i = 0 to n) {\n  DF_i = 1;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "History discounting also uses a general discount factor DF, also a floating point number, that is also initialized to 1. First, we show how the discount factors are used in calculating the average loss interval, and then we describe later in this section how the discount factors are modified over time.",
+      "zh-CHS": "历史折扣也使用一般折扣系数DF，也是一个浮点数，也被初始化为1。首先，我们将展示贴现因子如何用于计算平均损失区间，然后在本节后面部分描述贴现因子是如何随时间而修改的。"
+    },
+    {
+      "indent": 3,
+      "text": "As described in Section 5.4, the average loss interval is calculated using the n previous loss intervals I_1, ..., I_n, and the interval I_0 that represents the number of packets received since the last loss event. The computation of the average loss interval using the discount factors is a simple modification of the procedure in Section 5.4, as follows:",
+      "zh-CHS": "如第5.4节所述，使用n个先前的丢失间隔I_1，…，I_n和间隔I_0计算平均丢失间隔，间隔I_0表示自上次丢失事件以来接收的数据包数量。使用贴现系数计算平均损失间隔是对第5.4节程序的简单修改，如下所示："
+    },
+    {
+      "indent": 5,
+      "text": "I_tot0 = I_0 * w_0\nI_tot1 = 0;\nW_tot0 = w_0\nW_tot1 = 0;\nfor (i = 1 to n-1) {\n  I_tot0 = I_tot0 + (I_i * w_i * DF_i * DF);\n  W_tot0 = W_tot0 + w_i * DF_i * DF;\n}\nfor (i = 1 to n) {\n  I_tot1 = I_tot1 + (I_i * w_(i-1) * DF_i);\n  W_tot1 = W_tot1 + w_(i-1) * DF_i;\n}\np = min(W_tot0/I_tot0, W_tot1/I_tot1);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The general discounting factor DF is updated on every packet arrival as follows. First, a receiver computes the weighted average I_mean of the loss intervals I_1, ..., I_n:",
+      "zh-CHS": "一般折扣系数DF在每个数据包到达时更新，如下所示。首先，接收机计算损失间隔I_1，…，I_n的加权平均值I_："
+    },
+    {
+      "indent": 5,
+      "text": "I_tot = 0;\nW_tot = 0;\nfor (i = 1 to n) {\n  W_tot = w_(i-1) * DF_i;\n  I_tot = I_tot + (I_i * w_(i-1) * DF_i);\n}\nI_mean = I_tot / W_tot;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This weighted average I_mean is compared to I_0, the number of packets received since the last loss event. If I_0 is greater than twice I_mean, then the new loss interval is considerably larger than the old ones, and the general discount factor DF is updated to decrease the relative weight on the older intervals, as follows:",
+      "zh-CHS": "此加权平均值I_mean与I_0（自上次丢失事件以来接收的数据包数）进行比较。如果I_0大于I_平均值的两倍，则新损失区间比旧损失区间大得多，并且更新一般贴现系数DF以减少旧损失区间的相对权重，如下所示："
+    },
+    {
+      "indent": 5,
+      "text": "if (I_0 > 2 * I_mean) {\n  DF = 2 * I_mean/I_0;\n  if (DF < THRESHOLD)\n    DF = THRESHOLD;\n} else\n  DF = 1;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A nonzero value for THRESHOLD ensures that older loss intervals from an earlier time of high congestion are not discounted entirely. We recommend a THRESHOLD of 0.5. Note that with each new packet arrival, I_0 will increase further, and the discount factor DF will be updated.",
+      "zh-CHS": "阈值的非零值可确保早期高拥塞时间的较旧丢失间隔不会被完全打折。我们建议阈值为0.5。请注意，随着每个新数据包的到达，I_0将进一步增加，折扣系数DF将被更新。"
+    },
+    {
+      "indent": 3,
+      "text": "When a new loss event occurs, the current interval shifts from I_0 to I_1, loss interval I_i shifts to interval I_(i+1), and the loss interval I_n is forgotten. The previous discount factor DF has to be incorporated into the discount array. Because DF_i carries the discount factor associated with loss interval I_i, the DF_i array has to be shifted as well. This is done as follows:",
+      "zh-CHS": "当新的丢失事件发生时，当前间隔从I_0移动到I_1，丢失间隔I_I移动到间隔I_（I+1），丢失间隔I_n被遗忘。以前的折扣系数DF必须合并到折扣数组中。由于DF_i携带与损失间隔i_i相关联的贴现因子，因此DF_i数组也必须移位。具体做法如下："
+    },
+    {
+      "indent": 5,
+      "text": "for (i = 1 to n) {\n  DF_i = DF * DF_i;\n}\nfor (i = n-1 to 0 step -1) {\n  DF_(i+1) = DF_i;\n}\nI_0 = 1;\nDF_0 = 1;\nDF = 1;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This completes the description of the optional history discounting mechanism. We emphasize that this is an optional mechanism whose sole purpose is to allow TFMCC to respond more quickly to the sudden absence of congestion, as represented by a long current loss interval.",
+      "zh-CHS": "这就完成了可选历史贴现机制的描述。我们强调，这是一种可选机制，其唯一目的是允许TFMCC对突然出现的拥塞（如长电流丢失间隔所示）做出更快的响应。"
+    },
+    {
+      "indent": 0,
+      "text": "5.6. Initializing the Loss History after the First Loss Event",
+      "section_title": true,
+      "zh-CHS": "5.6. 在第一次丢失事件后初始化丢失历史记录"
+    },
+    {
+      "indent": 3,
+      "text": "The number of packets received before the first loss event usually does not reflect the current loss event rate. When the first loss event occurs, a TFMCC receiver assumes that the correct data rate is the rate at which data was received during the last RTT when the loss occurred. Instead of initializing the first loss interval to the number of packets sent until the first loss event, the TFMCC receiver calculates the loss interval that would be required to produce the receive rate X_recv, and it uses this synthetic loss interval l_0 to seed the loss history mechanism.",
+      "zh-CHS": "在第一次丢失事件之前接收的数据包数量通常不反映当前的丢失事件率。当第一个丢失事件发生时，TFMCC接收器假定正确的数据速率是发生丢失时最后一次RTT期间接收数据的速率。TFMCC接收器计算产生接收速率X_recv所需的丢失间隔，并使用此合成丢失间隔l_0为丢失历史机制种子，而不是将第一个丢失间隔初始化为第一个丢失事件之前发送的数据包数。"
+    },
+    {
+      "indent": 3,
+      "text": "The initial loss interval is calculated by inverting a simplified version of the TCP Equation (1).",
+      "zh-CHS": "初始损耗间隔通过反转TCP方程（1）的简化版本来计算。"
+    },
+    {
+      "indent": 6,
+      "text": "                            8s\nX_recv = sqrt(3/2) * -----------------\n                      R * sqrt(1/l_0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "              X_recv * R\n==> l_0 = (----------------)^2\n            sqrt(3/2) * 8s",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The resulting initial loss interval is too small at higher loss rates compared to using the more accurate Equation (1), which leads to a more conservative initial loss event rate.",
+      "zh-CHS": "与使用更精确的方程式（1）相比，在损失率较高的情况下，产生的初始损失间隔太小，从而导致更保守的初始损失事件率。"
+    },
+    {
+      "indent": 3,
+      "text": "If a receiver still uses the initial RTT R_max instead of its real RTT, the initial loss interval is too large in case the initial RTT is higher than the actual RTT. As a consequence, the receiver will calculate too high a desired rate when the first RTT measurement R is made and the initial loss interval is still in the loss history. The receiver has to adjust l_0 as follows:",
+      "zh-CHS": "如果接收机仍然使用初始RTT R_max而不是其实际RTT，则初始RTT高于实际RTT时，初始损耗间隔过大。因此，当进行第一次RTT测量R且初始损耗间隔仍在损耗历史中时，接收器将计算过高的期望速率。接收器必须按如下方式调整l_0："
+    },
+    {
+      "indent": 6,
+      "text": "l_0 = l_0 * (R/R_max)^2",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "No action needs to be taken when the first RTT measurement is made after the initial loss interval left the loss history.",
+      "zh-CHS": "在初始损耗间隔离开损耗历史后进行第一次RTT测量时，无需采取任何措施。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is not a transport protocol in its own right, but a congestion control mechanism that is intended to be used in conjunction with a transport protocol. Therefore, security primarily needs to be considered in the context of a specific transport protocol and its authentication mechanisms.",
+      "zh-CHS": "TFMCC本身不是一种传输协议，而是一种旨在与传输协议结合使用的拥塞控制机制。因此，主要需要在特定传输协议及其身份验证机制的上下文中考虑安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "Congestion control mechanisms can potentially be exploited to create denial of service. This may occur through spoofed feedback. Thus, any transport protocol that uses TFMCC should take care to ensure that feedback is only accepted from valid receivers of the data. However, the precise mechanism to achieve this will depend on the transport protocol itself.",
+      "zh-CHS": "拥塞控制机制可能被利用来创建拒绝服务。这可能通过欺骗反馈发生。所以，任何使用TFMCC的传输协议都应该注意确保只接受来自有效数据接收方的反馈。然而，实现这一点的确切机制将取决于传输协议本身。"
+    },
+    {
+      "indent": 3,
+      "text": "Congestion control mechanisms may potentially be manipulated by a greedy receiver that wishes to receive more than its fair share of network bandwidth. However, in TFMCC a receiver can only influence the sending rate if it is the CLR and thus has the lowest calculated rate of all receivers. If the calculated rate is then manipulated such that it exceeds the calculated rate of the second to lowest receiver, it will cease to be CLR. A greedy receiver can only significantly increase the transmission rate if it is the only participant in the session. If such scenarios are of concern,",
+      "zh-CHS": "拥塞控制机制可能被贪婪的接收者操纵，而贪婪的接收者希望接收超过其公平份额的网络带宽。然而，在TFMCC中，只有当接收机是CLR并且因此具有所有接收机中最低的计算速率时，接收机才能影响发送速率。如果随后操纵计算的速率，使其超过第二至最低接收机的计算速率，则其将停止为CLR。贪婪的接收器只有在它是会话中唯一的参与者时才能显著提高传输速率。如果这种情况值得关注，"
+    },
+    {
+      "indent": 3,
+      "text": "possible defenses against such a receiver would normally include some form of nonce that the receiver must feed back to the sender to prove receipt. However, the details of such a nonce would depend on the transport protocol and, in particular, on whether the transport protocol is reliable or unreliable.",
+      "zh-CHS": "针对此类接收者的可能抗辩通常包括接收者必须反馈给发送者以证明其收到的某种形式的临时通知。然而，这种nonce的细节将取决于传输协议，特别是取决于传输协议是可靠的还是不可靠的。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible that a receiver sends feedback claiming that it has a very low calculated rate. This will reduce the rate of the multicast session and might render it useless but obviously cannot hurt the network itself.",
+      "zh-CHS": "接收机可能发送反馈，声称其计算速率非常低。这将降低多播会话的速率，并可能使其无效，但显然不会损害网络本身。"
+    },
+    {
+      "indent": 3,
+      "text": "We expect that protocols incorporating ECN with TFMCC will also want to incorporate feedback from the receiver to the sender using the ECN nonce [12]. The ECN nonce is a modification to ECN that protects the sender from the accidental or malicious concealment of marked packets. Again, the details of such a nonce would depend on the transport protocol and are not addressed in this document.",
+      "zh-CHS": "我们预计，将ECN与TFMCC结合在一起的协议也会希望结合使用ECN nonce从接收方到发送方的反馈[12]。ECN nonce是对ECN的一种修改，可保护发送方免受意外或恶意隐藏标记数据包的影响。同样，这种临时状态的细节将取决于传输协议，本文件中未涉及。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We would like to acknowledge feedback and discussions on equation-based congestion control with a wide range of people, including members of the Reliable Multicast Research Group, the Reliable Multicast Transport Working Group, and the End-to-End Research Group. We would particularly like to thank Brian Adamson, Mark Pullen, Fei Zhao, and Magnus Westerlund for feedback on earlier versions of this document.",
+      "zh-CHS": "我们希望与包括可靠多播研究组、可靠多播传输工作组和端到端研究组成员在内的广泛人群就基于等式的拥塞控制进行反馈和讨论。我们特别感谢Brian Adamson、Mark Pullen、Fei Zhao和Magnus Westerlund对本文档早期版本的反馈。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Whetten, B., Vicisano, L., Kermode, R., Handley, M., Floyd, S., and M. Luby, \"Reliable Multicast Transport Building Blocks for One-to-Many Bulk-Data Transfer\", RFC 3048, January 2001.",
+      "zh-CHS": "[1] Whetten，B.，Vicisano，L.，Kermode，R.，Handley，M.，Floyd，S.，和M.Luby，“一对多批量数据传输的可靠多播传输构建块”，RFC 3048，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Kermode, R. and L. Vicisano, \"Author Guidelines for Reliable Multicast Transport (RMT) Building Blocks and Protocol Instantiation documents\", RFC 3269, April 2002.",
+      "zh-CHS": "[2] Kermode，R.和L.Vicisano，“可靠多播传输（RMT）构建块和协议实例化文档的作者指南”，RFC 3269，2002年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[3] J. Widmer and M. Handley, \"Extending Equation-Based Congestion Control to Multicast Applications\", Proc ACM Sigcomm 2001, San Diego, August 2001.",
+      "zh-CHS": "[3] J.Widmer和M.Handley，“将基于方程的拥塞控制扩展到多播应用”，Proc ACM Sigcomm 2001，圣地亚哥，2001年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] S. Floyd, M. Handley, J. Padhye, and J. Widmer, \"Equation-Based Congestion Control for Unicast Applications\", Proc ACM SIGCOMM 2000, Stockholm, August 2000.",
+      "zh-CHS": "[4] S.Floyd，M.Handley，J.Padhye和J.Widmer，“单播应用中基于方程的拥塞控制”，Proc ACM SIGCOMM 2000，斯德哥尔摩，2000年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Adamson, B., Bormann, C., Handley, M., and J. Macker, \"Negative-Acknowledgment (NACK)-Oriented Reliable Multicast (NORM) Building Blocks\", RFC 3941, November 2004.",
+      "zh-CHS": "[5] Adamson，B.，Bormann，C.，Handley，M.，和J.Macker，“面向否定确认（NACK）的可靠多播（NORM）构建块”，RFC 39412004年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Deering, S., \"Host extensions for IP multicasting\", STD 5, RFC 1112, August 1989.",
+      "zh-CHS": "[6] Deering，S.，“IP多播的主机扩展”，STD 5，RFC 1112，1989年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] H. W. Holbrook, \"A Channel Model for Multicast,\" Ph.D. Dissertation, Stanford University, Department of Computer Science, Stanford, California, August 2001.",
+      "zh-CHS": "[7] H.W.Holbrook，“多播的信道模型”，博士。斯坦福大学计算机科学系博士论文，斯坦福，加利福尼亚，2001年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] J. Padhye, V. Firoiu, D. Towsley, and J. Kurose, \"Modeling TCP Throughput: A Simple Model and its Empirical Validation\", Proc ACM SIGCOMM 1998.",
+      "zh-CHS": "[8] J.Padhye，V.Firoiu，D.Towsley和J.Kurose，“TCP吞吐量建模：一个简单模型及其经验验证”，Proc ACM SIGCOMM 1998。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Ramakrishnan, K., Floyd, S., and D. Black, \"The Addition of Explicit Congestion Notification (ECN) to IP\", RFC 3168, September 2001.",
+      "zh-CHS": "[9] Ramakrishnan，K.，Floyd，S.，和D.Black，“向IP添加显式拥塞通知（ECN）”，RFC 3168，2001年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] L. Rizzo, \"pgmcc: a TCP-friendly single-rate multicast congestion control scheme\", Proc ACM Sigcomm 2000, Stockholm, August 2000.",
+      "zh-CHS": "[10] L.Rizzo，“pgmcc：一种TCP友好的单速率多播拥塞控制方案”，Proc ACM Sigcomm 2000，斯德哥尔摩，2000年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Schulzrinne, H., Casner, S., Frederick, R., and V. Jacobson, \"RTP: A Transport Protocol for Real-Time Applications\", STD 64, RFC 3550, July 2003.",
+      "zh-CHS": "[11] Schulzrinne，H.，Casner，S.，Frederick，R.，和V.Jacobson，“RTP：实时应用的传输协议”，STD 64，RFC 35502003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Spring, N., Wetherall, D., and D. Ely, \"Robust Explicit Congestion Notification (ECN) Signaling with Nonces\", RFC 3540, June 2003.",
+      "zh-CHS": "[12] Spring，N.，Weterral，D.，和D.Ely，“带有nonce的鲁棒显式拥塞通知（ECN）信令”，RFC3540，2003年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] J. Widmer and T. Fuhrmann, \"Extremum Feedback for Very Large Multicast Groups\", Proc NGC 2001, London, November 2001.",
+      "zh-CHS": "[13] J.Widmer和T.Fuhrmann，“超大多播组的极值反馈”，Proc NGC 2001，伦敦，2001年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Joerg Widmer DoCoMo Euro-Labs Landsberger Str. 312, Munich, Germany EMail: widmer@acm.org",
+      "zh-CHS": "Joerg Widmer DoCoMo Euro Labs Landsberger Str.312，慕尼黑，德国电子邮件：widmer@acm.org"
+    },
+    {
+      "indent": 3,
+      "text": "Mark Handley UCL (University College London) Gower Street, London WC1E 6BT, UK EMail: m.handley@cs.ucl.ac.uk",
+      "zh-CHS": "马克·汉德利伦敦大学学院伦敦高尔街WC1E 6BT，英国电子邮件：m。handley@cs.ucl.ac.uk"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

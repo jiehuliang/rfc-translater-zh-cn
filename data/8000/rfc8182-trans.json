@@ -1,0 +1,1240 @@
+{
+  "title": {
+    "text": "RFC 8182: The RPKI Repository Delta Protocol (RRDP)",
+    "zh-CHS": "RFC 8182"
+  },
+  "number": 8182,
+  "created_at": "2021-10-29 00:45:56.313865+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                    T. Bruijnzeels\nRequest for Comments: 8182                                  O. Muravskiy\nCategory: Standards Track                                       RIPE NCC\nISSN: 2070-1721                                                 B. Weber\n                                                                Cobenian\n                                                              R. Austein\n                                                    Dragon Research Labs\n                                                               July 2017",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "The RPKI Repository Delta Protocol (RRDP)",
+      "zh-CHS": "RPKI存储库增量协议（RRDP）"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "In the Resource Public Key Infrastructure (RPKI), Certificate Authorities (CAs) publish certificates, including end-entity certificates, Certificate Revocation Lists (CRLs), and RPKI signed objects to repositories. Relying Parties retrieve the published information from those repositories. This document specifies a new RPKI Repository Delta Protocol (RRDP) for this purpose. RRDP was specifically designed for scaling. It relies on an Update Notification File which lists the current Snapshot and Delta Files that can be retrieved using HTTPS (HTTP over Transport Layer Security (TLS)), and it enables the use of Content Distribution Networks (CDNs) or other caching infrastructures for the retrieval of these files.",
+      "zh-CHS": "在资源公钥基础结构（RPKI）中，证书颁发机构（CA）将证书（包括最终实体证书、证书吊销列表（CRL）和RPKI签名的对象）发布到存储库。依赖方从这些存储库中检索已发布的信息。本文档为此指定了一个新的RPKI存储库增量协议（RRDP）。RRDP是专门为缩放而设计的。它依赖于一个更新通知文件，该文件列出了可使用HTTPS（HTTP over Transport Layer Security（TLS））检索的当前快照和增量文件，并支持使用内容分发网络（CDN）或其他缓存基础结构来检索这些文件。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc8182.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc8182."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2017 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2017 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3\n2.  Requirements Notation . . . . . . . . . . . . . . . . . . . .   4\n3.  RPKI Repository Delta Protocol Implementation . . . . . . . .   4\n  3.1.  Informal Overview . . . . . . . . . . . . . . . . . . . .   4\n  3.2.  Certificate Authority Use . . . . . . . . . . . . . . . .   5\n  3.3.  Repository Server Use . . . . . . . . . . . . . . . . . .   6\n    3.3.1.  Initialization  . . . . . . . . . . . . . . . . . . .   6\n    3.3.2.  Publishing Updates  . . . . . . . . . . . . . . . . .   6\n  3.4.  Relying Party Use . . . . . . . . . . . . . . . . . . . .   7\n    3.4.1.  Processing the Update Notification File . . . . . . .   7\n    3.4.2.  Processing Delta Files  . . . . . . . . . . . . . . .   9\n    3.4.3.  Processing a Snapshot File  . . . . . . . . . . . . .  10\n    3.4.4.  Polling the Update Notification File  . . . . . . . .  10\n    3.4.5.  Considerations Regarding Operational Failures in RRDP  11\n  3.5.  File Definitions  . . . . . . . . . . . . . . . . . . . .  11\n    3.5.1.  Update Notification File  . . . . . . . . . . . . . .  11\n    3.5.2.  Snapshot File . . . . . . . . . . . . . . . . . . . .  13\n    3.5.3.  Delta File  . . . . . . . . . . . . . . . . . . . . .  15\n    3.5.4.  XML Schema  . . . . . . . . . . . . . . . . . . . . .  17\n4.  Operational Considerations  . . . . . . . . . . . . . . . . .  18\n  4.1.  Compatibility with previous standards . . . . . . . . . .  18\n  4.2.  Distribution Considerations . . . . . . . . . . . . . . .  19\n  4.3.  HTTPS Considerations  . . . . . . . . . . . . . . . . . .  19\n5.  Security Considerations . . . . . . . . . . . . . . . . . . .  20\n6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  21\n7.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  22\n  7.1.  Normative References  . . . . . . . . . . . . . . . . . .  22\n  7.2.  Informative References  . . . . . . . . . . . . . . . . .  23\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  24\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  24",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "In the Resource Public Key Infrastructure (RPKI), Certificate\nAuthorities publish certificates [RFC6487], RPKI signed objects\n[RFC6488], manifests [RFC6486], and CRLs to repositories.  CAs may\nhave an embedded mechanism to publish to these repositories, or they\nmay use a separate Repository Server and publication protocol.  RPKI\nrepositories are currently accessible using the rsync protocol\n[RSYNC], allowing Relying Parties to synchronize a local copy of the\nRPKI repository used for validation with the remote repositories\n[RFC6481].",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "rsync [RSYNC] has proven valuable in the early deployment of RPKI, because it allowed operators to gain experience without the need to invent a custom protocol. However, operational experience has brought concerns to light that we wish to address here:",
+      "zh-CHS": "rsync[rsync]在RPKI的早期部署中被证明是有价值的，因为它允许运营商获得经验，而无需发明自定义协议。然而，运营经验揭示了我们希望在此解决的问题："
+    },
+    {
+      "indent": 3,
+      "text": "o rsync [RSYNC] is designed to limit the amount of data that needs to be transferred between client and server. However, the server needs to spend significant resources in terms of CPU and memory for every connection. This is a problem in an envisioned RPKI deployment where thousands of Relying Parties query a small number of central repositories, and it makes these repositories weak to denial-of-service attacks.",
+      "zh-CHS": "o rsync[rsync]旨在限制需要在客户端和服务器之间传输的数据量。但是，服务器需要为每个连接花费大量CPU和内存资源。这是设想中的RPKI部署中的一个问题，数千个依赖方查询少量的中央存储库，这使得这些存储库对拒绝服务攻击很弱。"
+    },
+    {
+      "indent": 3,
+      "text": "o A secondary concern is the lack of supported rsync server and client libraries. In practice, all implementations have to make system calls to an rsync binary. This is inefficient; it introduces fragility with regards to updates of this binary, makes it difficult to catch and report problems to operators, and complicates software development and testing.",
+      "zh-CHS": "o 第二个问题是缺少受支持的rsync服务器和客户端库。实际上，所有实现都必须对rsync二进制文件进行系统调用。这是低效的；它在二进制文件的更新方面引入了脆弱性，使得捕获和向操作员报告问题变得困难，并使软件开发和测试复杂化。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an alternative repository access protocol based on Update Notification, Snapshot, and Delta Files that a Relying Party can retrieve over the HTTPS protocol. This allows Relying Parties to either perform a full (re-)synchronization of their local copy of the repository using Snapshot Files or use Delta Files to keep their local repository updated after initial synchronization. We call this the RPKI Repository Delta Protocol, or RRDP in short.",
+      "zh-CHS": "本文档指定了基于更新通知、快照和增量文件的替代存储库访问协议，依赖方可以通过HTTPS协议检索这些文件。这允许依赖方使用快照文件对其存储库的本地副本执行完全（重新）同步，或者使用增量文件在初始同步后保持其本地存储库的更新。我们称之为RPKI存储库增量协议，简称RRDP。"
+    },
+    {
+      "indent": 3,
+      "text": "RRDP was designed to support scaling in RPKI's asymmetric deployment. It is consistent (in terms of data structures) with the publication protocol [RFC8181] and treats publication events of one or more repository objects as discrete events that can be communicated to Relying Parties. This approach helps to minimize the amount of data that traverses the network and thus helps minimize the amount of time until repository convergence occurs. RRDP also provides a standards-",
+      "zh-CHS": "RRDP旨在支持RPKI非对称部署中的扩展。它与发布协议[RFC8181]保持一致（在数据结构方面），并将一个或多个存储库对象的发布事件视为可与依赖方通信的离散事件。这种方法有助于最大限度地减少通过网络的数据量，从而有助于最大限度地减少存储库聚合之前的时间。RRDP还提供了一个标准-"
+    },
+    {
+      "indent": 3,
+      "text": "based way to obtain consistent, point-in-time views of a single repository, eliminating a number of consistency-related issues. Finally, this approach allows these discrete events to be communicated as immutable files. This enables Repository Servers to pre-calculate these files only once for all clients, thus limiting the CPU and memory investments required, and enables the use of a caching infrastructure to reduce the load on a Repository Server when a large number of Relying Parties are querying it.",
+      "zh-CHS": "基于此，可以获得单个存储库的一致的时间点视图，消除了许多与一致性相关的问题。最后，这种方法允许将这些离散事件作为不可变文件进行通信。这使存储库服务器能够为所有客户端只预计算一次这些文件，从而限制所需的CPU和内存投资，并允许在大量依赖方查询存储库服务器时使用缓存基础结构来减少存储库服务器上的负载。"
+    },
+    {
+      "indent": 3,
+      "text": "This document allows the use of RRDP as an additional repository distribution mechanism for RPKI. In time, RRDP may replace rsync [RSYNC] as the only mandatory-to-implement repository distribution mechanism. However, this transition is outside of the scope of this document.",
+      "zh-CHS": "本文档允许使用RRDP作为RPKI的附加存储库分发机制。随着时间的推移，RRDP可能会取代rsync[rsync]作为实现存储库分发机制的唯一强制性工具。但是，此转换不在本文档的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements Notation",
+      "section_title": true,
+      "zh-CHS": "2. 需求符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14[RFC2119][RFC8174]所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. RPKI Repository Delta Protocol Implementation",
+      "section_title": true,
+      "zh-CHS": "3. RPKI存储库增量协议的实现"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Informal Overview",
+      "section_title": true,
+      "zh-CHS": "3.1. 非正式概述"
+    },
+    {
+      "indent": 3,
+      "text": "Certification Authorities in the RPKI use a Repository Server to publish their RPKI products, such as manifests, CRLs, signed certificates, and RPKI-signed objects. This Repository Server may be remote or embedded in the Certificate Authority engine itself. Certificates in the RPKI that use a Repository Server that supports RRDP include a special Subject Information Access (SIA) pointer referring to an Update Notification File.",
+      "zh-CHS": "RPKI中的证书颁发机构使用存储库服务器发布其RPKI产品，如清单、CRL、签名证书和RPKI签名对象。此存储库服务器可以是远程的，也可以嵌入到证书颁发机构引擎本身中。RPKI中使用支持RRDP的存储库服务器的证书包括引用更新通知文件的特殊主题信息访问（SIA）指针。"
+    },
+    {
+      "indent": 3,
+      "text": "The Update Notification File includes a globally unique session_id in the form of a version 4 Universally Unique IDentifier (UUID) [RFC4122] and serial number that can be used by the Relying Party to determine if it and the repository are synchronized. Furthermore, it includes a link to the most recent complete snapshot of current objects that are published by the Repository Server, and a list of links to Delta Files, for each revision starting at a point determined by the Repository Server, up to the current revision of the repository.",
+      "zh-CHS": "更新通知文件包括以版本4通用唯一标识符（UUID）[RFC4122]和序列号的形式存在的全局唯一会话id，依赖方可使用该id来确定其是否与存储库同步。此外，它还包括指向存储库服务器发布的当前对象的最新完整快照的链接，以及指向增量文件的链接列表，每个版本从存储库服务器确定的点开始，直到存储库的当前版本。"
+    },
+    {
+      "indent": 3,
+      "text": "A Relying Party that learns about an Update Notification File location for the first time can download it and then proceed to download the latest Snapshot File, thus creating a local copy of the",
+      "zh-CHS": "第一次了解更新通知文件位置的依赖方可以下载该文件，然后继续下载最新的快照文件，从而创建更新通知文件的本地副本"
+    },
+    {
+      "indent": 3,
+      "text": "repository that is in sync with the Repository Server. The Relying Party records the location of this Update Notification File, the session_id, and the current serial number.",
+      "zh-CHS": "与存储库服务器同步的存储库。依赖方记录此更新通知文件的位置、会话id和当前序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "Relying Parties are encouraged to re-fetch this Update Notification File at regular intervals, but not more often than once per minute. After re-fetching the Update Notification File, the Relying Party may find that there are one or more Delta Files available that allow it to synchronize its local repository with the current state of the Repository Server. If no contiguous chain of deltas from the Relying Party's serial to the latest repository serial is available, or if the session_id has changed, the Relying Party performs a full resynchronization instead.",
+      "zh-CHS": "鼓励依赖方定期重新获取此更新通知文件，但频率不得超过每分钟一次。重新获取更新通知文件后，依赖方可能会发现有一个或多个增量文件可用，允许其将本地存储库与存储库服务器的当前状态同步。如果没有从依赖方序列到最新存储库序列的连续增量链可用，或者会话id已更改，则依赖方将执行完全重新同步。"
+    },
+    {
+      "indent": 3,
+      "text": "As soon as the Relying Party fetches new content in this way, it could start a validation process. An example of a reason why a Relying Party may not choose to do this immediately is because it has learned of more than one notification location, and it prefers to complete all its updates before validating.",
+      "zh-CHS": "一旦依赖方以这种方式获取新内容，它就可以开始验证过程。依赖方可能不选择立即执行此操作的一个原因示例是，它了解到多个通知位置，并且更愿意在验证之前完成所有更新。"
+    },
+    {
+      "indent": 3,
+      "text": "The Repository Server could use a caching infrastructure to reduce its load, particularly because snapshots and deltas for any given session_id and serial number contain an immutable record of the state of the Repository Server at a certain point in time. For this reason, these files can be cached indefinitely. Update Notification Files are polled by Relying Parties to discover if updates exist; for this reason, Update Notification Files may not be cached for longer than one minute.",
+      "zh-CHS": "存储库服务器可以使用缓存基础结构来减少其负载，特别是因为任何给定会话id和序列号的快照和增量都包含存储库服务器在特定时间点的状态的不可变记录。因此，这些文件可以无限期缓存。依赖方轮询更新通知文件，以发现是否存在更新；因此，更新通知文件的缓存时间可能不会超过一分钟。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Certificate Authority Use",
+      "section_title": true,
+      "zh-CHS": "3.2. 证书颁发机构使用"
+    },
+    {
+      "indent": 3,
+      "text": "Certificate Authorities that use RRDP MUST include an instance of an SIA AccessDescription extension in resource certificates they produce, in addition to the ones defined in [RFC6487]:",
+      "zh-CHS": "除了[RFC6487]中定义的证书外，使用RRDP的证书颁发机构必须在其生成的资源证书中包含SIA AccessDescription扩展的实例："
+    },
+    {
+      "indent": 13,
+      "text": "AccessDescription ::= SEQUENCE {\n  accessMethod OBJECT IDENTIFIER,\n  accessLocation GeneralName }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This extension MUST use an accessMethod of id-ad-rpkiNotify; see Section 6:",
+      "zh-CHS": "此扩展必须使用id为ad rpkiNotify的accessMethod；见第6节："
+    },
+    {
+      "indent": 5,
+      "text": "id-pkix OBJECT IDENTIFIER ::= { iso(1) identified-organization(3)\n  dod(6) internet(1) security(5) mechanisms(5) pkix(7) }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "id-ad-rpkiNotify OBJECT IDENTIFIER ::= { id-ad 13 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The accessLocation MUST be an HTTPS URI as defined in [RFC7230] that will point to the Update Notification File for the Repository Server that publishes the products of this Certificate Authority certificate.",
+      "zh-CHS": "accessLocation必须是[RFC7230]中定义的HTTPS URI，它将指向发布此证书颁发机构证书产品的存储库服务器的更新通知文件。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Repository Server Use",
+      "section_title": true,
+      "zh-CHS": "3.3. 存储库服务器使用"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.1. Initialization",
+      "section_title": true,
+      "zh-CHS": "3.3.1. 初始化"
+    },
+    {
+      "indent": 3,
+      "text": "When the Repository Server initializes, it performs the following actions:",
+      "zh-CHS": "存储库服务器初始化时，将执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "o The server MUST generate a new random version 4 UUID (see Section 4.1.3 of [RFC4122]) to be used as the session_id.",
+      "zh-CHS": "o 服务器必须生成一个新的随机版本4 UUID（见[RFC4122]第4.1.3节），用作会话id。"
+    },
+    {
+      "indent": 3,
+      "text": "o The server MUST then generate a Snapshot File for serial number ONE for this new session that includes all currently known published objects that the Repository Server is responsible for. Note that this Snapshot File may contain zero publish elements at this point if no objects have been submitted for publication yet.",
+      "zh-CHS": "o 然后，服务器必须为此新会话生成序列号1的快照文件，其中包括存储库服务器负责的所有当前已知已发布对象。请注意，如果尚未提交任何对象进行发布，则此快照文件此时可能不包含发布元素。"
+    },
+    {
+      "indent": 3,
+      "text": "o This Snapshot File MUST be made available at a URL that is unique to this session_id and serial number, so that it can be cached indefinitely. The format and caching concerns for Snapshot Files are explained in more detail in Section 3.5.2.",
+      "zh-CHS": "o 此快照文件必须在该会话id和序列号唯一的URL处可用，以便可以无限期缓存。第3.5.2节将更详细地解释快照文件的格式和缓存问题。"
+    },
+    {
+      "indent": 3,
+      "text": "o After the Snapshot File has been published, the Repository Server MUST publish a new Update Notification File that contains the new session_id, has serial number ONE, has one reference to the Snapshot File that was just published, and contains no delta references. The format and caching concerns for Update Notification Files are explained in more detail in Section 3.5.1.",
+      "zh-CHS": "o 发布快照文件后，存储库服务器必须发布一个新的更新通知文件，该文件包含新会话id、序列号为1、对刚刚发布的快照文件有一个引用且不包含增量引用。第3.5.1节将更详细地解释更新通知文件的格式和缓存问题。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3.2. Publishing Updates",
+      "section_title": true,
+      "zh-CHS": "3.3.2. 发布更新"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever the Repository Server receives updates from a Certificate Authority, it MUST generate new snapshot and Delta Files within one minute. If a Repository Server services a large number of Certificate Authorities, it MAY choose to combine updates from multiple CAs. If a Repository Server combines updates in this way, it MUST ensure that publication never postponed for longer than one minute for any of the CAs involved.",
+      "zh-CHS": "每当存储库服务器收到来自证书颁发机构的更新时，它必须在一分钟内生成新的快照和增量文件。如果存储库服务器为大量证书颁发机构提供服务，它可能会选择合并来自多个CA的更新。如果存储库服务器以这种方式组合更新，则它必须确保任何涉及的CA的发布不会延迟超过一分钟。"
+    },
+    {
+      "indent": 3,
+      "text": "Updates are processed as follows:",
+      "zh-CHS": "更新处理如下："
+    },
+    {
+      "indent": 3,
+      "text": "o The new repository serial number MUST be one greater than the current repository serial number.",
+      "zh-CHS": "o 新存储库序列号必须比当前存储库序列号大一个。"
+    },
+    {
+      "indent": 3,
+      "text": "o A new Delta File MUST be generated for this new serial. This Delta File MUST include all new, replaced, and withdrawn objects for multiple CAs, if applicable, as a single change set.",
+      "zh-CHS": "o 必须为此新序列生成新的增量文件。此增量文件必须包括多个CA的所有新对象、替换对象和撤消对象（如果适用），作为单个更改集。"
+    },
+    {
+      "indent": 3,
+      "text": "o This Delta File MUST be made available at a URL that is unique to the current session_id and serial number, so that it can be cached indefinitely.",
+      "zh-CHS": "o 此增量文件必须在当前会话id和序列号唯一的URL处可用，以便可以无限期缓存。"
+    },
+    {
+      "indent": 3,
+      "text": "o The format and caching concerns for Delta Files are explained in more detail in Section 3.5.3.",
+      "zh-CHS": "o 第3.5.3节将更详细地解释增量文件的格式和缓存问题。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Repository Server MUST also generate a new Snapshot File for this new serial. This file MUST contain all \"publish\" elements for all current objects.",
+      "zh-CHS": "o 存储库服务器还必须为此新序列生成新的快照文件。此文件必须包含所有当前对象的所有“发布”元素。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Snapshot File MUST be made available at a URL that is unique to this session and new serial, so that it can be cached indefinitely.",
+      "zh-CHS": "o 快照文件必须在该会话和新序列唯一的URL处可用，以便可以无限期缓存。"
+    },
+    {
+      "indent": 3,
+      "text": "o The format and caching concerns for Snapshot Files are explained in more detail in Section 3.5.2.",
+      "zh-CHS": "o 第3.5.2节将更详细地解释快照文件的格式和缓存问题。"
+    },
+    {
+      "indent": 3,
+      "text": "o Any older Delta Files that, when combined with all more recent Delta Files, will result in the total size of deltas exceeding the size of the snapshot MUST be excluded to avoid that Relying Parties download more data than necessary.",
+      "zh-CHS": "o 任何较旧的增量文件，如果与所有较新的增量文件结合使用，将导致增量的总大小超过快照的大小，则必须排除这些文件，以避免依赖方下载的数据过多。"
+    },
+    {
+      "indent": 3,
+      "text": "o A new Update Notification File MUST now be created by the Repository Server. This new Update Notification File MUST include a reference to the new Snapshot File and all Delta Files selected in the previous steps.",
+      "zh-CHS": "o 存储库服务器现在必须创建一个新的更新通知文件。此新更新通知文件必须包含对新快照文件和在前面步骤中选择的所有增量文件的引用。"
+    },
+    {
+      "indent": 3,
+      "text": "o The format and caching concerns for Update Notification Files are explained in more detail in Section 3.5.1.",
+      "zh-CHS": "o 第3.5.1节将更详细地解释更新通知文件的格式和缓存问题。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Repository Server is not capable of performing the above for some reason, then it MUST perform a full re-initialization, as explained above in Section 3.3.1.",
+      "zh-CHS": "如果存储库服务器由于某种原因无法执行上述操作，则必须执行完全重新初始化，如上文第3.3.1节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Relying Party Use",
+      "section_title": true,
+      "zh-CHS": "3.4. 依赖方使用"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.1. Processing the Update Notification File",
+      "section_title": true,
+      "zh-CHS": "3.4.1. 正在处理更新通知文件"
+    },
+    {
+      "indent": 3,
+      "text": "When a Relying Party performs RPKI validation and learns about a valid certificate with an SIA entry for the RRDP protocol, it SHOULD use this protocol as follows.",
+      "zh-CHS": "当依赖方执行RPKI验证并了解到带有RRDP协议SIA条目的有效证书时，应按如下方式使用该协议。"
+    },
+    {
+      "indent": 3,
+      "text": "The Relying Party MUST download the Update Notification File, unless an Update Notification File was already downloaded and processed from the same location in this validation run or a polling strategy was used (see Section 3.4.4).",
+      "zh-CHS": "依赖方必须下载更新通知文件，除非在此验证运行中已从同一位置下载并处理了更新通知文件，或使用了轮询策略（见第3.4.4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "It is RECOMMENDED that the Relying Party uses a \"User-Agent\" header explained in Section 5.5.3. of [RFC7231] to identify the name and version of the Relying Party software used. It is useful to track capabilities of Relying Parties in the event of changes to the RPKI standards.",
+      "zh-CHS": "建议依赖方使用第5.5.3节中解释的“用户代理”标题。[RFC7231]的名称和版本，以确定使用的依赖方软件的名称和版本。在RPKI标准发生变化时，跟踪依赖方的能力非常有用。"
+    },
+    {
+      "indent": 3,
+      "text": "When the Relying Party downloads an Update Notification File, it MUST verify the file format and validation steps described in Section 3.5.1.3. If this verification fails, the file MUST be rejected and RRDP cannot be used. See Section 3.4.5 for considerations.",
+      "zh-CHS": "当依赖方下载更新通知文件时，必须验证第3.5.1.3节所述的文件格式和验证步骤。如果验证失败，则必须拒绝该文件，并且不能使用RRDP。有关注意事项，请参见第3.4.5节。"
+    },
+    {
+      "indent": 3,
+      "text": "The Relying Party MUST verify whether the session_id matches the last known session_id for this Update Notification File location. Note that even though the session_id is a random UUID value, it alone MUST NOT be used by a Relying Party as a unique identifier of a session but always together with the location of the Update Notification File. The reason for this is that a malicious server can use an existing session_id from another Repository Server.",
+      "zh-CHS": "依赖方必须验证会话id是否与此更新通知文件位置的上一个已知会话id匹配。请注意，即使session_id是一个随机的UUID值，依赖方也不能单独使用它作为会话的唯一标识符，而是始终与更新通知文件的位置一起使用。原因是恶意服务器可以使用来自另一个存储库服务器的现有会话id。"
+    },
+    {
+      "indent": 3,
+      "text": "If the session_id matches the last known session_id, then a Relying Party MAY download and process missing Delta Files as described in Section 3.4.2, provided that all Delta Files for serial numbers between the last processed serial number and the current serial number in the Update Notification File can be processed this way.",
+      "zh-CHS": "如果会话id与最后一个已知会话id匹配，则依赖方可下载并处理第3.4.2节中所述的缺失增量文件，前提是更新通知文件中最后处理的序列号和当前序列号之间的序列号增量文件可通过这种方式处理。"
+    },
+    {
+      "indent": 3,
+      "text": "If the session_id matches the last known session_id, but Delta Files were not used, then the Relying Party MUST download and process the Snapshot File on the Update Notification File as described in Section 3.4.3.",
+      "zh-CHS": "如果会话id与上次已知的会话id匹配，但未使用增量文件，则依赖方必须下载并处理更新通知文件上的快照文件，如第3.4.3节所述。"
+    },
+    {
+      "indent": 3,
+      "text": "If the session_id does not match the last known session_id, the Relying Party MUST update its last known session_id to the value specified in the downloaded Update Notification File. The Relying Party MUST then download and process the Snapshot File specified in the downloaded Update Notification File as described in Section 3.4.3.",
+      "zh-CHS": "如果会话id与上一个已知会话id不匹配，依赖方必须将其上一个已知会话id更新为下载的更新通知文件中指定的值。然后，依赖方必须下载并处理第3.4.3节所述下载的更新通知文件中指定的快照文件。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.2. Processing Delta Files",
+      "section_title": true,
+      "zh-CHS": "3.4.2. 处理增量文件"
+    },
+    {
+      "indent": 3,
+      "text": "If an Update Notification File contains a contiguous chain of links to Delta Files from the last processed serial number to the current serial number, then Relying Parties MUST attempt to download and process all Delta Files in order of serial number as follows.",
+      "zh-CHS": "如果更新通知文件包含从上次处理的序列号到当前序列号的增量文件的连续链接链，则依赖方必须尝试按照以下序列号顺序下载和处理所有增量文件。"
+    },
+    {
+      "indent": 3,
+      "text": "When the Relying Party downloads a Delta File, it MUST verify the file format and perform validation steps described in Section 3.5.3.3. If this verification fails, the file MUST be rejected.",
+      "zh-CHS": "当依赖方下载增量文件时，必须验证文件格式，并执行第3.5.3.3节所述的验证步骤。如果验证失败，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, the Relying Party MUST verify that the hash of the contents of this file matches the hash on the Update Notification File that referenced it. In case of a mismatch of this hash, the file MUST be rejected.",
+      "zh-CHS": "此外，依赖方必须验证此文件内容的哈希值是否与引用它的更新通知文件上的哈希值匹配。如果此哈希不匹配，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "If a Relying Party retrieved a Delta File that is valid according to the above criteria, it performs the following actions:",
+      "zh-CHS": "如果依赖方根据上述标准检索到有效的增量文件，它将执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "o The Relying Party MUST verify that the session_id matches the session_id of the Update Notification File. If the session_id values do not match, the file MUST be rejected.",
+      "zh-CHS": "o 依赖方必须验证会话id是否与更新通知文件的会话id匹配。如果会话id值不匹配，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Relying Party MUST verify that the serial number of this Delta File is exactly one greater than the last processed serial number for this session_id, and if not, this file MUST be rejected.",
+      "zh-CHS": "o 依赖方必须验证此增量文件的序列号是否正好比此会话id的上次处理序列号大一个，如果不是，则必须拒绝此文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Relying Party SHOULD add all publish elements to a local storage and update its last processed serial number to the serial number of this Delta File.",
+      "zh-CHS": "o 依赖方应将所有发布元素添加到本地存储器，并将其最后处理的序列号更新为此增量文件的序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "o When a Relying Party encounters a \"withdraw\" element, or a \"publish\" element where an object is replaced, in a delta that it retrieves from a Repository Server, it MUST verify that the object to be withdrawn or replaced was retrieved from this same Repository Server before applying the appropriate action. Failing to do so will leave the Relying Party vulnerable to malicious Repository Servers instructing it to delete or change arbitrary objects.",
+      "zh-CHS": "o 当依赖方在从存储库服务器检索的增量中遇到“撤回”元素或替换对象的“发布”元素时，它必须在应用适当的操作之前验证要撤回或替换的对象是否从同一存储库服务器检索。否则，依赖方将容易受到恶意存储库服务器的攻击，这些服务器会指示依赖方删除或更改任意对象。"
+    },
+    {
+      "indent": 3,
+      "text": "If any Delta File is rejected, Relying Parties MUST process the current Snapshot File instead, as described in Section 3.4.3.",
+      "zh-CHS": "如果拒绝任何增量文件，依赖方必须处理当前快照文件，如第3.4.3节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.3. Processing a Snapshot File",
+      "section_title": true,
+      "zh-CHS": "3.4.3. 处理快照文件"
+    },
+    {
+      "indent": 3,
+      "text": "Snapshot Files MUST only be used if Delta Files are unavailable or were rejected; for a description of the process, see Section 3.4.1.",
+      "zh-CHS": "仅当增量文件不可用或被拒绝时，才能使用快照文件；有关该过程的说明，请参见第3.4.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "When the Relying Party downloads a Snapshot File, it MUST verify the file format and validation steps described in Section 3.5.2.3. If this verification fails, the file MUST be rejected.",
+      "zh-CHS": "当依赖方下载快照文件时，必须验证第3.5.2.3节所述的文件格式和验证步骤。如果验证失败，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, the Relying Party MUST verify that the hash of the contents of this file matches the hash on the Update Notification File that referenced it. In case of a mismatch of this hash, the file MUST be rejected.",
+      "zh-CHS": "此外，依赖方必须验证此文件内容的哈希值是否与引用它的更新通知文件上的哈希值匹配。如果此哈希不匹配，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "If a Relying Party retrieved a Snapshot File that is valid according to the above criteria, it performs the following actions:",
+      "zh-CHS": "如果依赖方根据上述条件检索到有效的快照文件，它将执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "o The Relying Party MUST verify that the session_id matches the session_id of the Update Notification File. If the session_id values do not match, the file MUST be rejected.",
+      "zh-CHS": "o 依赖方必须验证会话id是否与更新通知文件的会话id匹配。如果会话id值不匹配，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Relying Party MUST verify that the serial number of this Snapshot File is greater than the last processed serial number for this session_id. If this fails, the file MUST be rejected.",
+      "zh-CHS": "o 依赖方必须验证此快照文件的序列号是否大于此会话id的上次处理序列号。如果失败，则必须拒绝该文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Relying Party SHOULD then add all publish elements to a local storage and update its last processed serial number to the serial number of this Snapshot File.",
+      "zh-CHS": "o 然后，依赖方应将所有发布元素添加到本地存储中，并将其最后处理的序列号更新为此快照文件的序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "If a Snapshot File is rejected, it means that RRDP cannot be used. See Section 3.4.5 for considerations.",
+      "zh-CHS": "如果快照文件被拒绝，则表示无法使用RRDP。有关注意事项，请参见第3.4.5节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.4. Polling the Update Notification File",
+      "section_title": true,
+      "zh-CHS": "3.4.4. 轮询更新通知文件"
+    },
+    {
+      "indent": 3,
+      "text": "Once a Relying Party has learned about the location, session_id, and last processed serial number of the repository that uses the RRDP protocol, the Relying Party MAY start polling the Repository Server for updates. However, the Relying Party MUST NOT poll for updates more often than once every 1 minute, and in order to reduce data usage, Relying Parties MUST use the \"If-Modified-Since\" header explained in Section 3.3 of [RFC7232] in requests.",
+      "zh-CHS": "一旦依赖方了解到使用RRDP协议的存储库的位置、会话id和最后处理的序列号，依赖方就可以开始轮询存储库服务器进行更新。但是，依赖方不得超过每1分钟轮询一次更新，并且为了减少数据使用，依赖方必须在请求中使用[RFC7232]第3.3节中解释的“如果修改自”标题。"
+    },
+    {
+      "indent": 3,
+      "text": "If a Relying Party finds that updates are available, it SHOULD download and process the file as described in Section 3.4.1 and initiate a new RPKI object validation process. However, a detailed description of the RPKI object validation process itself is out of scope of this document.",
+      "zh-CHS": "如果依赖方发现更新可用，则应按照第3.4.1节所述下载并处理该文件，并启动新的RPKI对象验证过程。然而，对RPKI对象验证过程本身的详细描述超出了本文档的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4.5. Considerations Regarding Operational Failures in RRDP",
+      "section_title": true,
+      "zh-CHS": "3.4.5. 关于RRDP中操作故障的注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "If a Relying Party experiences any issues with retrieving or processing any of the files used in this protocol, it will be unable to retrieve new RPKI data from the affected Repository Server.",
+      "zh-CHS": "如果依赖方在检索或处理此协议中使用的任何文件时遇到任何问题，它将无法从受影响的存储库服务器检索新的RPKI数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Relying Parties could attempt to use alternative repository access mechanisms, if they are available, according to the accessMethod element value(s) specified in the SIA of the associated certificate (see Section 4.8.8 of [RFC6487]).",
+      "zh-CHS": "依赖方可根据相关证书SIA中指定的accessMethod元素值（见[RFC6487]第4.8.8节），尝试使用替代存储库访问机制（如果可用）。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, Relying Parties may wish to employ re-try strategies while fetching RRDP files. Relying Parties are also advised to keep old objects in their local cache so that validation can be done using old objects.",
+      "zh-CHS": "此外，依赖方可能希望在获取RRDP文件时采用重试策略。还建议依赖方将旧对象保留在本地缓存中，以便使用旧对象进行验证。"
+    },
+    {
+      "indent": 3,
+      "text": "It is also recommendable that re-validation and retrieval is performed pro-actively before manifests or CRLs go stale, or certificates expire, to ensure that problems on the side of the Relying Party can be identified and resolved before they cause major concerns.",
+      "zh-CHS": "还建议在舱单或CRL过期或证书过期之前主动执行重新验证和检索，以确保在依赖方出现的问题引起重大问题之前能够识别并解决这些问题。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. File Definitions",
+      "section_title": true,
+      "zh-CHS": "3.5. 文件定义"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.1. Update Notification File",
+      "section_title": true,
+      "zh-CHS": "3.5.1. 更新通知文件"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.1.1. Purpose",
+      "section_title": true,
+      "zh-CHS": "3.5.1.1. 意图"
+    },
+    {
+      "indent": 3,
+      "text": "The Update Notification File is used by Relying Parties to discover whether any changes exist between the state of the repository and the Relying Party's cache. It describes the location of the files containing the snapshot and incremental deltas, which can be used by the Relying Party to synchronize with the repository.",
+      "zh-CHS": "依赖方使用更新通知文件来发现存储库的状态和依赖方的缓存之间是否存在任何更改。它描述了包含快照和增量增量增量增量的文件的位置，依赖方可以使用这些文件与存储库同步。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.1.2. Cache Concerns",
+      "section_title": true,
+      "zh-CHS": "3.5.1.2. 缓存关注点"
+    },
+    {
+      "indent": 3,
+      "text": "A Repository Server MAY use caching infrastructure to cache the Update Notification File and reduce the load of HTTPS requests. However, since this file is used by Relying Parties to determine whether any updates are available, the Repository Server SHOULD ensure that this file is not cached for longer than 1 minute. An exception to this rule is that it is better to serve a stale Update Notification File rather than no Update Notification File.",
+      "zh-CHS": "存储库服务器可以使用缓存基础结构缓存更新通知文件并减少HTTPS请求的负载。但是，由于依赖方使用此文件来确定是否有任何更新可用，因此存储库服务器应确保此文件的缓存时间不超过1分钟。此规则的一个例外是，最好提供过时的更新通知文件，而不是不提供更新通知文件。"
+    },
+    {
+      "indent": 3,
+      "text": "How this is achieved exactly depends on the caching infrastructure used. In general, a Repository Server may find certain HTTP headers to be useful, such as: \"Cache-Control: max-age=60\" (see Section 5.2 of [RFC7234]). Another approach can be to have the Repository Server",
+      "zh-CHS": "如何实现这一点完全取决于所使用的缓存基础结构。通常，存储库服务器可能会发现某些HTTP头非常有用，例如：“缓存控制：max age=60”（请参阅[RFC7234]的第5.2节）。另一种方法是使用存储库服务器"
+    },
+    {
+      "indent": 3,
+      "text": "push out new versions of the Update Notification File to the caching infrastructure when appropriate.",
+      "zh-CHS": "适当时，将更新通知文件的新版本推出到缓存基础结构。"
+    },
+    {
+      "indent": 3,
+      "text": "In case of a high load on a Repository Server or its distribution network, the Cache-Control HTTP header, or a similar mechanism, MAY be used to suggest an optimal (for the Repository Server) poll interval for Relying Parties. However, setting it to an interval longer than 1 hour is NOT RECOMMENDED. Relying parties SHOULD align the suggested interval with their operational practices and the expected update frequency of RPKI repository data and MAY discard the suggested value.",
+      "zh-CHS": "在存储库服务器或其分发网络上的高负载情况下，可以使用缓存控制HTTP头或类似机制为依赖方建议最佳（对于存储库服务器）轮询间隔。但是，不建议将其设置为大于1小时的间隔。依赖方应将建议的时间间隔与其操作实践和RPKI存储库数据的预期更新频率保持一致，并可放弃建议的值。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.1.3. File Format and Validation",
+      "section_title": true,
+      "zh-CHS": "3.5.1.3. 文件格式和验证"
+    },
+    {
+      "indent": 3,
+      "text": "Example Update Notification File:",
+      "zh-CHS": "更新通知文件示例："
+    },
+    {
+      "indent": 5,
+      "text": "<notification xmlns=\"http://www.ripe.net/rpki/rrdp\"\n      version=\"1\"\n      session_id=\"9df4b597-af9e-4dca-bdda-719cce2c4e28\"\n      serial=\"3\">\n  <snapshot uri=\"https://host/9d-8/3/snapshot.xml\" hash=\"AB\"/>\n  <delta serial=\"3\" uri=\"https://host/9d-8/3/delta.xml\" hash=\"CD\"/>\n  <delta serial=\"2\" uri=\"https://host/9d-8/2/delta.xml\" hash=\"EF\"/>\n</notification>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note: URIs and hash values in this example are shortened because of formatting.",
+      "zh-CHS": "注意：本例中的URI和哈希值由于格式问题而缩短。"
+    },
+    {
+      "indent": 3,
+      "text": "The following validation rules MUST be observed when creating or parsing Update Notification Files:",
+      "zh-CHS": "创建或分析更新通知文件时，必须遵守以下验证规则："
+    },
+    {
+      "indent": 3,
+      "text": "o A Relying Party MUST reject any Update Notification File that is not well-formed or does not conform to the RELAX NG schema outlined in Section 3.5.4 of this document.",
+      "zh-CHS": "o 依赖方必须拒绝任何格式不正确或不符合本文件第3.5.4节所述RELAX NG模式的更新通知文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The XML namespace MUST be \"http://www.ripe.net/rpki/rrdp\".",
+      "zh-CHS": "o XML命名空间必须为“http://www.ripe.net/rpki/rrdp\"."
+    },
+    {
+      "indent": 3,
+      "text": "o The encoding MUST be \"US-ASCII\".",
+      "zh-CHS": "o 编码必须为“US-ASCII”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The version attribute in the notification root element MUST be \"1\".",
+      "zh-CHS": "o 通知根元素中的version属性必须为“1”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The session_id attribute MUST be a random version 4 UUID [RFC4122], unique to this session.",
+      "zh-CHS": "o session_id属性必须是此会话唯一的随机版本4 UUID[RFC4122]。"
+    },
+    {
+      "indent": 3,
+      "text": "o The serial attribute MUST be an unbounded, unsigned positive integer in decimal format indicating the current version of the repository.",
+      "zh-CHS": "o serial属性必须是一个十进制格式的无界无符号正整数，表示存储库的当前版本。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Update Notification File MUST contain exactly one 'snapshot' element for the current repository version.",
+      "zh-CHS": "o 对于当前存储库版本，更新通知文件必须仅包含一个“快照”元素。"
+    },
+    {
+      "indent": 3,
+      "text": "o If delta elements are included, they MUST form a contiguous sequence of serial numbers starting at a revision determined by the Repository Server, up to the serial number mentioned in the notification element. Note that the elements may not be ordered.",
+      "zh-CHS": "o 如果包含增量元素，则它们必须形成一个连续的序列号序列，从存储库服务器确定的版本开始，直到通知元素中提到的序列号为止。请注意，这些元素可能没有顺序。"
+    },
+    {
+      "indent": 3,
+      "text": "o The hash attribute in snapshot and delta elements MUST be the hexadecimal encoding of the SHA-256 [SHS] hash of the referenced file. The Relying Party MUST verify this hash when the file is retrieved and reject the file if the hash does not match.",
+      "zh-CHS": "o 快照和增量元素中的哈希属性必须是引用文件的SHA-256[SHS]哈希的十六进制编码。依赖方必须在检索文件时验证此哈希，如果哈希不匹配，则拒绝该文件。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.2. Snapshot File",
+      "section_title": true,
+      "zh-CHS": "3.5.2. 快照文件"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.2.1. Purpose",
+      "section_title": true,
+      "zh-CHS": "3.5.2.1. 意图"
+    },
+    {
+      "indent": 3,
+      "text": "A snapshot is intended to reflect the complete and current contents of the repository for a specific session and version. Therefore, it MUST contain all objects from the repository current as of the time of the publication.",
+      "zh-CHS": "快照旨在反映特定会话和版本的存储库的完整和当前内容。因此，它必须包含自发布时起当前存储库中的所有对象。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.2.2. Cache Concerns",
+      "section_title": true,
+      "zh-CHS": "3.5.2.2. 缓存关注点"
+    },
+    {
+      "indent": 3,
+      "text": "A snapshot reflects the content of the repository at a specific point in time; for that reason, it can be considered immutable data. Snapshot Files MUST be published at a URL that is unique to the specific session and serial.",
+      "zh-CHS": "快照反映存储库在特定时间点的内容；因此，它可以被视为不可变的数据。快照文件必须以特定会话和序列文件唯一的URL发布。"
+    },
+    {
+      "indent": 3,
+      "text": "Because these files never change, they MAY be cached indefinitely. However, in order to prevent these files from using a lot of space in the caching infrastructure, it is RECOMMENDED that a limited interval is used in the order of hours or days.",
+      "zh-CHS": "因为这些文件永远不会更改，所以可能会无限期地缓存它们。但是，为了防止这些文件在缓存基础结构中占用大量空间，建议以小时或天为单位使用有限的时间间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid race conditions where a Relying Party downloads an Update Notification File moments before it's updated, Repository Servers SHOULD retain old Snapshot Files for at least 5 minutes after a new Update Notification File is published.",
+      "zh-CHS": "为避免依赖方在更新通知文件之前下载更新通知文件的竞争情况，存储库服务器应在发布新的更新通知文件后将旧快照文件保留至少5分钟。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.2.3. File Format and Validation",
+      "section_title": true,
+      "zh-CHS": "3.5.2.3. 文件格式和验证"
+    },
+    {
+      "indent": 3,
+      "text": "Example Snapshot File:",
+      "zh-CHS": "快照文件示例："
+    },
+    {
+      "indent": 6,
+      "text": "<snapshot xmlns=\"http://www.ripe.net/rpki/rrdp\"\n       version=\"1\"\n       session_id=\"9df4b597-af9e-4dca-bdda-719cce2c4e28\"\n       serial=\"2\">\n  <publish uri=\"rsync://rpki.ripe.net/Alice/Bob.cer\">\n    ZXhhbXBsZTE=\n  </publish>\n  <publish uri=\"rsync://rpki.ripe.net/Alice/Alice.mft\">\n    ZXhhbXBsZTI=\n  </publish>\n  <publish uri=\"rsync://rpki.ripe.net/Alice/Alice.crl\">\n    ZXhhbXBsZTM=\n  </publish>\n</snapshot>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The following rules MUST be observed when creating or parsing Snapshot Files:",
+      "zh-CHS": "创建或分析快照文件时必须遵守以下规则："
+    },
+    {
+      "indent": 3,
+      "text": "o A Relying Party MUST reject any Snapshot File that is not well-formed or does not conform to the RELAX NG schema outlined in Section 3.5.4 of this document.",
+      "zh-CHS": "o 依赖方必须拒绝任何格式不正确或不符合本文件第3.5.4节所述RELAX NG模式的快照文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The XML namespace MUST be \"http://www.ripe.net/rpki/rrdp\".",
+      "zh-CHS": "o XML命名空间必须为“http://www.ripe.net/rpki/rrdp\"."
+    },
+    {
+      "indent": 3,
+      "text": "o The encoding MUST be \"US-ASCII\".",
+      "zh-CHS": "o 编码必须为“US-ASCII”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The version attribute in the notification root element MUST be \"1\".",
+      "zh-CHS": "o 通知根元素中的version属性必须为“1”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The session_id attribute MUST match the expected session_id in the reference in the Update Notification File.",
+      "zh-CHS": "o 会话id属性必须与更新通知文件中引用中的预期会话id匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o The serial attribute MUST match the expected serial in the reference in the Update Notification File.",
+      "zh-CHS": "o serial属性必须与更新通知文件中引用中的预期序列匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o Note that the publish element is similar to the publish element defined in the publication protocol [RFC8181]. However, the \"tag\" attribute is not used here because it is not relevant to Relying Parties. The \"hash\" attribute is not used here because this file represents a complete current state of the repository; therefore, it is not relevant to know which existing RPKI object (if any) is updated.",
+      "zh-CHS": "o 请注意，publish元素类似于发布协议[RFC8181]中定义的publish元素。但是，此处不使用“tag”属性，因为它与依赖方无关。此处不使用“hash”属性，因为此文件表示存储库的完整当前状态；因此，知道更新了哪个现有RPKI对象（如果有的话）是不相关的。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.3. Delta File",
+      "section_title": true,
+      "zh-CHS": "3.5.3. 增量文件"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.3.1. Purpose",
+      "section_title": true,
+      "zh-CHS": "3.5.3.1. 意图"
+    },
+    {
+      "indent": 3,
+      "text": "An incremental Delta File contains all changes for exactly one serial increment of the Repository Server. In other words, a single delta will typically include all the new objects, updated objects, and withdrawn objects that a Certification Authority sent to the Repository Server. In its simplest form, the update could concern only a single object, but it is RECOMMENDED that CAs send all changes for one of their key pairs (updated objects as well as a new manifest and CRL) as one atomic update message.",
+      "zh-CHS": "增量增量增量文件仅包含存储库服务器的一个串行增量的所有更改。换句话说，单个增量通常包括证书颁发机构发送到存储库服务器的所有新对象、更新对象和撤销对象。在最简单的形式中，更新只能涉及单个对象，但建议CAs将其其中一个密钥对（更新的对象以及新的清单和CRL）的所有更改作为一条原子更新消息发送。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.3.2. Cache Concerns",
+      "section_title": true,
+      "zh-CHS": "3.5.3.2. 缓存关注点"
+    },
+    {
+      "indent": 3,
+      "text": "Deltas reflect the difference between two consecutive versions of a repository for a given session. For that reason, deltas can be considered immutable data. Delta Files MUST be published at a URL that is unique to the specific session and serial.",
+      "zh-CHS": "增量反映给定会话中存储库的两个连续版本之间的差异。因此，可以将增量视为不可变数据。增量文件必须以特定会话和序列文件特有的URL发布。"
+    },
+    {
+      "indent": 3,
+      "text": "Because these files never change, they MAY be cached indefinitely. However, in order to prevent these files from using a lot of space in the caching infrastructure, it is RECOMMENDED that a limited interval is used in the order of hours or days.",
+      "zh-CHS": "因为这些文件永远不会更改，所以可能会无限期地缓存它们。但是，为了防止这些文件在缓存基础结构中占用大量空间，建议以小时或天为单位使用有限的时间间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "To avoid race conditions where a Relying Party downloads an Update Notification File moments before it's updated, Repository Servers SHOULD retain old Delta Files for at least 5 minutes after they are no longer included in the latest Update Notification File.",
+      "zh-CHS": "为避免依赖方在更新通知文件更新前立即下载更新通知文件的竞争情况，存储库服务器应在旧增量文件不再包含在最新更新通知文件中后将其保留至少5分钟。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.3.3. File Format and Validation",
+      "section_title": true,
+      "zh-CHS": "3.5.3.3. 文件格式和验证"
+    },
+    {
+      "indent": 3,
+      "text": "Example Delta File:",
+      "zh-CHS": "增量文件示例："
+    },
+    {
+      "indent": 5,
+      "text": "<delta xmlns=\"http://www.ripe.net/rpki/rrdp\"\n       version=\"1\"\n       session_id=\"9df4b597-af9e-4dca-bdda-719cce2c4e28\"\n       serial=\"3\">\n  <publish uri=\"rsync://rpki.ripe.net/repo/Alice/Alice.mft\"\n           hash=\"50d8...545c\">\n    ZXhhbXBsZTQ=\n  </publish>\n  <publish uri=\"rsync://rpki.ripe.net/repo/Alice/Alice.crl\"\n           hash=\"5fb1...6a56\">\n    ZXhhbXBsZTU=\n  </publish>\n  <withdraw uri=\"rsync://rpki.ripe.net/repo/Alice/Bob.cer\"\n            hash=\"caeb...15c1\"/>\n</delta>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note that a formal RELAX NG specification of this file format is included later in this document. A Relying Party MUST NOT process any Delta File that is incomplete or not well-formed.",
+      "zh-CHS": "请注意，此文件格式的正式RELAXNG规范将包含在本文档后面。依赖方不得处理任何不完整或格式不正确的增量文件。"
+    },
+    {
+      "indent": 3,
+      "text": "The following validation rules MUST be observed when creating or parsing Delta Files:",
+      "zh-CHS": "创建或分析增量文件时，必须遵守以下验证规则："
+    },
+    {
+      "indent": 3,
+      "text": "o A Relying Party MUST reject any Delta File that is not well-formed or does not conform to the RELAX NG schema outlined in Section 3.5.4 of this document.",
+      "zh-CHS": "o 依赖方必须拒绝任何格式不正确或不符合本文件第3.5.4节所述RELAX NG模式的增量文件。"
+    },
+    {
+      "indent": 3,
+      "text": "o The XML namespace MUST be \"http://www.ripe.net/rpki/rrdp\".",
+      "zh-CHS": "o XML命名空间必须为“http://www.ripe.net/rpki/rrdp\"."
+    },
+    {
+      "indent": 3,
+      "text": "o The encoding MUST be \"US-ASCII\".",
+      "zh-CHS": "o 编码必须为“US-ASCII”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The version attribute in the delta root element MUST be \"1\".",
+      "zh-CHS": "o 增量根元素中的version属性必须为“1”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The session_id attribute MUST be a random version 4 UUID unique to this session.",
+      "zh-CHS": "o session_id属性必须是此会话唯一的随机版本4 UUID。"
+    },
+    {
+      "indent": 3,
+      "text": "o The session_id attribute MUST match the expected session_id in the reference in the Update Notification File.",
+      "zh-CHS": "o 会话id属性必须与更新通知文件中引用中的预期会话id匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o The serial attribute MUST match the expected serial in the reference in the Update Notification File.",
+      "zh-CHS": "o serial属性必须与更新通知文件中引用中的预期序列匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o Note that the publish element is similar to the publish element defined in the publication protocol [RFC8181]. However, the \"tag\" attribute is not used here because it is not relevant to Relying Parties.",
+      "zh-CHS": "o 请注意，publish元素类似于发布协议[RFC8181]中定义的publish元素。但是，此处不使用“tag”属性，因为它与依赖方无关。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.4. XML Schema",
+      "section_title": true,
+      "zh-CHS": "3.5.4. XML模式"
+    },
+    {
+      "indent": 3,
+      "text": "The following is a RELAX NG compact form schema describing version 1 of this protocol.",
+      "zh-CHS": "下面是一个RELAXNG紧凑表单模式，描述了该协议的版本1。"
+    },
+    {
+      "indent": 3,
+      "text": "# # RELAX NG schema for the RPKI Repository Delta Protocol (RRDP). #",
+      "zh-CHS": "##RPKI存储库增量协议（RRDP）的RELAXNG模式#"
+    },
+    {
+      "indent": 3,
+      "text": "default namespace = \"http://www.ripe.net/rpki/rrdp\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "version = xsd:positiveInteger   { maxInclusive=\"1\" }\nserial  = xsd:positiveInteger\nuri     = xsd:anyURI\nuuid    = xsd:string            { pattern = \"[\\-0-9a-fA-F]+\" }\nhash    = xsd:string            { pattern = \"[0-9a-fA-F]+\" }\nbase64  = xsd:base64Binary",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "# Notification File: lists current snapshots and deltas.",
+      "zh-CHS": "#通知文件：列出当前快照和增量。"
+    },
+    {
+      "indent": 3,
+      "text": "start |= element notification {\n  attribute version    { version },\n  attribute session_id { uuid },\n  attribute serial     { serial },\n  element snapshot {\n    attribute uri  { uri },\n    attribute hash { hash }\n  },\n  element delta {\n    attribute serial { serial },\n    attribute uri    { uri },\n    attribute hash   { hash }\n  }*\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "# Snapshot segment: think DNS AXFR.",
+      "zh-CHS": "#快照段：想想DNS AXFR。"
+    },
+    {
+      "indent": 3,
+      "text": "start |= element snapshot {\n  attribute version    { version },\n  attribute session_id { uuid },\n  attribute serial     { serial },\n  element publish      {\n    attribute uri { uri },",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": " base64 }* }",
+      "zh-CHS": "base64}*}"
+    },
+    {
+      "indent": 3,
+      "text": "# Delta segment: think DNS IXFR.",
+      "zh-CHS": "#增量段：想想DNS IXFR。"
+    },
+    {
+      "indent": 3,
+      "text": "start |= element delta {\n  attribute version    { version },\n  attribute session_id { uuid },\n  attribute serial     { serial },\n  delta_element+\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "delta_element |= element publish  {\n  attribute uri  { uri },\n  attribute hash { hash }?,\n  base64\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "delta_element |= element withdraw {\n  attribute uri  { uri },\n  attribute hash { hash }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "# Local Variables: # indent-tabs-mode: nil # comment-start: \"# \" # comment-start-skip: \"#[ \\t]*\" # End:",
+      "zh-CHS": "#局部变量：#缩进制表符模式：nil#注释开始：#“#”#注释开始跳过：#[\\t]*”#结束："
+    },
+    {
+      "indent": 0,
+      "text": "4. Operational Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 业务考虑"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Compatibility with previous standards",
+      "section_title": true,
+      "zh-CHS": "4.1. 与以前标准的兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "This protocol has been designed to replace rsync as a distribution mechanism of an RPKI repository. However, it is also designed to coexist with existing implementations based on rsync, to enable smooth transition from one distribution mechanism to another.",
+      "zh-CHS": "此协议旨在取代rsync作为RPKI存储库的分发机制。但是，它也被设计为与基于rsync的现有实现共存，以实现从一种分发机制到另一种分发机制的平滑过渡。"
+    },
+    {
+      "indent": 3,
+      "text": "For every repository object listed in the Snapshot and Delta Files, both the hash of the object's content and the rsync URI [RFC5781] of its location in the repository are listed. This makes it possible to distribute the same RPKI repository, represented by a set of files on a filesystem, using both rsync and RRDP. It also enables Relying Parties tools to query, combine, and consequently validate objects from repositories of different types.",
+      "zh-CHS": "对于快照和增量文件中列出的每个存储库对象，都会列出对象内容的哈希及其在存储库中位置的rsync URI[RFC5781]。这使得使用rsync和RRDP分发相同的RPKI存储库成为可能，该存储库由文件系统上的一组文件表示。它还允许依赖方工具查询、组合并验证来自不同类型存储库的对象。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Distribution Considerations",
+      "section_title": true,
+      "zh-CHS": "4.2. 分配考虑"
+    },
+    {
+      "indent": 3,
+      "text": "One of the design goals of RRDP was to minimize load on a Repository Server while serving clients. To achieve this, neither the content nor the URLs of the Snapshot and Delta Files are modified after they have been published in the Update Notification File. This allows their effective distribution by using either a single HTTP server or a CDN.",
+      "zh-CHS": "RRDP的设计目标之一是在为客户机服务时最小化存储库服务器上的负载。为此，在更新通知文件中发布快照和增量文件后，不会修改它们的内容或URL。这允许通过使用单个HTTP服务器或CDN进行有效分发。"
+    },
+    {
+      "indent": 3,
+      "text": "The RECOMMENDED way for Relying Parties to keep up with the repository updates is to poll the Update Notification File for changes. The content of that file is updated with every new serial version of a repository (while its URL remains stable). To effectively implement distribution of the Update Notification File, an \"If-Modified-Since\" HTTP request header is required to be present in all requests for the Update Notification File (see Section 3.4.4). Therefore, it is RECOMMENDED that Relying Party tools implement a mechanism to keep track of a previous successful fetch of an Update Notification File.",
+      "zh-CHS": "对于依赖方来说，跟上存储库更新的建议方法是轮询更新通知文件以获取更改。该文件的内容会随着存储库的每个新的串行版本而更新（同时其URL保持稳定）。为了有效地实现更新通知文件的分发，更新通知文件的所有请求中都需要有一个“If Modified Since”HTTP请求头（参见第3.4.4节）。因此，建议依赖方工具实现一种机制来跟踪以前成功获取更新通知文件的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations of RRDP should also take care of not producing new versions of the repository (and subsequently, new Update Notification, Snapshot, and Delta Files) too often. Usually the maintenance of the RPKI repository includes regular updates of manifest and CRL objects performed on a schedule. This often results in bursts of repository updates during a short period of time. Since the Relying Parties are required to poll for the Update Notification File not more often than once per minute (Section 3.4.4), it is not practical to generate new serial versions of the repository much more often than 1 per minute. It is allowed to combine multiple updates, possibly from different CAs, into a new serial repository version (Section 3.3.2). This will significantly shorten the size of the Update Notification File and total amount of data distributed to all Relying Parties.",
+      "zh-CHS": "RRDP的实现还应注意不要过于频繁地生成存储库的新版本（以及随后的新更新通知、快照和增量文件）。通常，RPKI存储库的维护包括按计划定期更新清单和CRL对象。这通常会导致在短时间内突然更新存储库。由于依赖方被要求轮询更新通知文件的频率不超过每分钟一次（第3.4.4节），因此生成存储库的新序列版本的频率不可能超过每分钟一次。允许将可能来自不同CA的多个更新合并到新的串行存储库版本中（第3.3.2节）。这将大大缩短更新通知文件的大小和分发给所有依赖方的数据总量。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. HTTPS Considerations",
+      "section_title": true,
+      "zh-CHS": "4.3. HTTPS注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "Note that a Man in the Middle (MITM) cannot produce validly signed RPKI data but can perform withhold or replay attacks targeting a Relying Party and keep the Relying Party from learning about changes in the RPKI. Because of this, Relying Parties SHOULD do TLS certificate and host name validation when they fetch from an RRDP Repository Server.",
+      "zh-CHS": "注意，中间人（MITM）不能产生有效签名的RPKI数据，但可以执行针对依赖方的扣留或重放攻击，并使依赖方不学习RPKI中的更改。因此，当依赖方从RRDP存储库服务器获取时，它们应该进行TLS证书和主机名验证。"
+    },
+    {
+      "indent": 3,
+      "text": "Relying Party tools SHOULD log any TLS certificate or host name validation issues found, so that an operator can investigate the cause. However, such validation issues are often due to configuration errors or a lack of a common TLS trust anchor. In",
+      "zh-CHS": "依赖方工具应记录发现的任何TLS证书或主机名验证问题，以便操作员可以调查原因。然而，此类验证问题通常是由于配置错误或缺少公共TLS信任锚造成的。在里面"
+    },
+    {
+      "indent": 3,
+      "text": "these cases, it is better if the Relying Party retrieves the signed RPKI data regardless and performs validation on it. Therefore, the Relying Party MUST continue to retrieve the data in case of errors. The Relying Party MAY choose to log encountered issues only when fetching the Update Notification File, but not when it subsequently fetches Snapshot or Delta Files from the same host. Furthermore, the Relying Party MAY provide a way for operators to accept untrusted connections for a given host, after the cause has been identified.",
+      "zh-CHS": "在这些情况下，不管依赖方如何检索已签名的RPKI数据并对其执行验证都会更好。因此，如果出现错误，依赖方必须继续检索数据。依赖方可以选择仅在获取更新通知文件时记录遇到的问题，而不是在随后从同一主机获取快照或增量文件时记录遇到的问题。此外，在确定原因后，依赖方可以为运营商提供一种方式，以接受给定主机的不受信任连接。"
+    },
+    {
+      "indent": 3,
+      "text": "It is RECOMMENDED that Relying Parties and Repository Servers follow the Best Current Practices outlined in [RFC7525] on the use of HTTP over TLS (HTTPS) [RFC7230]. Relying Parties SHOULD do TLS certificate and host name validation using subjectAltName dNSName identities as described in [RFC6125]. The rules and guidelines defined in [RFC6125] apply here, with the following considerations:",
+      "zh-CHS": "建议依赖方和存储库服务器遵循[RFC7525]中概述的关于使用HTTP over TLS（HTTPS）[RFC7230]的当前最佳实践。依赖方应使用[RFC6125]中所述的subjectAltName dNSName标识进行TLS证书和主机名验证。[RFC6125]中定义的规则和指南适用于此处，并考虑以下因素："
+    },
+    {
+      "indent": 3,
+      "text": "o Relying Parties and Repository Servers SHOULD support the DNS-ID identifier type. The DNS-ID identifier type SHOULD be present in Repository Server certificates.",
+      "zh-CHS": "o 依赖方和存储库服务器应支持DNS-ID标识符类型。DNS-ID标识符类型应存在于存储库服务器证书中。"
+    },
+    {
+      "indent": 3,
+      "text": "o DNS names in Repository Server certificates SHOULD NOT contain the wildcard character \"*\".",
+      "zh-CHS": "o 存储库服务器证书中的DNS名称不应包含通配符“*”。"
+    },
+    {
+      "indent": 3,
+      "text": "o A Common Name (CN) field may be present in a Repository Server certificate's subject name but SHOULD NOT be used for authentication within the rules described in [RFC6125].",
+      "zh-CHS": "o 公共名称（CN）字段可能出现在存储库服务器证书的使用者名称中，但不应在[RFC6125]中描述的规则内用于身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "o This protocol does not require the use of SRV-IDs.",
+      "zh-CHS": "o 此协议不需要使用SRV ID。"
+    },
+    {
+      "indent": 3,
+      "text": "o This protocol does not require the use of URI-IDs.",
+      "zh-CHS": "o 此协议不需要使用URI ID。"
+    },
+    {
+      "indent": 3,
+      "text": "Note, however, that this validation is done on a best-effort basis and serves to highlight potential issues, but RPKI object security does not depend on this. Therefore, Relying Parties MAY deviate from the validation steps listed above.",
+      "zh-CHS": "但是，请注意，此验证是在尽最大努力的基础上完成的，用于突出潜在的问题，但RPKI对象安全性并不依赖于此。因此，依赖方可能会偏离上述验证步骤。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "RRDP deals exclusively with the transfer of RPKI objects from a Repository Server to a Relying Party. The trust relation between a Certificate Authority and its Repository Server is out of scope for this document. However, it should be noted that from a Relying Party point of view, all RPKI objects (certificates, CRLs, and objects wrapped in Cryptographic Message Syntax (CMS)) are already covered by object security mechanisms including signed manifests. This allows validation of these objects even though the Repository Server itself is not trusted. This document makes no change to RPKI validation procedures per se.",
+      "zh-CHS": "RRDP专门处理从存储库服务器到依赖方的RPKI对象传输。证书颁发机构与其存储库服务器之间的信任关系超出了本文档的范围。但是，应该注意，从依赖方的角度来看，所有RPKI对象（证书、CRL和用加密消息语法（CMS）包装的对象）都已经被对象安全机制（包括签名清单）覆盖。这允许验证这些对象，即使存储库服务器本身不受信任。本文件不改变RPKI验证程序本身。"
+    },
+    {
+      "indent": 3,
+      "text": "The original RPKI transport protocol is rsync, which offers no channel security mechanism. RRDP replaces the use of rsync by HTTPS; while the channel security mechanism underlying RRDP (HTTPS) is not a cure-all, it does make some forms of denial-of-service attacks more difficult for the attacker. HTTPS issues are discussed in more detail in Section 4.3.",
+      "zh-CHS": "最初的RPKI传输协议是rsync，它不提供通道安全机制。RRDP通过HTTPS取代rsync的使用；尽管RRDP（HTTPS）背后的通道安全机制并不是万灵丹，但它确实使某些形式的拒绝服务攻击对攻击者来说更加困难。HTTPS问题将在第4.3节中进行更详细的讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "Supporting both RRDP and rsync necessarily increases the number of opportunities for a malicious RPKI Certificate Authority to perform denial-of-service attacks on Relying Parties, by expanding the number of URIs which the Relying Party may need to contact in order to complete a validation run. However, other than the relative cost of HTTPS versus rsync, adding RRDP to the mix does not change this picture significantly: with either RRDP or rsync a malicious Certificate Authority can supply an effectively infinite series of URIs for the Relying Party to follow. The only real solution to this is for the Relying Party to apply some kind of bound to the amount of work it is willing to do. Note also that the attacker in this scenario must be an RPKI Certificate Authority; otherwise, the normal RPKI object security checks would reject the malicious URIs.",
+      "zh-CHS": "同时支持RRDP和rsync必然会增加恶意RPKI证书颁发机构对依赖方执行拒绝服务攻击的机会，方法是增加依赖方为完成验证运行可能需要联系的URI的数量。然而，除了HTTPS与rsync的相对成本之外，将RRDP添加到组合中并不会显著改变这一情况：无论是RRDP还是rsync，恶意证书颁发机构都可以为依赖方提供有效的无限系列URI。唯一真正的解决办法是依赖方对其愿意做的工作量施加某种约束。还要注意，此场景中的攻击者必须是RPKI证书颁发机构；否则，正常的RPKI对象安全检查将拒绝恶意URI。"
+    },
+    {
+      "indent": 3,
+      "text": "Processing costs for objects retrieved using RRDP may be somewhat different from the same objects retrieved using rsync: because RRDP treats an entire set of changes as a unit (one \"delta\"), it may not be practical to start processing any of the objects in the delta until the entire delta has been received. With rsync, by contrast, incremental processing may be easy, but the overall cost of transfer may be higher, as may be the number of corner cases in which the Relying Party retrieves some but not all of the updated objects. Overall, RRDP's behavior is closer to a proper transactional system, which (probably) leads to an overall reliability increase.",
+      "zh-CHS": "使用RRDP检索的对象的处理成本可能与使用rsync检索的相同对象有所不同：因为RRDP将整个更改集视为一个单元（一个“增量”），因此在接收到整个增量之前，可能无法开始处理增量中的任何对象。相比之下，使用rsync，增量处理可能很容易，但传输的总体成本可能更高，依赖方检索部分但不是全部更新对象的角落案例数量也可能更高。总的来说，RRDP的行为更接近于一个适当的事务系统，这（可能）会导致总体可靠性的提高。"
+    },
+    {
+      "indent": 3,
+      "text": "RRDP is designed to scale much better than rsync. In particular, RRDP is designed to allow use of an HTTPS caching infrastructure to reduce load on primary Repository Servers and increase resilience against denial-of-service attacks on the RPKI publication service.",
+      "zh-CHS": "RRDP的设计比rsync的可扩展性好得多。特别是，RRDP的设计允许使用HTTPS缓存基础设施来减少主存储库服务器上的负载，并提高对RPKI发布服务的拒绝服务攻击的恢复能力。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has updated the reference for id-ad-rpkiNotify to point to this document in the \"SMI Security for PKIX Access Descriptor\" registry [IANA-AD-NUMBERS].",
+      "zh-CHS": "IANA已更新id ad rpkiNotify的参考，以指向“SMI Security for PKIX Access Descriptor”注册表[IANA-ad-NUMBERS]中的此文档。"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4122] Leach, P., Mealling, M., and R. Salz, \"A Universally Unique IDentifier (UUID) URN Namespace\", RFC 4122, DOI 10.17487/RFC4122, July 2005, <http://www.rfc-editor.org/info/rfc4122>.",
+      "zh-CHS": "[RFC4122]Leach，P.，Mealling，M.和R.Salz，“通用唯一标识符（UUID）URN名称空间”，RFC 4122，DOI 10.17487/RFC4122，2005年7月<http://www.rfc-editor.org/info/rfc4122>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5781] Weiler, S., Ward, D., and R. Housley, \"The rsync URI Scheme\", RFC 5781, DOI 10.17487/RFC5781, February 2010, <http://www.rfc-editor.org/info/rfc5781>.",
+      "zh-CHS": "[RFC5781]Weiler，S.，Ward，D.，和R.Housley，“rsync URI方案”，RFC 5781，DOI 10.17487/RFC5781，2010年2月<http://www.rfc-editor.org/info/rfc5781>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6125] Saint-Andre, P. and J. Hodges, \"Representation and Verification of Domain-Based Application Service Identity within Internet Public Key Infrastructure Using X.509 (PKIX) Certificates in the Context of Transport Layer Security (TLS)\", RFC 6125, DOI 10.17487/RFC6125, March 2011, <http://www.rfc-editor.org/info/rfc6125>.",
+      "zh-CHS": "[RFC6125]Saint Andre，P.和J.Hodges，“在传输层安全（TLS）环境下使用X.509（PKIX）证书在互联网公钥基础设施内表示和验证基于域的应用程序服务身份”，RFC 6125，DOI 10.17487/RFC6125，2011年3月<http://www.rfc-editor.org/info/rfc6125>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6481] Huston, G., Loomans, R., and G. Michaelson, \"A Profile for Resource Certificate Repository Structure\", RFC 6481, DOI 10.17487/RFC6481, February 2012, <http://www.rfc-editor.org/info/rfc6481>.",
+      "zh-CHS": "[RFC6481]Huston，G.，Loomans，R.，和G.Michaelson，“资源证书存储库结构的配置文件”，RFC 6481，DOI 10.17487/RFC6481，2012年2月<http://www.rfc-editor.org/info/rfc6481>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6487] Huston, G., Michaelson, G., and R. Loomans, \"A Profile for X.509 PKIX Resource Certificates\", RFC 6487, DOI 10.17487/RFC6487, February 2012, <http://www.rfc-editor.org/info/rfc6487>.",
+      "zh-CHS": "[RFC6487]Huston，G.，Michaelson，G.，和R.Loomans，“X.509 PKIX资源证书的配置文件”，RFC 6487，DOI 10.17487/RFC6487，2012年2月<http://www.rfc-editor.org/info/rfc6487>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7230] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing\", RFC 7230, DOI 10.17487/RFC7230, June 2014, <http://www.rfc-editor.org/info/rfc7230>.",
+      "zh-CHS": "[RFC7230]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：消息语法和路由”，RFC 7230，DOI 10.17487/RFC7230，2014年6月<http://www.rfc-editor.org/info/rfc7230>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7231] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content\", RFC 7231, DOI 10.17487/RFC7231, June 2014, <http://www.rfc-editor.org/info/rfc7231>.",
+      "zh-CHS": "[RFC7231]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：语义和内容”，RFC 7231，DOI 10.17487/RFC72312014年6月<http://www.rfc-editor.org/info/rfc7231>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7232] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Conditional Requests\", RFC 7232, DOI 10.17487/RFC7232, June 2014, <http://www.rfc-editor.org/info/rfc7232>.",
+      "zh-CHS": "[RFC7232]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：有条件请求”，RFC 7232，DOI 10.17487/RFC72322014年6月<http://www.rfc-editor.org/info/rfc7232>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7234] Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Caching\", RFC 7234, DOI 10.17487/RFC7234, June 2014, <http://www.rfc-editor.org/info/rfc7234>.",
+      "zh-CHS": "[RFC7234]Fielding，R.，Ed.，Nottingham，M.，Ed.，和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：缓存”，RFC 7234，DOI 10.17487/RFC72342014年6月<http://www.rfc-editor.org/info/rfc7234>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7525] Sheffer, Y., Holz, R., and P. Saint-Andre, \"Recommendations for Secure Use of Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS)\", BCP 195, RFC 7525, DOI 10.17487/RFC7525, May 2015, <http://www.rfc-editor.org/info/rfc7525>.",
+      "zh-CHS": "[RFC7525]Sheffer，Y.，Holz，R.，和P.Saint Andre，“安全使用传输层安全性（TLS）和数据报传输层安全性（DTLS）的建议”，BCP 195，RFC 7525，DOI 10.17487/RFC7525，2015年5月<http://www.rfc-editor.org/info/rfc7525>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8174] Leiba, B., \"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words\", BCP 14, RFC 8174, DOI 10.17487/RFC8174, May 2017, <http://www.rfc-editor.org/info/rfc8174>.",
+      "zh-CHS": "[RFC8174]Leiba，B.，“RFC 2119关键词中大写与小写的歧义”，BCP 14，RFC 8174，DOI 10.17487/RFC8174，2017年5月<http://www.rfc-editor.org/info/rfc8174>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8181] Weiler, S., Sonalker, A., and R. Austein, \"A Publication Protocol for the Resource Public Key Infrastructure (RPKI)\", DOI 10.17487/RFC8181, July 2017, <http://www.rfc-editor.org/info/rfc8181>.",
+      "zh-CHS": "[RFC8181]Weiler，S.，Sonalker，A.，和R.Austein，“资源公钥基础设施（RPKI）的发布协议”，DOI 10.17487/RFC81812017年7月<http://www.rfc-editor.org/info/rfc8181>."
+    },
+    {
+      "indent": 3,
+      "text": "[SHS] National Institute of Standards and Technology, \"Secure Hash Standard (SHS)\", FIPS PUB 180-4, DOI 10.6028/NIST.FIPS.180-4, August 2015, <http://nvlpubs.nist.gov/nistpubs/FIPS/ NIST.FIPS.180-4.pdf>.",
+      "zh-CHS": "[SHS]国家标准与技术研究所，“安全哈希标准（SHS）”，FIPS PUB 180-4，DOI 10.6028/NIST.FIPS.180-42015年8月<http://nvlpubs.nist.gov/nistpubs/FIPS/ NIST.FIPS.180-4.pdf>。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[IANA-AD-NUMBERS] IANA, \"Structure of Management Information (SMI) Numbers (MIB Module Registrations)\", <http://www.iana.org/assignments/smi-numbers>.",
+      "zh-CHS": "[IANA-AD-NUMBERS]IANA，“管理信息（SMI）编号结构（MIB模块注册）”<http://www.iana.org/assignments/smi-numbers>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6486] Austein, R., Huston, G., Kent, S., and M. Lepinski, \"Manifests for the Resource Public Key Infrastructure (RPKI)\", RFC 6486, DOI 10.17487/RFC6486, February 2012, <http://www.rfc-editor.org/info/rfc6486>.",
+      "zh-CHS": "[RFC6486]Austein，R.，Huston，G.，Kent，S.，和M.Lepinski，“资源公钥基础设施（RPKI）清单”，RFC 6486，DOI 10.17487/RFC6486，2012年2月<http://www.rfc-editor.org/info/rfc6486>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6488] Lepinski, M., Chi, A., and S. Kent, \"Signed Object Template for the Resource Public Key Infrastructure (RPKI)\", RFC 6488, DOI 10.17487/RFC6488, February 2012, <http://www.rfc-editor.org/info/rfc6488>.",
+      "zh-CHS": "[RFC6488]Lepinski，M.，Chi，A.，和S.Kent，“资源公钥基础设施（RPKI）的签名对象模板”，RFC 6488，DOI 10.17487/RFC6488，2012年2月<http://www.rfc-editor.org/info/rfc6488>."
+    },
+    {
+      "indent": 3,
+      "text": "[RSYNC] \"rsync\", <https://rsync.samba.org>.",
+      "zh-CHS": "[RSYNC]“RSYNC”<https://rsync.samba.org>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank David Mandelberg for reviewing this document.",
+      "zh-CHS": "作者感谢David Mandelberg审阅本文件。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Tim Bruijnzeels RIPE NCC",
+      "zh-CHS": "Tim Bruijnzeels熟透NCC"
+    },
+    {
+      "indent": 3,
+      "text": "Email: tim@ripe.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Oleg Muravskiy RIPE NCC",
+      "zh-CHS": "Oleg Muravskiy成熟NCC"
+    },
+    {
+      "indent": 3,
+      "text": "Email: oleg@ripe.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Bryan Weber Cobenian",
+      "zh-CHS": "布莱恩·韦伯·科贝尼安"
+    },
+    {
+      "indent": 3,
+      "text": "Email: bryan@cobenian.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Rob Austein Dragon Research Labs",
+      "zh-CHS": "Rob Austein Dragon研究实验室"
+    },
+    {
+      "indent": 3,
+      "text": "Email: sra@hactrn.net",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

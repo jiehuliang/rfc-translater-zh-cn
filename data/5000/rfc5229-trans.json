@@ -1,0 +1,628 @@
+{
+  "title": {
+    "text": "RFC 5229: Sieve Email Filtering: Variables Extension",
+    "zh-CHS": "RFC 5229"
+  },
+  "number": 5229,
+  "created_at": "2021-11-10 14:01:12.618098+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                           K. Homme\nRequest for Comments: 5229                            University of Oslo\nUpdates: 5228                                               January 2008\nCategory: Standards Track",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "Sieve Email Filtering: Variables Extension",
+      "zh-CHS": "筛选电子邮件筛选：变量扩展"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "In advanced mail filtering rule sets, it is useful to keep state or configuration details across rules. This document updates the Sieve filtering language (RFC 5228) with an extension to support variables. The extension changes the interpretation of strings, adds an action to store data in variables, and supplies a new test so that the value of a string can be examined.",
+      "zh-CHS": "在高级邮件筛选规则集中，跨规则保留状态或配置详细信息非常有用。本文档使用支持变量的扩展来更新筛过滤语言（RFC 5228）。该扩展更改字符串的解释，添加一个将数据存储在变量中的操作，并提供一个新的测试，以便可以检查字符串的值。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This is an extension to the Sieve language defined by [SIEVE]. It adds support for storing and referencing named data. The mechanisms detailed in this document will only apply to Sieve scripts that include a require clause for the \"variables\" extension. The require clauses themselves are not affected by this extension.",
+      "zh-CHS": "这是对[Sieve]定义的Sieve语言的扩展。它增加了对存储和引用命名数据的支持。本文档中详细介绍的机制仅适用于包含“variables”扩展的require子句的筛选脚本。require子句本身不受此扩展的影响。"
+    },
+    {
+      "indent": 3,
+      "text": "Conventions for notations are as in [SIEVE] section 1.1, including use of [KEYWORDS] and [ABNF]. The grammar builds on the grammar of [SIEVE]. In this document, \"character\" means a character from the ISO 10646 coded character set [ISO10646], which may consist of multiple octets coded in [UTF-8], and \"variable\" is a named reference to data stored or read back using the mechanisms of this extension.",
+      "zh-CHS": "符号惯例如[SIFE]第1.1节所述，包括使用[KEYONS]和[ABNF]。该语法以[SIEVE]的语法为基础。在本文件中，“字符”是指来自ISO10646编码字符集[ISO10646]的字符，它可能由[UTF-8]中编码的多个八位字节组成，“变量”是对使用此扩展机制存储或读回的数据的命名引用。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Capability Identifier",
+      "section_title": true,
+      "zh-CHS": "2. 能力标识符"
+    },
+    {
+      "indent": 3,
+      "text": "The capability string associated with the extension defined in this document is \"variables\".",
+      "zh-CHS": "与本文档中定义的扩展相关联的功能字符串是“变量”。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Interpretation of Strings",
+      "section_title": true,
+      "zh-CHS": "3. 字符串的解释"
+    },
+    {
+      "indent": 3,
+      "text": "This extension changes the semantics of quoted-string, multi-line-literal and multi-line-dotstuff found in [SIEVE] to enable the inclusion of the value of variables.",
+      "zh-CHS": "此扩展更改了[SIEVE]中引用字符串、多行文字和多行dotstuff的语义，以允许包含变量的值。"
+    },
+    {
+      "indent": 3,
+      "text": "When a string is evaluated, substrings matching variable-ref SHALL be replaced by the value of variable-name. Only one pass through the string SHALL be done. Variable names are case insensitive, so \"foo\" and \"FOO\" refer to the same variable. Unknown variables are replaced by the empty string.",
+      "zh-CHS": "计算字符串时，匹配变量ref的子字符串应替换为变量名称的值。只能通过管柱一次。变量名不区分大小写，因此“foo”和“foo”指的是同一个变量。未知变量将替换为空字符串。"
+    },
+    {
+      "indent": 6,
+      "text": "variable-ref        =  \"${\" [namespace] variable-name \"}\"\nnamespace           =  identifier \".\" *sub-namespace\nsub-namespace       =  variable-name \".\"\nvariable-name       =  num-variable / identifier\nnum-variable        =  1*DIGIT",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Examples:\n   \"&%${}!\"     => unchanged, as the empty string is an illegal\n                   identifier\n   \"${doh!}\"    => unchanged, as \"!\" is illegal in identifiers",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "The variable \"company\" holds the value \"ACME\". No other variables are set.",
+      "zh-CHS": "变量“company”保存值“ACME”。没有设置其他变量。"
+    },
+    {
+      "indent": 6,
+      "text": "\"${full}\"         => the empty string\n\"${company}\"      => \"ACME\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "\"${BAD${Company}\" => \"${BADACME\"\n\"${President, ${Company} Inc.}\"\n                  => \"${President, ACME Inc.}\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The expanded string MUST use the variable values that are current when control reaches the statement the string is part of.",
+      "zh-CHS": "扩展字符串必须使用控件到达该字符串所属语句时的当前变量值。"
+    },
+    {
+      "indent": 3,
+      "text": "Strings where no variable substitutions take place are referred to as constant strings. Future extensions may specify that passing non-constant strings as arguments to its actions or tests is an error.",
+      "zh-CHS": "不发生变量替换的字符串称为常量字符串。未来的扩展可能会指定将非常量字符串作为参数传递给其操作或测试是错误的。"
+    },
+    {
+      "indent": 3,
+      "text": "Namespaces are meant for future extensions that make internal state available through variables. These variables SHOULD be put in a namespace whose first component is the same as its capability string. Such extensions SHOULD state which, if any, of the variables in its namespace are modifiable with the \"set\" action.",
+      "zh-CHS": "名称空间用于将来的扩展，这些扩展通过变量提供内部状态。这些变量应该放在名称空间中，其第一个组件与其功能字符串相同。这种扩展应该说明其名称空间中的哪些变量（如果有的话）可以通过“set”操作进行修改。"
+    },
+    {
+      "indent": 3,
+      "text": "References to namespaces without a prior require statement for the relevant extension MUST cause an error.",
+      "zh-CHS": "对名称空间的引用如果没有相关扩展的previor require语句，则必须导致错误。"
+    },
+    {
+      "indent": 3,
+      "text": "Tests or actions in future extensions may need to access the unexpanded version of the string argument and, e.g., do the expansion after setting variables in its namespace. The design of the implementation should allow this.",
+      "zh-CHS": "未来扩展中的测试或操作可能需要访问字符串参数的未扩展版本，例如，在名称空间中设置变量后进行扩展。实现的设计应该允许这一点。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Quoting and Encoded Characters",
+      "section_title": true,
+      "zh-CHS": "3.1. 引用和编码字符"
+    },
+    {
+      "indent": 3,
+      "text": "The semantics of quoting using backslash are not changed: backslash quoting is resolved before doing variable substitution. Similarly, encoded character processing (see Section 2.4.2.4 of [SIEVE]) is performed before doing variable substitution, but after quoting.",
+      "zh-CHS": "使用反斜杠引用的语义没有改变：反斜杠引用在进行变量替换之前得到解决。类似地，编码字符处理（见[SIFE]第2.4.2.4节）在变量替换之前执行，但在引用之后执行。"
+    },
+    {
+      "indent": 3,
+      "text": "Examples: \"${fo\\o}\" => ${foo} => the expansion of variable foo. \"${fo\\\\o}\" => ${fo\\o} => illegal identifier => left verbatim. \"\\${foo}\" => ${foo} => the expansion of variable foo. \"\\\\${foo}\" => \\${foo} => a backslash character followed by the expansion of variable foo.",
+      "zh-CHS": "示例：“${fo\\o}”=>${foo}=>变量foo的扩展。“${fo\\\\o}”=>${fo\\o}=>非法标识符=>左逐字记录。“\\${foo}”=>${foo}=>变量foo的扩展。“\\\\${foo}”=>\\${foo}=>后跟变量foo展开的反斜杠字符。"
+    },
+    {
+      "indent": 6,
+      "text": "If it is required to include a character sequence such as \"${beep}\" verbatim in a text literal, the user can define a variable to circumvent expansion to the empty string.",
+      "zh-CHS": "如果需要在文本文本中逐字包含字符序列，如“${beep}”，则用户可以定义一个变量以避免扩展到空字符串。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   set \"dollar\" \"$\";\n   set \"text\" \"regarding ${dollar}{beep}\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   require [\"encoded-character\", \"variables\"];\n   set \"name\" \"Ethelbert\"\n   if header :contains \"Subject\" \"dear${hex:20 24 7b 4e}ame}\" {\n       # the test string is \"dear Ethelbert\"\n   }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Match Variables",
+      "section_title": true,
+      "zh-CHS": "3.2. 匹配变量"
+    },
+    {
+      "indent": 3,
+      "text": "A \"match variable\" has a name consisting only of decimal digits and has no namespace component.",
+      "zh-CHS": "“匹配变量”的名称仅由十进制数字组成，没有名称空间组件。"
+    },
+    {
+      "indent": 3,
+      "text": "The decimal value of the match variable name will index the list of matching strings from the most recently evaluated successful match of type \":matches\". The list is empty if no match has been successful.",
+      "zh-CHS": "match变量名称的十进制值将索引最近评估的成功匹配类型“：matches”中的匹配字符串列表。如果没有成功匹配，则列表为空。"
+    },
+    {
+      "indent": 7,
+      "text": "Note: Extra leading zeroes are allowed and ignored.",
+      "zh-CHS": "注意：允许并忽略额外的前导零。"
+    },
+    {
+      "indent": 3,
+      "text": "The list will contain one string for each wildcard (\"?\" and \"*\") in the match pattern. Each string holds the substring from the source value that the corresponding wildcard expands to, possibly the empty string. The wildcards match as little as possible (non-greedy matching).",
+      "zh-CHS": "该列表将为匹配模式中的每个通配符（“？”和“*”）包含一个字符串。每个字符串都包含相应通配符扩展到的源值（可能是空字符串）中的子字符串。通配符尽可能少地匹配（非贪婪匹配）。"
+    },
+    {
+      "indent": 3,
+      "text": "The first string in the list has index 1. If the index is out of range, the empty string will be substituted. Index 0 contains the matched part of the source value.",
+      "zh-CHS": "列表中的第一个字符串具有索引1。如果索引超出范围，将替换空字符串。索引0包含源值的匹配部分。"
+    },
+    {
+      "indent": 3,
+      "text": "The interpreter MUST short-circuit tests, i.e., not perform more tests than necessary to find the result. Evaluation order MUST be left to right. If a test has two or more list arguments, the implementation is free to choose which to iterate over first.",
+      "zh-CHS": "口译员必须进行短路测试，也就是说，不能执行超过查找结果所需的测试。评估顺序必须从左到右。如果一个测试有两个或多个列表参数，那么实现可以自由选择首先迭代哪个。"
+    },
+    {
+      "indent": 3,
+      "text": "An extension describing a new match type (e.g., [REGEX]) MAY specify that match variables are set as a side effect when the match type is used in a script that has enabled the \"variables\" extension.",
+      "zh-CHS": "描述新匹配类型的扩展（例如，[REGEX]）可以指定在启用“变量”扩展的脚本中使用匹配类型时，将匹配变量设置为副作用。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:",
+      "zh-CHS": "例子："
+    },
+    {
+      "indent": 6,
+      "text": "require [\"fileinto\", \"variables\"];",
+      "zh-CHS": "要求[“fileinto”，“variables”]；"
+    },
+    {
+      "indent": 6,
+      "text": "if header :matches \"List-ID\" \"*<*@*\" {\n    fileinto \"INBOX.lists.${2}\"; stop;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "# Imagine the header\n# Subject: [acme-users] [fwd] version 1.0 is out\nif header :matches \"Subject\" \"[*] *\" {\n    # ${1} will hold \"acme-users\",\n    # ${2} will hold \"[fwd] version 1.0 is out\"\n    fileinfo \"INBOX.lists.${1}\"; stop;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "# Imagine the header\n# To: coyote@ACME.Example.COM\nif address :matches [\"To\", \"Cc\"] [\"coyote@**.com\",\n        \"wile@**.com\"] {\n    # ${0} is the matching address\n    # ${1} is always the empty string\n    # ${2} is part of the domain name (\"ACME.Example\")\n    fileinto \"INBOX.business.${2}\"; stop;\n} else {\n    # Control wouldn't reach this block if any match was\n    # successful, so no match variables are set at this\n    # point.\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "if anyof (true, address :domain :matches \"To\" \"*.com\") {\n    # The second test is never evaluated, so there are\n    # still no match variables set.\n    stop;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4. Action set",
+      "section_title": true,
+      "zh-CHS": "4. 动作集"
+    },
+    {
+      "indent": 3,
+      "text": "Usage:    set [MODIFIER] <name: string> <value: string>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The \"set\" action stores the specified value in the variable identified by name. The name MUST be a constant string and conform to the syntax of variable-name. Match variables cannot be set. A namespace cannot be used unless an extension explicitly allows its use in \"set\". An invalid name MUST be detected as a syntax error.",
+      "zh-CHS": "“set”操作将指定的值存储在由名称标识的变量中。名称必须是常量字符串，并符合变量名称的语法。无法设置匹配变量。除非扩展明确允许在“set”中使用名称空间，否则不能使用名称空间。必须将无效名称检测为语法错误。"
+    },
+    {
+      "indent": 3,
+      "text": "Modifiers are applied on a value before it is stored in the variable. See the next section for details.",
+      "zh-CHS": "修饰符在值存储到变量中之前应用于该值。有关详细信息，请参见下一节。"
+    },
+    {
+      "indent": 3,
+      "text": "Variables are only visible to the currently running script. Note: Future extensions may provide different scoping rules for variables.",
+      "zh-CHS": "变量仅对当前运行的脚本可见。注意：未来的扩展可能会为变量提供不同的范围规则。"
+    },
+    {
+      "indent": 3,
+      "text": "Variable names are case insensitive.",
+      "zh-CHS": "变量名不区分大小写。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   set \"honorific\"  \"Mr\";\n   set \"first_name\" \"Wile\";\n   set \"last_name\"  \"Coyote\";\n   set \"vacation\" text:\n   Dear ${HONORIFIC} ${last_name},\n   I'm out, please leave a message after the meep.\n   .\n   ;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "\"set\" does not affect the implicit keep. It is compatible with all actions defined in [SIEVE].",
+      "zh-CHS": "“set”不影响隐式keep。它与[筛]中定义的所有动作兼容。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Modifiers",
+      "section_title": true,
+      "zh-CHS": "4.1. 修饰语"
+    },
+    {
+      "indent": 3,
+      "text": "Usage:  \":lower\" / \":upper\" / \":lowerfirst\" / \":upperfirst\" /\n        \":quotewildcard\" / \":length\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Modifier names are case insensitive. Unknown modifiers MUST yield a syntax error. More than one modifier can be specified, in which case they are applied according to this precedence list, largest value first:",
+      "zh-CHS": "修饰符名称不区分大小写。未知修饰符必须产生语法错误。可以指定多个修饰符，在这种情况下，根据此优先级列表应用修饰符，最大值优先："
+    },
+    {
+      "indent": 21,
+      "text": "+--------------------------------+\n| Precedence     Modifier        |\n+--------------------------------+\n|     40         :lower          |\n|                :upper          |\n+--------------------------------+\n|     30         :lowerfirst     |\n|                :upperfirst     |\n+--------------------------------+\n|     20         :quotewildcard  |\n+--------------------------------+\n|     10         :length         |\n+--------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "It is an error to use two or more modifiers of the same precedence in a single \"set\" action.",
+      "zh-CHS": "在单个“集合”操作中使用两个或多个具有相同优先级的修饰符是错误的。"
+    },
+    {
+      "indent": 3,
+      "text": "Examples:\n   # The value assigned to the variable is printed after the arrow\n   set \"a\" \"juMBlEd lETteRS\";             => \"juMBlEd lETteRS\"\n   set :length \"b\" \"${a}\";                => \"15\"\n   set :lower \"b\" \"${a}\";                 => \"jumbled letters\"\n   set :upperfirst \"b\" \"${a}\";            => \"JuMBlEd lETteRS\"\n   set :upperfirst :lower \"b\" \"${a}\";     => \"Jumbled letters\"\n   set :quotewildcard \"b\" \"Rock*\";        => \"Rock\\*\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. Modifier \":length\"",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 修饰符“：长度”"
+    },
+    {
+      "indent": 3,
+      "text": "The value is the decimal number of characters in the expansion, converted to a string.",
+      "zh-CHS": "该值是扩展中的十进制字符数，转换为字符串。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Modifier \":quotewildcard\"",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 修饰符“：quotewildcard”"
+    },
+    {
+      "indent": 3,
+      "text": "This modifier adds the necessary quoting to ensure that the expanded text will only match a literal occurrence if used as a parameter to :matches. Every character with special meaning (\"*\", \"?\", and \"\\\") is prefixed with \"\\\" in the expansion.",
+      "zh-CHS": "此修饰符添加必要的引号，以确保展开文本仅在用作参数to:matches时匹配文字引用。每个具有特殊含义的字符（“*”、“？”和“\\”）在展开式中都以“\\”作为前缀。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3. Case Modifiers",
+      "section_title": true,
+      "zh-CHS": "4.1.3. 大小写修饰语"
+    },
+    {
+      "indent": 3,
+      "text": "These modifiers change the letters of the text from upper to lower case or vice versa. Characters other than \"A\"-\"Z\" and \"a\"-\"z\" from US-ASCII are left unchanged.",
+      "zh-CHS": "这些修饰符将文本的字母从大写改为小写，反之亦然。US-ASCII中除“A”-“Z”和“A”-“Z”以外的字符保持不变。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3.1. Modifier \":upper\"",
+      "section_title": true,
+      "zh-CHS": "4.1.3.1. 修饰符“：上”"
+    },
+    {
+      "indent": 3,
+      "text": "All lower case letters are converted to their upper case counterparts.",
+      "zh-CHS": "所有小写字母都转换为大写字母。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3.2. Modifier \":lower\"",
+      "section_title": true,
+      "zh-CHS": "4.1.3.2. 修饰符“：较低”"
+    },
+    {
+      "indent": 3,
+      "text": "All upper case letters are converted to their lower case counterparts.",
+      "zh-CHS": "所有大写字母都转换为小写字母。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3.3. Modifier \":upperfirst\"",
+      "section_title": true,
+      "zh-CHS": "4.1.3.3. 修饰符“：upperfirst”"
+    },
+    {
+      "indent": 3,
+      "text": "The first character of the string is converted to upper case if it is a letter and set in lower case. The rest of the string is left unchanged.",
+      "zh-CHS": "如果字符串的第一个字符是字母，则将其转换为大写，并设置为小写。字符串的其余部分保持不变。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3.4. Modifier \":lowerfirst\"",
+      "section_title": true,
+      "zh-CHS": "4.1.3.4. 修饰符“：lowerfirst”"
+    },
+    {
+      "indent": 3,
+      "text": "The first character of the string is converted to lower case if it is a letter and set in upper case. The rest of the string is left unchanged.",
+      "zh-CHS": "如果字符串的第一个字符是字母并设置为大写，则它将转换为小写。字符串的其余部分保持不变。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Test string",
+      "section_title": true,
+      "zh-CHS": "5. 测试字符串"
+    },
+    {
+      "indent": 3,
+      "text": "Usage:  string [MATCH-TYPE] [COMPARATOR]\n        <source: string-list> <key-list: string-list>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The \"string\" test evaluates to true if any of the source strings matches any key. The type of match defaults to \":is\".",
+      "zh-CHS": "如果任何源字符串与任何键匹配，“string”测试的计算结果为true。匹配类型默认为“：is”。"
+    },
+    {
+      "indent": 3,
+      "text": "In the \"string\" test, both source and key-list are taken from the script, not the message, and whitespace stripping MUST NOT be done unless the script explicitly requests this through some future mechanism.",
+      "zh-CHS": "在“string”测试中，源和键列表都是从脚本中获取的，而不是从消息中获取的，除非脚本通过将来的某种机制明确请求，否则不能执行空格剥离。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:\n   set \"state\" \"${state} pending\";\n   if string :matches \" ${state} \" \"* pending *\" {\n       # the above test always succeeds\n   }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The \"relational\" extension [RELATIONAL] adds a match type called \":count\". The count of a single string is 0 if it is the empty string, or 1 otherwise. The count of a string list is the sum of the counts of the member strings.",
+      "zh-CHS": "“relational”扩展[relational]添加了一个名为“：count”的匹配类型。如果是空字符串，则单个字符串的计数为0，否则为1。字符串列表的计数是成员字符串计数的总和。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Implementation Limits",
+      "section_title": true,
+      "zh-CHS": "6. 实施限制"
+    },
+    {
+      "indent": 3,
+      "text": "An implementation of this document MUST support at least 128 distinct variables. The supported length of variable names MUST be at least 32 characters. Each variable MUST be able to hold at least 4000 characters. Attempts to set the variable to a value larger than what the implementation supports SHOULD be reported as an error at compile-time if possible. If the attempt is discovered during run-time, the value SHOULD be truncated, and it MUST NOT be treated as an error.",
+      "zh-CHS": "本文档的实现必须支持至少128个不同的变量。支持的变量名长度必须至少为32个字符。每个变量必须能够容纳至少4000个字符。如果可能，尝试将变量设置为大于实现支持的值，则应在编译时报告为错误。如果在运行时发现该尝试，则应截断该值，并且不得将其视为错误。"
+    },
+    {
+      "indent": 3,
+      "text": "Match variables ${1} through ${9} MUST be supported. References to higher indices than those the implementation supports MUST be treated as a syntax error, which SHOULD be discovered at compile-time.",
+      "zh-CHS": "必须支持匹配变量${1}到${9}。对高于实现支持的索引的引用必须视为语法错误，应该在编译时发现。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "When match variables are used, and the author of the script isn't careful, strings can contain arbitrary values controlled by the sender of the mail.",
+      "zh-CHS": "当使用匹配变量时，并且脚本作者不小心，字符串可以包含由邮件发件人控制的任意值。"
+    },
+    {
+      "indent": 3,
+      "text": "Since values stored by \"set\" that exceed implementation limits are silently truncated, it's not appropriate to store large structures with security implications in variables.",
+      "zh-CHS": "由于“set”存储的超出实现限制的值会被自动截断，因此不适合将具有安全含义的大型结构存储在变量中。"
+    },
+    {
+      "indent": 3,
+      "text": "The introduction of variables makes advanced decision making easier to write, but since no looping construct is provided, all Sieve scripts will terminate in an orderly manner.",
+      "zh-CHS": "变量的引入使高级决策更容易编写，但由于没有提供循环构造，所有筛选脚本都将以有序的方式终止。"
+    },
+    {
+      "indent": 3,
+      "text": "Sieve filtering should not be relied on as a security measure against hostile mail messages. Sieve is designed to do simple, mostly static tests, and is not suitable for use as a spam or virus checker, where",
+      "zh-CHS": "不应将筛选筛选作为针对恶意邮件的安全措施。Sieve的设计目的是进行简单的静态测试，不适合用作垃圾邮件或病毒检查器"
+    },
+    {
+      "indent": 3,
+      "text": "the perpetrator has a motivation to vary the format of the mail in order to avoid filtering rules. See also [SPAMTEST].",
+      "zh-CHS": "犯罪行为人有动机改变邮件的格式，以避免过滤规则。另见[SPAMTEST]。"
+    },
+    {
+      "indent": 0,
+      "text": "8. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "8. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The following template specifies the IANA registration of the variables Sieve extension specified in this document:",
+      "zh-CHS": "以下模板指定了本文档中指定的变量筛扩展的IANA注册："
+    },
+    {
+      "indent": 3,
+      "text": "To: iana@iana.org Subject: Registration of new Sieve extension",
+      "zh-CHS": "致：iana@iana.org主题：新筛网扩展的注册"
+    },
+    {
+      "indent": 3,
+      "text": "Capability name: variables\nDescription:     Adds support for variables to the Sieve filtering\n                 language.\nRFC number:      RFC 5229\nContact address: The Sieve discussion list <ietf-mta-filters@imc.org>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "9. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "9. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Cyrus Daboo, Jutta Degener, Ned Freed, Lawrence Greenfield, Jeffrey Hutzelman, Mark E. Mallett, Alexey Melnikov, Peder Stray, and Nigel Swinson for valuable feedback.",
+      "zh-CHS": "感谢赛勒斯·达布、朱塔·德杰纳、内德·弗里德、劳伦斯·格林菲尔德、杰弗里·哈泽尔曼、马克·马列特、阿列克谢·梅尔尼科夫、佩德·罗斯特和奈杰尔·斯温森的宝贵反馈。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[ABNF] Crocker, D., Ed., and Overell, P., \"Augmented BNF for Syntax Specifications: ABNF\", RFC 4234, October 2005.",
+      "zh-CHS": "[ABNF]Crocker，D.，Ed.，和Overell，P.，“语法规范的扩充BNF:ABNF”，RFC 42342005年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[KEYWORDS] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RELATIONAL] Segmuller, W. and B. Leiba, \"Sieve Email Filtering: Relational Extension\", RFC 5231, January 2008.",
+      "zh-CHS": "[RELATIONAL]Segmuler，W.和B.Leiba，“筛选电子邮件过滤：关系扩展”，RFC 52312008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SIEVE] Guenther, P., Ed., and T. Showalter, Ed., \"Sieve: An Email Filtering Language\", RFC 5228, January 2008.",
+      "zh-CHS": "[SIEVE]Guenther，P.，Ed.，和T.Showalter，Ed.，“SIEVE:电子邮件过滤语言”，RFC 5228，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[UTF-8] Yergeau, F., \"UTF-8, a transformation format of Unicode and ISO 10646\", RFC 3629, November 2003.",
+      "zh-CHS": "[UTF-8]Yergeau，F.，“UTF-8，Unicode和ISO10646的转换格式”，RFC 3629，2003年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ISO10646] ISO/IEC, \"Information Technology - Universal Multiple-Octet Coded Character Set (UCS) - Part 1: Architecture and Basic Multilingual Plane\", May 1993, with amendments.",
+      "zh-CHS": "[ISO10646]ISO/IEC，“信息技术-通用多八位编码字符集（UCS）-第1部分：体系结构和基本多语言平面”，1993年5月，修订版。"
+    },
+    {
+      "indent": 3,
+      "text": "[REGEX] Murchison, K., \"Sieve Email Filtering -- Regular Expression Extension\", Work in Progress, February 2006.",
+      "zh-CHS": "[REGEX]Murchison，K.，“筛选电子邮件过滤——正则表达式扩展”，正在进行的工作，2006年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SPAMTEST] Daboo, C., \"Sieve Email Filtering: Spamtest and Virustest Extensions\", RFC 5235, January 2008.",
+      "zh-CHS": "[SPAMTEST]Daboo，C.，“筛选电子邮件过滤：SPAMTEST和Virustest扩展”，RFC 52352008年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Kjetil T. Homme University of Oslo PO Box 1080 0316 Oslo, Norway",
+      "zh-CHS": "挪威奥斯陆大学奥斯陆1080邮筒0316"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +47 9366 0091\nEMail: kjetilho@ifi.uio.no",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

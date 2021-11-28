@@ -1,0 +1,847 @@
+{
+  "title": {
+    "text": "RFC 7415: Session Initiation Protocol (SIP) Rate Control",
+    "zh-CHS": "RFC 7415"
+  },
+  "number": 7415,
+  "created_at": "2021-11-02 22:05:34.616601+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                           E. Noel\nRequest for Comments: 7415                                     AT&T Labs\nCategory: Standards Track                                    P. Williams\nISSN: 2070-1721                                     BT Innovate & Design\n                                                           February 2015",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Session Initiation Protocol (SIP) Rate Control",
+      "zh-CHS": "会话启动协议（SIP）速率控制"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The prevalent use of the Session Initiation Protocol (SIP) in Next Generation Networks necessitates that SIP networks provide adequate control mechanisms to maintain transaction throughput by preventing congestion collapse during traffic overloads. A loss-based solution to remedy known vulnerabilities of the SIP 503 (Service Unavailable) overload control mechanism has already been proposed. Using the same signaling, this document proposes a rate-based control scheme to complement the loss-based control scheme.",
+      "zh-CHS": "会话发起协议（SIP）在下一代网络中的普遍使用要求SIP网络提供足够的控制机制，通过防止流量过载期间的拥塞崩溃来维持事务吞吐量。已经提出了一种基于丢失的解决方案，以弥补SIP 503（服务不可用）过载控制机制的已知漏洞。使用相同的信令，本文提出了一种基于速率的控制方案，以补充基于损耗的控制方案。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7415.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7415."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2015 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2015 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Terminology .....................................................3\n3. Rate-Based Algorithm Scheme .....................................3\n   3.1. Overview ...................................................3\n   3.2. Via Header Field Parameters for Overload Control ...........4\n   3.3. Client and Server Rate-Based Control Algorithm Selection ...4\n   3.4. Server Operation ...........................................5\n   3.5. Client Operation ...........................................6\n        3.5.1. Default Algorithm ...................................6\n        3.5.2. Priority Treatment ..................................9\n        3.5.3. Optional Enhancement: Avoidance of Resonance .......10\n4. Example ........................................................12\n5. Syntax .........................................................13\n6. Security Considerations ........................................13\n7. IANA Considerations ............................................13\n8. References .....................................................14\n   8.1. Normative References ......................................14\n   8.2. Informative References ....................................14\nAcknowledgments ...................................................14\nContributors ......................................................14\nAuthors' Addresses ................................................15",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The use of SIP [RFC3261] in large-scale Next Generation Networks requires that SIP-based networks provide adequate control mechanisms for handling traffic growth. In particular, SIP networks must be able to handle traffic overloads gracefully, maintaining transaction throughput by preventing congestion collapse.",
+      "zh-CHS": "在大规模下一代网络中使用SIP[RFC3261]需要基于SIP的网络提供足够的控制机制来处理流量增长。特别是，SIP网络必须能够优雅地处理流量过载，通过防止拥塞崩溃来保持事务吞吐量。"
+    },
+    {
+      "indent": 3,
+      "text": "A promising SIP-based overload control solution has been proposed in [RFC7339]. That solution provides a communication scheme for overload control algorithms. It also includes a default loss-based overload control algorithm that makes it possible for a set of clients to limit offered load towards an overloaded server. However, such a loss control algorithm is sensitive to variations in load so that any increase in load would be directly reflected by the clients in the offered load presented to the overloaded servers. More importantly, a loss-based control scheme cannot guarantee an upper bound on the load from the clients towards an overloaded server and requires frequent updates that may have implications for stability.",
+      "zh-CHS": "[RFC7339]中提出了一种很有前途的基于SIP的过载控制解决方案。该解决方案为过载控制算法提供了通信方案。它还包括一个默认的基于丢失的过载控制算法，该算法使一组客户端能够将提供的负载限制在过载的服务器上。然而，这种丢失控制算法对负载的变化非常敏感，因此负载的任何增加都会直接反映在提供给过载服务器的负载中。更重要的是，基于损失的控制方案不能保证从客户端到过载服务器的负载上限，并且需要频繁更新，这可能会影响稳定性。"
+    },
+    {
+      "indent": 3,
+      "text": "In accordance with the framework defined in [RFC7339], this document proposes an alternate overload control scheme: the rate-based overload control scheme. The rate-based control algorithm guarantees an upper bound on the rate, constant between server updates, of",
+      "zh-CHS": "根据[RFC7339]中定义的框架，本文件提出了一种替代过载控制方案：基于速率的过载控制方案。基于速率的控制算法保证服务器更新之间的速率上限不变"
+    },
+    {
+      "indent": 3,
+      "text": "requests sent by clients towards an overloaded server. The trade-off is in terms of algorithmic complexity, since the overloaded server is more likely to use a different target (maximum rate) for each client than the loss-based approach.",
+      "zh-CHS": "客户端向过载的服务器发送的请求。取舍是在算法复杂性方面，因为过载的服务器比基于丢失的方法更可能为每个客户端使用不同的目标（最大速率）。"
+    },
+    {
+      "indent": 3,
+      "text": "The proposed rate-based overload control algorithm mitigates congestion in SIP networks while adhering to the overload signaling scheme in [RFC7339] and presenting a rate-based control scheme as an optional alternative to the default loss-based control scheme in [RFC7339].",
+      "zh-CHS": "建议的基于速率的过载控制算法缓解SIP网络中的拥塞，同时遵守[RFC7339]中的过载信令方案，并将基于速率的控制方案作为[RFC7339]中默认的基于丢失的控制方案的可选替代方案。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Unless otherwise specified, all SIP entities described in this document are assumed to support this specification.",
+      "zh-CHS": "除非另有规定，否则本文件中描述的所有SIP实体均假定支持本规范。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Rate-Based Algorithm Scheme",
+      "section_title": true,
+      "zh-CHS": "3. 基于速率的算法方案"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Overview",
+      "section_title": true,
+      "zh-CHS": "3.1. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "The server is the one protected by the overload control algorithm defined here, and the client is the one that throttles traffic towards the server.",
+      "zh-CHS": "服务器是受此处定义的过载控制算法保护的服务器，而客户端是限制流向服务器的流量的服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Following the procedures defined in [RFC7339], the server and clients signal one another support for rate-based overload control.",
+      "zh-CHS": "按照[RFC7339]中定义的过程，服务器和客户端相互发出信号，支持基于速率的过载控制。"
+    },
+    {
+      "indent": 3,
+      "text": "Then, periodically, the server relies on internal measurements (e.g., CPU utilization or queueing delay) to evaluate its overload state and estimate a target maximum SIP request rate in number of requests per second (as opposed to target percent loss in the case of loss-based control).",
+      "zh-CHS": "然后，服务器周期性地依赖内部测量（例如，CPU利用率或排队延迟）来评估其过载状态，并以每秒请求数估计目标最大SIP请求速率（与基于丢失的控制情况下的目标丢失百分比相反）。"
+    },
+    {
+      "indent": 3,
+      "text": "When in overload, the server uses the \"oc\" parameter in the Via header field [RFC7339] of SIP responses in order to inform clients of its overload state and of the target maximum SIP request rate for that client.",
+      "zh-CHS": "当处于过载状态时，服务器使用SIP响应的Via标头字段[RFC7339]中的“oc”参数通知客户端其过载状态以及该客户端的目标最大SIP请求速率。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receiving the \"oc\" parameter with a target maximum SIP request rate, each client throttles new SIP requests towards the overloaded server.",
+      "zh-CHS": "在接收到具有目标最大SIP请求速率的“oc”参数后，每个客户端都会限制向过载服务器发送的新SIP请求。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Via Header Field Parameters for Overload Control",
+      "section_title": true,
+      "zh-CHS": "3.2. 通过过载控制的标题字段参数"
+    },
+    {
+      "indent": 3,
+      "text": "Four Via header parameters are defined in [RFC7339] and are summarized below:",
+      "zh-CHS": "[RFC7339]中定义了四个过孔标头参数，总结如下："
+    },
+    {
+      "indent": 3,
+      "text": "o oc: Used by clients in SIP requests to indicate support for overload control per [RFC7339] and by servers to indicate the load reduction amount in the loss-based algorithm and the maximum rate, in messages per second, for the rate-based algorithm described here.",
+      "zh-CHS": "o oc：由SIP请求中的客户端使用，表示支持[RFC7339]中的过载控制；由服务器使用，表示基于丢失的算法中的负载减少量以及此处描述的基于速率的算法的最大速率（以每秒消息数为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "o oc-algo: Used by clients in SIP requests to advertise supported overload control algorithms and by servers to notify clients of the algorithm in effect. Supported values are loss (default) and rate (optional).",
+      "zh-CHS": "o oc algo：由SIP请求中的客户端用于公布受支持的过载控制算法，并由服务器用于通知客户端有效的算法。支持的值为损失（默认）和费率（可选）。"
+    },
+    {
+      "indent": 3,
+      "text": "o oc-validity: Used by servers in SIP responses to indicate an interval of time (in milliseconds) that the load reduction should be in effect. A value of 0 is reserved for the server to stop overload control. A non-zero value is required in all other cases.",
+      "zh-CHS": "o oc有效性：服务器在SIP响应中使用，以指示负载降低应生效的时间间隔（以毫秒为单位）。为服务器保留值0以停止过载控制。在所有其他情况下都需要非零值。"
+    },
+    {
+      "indent": 3,
+      "text": "o oc-seq: A sequence number associated with the \"oc\" parameter.",
+      "zh-CHS": "o oc seq：与“oc”参数关联的序列号。"
+    },
+    {
+      "indent": 3,
+      "text": "Consult Section 4 for an illustration of the usage of the \"oc\" parameter in the Via header field.",
+      "zh-CHS": "有关Via标头字段中“oc”参数用法的说明，请参阅第4节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Client and Server Rate-Based Control Algorithm Selection",
+      "section_title": true,
+      "zh-CHS": "3.3. 基于客户端和服务器速率的控制算法选择"
+    },
+    {
+      "indent": 3,
+      "text": "Per [RFC7339], new clients indicate supported overload control algorithms to servers by inserting \"oc\" and \"oc-algo\", with the names of the supported algorithms, in the Via header field of SIP requests destined to servers. The inclusion by the client of the token \"rate\" indicates that the client supports a rate-based algorithm. Conversely, servers notify clients of the selected overload control algorithm through the \"oc-algo\" parameter in the Via header field of SIP responses to clients. The inclusion by the server of the token \"rate\" in the \"oc-algo\" parameter indicates that the rate-based algorithm has been selected by the server.",
+      "zh-CHS": "根据[RFC7339]，新客户端通过在发送到服务器的SIP请求的Via头字段中插入“oc”和“oc algo”以及支持的算法名称，向服务器指示支持的过载控制算法。客户端包含令牌“rate”表示客户端支持基于速率的算法。相反，服务器通过SIP响应到客户端的Via头字段中的“oc algo”参数通知客户端所选的过载控制算法。服务器在“oc algo”参数中包含令牌“rate”表示服务器已选择基于速率的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Support of rate-based control MUST be indicated by clients including the token \"rate\" in the \"oc-algo\" list. Selection of rate-based control MUST be indicated by servers by setting \"oc-algo\" to the token \"rate\".",
+      "zh-CHS": "支持基于速率的控制必须由客户端指示，包括“oc algo”列表中的令牌“速率”。服务器必须通过将“oc algo”设置为令牌“rate”来指示基于速率的控制的选择。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Server Operation",
+      "section_title": true,
+      "zh-CHS": "3.4. 服务器操作"
+    },
+    {
+      "indent": 3,
+      "text": "The actual algorithm used by the server to determine its overload state and estimate a target maximum SIP request rate is beyond the scope of this document.",
+      "zh-CHS": "服务器用于确定其过载状态和估计目标最大SIP请求速率的实际算法超出了本文的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "However, the server MUST periodically evaluate its overload state and estimate a target SIP request rate beyond which it would become overloaded. The server must determine how it will allocate the target SIP request rate among its client. The server may set the same rate for every client or may set different rates for different clients.",
+      "zh-CHS": "但是，服务器必须定期评估其过载状态，并估计其过载的目标SIP请求速率。服务器必须确定如何在其客户端之间分配目标SIP请求速率。服务器可以为每个客户端设置相同的速率，也可以为不同的客户端设置不同的速率。"
+    },
+    {
+      "indent": 3,
+      "text": "The maximum rate determined by the server for a client applies to the entire stream of SIP requests, even though throttling may only affect a particular subset of the requests, since as per [RFC7339] and REQ 13 of [RFC5390], request prioritization is a client's responsibility.",
+      "zh-CHS": "服务器为客户端确定的最大速率适用于整个SIP请求流，即使节流可能只影响请求的特定子集，因为根据[RFC7339]和[RFC5390]的REQ 13，请求优先级是客户端的责任。"
+    },
+    {
+      "indent": 3,
+      "text": "When setting the maximum rate for a particular client, the server may need to take into account the workload (e.g., CPU load per request) of the distribution of message types from that client. Furthermore, because the client may prioritize the specific types of messages it sends while under overload restriction, this distribution of message types may be different from the message distribution for that client under non-overload conditions (e.g., it could have either higher or lower CPU load).",
+      "zh-CHS": "当为特定客户端设置最大速率时，服务器可能需要考虑来自该客户端的消息类型分布的工作负载（例如，每个请求的CPU负载）。此外，由于客户端在过载限制下可能会优先考虑其发送的特定类型的消息，因此该消息类型的分布可能不同于非过载条件下该客户端的消息分布（例如，它可能具有更高或更低的CPU负载）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the \"oc\" parameter for the rate-based algorithm is an upper bound (in messages per second) on the traffic sent by the client to the server. The client may send traffic at a rate significantly lower than the upper bound for a variety of reasons.",
+      "zh-CHS": "请注意，基于速率的算法的“oc”参数是客户端发送到服务器的通信量的上限（以每秒消息数为单位）。由于各种原因，客户端可能以显著低于上限的速率发送流量。"
+    },
+    {
+      "indent": 3,
+      "text": "In other words, when multiple clients are being controlled by an overloaded server, at any given time, some clients may receive requests at a rate below their target (maximum) SIP request rate while others above that target rate. But the resulting request rate presented to the overloaded server will converge towards the target SIP request rate.",
+      "zh-CHS": "换句话说，当多个客户机由过载的服务器控制时，在任何给定时间，一些客户机可能以低于其目标（最大）SIP请求速率的速率接收请求，而其他客户机则以高于该目标速率的速率接收请求。但是，呈现给过载服务器的结果请求速率将收敛到目标SIP请求速率。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon detection of overload and the determination to invoke overload controls, the server MUST follow the specifications in [RFC7339] to notify its clients of the allocated target SIP request rate and to notify them that rate-based control is in effect.",
+      "zh-CHS": "在检测到过载并确定调用过载控制时，服务器必须遵循[RFC7339]中的规范，通知其客户端已分配的目标SIP请求速率，并通知其基于速率的控制已生效。"
+    },
+    {
+      "indent": 3,
+      "text": "The server MUST use the \"oc\" parameter defined in [RFC7339] to send a target SIP request rate to each of its clients.",
+      "zh-CHS": "服务器必须使用[RFC7339]中定义的“oc”参数向其每个客户端发送目标SIP请求速率。"
+    },
+    {
+      "indent": 3,
+      "text": "When a client supports the default loss-based algorithm and not the rate-based algorithm, the client would be handled in the same way as in Section 5.10.2 of [RFC7339].",
+      "zh-CHS": "当客户机支持默认的基于损失的算法而不是基于费率的算法时，客户机的处理方式与[RFC7339]第5.10.2节相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Client Operation",
+      "section_title": true,
+      "zh-CHS": "3.5. 客户端操作"
+    },
+    {
+      "indent": 0,
+      "text": "3.5.1. Default Algorithm",
+      "section_title": true,
+      "zh-CHS": "3.5.1. 默认算法"
+    },
+    {
+      "indent": 3,
+      "text": "In determining whether or not to transmit a specific message, the client may use any algorithm that limits the message rate to the \"oc\" parameter in units of messages per second. For ease of discussion, we define T = 1/[\"oc\" parameter] as the target inter-SIP request interval. The algorithm may be strictly deterministic, or it may be probabilistic. It may, or may not, have a tolerance factor to allow for short bursts, as long as the long-term rate remains below 1/T.",
+      "zh-CHS": "在确定是否发送特定消息时，客户端可以使用将消息速率限制为“oc”参数（以每秒消息为单位）的任何算法。为了便于讨论，我们将T=1/[“oc”参数]定义为目标SIP请求间隔。该算法可能是严格确定性的，也可能是概率性的。只要长期速率保持在1/T以下，它可能有，也可能没有允许短脉冲的容限系数。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm may have provisions for prioritizing traffic in accordance with REQ 13 of [RFC5390].",
+      "zh-CHS": "该算法可根据[RFC5390]的REQ 13规定对流量进行优先级排序。"
+    },
+    {
+      "indent": 3,
+      "text": "If the algorithm requires other parameters (in addition to \"T\", which is 1/[\"oc\" parameter]), they may be set autonomously by the client, or they may be negotiated between client and server independently of the SIP-based overload control solution.",
+      "zh-CHS": "如果算法需要其他参数（除了“T”，即1/[“oc”参数]），则它们可以由客户端自主设置，或者可以在客户端和服务器之间独立于基于SIP的过载控制解决方案进行协商。"
+    },
+    {
+      "indent": 3,
+      "text": "In either case, the coordination is out of the scope of this document. The default algorithms presented here (one with and one without provisions for prioritizing traffic) are only examples.",
+      "zh-CHS": "无论哪种情况，协调都不在本文件的范围内。这里介绍的默认算法（一个有优先流量的规定，另一个没有优先流量的规定）只是示例。"
+    },
+    {
+      "indent": 3,
+      "text": "To throttle new SIP requests at the rate specified by the \"oc\" parameter sent by the server to its clients, the client MAY use the proposed default algorithm for rate-based control or any other equivalent algorithm that forward messages in conformance with the upper bound of 1/T messages per second.",
+      "zh-CHS": "为了以由服务器发送到其客户端的“oc”参数指定的速率限制新SIP请求，客户端可以使用基于速率控制的提议的默认算法，或者按照每秒1/T消息的上限转发消息的任何其他等效算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The default leaky bucket algorithm presented here is based on [ITU-T-I.371], Appendix A.2. The algorithm makes it possible for clients to deliver SIP requests at a rate specified by the \"oc\" parameter with the tolerance parameter TAU (preferably configurable).",
+      "zh-CHS": "此处介绍的默认漏桶算法基于[ITU-T-I.371]，附录A.2。该算法使得客户端能够以“oc”参数和容差参数TAU（最好是可配置的）指定的速率发送SIP请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Conceptually, the leaky bucket algorithm can be viewed as a finite capacity bucket whose real-valued content drains out at a continuous rate of 1 unit of content per time unit and whose content increases by the increment T for each forwarded SIP request. T is computed as the inverse of the rate specified by the \"oc\" parameter, namely T = 1 / [\"oc\" parameter].",
+      "zh-CHS": "从概念上讲，漏桶算法可以被视为一个有限容量的桶，其实值内容以每时间单位1单位内容的连续速率排出，并且对于每个转发的SIP请求，其内容以增量T增加。T计算为“oc”参数指定的速率的倒数，即T=1/[“oc”参数]。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that when the \"oc\" parameter is 0 with a non-zero \"oc-validity\", then the client should reject 100% of SIP requests destined to the overload server. However, when the \"oc-validity\" value is 0, the client should immediately stop throttling.",
+      "zh-CHS": "请注意，当“oc”参数为0且“oc有效性”非零时，客户端应100%拒绝发送到过载服务器的SIP请求。但是，当“oc validity”值为0时，客户端应立即停止限制。"
+    },
+    {
+      "indent": 3,
+      "text": "If, at a new SIP request arrival, the content of the bucket is less than or equal to the limit value TAU, then the SIP request is forwarded to the server; otherwise, the SIP request is rejected.",
+      "zh-CHS": "如果在新的SIP请求到达时，bucket的内容小于或等于限制值TAU，则SIP请求被转发到服务器；否则，SIP请求将被拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the capacity of the bucket (the upper bound of the counter) is (T + TAU).",
+      "zh-CHS": "请注意，铲斗的容量（计数器的上限）为（T+TAU）。"
+    },
+    {
+      "indent": 3,
+      "text": "The tolerance parameter TAU determines how close the long-term admitted rate is to an ideal control that would admit all SIP requests for arrival rates less than 1/T and then admit SIP requests precisely at the rate of 1/T for arrival rates above 1/T. In particular, at mean arrival rates close to 1/T, it determines the tolerance to deviation of the inter-arrival time from T (the larger TAU, the more tolerance to deviations from the inter-departure interval T).",
+      "zh-CHS": "容差参数TAU确定长期接纳速率与理想控制的接近程度，理想控制将接纳到达速率小于1/T的所有SIP请求，然后以1/T的速率精确接纳到达速率大于1/T的SIP请求。特别是在平均到达速率接近1/T时，它确定了到达间隔时间与T的偏差公差（TAU越大，与出发间隔T的偏差公差越大）。"
+    },
+    {
+      "indent": 3,
+      "text": "This deviation from the inter-departure interval influences the admitted rate burstiness or the number of consecutive SIP requests forwarded to the server (burst size proportional to TAU over the difference between 1/T and the arrival rate).",
+      "zh-CHS": "这种偏离出发间隔的情况会影响允许速率突发性或转发到服务器的连续SIP请求数（突发大小与1/T和到达速率之差上的TAU成比例）。"
+    },
+    {
+      "indent": 3,
+      "text": "In situations where clients are configured with some knowledge about the server (e.g., operator pre-provisioning), it can be beneficial to choose a value of TAU based on how many clients will be sending requests to the server.",
+      "zh-CHS": "在客户机配置了有关服务器的一些知识的情况下（例如，运营商预配置），根据将向服务器发送请求的客户机数量选择TAU值是有益的。"
+    },
+    {
+      "indent": 3,
+      "text": "Servers with a very large number of clients, each with a relatively small arrival rate, will generally benefit from a smaller value for TAU in order to limit queuing (and hence response times) at the server when subjected to a sudden surge of traffic from all clients. Conversely, a server with a relatively small number of clients, each with a proportionally larger arrival rate, will benefit from a larger value of TAU.",
+      "zh-CHS": "具有大量客户端（每个客户端的到达率相对较小）的服务器通常会受益于较小的TAU值，以便在受到来自所有客户端的流量突然激增的影响时，限制服务器上的排队（以及响应时间）。相反，具有相对较少数量的客户机的服务器，每个客户机的到达率按比例较大，将受益于较大的TAU值。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the control has been activated, at the arrival time of the k-th new SIP request, ta(k), the content of the bucket is provisionally updated to the value",
+      "zh-CHS": "一旦控制被激活，在第k个新SIP请求ta（k）到达时，存储桶的内容被临时更新为该值"
+    },
+    {
+      "indent": 3,
+      "text": "X' = X - (ta(k) - LCT)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where X is the value of the leaky bucket counter after arrival of the last forwarded SIP request, and LCT is the time at which the last SIP request was forwarded.",
+      "zh-CHS": "其中X是最后一个转发的SIP请求到达后泄漏桶计数器的值，LCT是最后一个SIP请求被转发的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "If X' is less than or equal to the limit value TAU, then the new SIP request is forwarded, the leaky bucket counter X is set to X' (or to 0 if X' is negative) plus the increment T, and LCT is set to the current time ta(k). If X' is greater than the limit value TAU, then the new SIP request is rejected, and the values of X and LCT are unchanged.",
+      "zh-CHS": "如果X'小于或等于极限值TAU，则转发新SIP请求，泄漏桶计数器X设置为X'（如果X'为负，则设置为0）加上增量T，LCT设置为当前时间ta（k）。如果X'大于限制值TAU，则新的SIP请求被拒绝，并且X和LCT的值不变。"
+    },
+    {
+      "indent": 3,
+      "text": "When the first response from the server has been received indicating control activation (oc-validity>0), LCT is set to the time of activation, and the leaky bucket counter is initialized to the parameter TAU0 (preferably configurable), which is 0 or larger but less than or equal to TAU.",
+      "zh-CHS": "当从服务器接收到指示控制激活（oc validity>0）的第一个响应时，LCT被设置为激活时间，并且泄漏桶计数器被初始化为参数TAU0（优选可配置），该参数为0或更大，但小于或等于TAU。"
+    },
+    {
+      "indent": 3,
+      "text": "TAU can assume any positive real number value and is not necessarily bounded by T.",
+      "zh-CHS": "TAU可以假设任何正实数值，并且不一定以T为界。"
+    },
+    {
+      "indent": 3,
+      "text": "TAU=4*T is a reasonable compromise between burst size and throttled rate adaptation at low offered rates.",
+      "zh-CHS": "TAU=4*T是在低提供速率下突发大小和节流速率自适应之间的合理折衷。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that specification of a value for TAU and any communication or coordination between servers are beyond the scope of this document.",
+      "zh-CHS": "请注意，TAU值的指定以及服务器之间的任何通信或协调超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "A reference algorithm is shown below.",
+      "zh-CHS": "参考算法如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "No priority case:",
+      "zh-CHS": "无优先权情况："
+    },
+    {
+      "indent": 3,
+      "text": "// T: inter-transmission interval, set to 1 / [\"oc\" parameter]\n// TAU: tolerance parameter\n// ta: arrival time of the most recent arrival received by the\n//     client\n// LCT: arrival time of last SIP request that was sent to the server\n//      (initialized to the first arrival time)\n// X: current value of the leaky bucket counter (initialized to\n//    TAU0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "// After most recent arrival, calculate auxiliary variable Xp\nXp = X - (ta - LCT);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "if (Xp <= TAU) {\n  // Transmit SIP request\n  // Update X and LCT\n  X = max (0, Xp) + T;\n  LCT = ta;\n} else {\n  // Reject SIP request\n  // Do not update X and LCT\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.5.2. Priority Treatment",
+      "section_title": true,
+      "zh-CHS": "3.5.2. 优先处理"
+    },
+    {
+      "indent": 3,
+      "text": "As with the loss-based algorithm in [RFC7339], a client implementing the rate-based algorithm also prioritizes messages into two or more categories of requests, for example, requests that are candidates for reduction and requests that are not subject to reduction (except under extenuating circumstances when there aren't any messages in the first category that can be reduced).",
+      "zh-CHS": "与[RFC7339]中的基于丢失的算法一样，实现基于速率的算法的客户端也将消息划分为两类或两类以上的请求，例如，候选减少的请求和不受减少影响的请求（除非在情有可原的情况下，第一类邮件中没有可减少的邮件）。"
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, the proposed leaky bucket implementation is modified to support priority using two thresholds for SIP requests that are candidates for reduction. With two priorities, the proposed leaky bucket requires two thresholds: TAU1 and TAU2 (where TAU1 < TAU2):",
+      "zh-CHS": "因此，对提议的泄漏桶实现进行了修改，以使用两个用于SIP请求的阈值来支持优先级，这两个阈值是减少的候选。对于两个优先级，建议的漏桶需要两个阈值：TAU1和TAU2（其中TAU1<TAU2）："
+    },
+    {
+      "indent": 3,
+      "text": "o All new requests would be admitted when the leaky bucket counter is at or below TAU1.",
+      "zh-CHS": "o 当漏桶计数器达到或低于TAU1时，所有新请求都将被接纳。"
+    },
+    {
+      "indent": 3,
+      "text": "o Only higher-priority requests would be admitted when the leaky bucket counter is between TAU1 and TAU2.",
+      "zh-CHS": "o 当漏桶计数器介于TAU1和TAU2之间时，只允许更高优先级的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "o All requests would be rejected when the bucket counter is at or above TAU2.",
+      "zh-CHS": "o 当桶计数器等于或高于TAU2时，所有请求都将被拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "This can be generalized to n priorities using n thresholds for n>2 in the obvious way.",
+      "zh-CHS": "这可以用n>2的n个阈值以明显的方式推广到n个优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "With a priority scheme that relies on two tolerance parameters (TAU2 influences the priority traffic, and TAU1 influences the non-priority traffic), always set TAU1 < TAU2 (TAU is replaced by TAU1 and TAU2). Setting both tolerance parameters to the same value is equivalent to having no priority. TAU1 influences the admitted rate the same way as TAU does when no priority is set. The larger the difference between TAU1 and TAU2, the closer the control is to strict priority queueing.",
+      "zh-CHS": "对于依赖于两个容差参数（TAU2影响优先级流量，TAU1影响非优先级流量）的优先级方案，始终设置TAU1<TAU2（TAU被TAU1和TAU2替换）。将两个公差参数设置为相同的值相当于没有优先级。TAU1影响接纳率的方式与未设置优先级时TAU的影响方式相同。TAU1和TAU2之间的差异越大，控制就越接近严格优先级排队。"
+    },
+    {
+      "indent": 3,
+      "text": "TAU1 and TAU2 can assume any positive real number value and are not necessarily bounded by T.",
+      "zh-CHS": "TAU1和TAU2可以假设任何正实数值，并且不一定以T为界。"
+    },
+    {
+      "indent": 3,
+      "text": "Reasonable values for TAU0, TAU1, and TAU2 are:",
+      "zh-CHS": "TAU0、TAU1和TAU2的合理值为："
+    },
+    {
+      "indent": 3,
+      "text": "o TAU0 = 0,",
+      "zh-CHS": "o TAU0=0，"
+    },
+    {
+      "indent": 3,
+      "text": "o TAU1 = 1/2 * TAU2, and",
+      "zh-CHS": "o TAU1=1/2*TAU2，以及"
+    },
+    {
+      "indent": 3,
+      "text": "o TAU2 = 10 * T.",
+      "zh-CHS": "o TAU2=10*T。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that specification of a value for TAU1 and TAU2 and any communication or coordination between servers are beyond the scope of this document.",
+      "zh-CHS": "请注意，TAU1和TAU2的值规格以及服务器之间的任何通信或协调超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "A reference algorithm is shown below.",
+      "zh-CHS": "参考算法如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "Priority case:",
+      "zh-CHS": "优先案件："
+    },
+    {
+      "indent": 3,
+      "text": "// T: inter-transmission interval, set to 1 / [\"oc\" parameter]\n// TAU1: tolerance parameter of no-priority SIP requests\n// TAU2: tolerance parameter of priority SIP requests\n// ta: arrival time of the most recent arrival received by the\n//     client\n// LCT: arrival time of last SIP request that was sent to the server\n//      (initialized to the first arrival time)\n// X: current value of the leaky bucket counter (initialized to\n//    TAU0)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "// After most recent arrival, calculate auxiliary variable Xp\nXp = X - (ta - LCT);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "if (AnyRequestReceived && Xp <= TAU1) || (PriorityRequestReceived &&\nXp <= TAU2 && Xp > TAU1) {\n  // Transmit SIP request\n  // Update X and LCT\n  X = max (0, Xp) + T;\n  LCT = ta;\n} else {\n  // Reject SIP request\n  // Do not update X and LCT\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.5.3. Optional Enhancement: Avoidance of Resonance",
+      "section_title": true,
+      "zh-CHS": "3.5.3. 可选增强：避免共振"
+    },
+    {
+      "indent": 3,
+      "text": "As the number of client sources of traffic increases or the throughput of the server decreases, the maximum rate admitted by each client needs to decrease; therefore, the value of T becomes larger. Under some circumstances (e.g., if the traffic arises very quickly simultaneously at many sources), the occupancies of each bucket can become synchronized, resulting in the admissions from each source being close in time and batched or having very 'peaky' arrivals at the server, which gives rise not only to control instability but also to very poor delays and even lost messages. An appropriate term for this is 'resonance' [Erramilli].",
+      "zh-CHS": "随着客户端流量源数量的增加或服务器吞吐量的降低，每个客户端允许的最大速率需要降低；因此，T的值变大。在某些情况下（例如，如果流量在多个源上同时非常快地出现），每个存储桶的占用可以同步，从而导致来自每个源的准入在时间上非常接近，并且是批处理的，或者在服务器上有非常“尖峰”的到达，这不仅会导致控制不稳定，还会导致严重的延迟，甚至消息丢失。一个合适的术语是“共振”[Erramilli]。"
+    },
+    {
+      "indent": 3,
+      "text": "If the network topology is such that resonance can occur, then a simple way to avoid resonance is to randomize the bucket occupancy at two appropriate points -- at the activation of control and whenever the bucket empties -- as described below.",
+      "zh-CHS": "如果网络拓扑能够发生共振，那么避免共振的一个简单方法是在两个适当的点随机分配桶占用率——在控制激活时和桶清空时——如下所述。"
+    },
+    {
+      "indent": 3,
+      "text": "After updating the value of the leaky bucket to X', generate a value u as follows:",
+      "zh-CHS": "将泄漏桶的值更新为X'后，生成一个值u，如下所示："
+    },
+    {
+      "indent": 5,
+      "text": "if X' > 0, then u = 0",
+      "zh-CHS": "如果X'>0，那么u=0"
+    },
+    {
+      "indent": 5,
+      "text": "else if X' <= 0, then let u be set to a random value uniformly\n                 distributed between -1/2 and +1/2",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Then, only if the arrival is admitted, increase the bucket by an amount T + uT, which will therefore be just T if the bucket hadn't emptied or lie between T/2 and 3T/2 if it had.",
+      "zh-CHS": "然后，仅在允许到达的情况下，将铲斗增加T+uT的量，因此，如果铲斗没有清空，则该量仅为T，如果铲斗已经清空，则该量介于T/2和3T/2之间。"
+    },
+    {
+      "indent": 3,
+      "text": "This randomization should also be done when control is activated, i.e., instead of simply initializing the leaky bucket counter to TAU0, initialize it to TAU0 + uT, where u is uniformly distributed as above. Since activation would have been a result of response to a request sent by the client, the second term in this expression can be interpreted as being the bucket increment following that admission.",
+      "zh-CHS": "当控制激活时，也应进行随机化，即，不是简单地将漏桶计数器初始化为TAU0，而是将其初始化为TAU0+uT，其中u如上所述均匀分布。由于激活可能是对客户机发送的请求的响应的结果，因此此表达式中的第二个术语可以解释为该许可之后的桶增量。"
+    },
+    {
+      "indent": 3,
+      "text": "This method has the following characteristics:",
+      "zh-CHS": "该方法具有以下特点："
+    },
+    {
+      "indent": 3,
+      "text": "o If TAU0 is chosen to be equal to TAU and all sources activate control at the same time due to an extremely high request rate, then the time until the first request admitted by each client would be uniformly distributed over [0,T].",
+      "zh-CHS": "o 如果TAU0被选择为等于TAU，并且由于极高的请求速率，所有源同时激活控制，那么直到每个客户端接受第一个请求的时间将均匀分布在[0，T]上。"
+    },
+    {
+      "indent": 3,
+      "text": "o The maximum occupancy is TAU + (3/2)T, rather than TAU + T without randomization.",
+      "zh-CHS": "o 最大占用率为TAU+（3/2）T，而不是没有随机化的TAU+T。"
+    },
+    {
+      "indent": 3,
+      "text": "o For the special case of 'classic gapping' where TAU=0, then the minimum time between admissions is uniformly distributed over [T/2, 3T/2], and the mean time between admissions is the same, i.e., T+1/R where R is the request arrival rate.",
+      "zh-CHS": "o 对于TAU=0的“经典间隙”的特殊情况，则最小两次接纳之间的时间均匀分布在[T/2，3T/2]上，并且两次接纳之间的平均时间相同，即T+1/R，其中R是请求到达率。"
+    },
+    {
+      "indent": 3,
+      "text": "o As high load randomization rarely occurs, there is no loss of precision of the admitted rate, even though the randomized 'phasing' of the buckets remains.",
+      "zh-CHS": "o 由于高负荷随机化很少发生，因此即使铲斗的随机化“相位”保持不变，也不会损失允许速率的精度。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Example",
+      "section_title": true,
+      "zh-CHS": "4. 实例"
+    },
+    {
+      "indent": 3,
+      "text": "The example in this section adapts the example in Section 6 of [RFC7339], where client P1 sends requests to a downstream server P2:",
+      "zh-CHS": "本节中的示例改编了[RFC7339]第6节中的示例，其中客户端P1向下游服务器P2发送请求："
+    },
+    {
+      "indent": 12,
+      "text": "INVITE sips:user@example.com SIP/2.0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 12,
+      "text": "Via: SIP/2.0/TLS p1.example.net;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "branch=z9hG4bK2d4790.1;received=192.0.2.111;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "oc;oc-algo=\"loss,rate\"",
+      "zh-CHS": "oc；oc algo=“损失，费率”"
+    },
+    {
+      "indent": 12,
+      "text": "...",
+      "zh-CHS": "..."
+    },
+    {
+      "indent": 12,
+      "text": "SIP/2.0 100 Trying",
+      "zh-CHS": "SIP/2.0 100"
+    },
+    {
+      "indent": 12,
+      "text": "Via: SIP/2.0/TLS p1.example.net;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "branch=z9hG4bK2d4790.1;received=192.0.2.111;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "oc=0;oc-algo=\"rate\";oc-validity=0;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "oc-seq=1282321615.781",
+      "zh-CHS": "oc seq=1282321615.781"
+    },
+    {
+      "indent": 12,
+      "text": "...",
+      "zh-CHS": "..."
+    },
+    {
+      "indent": 3,
+      "text": "The first message above is sent by P1 to P2. This message is a SIP request; because P1 supports overload control, it inserts the \"oc\" parameter in the topmost Via header field that it created. P1 supports two overload control algorithms: loss and rate.",
+      "zh-CHS": "上面的第一条消息由P1发送到P2。此消息是SIP请求；因为P1支持过载控制，所以它将“oc”参数插入到它创建的最顶端的Via头字段中。P1支持两种过载控制算法：损耗和速率。"
+    },
+    {
+      "indent": 3,
+      "text": "The second message, a SIP response, shows the topmost Via header field amended by P2 according to this specification and sent to P1. Because P2 also supports overload control, it chooses the rate-based scheme and sends that back to P1 in the \"oc-algo\" parameter. It uses oc-validity=0 to indicate no overload control. In this example, \"oc=0\", but \"oc\" could be any value as \"oc\" is ignored when \"oc-validity=0\".",
+      "zh-CHS": "第二条消息是SIP响应，它显示了根据本规范由P2修改并发送到P1的最顶端的Via报头字段。由于P2还支持过载控制，因此它选择基于速率的方案，并在“oc algo”参数中将其发送回P1。它使用oc validity=0表示没有过载控制。在本例中，“oc=0”，但“oc”可以是任何值，因为“oc有效性=0”时忽略“oc”。"
+    },
+    {
+      "indent": 3,
+      "text": "At some later time, P2 starts to experience overload. It sends the following SIP message indicating P1 should send SIP requests at a rate no greater than or equal to 150 SIP requests per second and for a duration of 1,000 milliseconds.",
+      "zh-CHS": "稍后，P2开始经历过载。它发送以下SIP消息，指示P1应以不大于或等于每秒150个SIP请求的速率发送SIP请求，持续时间为1000毫秒。"
+    },
+    {
+      "indent": 12,
+      "text": "SIP/2.0 180 Ringing",
+      "zh-CHS": "SIP/2.0 180振铃"
+    },
+    {
+      "indent": 12,
+      "text": "Via: SIP/2.0/TLS p1.example.net;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "branch=z9hG4bK2d4790.1;received=192.0.2.111;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "oc=150;oc-algo=\"rate\";oc-validity=1000;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "oc-seq=1282321615.782",
+      "zh-CHS": "oc seq=1282321615.782"
+    },
+    {
+      "indent": 13,
+      "text": "...",
+      "zh-CHS": "..."
+    },
+    {
+      "indent": 0,
+      "text": "5. Syntax",
+      "section_title": true,
+      "zh-CHS": "5. 语法"
+    },
+    {
+      "indent": 3,
+      "text": "This specification extends the existing definition of the Via header field parameters of [RFC7339] as follows:",
+      "zh-CHS": "本规范扩展了[RFC7339]的Via标头字段参数的现有定义，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "algo-list =/ \"rate\"",
+      "zh-CHS": "算法列表=/“速率”"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Aside from the resonance concerns discussed in Section 3.5.3, this mechanism does not introduce any security concerns beyond the general overload control security issues discussed in [RFC7339]. Methods to mitigate the risk of resonance are discussed in Section 3.5.3.",
+      "zh-CHS": "除了第3.5.3节中讨论的共振问题外，除了[RFC7339]中讨论的一般过载控制安全问题外，该机制不会引入任何安全问题。第3.5.3节讨论了降低共振风险的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has registered the \"oc-algo\" parameter of the Via header field in the \"Header Field Parameters and Parameter Values\" subregistry of the \"Session Initiation Protocol (SIP) Parameters\" registry. The entry appears as follows:",
+      "zh-CHS": "IANA已在“会话启动协议（SIP）参数”注册表的“头字段参数和参数值”子区中注册了Via头字段的“oc algo”参数。条目显示如下："
+    },
+    {
+      "indent": 3,
+      "text": "Header     Parameter     Predefined     References\nField      Name          Values\n___________________________________________________________",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Via oc-algo Yes [RFC7339] [RFC7415]",
+      "zh-CHS": "通过oc algo是[RFC7339][RFC7415]"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3261] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M., and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002, <http://www.rfc-editor.org/info/rfc3261>.",
+      "zh-CHS": "[RFC3261]Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.，和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月<http://www.rfc-editor.org/info/rfc3261>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5390] Rosenberg, J., \"Requirements for Management of Overload in the Session Initiation Protocol\", RFC 5390, December 2008, <http://www.rfc-editor.org/info/rfc5390>.",
+      "zh-CHS": "[RFC5390]Rosenberg，J.，“会话启动协议中过载管理的要求”，RFC 53902008年12月<http://www.rfc-editor.org/info/rfc5390>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7339] Gurbani, V., Ed., Hilt, V., and H. Schulzrinne, \"Session Initiation Protocol (SIP) Overload Control\", RFC 7339, September 2014, <http://www.rfc-editor.org/info/rfc7339>.",
+      "zh-CHS": "[RFC7339]Gurbani，V.，Ed.，Hilt，V.，和H.Schulzrinne，“会话启动协议（SIP）过载控制”，RFC 7339，2014年9月<http://www.rfc-editor.org/info/rfc7339>."
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ITU-T-I.371] ITU-T, \"Traffic control and congestion control in B-ISDN\", ITU-T Recommendation I.371, March 2004.",
+      "zh-CHS": "[ITU-T-I.371]ITU-T，“B-ISDN中的流量控制和拥塞控制”，ITU-T建议I.371，2004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Erramilli] Erramilli, A., and L. Forys, \"Traffic Synchronization Effects In Teletraffic Systems\", ITC-13, 1991.",
+      "zh-CHS": "[Erramilli]Erramilli，A.和L.Forys，“远程交通系统中的交通同步效应”，ITC-131991年。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Many thanks to the following individuals for comments and feedback on this document: Richard Barnes, Keith Drage, Vijay Gurbany, Volker Hilt, Christer Holmberg, Winston Hong, Peter Yee, and James Yu.",
+      "zh-CHS": "非常感谢以下人士对本文件的评论和反馈：Richard Barnes、Keith Drage、Vijay Gurbany、Volker Hilt、Christer Holmberg、Winston Hong、Peter Yee和James Yu。"
+    },
+    {
+      "indent": 0,
+      "text": "Contributors",
+      "zh-CHS": "贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "Significant contributions to this document were made by Janet Gunn.",
+      "zh-CHS": "Janet Gunn对本文件做出了重大贡献。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Eric Noel AT&T Labs 200 S Laurel Avenue Middletown, NJ 07747 United States",
+      "zh-CHS": "Eric Noel AT&T实验室美国新泽西州米德尔顿市劳雷尔大道南200号，邮编：07747"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: eric.noel@att.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Philip M. Williams BT Innovate & Design Ipswich, IP5 3RE United Kingdom",
+      "zh-CHS": "Philip M.Williams BT创新与设计Ipswich，IP5 3RE英国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: phil.m.williams@bt.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

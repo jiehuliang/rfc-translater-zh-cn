@@ -1,0 +1,421 @@
+{
+  "title": {
+    "text": "RFC 7048: Neighbor Unreachability Detection Is Too Impatient",
+    "zh-CHS": "RFC 7048"
+  },
+  "number": 7048,
+  "created_at": "2021-11-01 18:22:37.248411+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                       E. Nordmark\nRequest for Comments: 7048                               Arista Networks\nUpdates: 4861                                               I. Gashinsky\nCategory: Standards Track                                         Yahoo!\nISSN: 2070-1721                                             January 2014",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "Neighbor Unreachability Detection Is Too Impatient",
+      "zh-CHS": "邻居不可达性检测太不耐烦了"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "IPv6 Neighbor Discovery includes Neighbor Unreachability Detection. That function is very useful when a host has an alternative neighbor -- for instance, when there are multiple default routers -- since it allows the host to switch to the alternative neighbor in a short time. By default, this time is 3 seconds after the node starts probing. However, if there are no alternative neighbors, this timeout behavior is far too impatient. This document specifies relaxed rules for Neighbor Discovery retransmissions that allow an implementation to choose different timeout behavior based on whether or not there are alternative neighbors. This document updates RFC 4861.",
+      "zh-CHS": "IPv6邻居发现包括邻居不可达性检测。当主机有另一个邻居时（例如，当有多个默认路由器时），该函数非常有用，因为它允许主机在短时间内切换到另一个邻居。默认情况下，此时间是节点开始探测后的3秒。但是，如果没有其他邻居，这种超时行为就太不耐烦了。本文档为邻居发现重传指定了宽松的规则，允许实现根据是否存在替代邻居选择不同的超时行为。本文档更新了RFC 4861。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7048.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7048."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2014 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2014 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Definition of Terms .............................................3\n3. Protocol Updates ................................................3\n4. Example Algorithm ...............................................6\n5. Acknowledgements ................................................7\n6. Security Considerations .........................................8\n7. References ......................................................8\n   7.1. Normative References .......................................8\n   7.2. Informative References .....................................8",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "IPv6 Neighbor Discovery [RFC4861] includes Neighbor Unreachability Detection (NUD), which detects when a neighbor is no longer reachable. The timeouts specified for NUD are very short (by default, three transmissions spaced one second apart). These short timeouts can be appropriate when there are alternative neighbors to which the packets can be sent -- for example, if a host has multiple default routers in its Default Router List or if the host has a Neighbor Cache Entry (NCE) created by a Redirect message. In those cases, when NUD fails, the host will try the alternative neighbor by redoing the next-hop selection. That implies picking the next router in the Default Router List or discarding the NCE created by a Redirect message, respectively.",
+      "zh-CHS": "IPv6邻居发现[RFC4861]包括邻居不可访问性检测（NUD），该检测用于检测何时邻居不再可访问。为NUD指定的超时非常短（默认情况下，三次传输间隔1秒）。当存在可向其发送数据包的备选邻居时，这些短超时是合适的——例如，如果主机的默认路由器列表中有多个默认路由器，或者如果主机有由重定向消息创建的邻居缓存条目（NCE）。在这些情况下，当NUD失败时，主机将通过重做下一跳选择来尝试替代邻居。这意味着分别在默认路由器列表中选择下一个路由器或丢弃由重定向消息创建的NCE。"
+    },
+    {
+      "indent": 3,
+      "text": "The timeouts specified in [RFC4861] were chosen to be short in order to optimize scenarios where alternative neighbors are available.",
+      "zh-CHS": "[RFC4861]中规定的超时被选择为较短，以优化备选邻居可用的场景。"
+    },
+    {
+      "indent": 3,
+      "text": "However, when there is no alternative neighbor, there are several benefits to making NUD probe for a longer time. One benefit is to make NUD more robust against transient failures, such as spanning",
+      "zh-CHS": "然而，当没有替代邻居时，长时间使用NUD探测器有几个好处。一个好处是使NUD对瞬时故障（如跨越）更加健壮"
+    },
+    {
+      "indent": 3,
+      "text": "tree reconvergence and other layer 2 issues that can take many seconds to resolve. Marking the NCE as unreachable, in that case, causes additional multicast on the network. Assuming there are IP packets to send, the lack of an NCE will result in multicast Neighbor Solicitations being sent (to the solicited-node multicast address) every second instead of the unicast Neighbor Solicitations that NUD sends.",
+      "zh-CHS": "树重新聚合和其他第2层问题可能需要几秒钟才能解决。在这种情况下，将NCE标记为不可访问会导致网络上出现额外的多播。假设存在要发送的IP数据包，缺少NCE将导致每秒发送多播邻居请求（到请求的节点多播地址），而不是NUD发送的单播邻居请求。"
+    },
+    {
+      "indent": 3,
+      "text": "As a result, IPv6 Neighbor Discovery is operationally more brittle than the IPv4 Address Resolution Protocol (ARP). For IPv4, there is no mandatory time limit on the retransmission behavior for ARP [RFC0826], which allows implementors to pick more robust schemes.",
+      "zh-CHS": "因此，IPv6邻居发现在操作上比IPv4地址解析协议（ARP）更脆弱。对于IPv4，ARP[RFC0826]的重传行为没有强制的时间限制，这允许实现者选择更健壮的方案。"
+    },
+    {
+      "indent": 3,
+      "text": "The following constant values in [RFC4861] seem to have been made part of IPv6 conformance testing: MAX_MULTICAST_SOLICIT, MAX_UNICAST_SOLICIT, and RETRANS_TIMER. While such strict conformance testing seems consistent with [RFC4861], it means that the standard needs to be updated to allow IPv6 Neighbor Discovery to be as robust as ARP.",
+      "zh-CHS": "[RFC4861]中的以下常量值似乎已成为IPv6一致性测试的一部分：最大多播请求、最大单播请求和重传定时器。虽然这种严格的一致性测试似乎与[RFC4861]一致，但这意味着该标准需要更新，以允许IPv6邻居发现与ARP一样健壮。"
+    },
+    {
+      "indent": 3,
+      "text": "This document updates RFC 4861 to relax the retransmission rules.",
+      "zh-CHS": "本文档更新RFC 4861以放宽重传规则。"
+    },
+    {
+      "indent": 3,
+      "text": "Additional motivations for making IPv6 Neighbor Discovery more robust in the face of degenerate conditions are covered in [RFC6583].",
+      "zh-CHS": "[RFC6583]中介绍了使IPv6邻居发现在退化条件下更加健壮的其他动机。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Definition of Terms",
+      "section_title": true,
+      "zh-CHS": "2. 术语的定义"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Protocol Updates",
+      "section_title": true,
+      "zh-CHS": "3. 协议更新"
+    },
+    {
+      "indent": 3,
+      "text": "Discarding the NCE after three packets spaced one second apart is only needed when an alternative neighbor is available, such as an additional default router or discarding an NCE created by a Redirect.",
+      "zh-CHS": "仅当备用邻居可用时，如额外的默认路由器或丢弃重定向创建的NCE，才需要在间隔1秒的三个数据包之后丢弃NCE。"
+    },
+    {
+      "indent": 3,
+      "text": "If an implementation transmits more than MAX_UNICAST_SOLICIT/ MAX_MULTICAST_SOLICIT packets, then it SHOULD use the exponential backoff of the retransmit timer. This is to avoid any significant load due to a steady background level of retransmissions from implementations that retransmit a large number of Neighbor Solicitations (NS) before discarding the NCE.",
+      "zh-CHS": "如果一个实现传输的数据包超过MAX_单播请求/MAX_多播请求，那么它应该使用重传计时器的指数退避。这是为了避免由于在丢弃NCE之前重传大量邻居请求（NS）的实现的稳定的重传后台级别而产生的任何显著负载。"
+    },
+    {
+      "indent": 3,
+      "text": "Even if there is no alternative neighbor, the protocol needs to be able to handle the case when the link-layer address of the neighbor/ target has changed by switching to multicast Neighbor Solicitations at some point in time.",
+      "zh-CHS": "即使没有替代邻居，该协议也需要能够通过在某个时间点切换到多播邻居请求来处理邻居/目标的链路层地址发生变化的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to capture all the cases above, this document introduces a new UNREACHABLE state in the conceptual model described in [RFC4861]. An NCE in the UNREACHABLE state retains the link-layer address, and IPv6 packets continue to be sent to that link-layer address. But in the UNREACHABLE state, the NUD Neighbor Solicitations are multicast (to the solicited-node multicast address), using a timeout that follows an exponential backoff.",
+      "zh-CHS": "为了捕获上述所有情况，本文档在[RFC4861]中描述的概念模型中引入了一个新的不可到达状态。处于不可访问状态的NCE保留链路层地址，IPv6数据包继续发送到该链路层地址。但在不可访问状态下，NUD邻居请求是多播的（到请求的节点多播地址），使用指数退避后的超时。"
+    },
+    {
+      "indent": 3,
+      "text": "In the places where [RFC4861] says to discard/delete the NCE after N probes (Sections 7.3 and 7.3.3, and Appendix C), this document instead specifies a transition to the UNREACHABLE state.",
+      "zh-CHS": "在[RFC4861]表示在N次探测后丢弃/删除NCE的地方（第7.3节和第7.3.3节，以及附录C），本文件规定了向无法到达状态的转换。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Neighbor Cache Entry was created by a Redirect message, a node MAY delete the NCE instead of changing its state to UNREACHABLE. In any case, the node SHOULD NOT use an NCE created by a Redirect to send packets if that NCE is in the UNREACHABLE state. Packets should be sent following the next-hop selection algorithm in [RFC4861], Section 5.2, which disregards NCEs that are not reachable.",
+      "zh-CHS": "如果邻居缓存条目是由重定向消息创建的，则节点可以删除NCE，而不是将其状态更改为“不可访问”。在任何情况下，如果NCE处于无法访问状态，则节点不应使用重定向创建的NCE发送数据包。数据包应按照[RFC4861]第5.2节中的下一跳选择算法发送，该算法忽略无法到达的NCE。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 6.3.6 of [RFC4861] indicates that default routers that are \"known to be reachable\" are preferred. For the purposes of that section, if the NCE for the router is in the UNREACHABLE state, it is not known to be reachable. Thus, the particular text in Section 6.3.6 that says \"in any state other than INCOMPLETE\" needs to be extended to say \"in any state other than INCOMPLETE or UNREACHABLE\".",
+      "zh-CHS": "[RFC4861]第6.3.6节指出，首选“已知可访问”的默认路由器。就本节而言，如果路由器的NCE处于不可访问状态，则不知道其是否可访问。因此，第6.3.6节中“在任何非不完整状态下”的特定文本需要扩展为“在任何非不完整或不可到达状态下”。"
+    },
+    {
+      "indent": 3,
+      "text": "Apart from the use of multicast NS instead of unicast NS, and the exponential backoff of the timer, the UNREACHABLE state works the same as the current PROBE state.",
+      "zh-CHS": "除了使用多播NS而不是单播NS，以及计时器的指数后退之外，不可到达状态的工作原理与当前探测状态相同。"
+    },
+    {
+      "indent": 3,
+      "text": "A node MAY garbage collect a Neighbor Cache Entry at any time as specified in [RFC4861]. This freedom to garbage collect does not change with the introduction of the UNREACHABLE state in the conceptual model. An implementation MAY prefer garbage collecting UNREACHABLE NCEs over other NCEs.",
+      "zh-CHS": "节点可以在[RFC4861]中指定的任何时间对邻居缓存项进行垃圾收集。垃圾收集的自由度不会随着概念模型中不可访问状态的引入而改变。与其他NCE相比，实现可能更喜欢垃圾收集无法访问的NCE。"
+    },
+    {
+      "indent": 3,
+      "text": "There is a non-obvious extension to the state-machine description in Appendix C of [RFC4861] in the case for \"NA, Solicited=1, Override=0. Different link-layer address than cached\". There we need to add \"UNREACHABLE\" to the current list of \"STALE, PROBE, Or DELAY\". That is, the NCE would be unchanged. Note that there is no corresponding change necessary to the text in [RFC4861], Section 7.2.5, since it is phrased using \"Otherwise\" instead of explicitly listing the three states.",
+      "zh-CHS": "[RFC4861]附录C中的状态机描述有一个不明显的扩展，用于“NA，请求=1，覆盖=0。不同于缓存的链路层地址”。在这里，我们需要在当前的“过时、探测或延迟”列表中添加“无法访问”。也就是说，NCE将保持不变。请注意，[RFC4861]第7.2.5节中的文本无需进行相应更改，因为其措辞使用“否则”，而不是明确列出三种状态。"
+    },
+    {
+      "indent": 3,
+      "text": "The other state transitions described in Appendix C handle the introduction of the UNREACHABLE state without any change, since they are described using \"not INCOMPLETE\".",
+      "zh-CHS": "附录C中描述的其他状态转换处理不可到达状态的引入，没有任何更改，因为它们使用“不完整”来描述。"
+    },
+    {
+      "indent": 3,
+      "text": "There is also the more obvious change already described above. [RFC4861] has this:",
+      "zh-CHS": "还有上面已经描述过的更明显的变化。[RFC4861]具有以下功能："
+    },
+    {
+      "indent": 3,
+      "text": "State Event Action New state",
+      "zh-CHS": "状态事件操作新状态"
+    },
+    {
+      "indent": 3,
+      "text": "PROBE Retransmit timeout, Discard entry - N or more retransmissions.",
+      "zh-CHS": "探测重传超时，放弃条目-N次或更多重传。"
+    },
+    {
+      "indent": 3,
+      "text": "That needs to be replaced by:",
+      "zh-CHS": "需要以以下方式取代："
+    },
+    {
+      "indent": 3,
+      "text": "State Event Action New state",
+      "zh-CHS": "状态事件操作新状态"
+    },
+    {
+      "indent": 3,
+      "text": "PROBE Retransmit timeout, Increase timeout UNREACHABLE N retransmissions. Send multicast NS",
+      "zh-CHS": "探测重新传输超时，增加无法到达的超时N次重新传输。发送多播网络"
+    },
+    {
+      "indent": 3,
+      "text": "UNREACHABLE Retransmit timeout Increase timeout UNREACHABLE Send multicast NS",
+      "zh-CHS": "无法到达的重新传输超时增加超时无法到达的发送多播NS"
+    },
+    {
+      "indent": 3,
+      "text": "The exponential backoff SHOULD be clamped at some reasonable maximum retransmit timeout, such as 60 seconds (see MAX_RETRANS_TIMER below). If there is no IPv6 packet sent using the UNREACHABLE NCE, then it is RECOMMENDED to stop the retransmits of the multicast NS until either the NCE is garbage collected or there are IPv6 packets sent using the NCE. The multicast NS and associated exponential backoff can be applied on the condition of continued use of the NCE to send IPv6 packets to the recorded link-layer address.",
+      "zh-CHS": "指数退避应限制在某个合理的最大重新传输超时，例如60秒（请参阅下面的最大重新传输计时器）。如果没有使用不可访问的NCE发送IPv6数据包，则建议停止多播NS的重新传输，直到NCE被垃圾回收或有使用NCE发送IPv6数据包为止。在继续使用NCE向记录的链路层地址发送IPv6分组的条件下，可以应用多播NS和相关的指数退避。"
+    },
+    {
+      "indent": 3,
+      "text": "A node can unicast the first few Neighbor Solicitation messages even while in the UNREACHABLE state, but it MUST switch to multicast Neighbor Solicitations within 60 seconds of the initial retransmission to be able to handle a link-layer address change for the target. The example below shows such behavior.",
+      "zh-CHS": "即使在不可到达状态下，节点也可以单播前几个邻居请求消息，但它必须在初始重传的60秒内切换到多播邻居请求，以便能够处理目标的链路层地址更改。下面的示例显示了这种行为。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Example Algorithm",
+      "section_title": true,
+      "zh-CHS": "4. 示例算法"
+    },
+    {
+      "indent": 3,
+      "text": "This section is NOT normative but specifies a simple implementation that conforms with this document. The implementation is described using operator-configurable values that allow it to be configured to be compatible with the retransmission behavior in [RFC4861]. The operator can configure the values for MAX_UNICAST_SOLICIT, MAX_MULTICAST_SOLICIT, RETRANS_TIMER, and the new BACKOFF_MULTIPLE, MAX_RETRANS_TIMER, and MARK_UNREACHABLE. This allows the implementation to be as simple as:",
+      "zh-CHS": "本节不是规范性的，但规定了符合本文件要求的简单实现。使用操作员可配置值描述实现，该值允许将其配置为与[RFC4861]中的重传行为兼容。操作员可以配置MAX_单播请求、MAX_多播请求、重传请求计时器以及新的退避请求、MAX_重传请求计时器和标记不可访问的值。这使得实现简单到："
+    },
+    {
+      "indent": 3,
+      "text": "next_retrans = ($BACKOFF_MULTIPLE ^ $solicit_retrans_num) *\n$RetransTimer * $JitterFactor where solicit_retrans_num is zero for\nthe first transmission, and JitterFactor is a random value between\nMIN_RANDOM_FACTOR and MAX_RANDOM_FACTOR [RFC4861] to avoid any\nsynchronization of transmissions from different hosts.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "After MARK_UNREACHABLE transmissions, the implementation would mark the NCE UNREACHABLE and as a result explore alternate next hops. After MAX_UNICAST_SOLICIT, the implementation would switch to multicast NUD probes.",
+      "zh-CHS": "在标记_不可到达传输之后，实现将标记NCE不可到达，并因此探索备用下一跳。在MAX_UNICAST_request之后，实现将切换到多播NUD探测。"
+    },
+    {
+      "indent": 3,
+      "text": "The behavior of this example algorithm is to have 5 attempts, with time spacing of 0 (initial request), 1 second later, 3 seconds after the first retransmission, then 9, then 27, and switch to UNREACHABLE after the first three transmissions. Thus, relative to the time of the first transmissions, the retransmissions would occur at 1 second, 4 seconds, 13 seconds, and finally 40 seconds. At 4 seconds from the first transmission, the NCE would be marked UNREACHABLE. That behavior corresponds to:",
+      "zh-CHS": "该示例算法的行为是有5次尝试，时间间隔为0（初始请求），1秒后，在第一次重传后3秒，然后9次，然后27次，并在前三次传输后切换到不可到达。因此，相对于第一次传输的时间，重传将在1秒、4秒、13秒和最后40秒发生。在第一次传输后4秒，NCE将被标记为不可访问。该行为对应于："
+    },
+    {
+      "indent": 6,
+      "text": "MAX_UNICAST_SOLICIT=5",
+      "zh-CHS": "最大单播请求=5"
+    },
+    {
+      "indent": 6,
+      "text": "RETRANS_TIMER=1 (default)",
+      "zh-CHS": "重新传输计时器=1（默认）"
+    },
+    {
+      "indent": 6,
+      "text": "MAX_RETRANS_TIMER=60",
+      "zh-CHS": "最大重传定时器=60"
+    },
+    {
+      "indent": 6,
+      "text": "BACKOFF_MULTIPLE=3",
+      "zh-CHS": "退避次数=3"
+    },
+    {
+      "indent": 6,
+      "text": "MARK_UNREACHABLE=3",
+      "zh-CHS": "MARK_UNREACHABLE=3"
+    },
+    {
+      "indent": 3,
+      "text": "After 3 retransmissions, the implementation would mark the NCE UNREACHABLE. That results in trying an alternative neighbor, such as another default router, or ignoring an NCE created by a Redirect as specified in [RFC4861]. With the above values, that would occur after 4 seconds following the first transmission compared to the",
+      "zh-CHS": "在3次重传之后，实现将标记NCE不可到达。这会导致尝试另一个邻居，如另一个默认路由器，或忽略[RFC4861]中指定的重定向创建的NCE。使用上述值，与第一次传输相比，第一次传输后4秒后会出现这种情况"
+    },
+    {
+      "indent": 3,
+      "text": "2 seconds using the fixed scheme in [RFC4861]. That additional delay is small compared to the default ReachableTime of 30,000 milliseconds.",
+      "zh-CHS": "2秒，使用[RFC4861]中的固定方案。与默认的30000毫秒可到达时间相比，额外的延迟很小。"
+    },
+    {
+      "indent": 3,
+      "text": "After 5 transmissions, i.e., 40 seconds after the initial transmission, the example behavior is to switch to multicast NUD probes. In the language of the state machine in [RFC4861], that corresponds to the action \"Discard entry\". Thus, any attempts to send future packets would result in sending multicast NS packets. An implementation MAY retain the backoff value as it switches to multicast NUD probes. The potential downside of deferring switching to multicast is that it would take longer for NUD to handle a change in a link-layer address, i.e., the case when a host or a router changes its link-layer address while keeping the same IPv6 address. However, [RFC4861] says that a node MAY send unsolicited NS to handle that case, which is rather infrequent in operational networks. In any case, the implementation needs to follow the \"SHOULD\" in Section 3 to switch to multicast solutions within 60 seconds after the initial transmission.",
+      "zh-CHS": "在5次传输后，即初始传输后40秒，示例行为是切换到多播NUD探测。在[RFC4861]中状态机的语言中，对应于操作“Discard entry”。因此，任何发送未来数据包的尝试都会导致发送多播NS数据包。实现在切换到多播NUD探测时可能会保留回退值。延迟切换到多播的潜在缺点是，NUD处理链路层地址的更改需要更长的时间，即主机或路由器在保持相同IPv6地址的同时更改其链路层地址的情况。然而，[RFC4861]表示节点可能会发送未经请求的NS来处理这种情况，这在运营网络中非常罕见。在任何情况下，实现都需要遵循第3节中的“应该”，以便在初始传输后60秒内切换到多播解决方案。"
+    },
+    {
+      "indent": 3,
+      "text": "If BACKOFF_MULTIPLE=1, MARK_UNREACHABLE=3, and MAX_UNICAST_SOLICIT=3, you would get the same behavior as in [RFC4861].",
+      "zh-CHS": "如果BACKOFF\\u MULTIPLE=1，MARK\\u UNREACHABLE=3，MAX\\u UNICAST\\u request=3，您将得到与[RFC4861]中相同的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "If the request was not answered at first -- due, for example, to a transitory condition -- an implementation following this algorithm would retry immediately and then back off for progressively longer periods. This would allow for a reasonably fast resolution time when the transitory condition clears.",
+      "zh-CHS": "如果一开始请求没有得到响应（例如，由于暂时的情况），那么遵循此算法的实现将立即重试，然后逐渐退出更长的时间。这将允许在瞬态条件清除时有一个相当快的解决时间。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that RetransTimer and ReachableTime are by default set from the protocol constants RETRANS_TIMER and REACHABLE_TIME but are overridden by values advertised in Router Advertisements as specified in [RFC4861]. That remains the case even with the protocol updates specified in this document. The key values that the operator would configure are BACKOFF_MULTIPLE, MAX_RETRANS_TIMER, MAX_UNICAST_SOLICIT, and MAX_MULTICAST_SOLICIT.",
+      "zh-CHS": "请注意，默认情况下，RetransTimer和REACHABLEABLETIME是从协议常数RETRANS_TIMER和REACHABLEABLE_TIME设置的，但被[RFC4861]中指定的路由器播发中播发的值覆盖。即使本文档中指定了协议更新，情况仍然如此。运营商将配置的关键值是退避倍数、最大重传计时器、最大单播请求和最大多播请求。"
+    },
+    {
+      "indent": 3,
+      "text": "It is useful to have a maximum value for ($BACKOFF_MULTIPLE^$solicit_attempt_num)*$RetransTimer so that the retransmissions are not too far apart. The above value of 60 seconds for this MAX_RETRANS_TIMER is consistent with DHCPv6.",
+      "zh-CHS": "为（$BACKOFF\\u MULTIPLE^$request\\u trust\\u num）*$retrantimer指定一个最大值非常有用，这样重传之间就不会相隔太远。此MAX_RETRANS_计时器的上述60秒值与DHCPv6一致。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "5. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The comments from Thomas Narten, Philip Homburg, Joel Jaeggli, Hemant Singh, Tina Tsou, Suresh Krishnan, and Murray Kucherawy have helped improve this document.",
+      "zh-CHS": "Thomas Narten、Philip Homburg、Joel Jaeggli、Hemant Singh、Tina Tsou、Suresh Krishnan和Murray Kucherawy的评论有助于改进本文件。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Relaxing the retransmission behavior for NUD is believed to have no impact on security. In particular, it doesn't impact the application of Secure Neighbor Discovery [RFC3971].",
+      "zh-CHS": "放松NUD的重传行为被认为对安全性没有影响。特别是，它不会影响安全邻居发现[RFC3971]的应用。"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3971] Arkko, J., Kempf, J., Zill, B., and P. Nikander, \"SEcure Neighbor Discovery (SEND)\", RFC 3971, March 2005.",
+      "zh-CHS": "[RFC3971]Arkko，J.，Kempf，J.，Zill，B.，和P.Nikander，“安全邻居发现（SEND）”，RFC 39712005年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4861] Narten, T., Nordmark, E., Simpson, W., and H. Soliman, \"Neighbor Discovery for IP version 6 (IPv6)\", RFC 4861, September 2007.",
+      "zh-CHS": "[RFC4861]Narten，T.，Nordmark，E.，Simpson，W.，和H.Soliman，“IP版本6（IPv6）的邻居发现”，RFC 48612007年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC0826] Plummer, D., \"Ethernet Address Resolution Protocol: Or converting network protocol addresses to 48.bit Ethernet address for transmission on Ethernet hardware\", STD 37, RFC 826, November 1982.",
+      "zh-CHS": "[RFC0826]Plummer，D.，“以太网地址解析协议：或将网络协议地址转换为48位以太网地址，以便在以太网硬件上传输”，STD 37，RFC 826，1982年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6583] Gashinsky, I., Jaeggli, J., and W. Kumari, \"Operational Neighbor Discovery Problems\", RFC 6583, March 2012.",
+      "zh-CHS": "[RFC6583]Gashinsky，I.，Jaeggli，J.，和W.Kumari，“操作邻居发现问题”，RFC 6583，2012年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Erik Nordmark Arista Networks Santa Clara, CA USA",
+      "zh-CHS": "Erik Nordmark Arista Networks美国加利福尼亚州圣克拉拉"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: nordmark@acm.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Igor Gashinsky Yahoo! 45 W 18th St New York, NY USA",
+      "zh-CHS": "igorgashinskyyahoo！美国纽约州纽约市第18街西45号"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: igor@yahoo-inc.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

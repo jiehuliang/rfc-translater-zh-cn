@@ -1,0 +1,970 @@
+{
+  "title": {
+    "text": "RFC 7383: Internet Key Exchange Protocol Version 2 (IKEv2) Message Fragmentation",
+    "zh-CHS": "RFC 7383"
+  },
+  "number": 7383,
+  "created_at": "2021-11-02 19:34:34.372290+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                        V. Smyslov\nRequest for Comments: 7383                                    ELVIS-PLUS\nCategory: Standards Track                                  November 2014\nISSN: 2070-1721",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "Internet Key Exchange Protocol Version 2 (IKEv2) Message Fragmentation",
+      "zh-CHS": "Internet密钥交换协议版本2（IKEv2）消息碎片"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a way to avoid IP fragmentation of large Internet Key Exchange Protocol version 2 (IKEv2) messages. This allows IKEv2 messages to traverse network devices that do not allow IP fragments to pass through.",
+      "zh-CHS": "本文档描述了一种避免大型Internet密钥交换协议版本2（IKEv2）消息的IP碎片的方法。这允许IKEv2消息遍历不允许IP片段通过的网络设备。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7383.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7383."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2014 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2014 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. Problem Description ........................................2\n   1.2. Proposed Solution ..........................................3\n   1.3. Conventions Used in This Document ..........................4\n2. Protocol Details ................................................4\n   2.1. Overview ...................................................4\n   2.2. Limitations ................................................4\n   2.3. Negotiation ................................................5\n   2.4. Using IKE Fragmentation ....................................5\n   2.5. Fragmenting Message ........................................6\n        2.5.1. Selecting Fragment Size .............................8\n        2.5.2. PMTU Discovery ......................................9\n        2.5.3. Fragmenting Messages Containing Unprotected\n               Payloads ...........................................11\n   2.6. Receiving IKE Fragment Message ............................11\n        2.6.1. Replay Detection and Retransmissions ...............13\n3. Interaction with Other IKE Extensions ..........................14\n4. Transport Considerations .......................................14\n5. Security Considerations ........................................15\n6. IANA Considerations ............................................16\n7. References .....................................................16\n   7.1. Normative References ......................................16\n   7.2. Informative References ....................................16\nAppendix A. Design Rationale ......................................19\nAppendix B. Correlation between IP Datagram Size and Encrypted\n            Payload Content Size ..................................19\nAcknowledgements ..................................................20\nAuthor's Address ..................................................20",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Problem Description",
+      "section_title": true,
+      "zh-CHS": "1.1. 问题描述"
+    },
+    {
+      "indent": 3,
+      "text": "The Internet Key Exchange Protocol version 2 (IKEv2), specified in [RFC7296], uses UDP as a transport for its messages. Most IKEv2 messages are relatively small, usually below several hundred bytes. A notable exception is the IKE_AUTH exchange, which requires fairly large messages, up to several KB, especially when certificates are transferred. When the IKE message size exceeds the path MTU, it gets fragmented at the IP level. The problem is that some network devices, specifically some NAT boxes, do not allow IP fragments to pass through. This apparently blocks IKE communication and, therefore, prevents peers from establishing an IPsec Security Association (SA). Section 2 of [RFC7296] discusses the impact of IP fragmentation on IKEv2 and acknowledges this problem.",
+      "zh-CHS": "[RFC7296]中指定的Internet密钥交换协议版本2（IKEv2）使用UDP作为其消息的传输。大多数IKEv2消息相对较小，通常小于几百字节。一个值得注意的例外是IKE_AUTH exchange，它需要相当大的消息，最多可达几KB，尤其是在传输证书时。当IKE消息大小超过路径MTU时，它会在IP级别上变得支离破碎。问题是一些网络设备，特别是一些NAT盒，不允许IP片段通过。这显然会阻止IKE通信，因此会阻止对等方建立IPsec安全关联（SA）。[RFC7296]的第2节讨论了IP碎片对IKEv2的影响，并承认了这个问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Widespread deployment of Carrier-Grade NATs (CGNs) introduces new challenges. [RFC6888] describes requirements for CGNs. It states that CGNs must comply with Section 11 of [RFC4787], which requires NATs to support receiving IP fragments (REQ-14). In real life, fulfillment of this requirement creates an additional burden in terms of memory, especially for high-capacity devices used in CGNs. It was found by people deploying IKE that more and more ISPs use equipment that drops IP fragments, thereby violating this requirement.",
+      "zh-CHS": "载波级NAT（CGN）的广泛部署带来了新的挑战。[RFC6888]描述了CGN的要求。它规定CGN必须符合[RFC4787]第11节，该节要求NAT支持接收IP片段（REQ-14）。在现实生活中，满足这一要求会带来额外的内存负担，特别是对于CGN中使用的大容量设备。部署IKE的人发现，越来越多的ISP使用丢弃IP碎片的设备，从而违反了这一要求。"
+    },
+    {
+      "indent": 3,
+      "text": "Security researchers have found, and continue to find, attack vectors that rely on IP fragmentation. For these reasons, and also as articulated in [FRAGDROP], many network operators filter all IPv6 fragments. Also, the default behavior of many currently deployed firewalls is to discard IPv6 fragments.",
+      "zh-CHS": "安全研究人员已经发现并继续发现依赖IP碎片的攻击向量。出于这些原因，正如[FRAGDROP]中所述，许多网络运营商过滤所有IPv6片段。此外，许多当前部署的防火墙的默认行为是丢弃IPv6片段。"
+    },
+    {
+      "indent": 3,
+      "text": "In one recent study [BLACKHOLES], two researchers utilized a measurement network to measure fragment filtering. They sent packets, fragmented to the minimum MTU of 1280, to 502 IPv6-enabled and reachable probes. They found that during any given trial period, ten percent of the probes did not receive fragmented packets.",
+      "zh-CHS": "在最近的一项研究[黑洞]中，两名研究人员利用测量网络测量碎片过滤。他们向502个支持IPv6且可到达的探测器发送数据包，数据包碎片最小MTU为1280。他们发现，在任何给定的试验期间，10%的探针没有收到碎片数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, this problem is valid for both IPv4 and IPv6 and may be caused by either deficiency of network devices or operational choice.",
+      "zh-CHS": "Thus, this problem is valid for both IPv4 and IPv6 and may be caused by either deficiency of network devices or operational choice.translate error, please retry"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Proposed Solution",
+      "section_title": true,
+      "zh-CHS": "1.2. Proposed Solutiontranslate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "The solution to the problem described in this document is to perform fragmentation of large messages by IKEv2 itself and replace them with a series of smaller messages. In this case, the resulting IP datagrams will be small enough so that no fragmentation at the IP level will take place.",
+      "zh-CHS": "本文档中描述的问题的解决方案是由IKEv2本身执行大消息的分段，并用一系列较小的消息替换它们。在这种情况下，生成的IP数据报将足够小，因此不会在IP级别发生碎片。"
+    },
+    {
+      "indent": 3,
+      "text": "The primary goal of this solution is to allow IKEv2 to operate in environments that might block IP fragments. This goal does not assume that IP fragmentation should be avoided completely, but only in those cases when it interferes with IKE operations. However, this solution could be used to avoid IP fragmentation in all situations where fragmentation within IKE is applicable, as recommended in Section 3.2 of [RFC5405]. Avoiding IP fragmentation would be beneficial for IKEv2 in general. The Security Considerations section of [RFC7296] mentions exhaustion of the IP reassembly buffers as one of the possible attacks on the protocol. In [DOSUDPPROT], several aspects of attacks on IKE using IP fragmentation are discussed, and one of the defenses it proposes is to perform fragmentation within IKE, similar to the solution described in this document.",
+      "zh-CHS": "此解决方案的主要目标是允许IKEv2在可能阻塞IP片段的环境中运行。这一目标并不意味着应该完全避免IP碎片，而只是在IP碎片干扰IKE操作的情况下。然而，如[RFC5405]第3.2节所建议的，该解决方案可用于在IKE内的碎片适用的所有情况下避免IP碎片。一般来说，避免IP碎片将有利于IKEv2。[RFC7296]的安全注意事项部分提到耗尽IP重组缓冲区是对协议的可能攻击之一。在[Dosudprot]中，讨论了使用IP碎片攻击IKE的几个方面，它提出的防御措施之一是在IKE内执行碎片攻击，类似于本文档中描述的解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "1.3. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Protocol Details",
+      "section_title": true,
+      "zh-CHS": "2. 协议详情"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Overview",
+      "section_title": true,
+      "zh-CHS": "2.1. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "The idea of the protocol described in this document is to split large IKEv2 messages into a set of smaller ones, called IKE Fragment messages. Fragmentation takes place before the original message is encrypted and authenticated, so that each IKE Fragment message receives individual protection. On the receiving side, IKE Fragment messages are collected, verified, decrypted, and merged together to get the original message before encryption. See Appendix A for details on design rationale.",
+      "zh-CHS": "本文档中描述的协议的思想是将大型IKEv2消息拆分为一组较小的消息，称为IKE片段消息。碎片发生在原始消息加密和身份验证之前，因此每个IKE碎片消息都会收到单独的保护。在接收端，IKE片段消息被收集、验证、解密并合并在一起，以在加密之前获得原始消息。有关设计原理的详细信息，请参见附录A。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Limitations",
+      "section_title": true,
+      "zh-CHS": "2.2. 局限性"
+    },
+    {
+      "indent": 3,
+      "text": "Since IKE Fragment messages are cryptographically protected, SK_a and SK_e must already be calculated. In general, it means that the original message can be fragmented if and only if it contains an Encrypted payload.",
+      "zh-CHS": "由于IKE片段消息受到加密保护，因此必须已经计算出SK_a和SK_e。一般来说，这意味着当且仅当原始消息包含加密的有效负载时，才能对其进行分段。"
+    },
+    {
+      "indent": 3,
+      "text": "This implies that messages of the IKE_SA_INIT exchange cannot be fragmented. In most cases, this is not a problem because IKE_SA_INIT messages are usually small enough to avoid IP fragmentation. But in some cases (advertising a badly structured long list of algorithms, using large Modular Exponentiation (MODP) groups, etc.), these messages may become fairly large and get fragmented at the IP level. In this case, the solution described in this document will not help.",
+      "zh-CHS": "这意味着IKE_SA_INIT交换的消息不能被分段。在大多数情况下，这不是问题，因为IKE_SA_INIT消息通常足够小，可以避免IP碎片。但在某些情况下（宣传结构不良的长算法列表、使用大型模块化指数（MODP）组等），这些消息可能会变得相当大，并在IP级别上变得支离破碎。在这种情况下，本文档中描述的解决方案没有帮助。"
+    },
+    {
+      "indent": 3,
+      "text": "Among existing IKEv2 extensions, messages of an IKE_SESSION_RESUME exchange, as defined in [RFC5723], cannot be fragmented either. See Section 3 for details.",
+      "zh-CHS": "在现有的IKEv2扩展中，[RFC5723]中定义的IKE_会话_恢复交换的消息也不能分段。详见第3节。"
+    },
+    {
+      "indent": 3,
+      "text": "Another limitation is that the minimum size of an IP datagram bearing an IKE Fragment message is about 100 bytes, depending on the algorithms employed. According to [RFC0791], the minimum IPv4 datagram size that is guaranteed not to be further fragmented is 68 bytes. So, even the smallest IKE Fragment messages could be fragmented at the IP level in some circumstances. But such extremely small Path MTU (PMTU) sizes are very rare in real life.",
+      "zh-CHS": "另一个限制是，承载IKE片段消息的IP数据报的最小大小约为100字节，这取决于所采用的算法。根据[RFC0791]，保证不会进一步碎片化的IPv4数据报最小大小为68字节。因此，在某些情况下，即使是最小的IKE片段消息也可以在IP级别进行分段。但是，这种非常小的路径MTU（PMTU）大小在现实生活中非常罕见。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Negotiation",
+      "section_title": true,
+      "zh-CHS": "2.3. 谈判"
+    },
+    {
+      "indent": 3,
+      "text": "The initiator indicates its support for IKE fragmentation and willingness to use it by including a Notification payload of type IKEV2_FRAGMENTATION_SUPPORTED in the IKE_SA_INIT request message. If the responder also supports this extension and is willing to use it, it includes this notification in the response message.",
+      "zh-CHS": "发起方通过在IKE_SA_INIT请求消息中包含支持的IKEV2_fragmentation_类型的通知有效负载来表示其对IKE分段的支持和使用它的意愿。如果响应者也支持此扩展并愿意使用它，则它会在响应消息中包含此通知。"
+    },
+    {
+      "indent": 3,
+      "text": "Initiator                   Responder\n-----------                 -----------\nHDR, SAi1, KEi, Ni,\n   [N(IKEV2_FRAGMENTATION_SUPPORTED)]  -->",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 23,
+      "text": "<-- HDR, SAr1, KEr, Nr, [CERTREQ], [N(IKEV2_FRAGMENTATION_SUPPORTED)]",
+      "zh-CHS": "<--HDR、SAr1、KEr、Nr、[CERTREQ]、[N（支持IKEV2）]"
+    },
+    {
+      "indent": 3,
+      "text": "The Notify payload is formatted as follows:",
+      "zh-CHS": "通知有效负载的格式如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "                     1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Next Payload  |C|  RESERVED   |         Payload Length        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|Protocol ID(=0)| SPI Size (=0) |      Notify Message Type      |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "o Protocol ID (1 octet) - MUST be 0.",
+      "zh-CHS": "o 协议ID（1个八位字节）-必须为0。"
+    },
+    {
+      "indent": 3,
+      "text": "o SPI Size (1 octet) - MUST be 0, meaning no Security Parameter Index (SPI) is present.",
+      "zh-CHS": "o SPI大小（1个八位字节）-必须为0，表示不存在安全参数索引（SPI）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Notify Message Type (2 octets) - MUST be 16430, the value assigned for the IKEV2_FRAGMENTATION_SUPPORTED notification.",
+      "zh-CHS": "o 通知消息类型（2个八位字节）-必须为16430，为支持IKEV2_碎片化_的通知分配的值。"
+    },
+    {
+      "indent": 3,
+      "text": "This notification contains no data.",
+      "zh-CHS": "此通知不包含任何数据。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Using IKE Fragmentation",
+      "section_title": true,
+      "zh-CHS": "2.4. 使用IKE分段"
+    },
+    {
+      "indent": 3,
+      "text": "IKE fragmentation MUST NOT be used unless both peers have indicated their support for it. After that, it is up to the initiator of each exchange to decide whether or not to use it. The responder usually replies in the same form as the request message, but other considerations might override this.",
+      "zh-CHS": "除非两个对等方都表示支持，否则不得使用IKE分段。之后，由每个交换的发起人决定是否使用它。响应者通常以与请求消息相同的形式进行响应，但其他考虑因素可能会覆盖此内容。"
+    },
+    {
+      "indent": 3,
+      "text": "The initiator can employ various policies regarding the use of IKE fragmentation. It might first try to send an unfragmented message and resend it as fragmented only if no complete response is received even after several retransmissions. Alternatively, it might choose",
+      "zh-CHS": "发起方可以采用关于IKE分段使用的各种策略。它可能首先尝试发送一条未分段的消息，只有在多次重新传输后仍未收到完整响应时，才会将其作为分段消息重新发送。或者，它可以选择"
+    },
+    {
+      "indent": 3,
+      "text": "to always send fragmented messages (however, see Section 3), or it might fragment only large messages and messages that are expected to result in large responses.",
+      "zh-CHS": "要始终发送分段消息（但是，请参见第3节），或者可能只对大型消息和预期会导致大型响应的消息进行分段。"
+    },
+    {
+      "indent": 3,
+      "text": "The following general guidelines apply:",
+      "zh-CHS": "以下一般准则适用："
+    },
+    {
+      "indent": 3,
+      "text": "o If either peer has information that a part of the transaction is likely to be fragmented at the IP layer, causing interference with the IKE exchange, that peer SHOULD use IKE fragmentation. This information might be passed from a lower layer, provided by configuration, or derived through heuristics. Examples of heuristics are the lack of a complete response after several retransmissions for the initiator, and receiving repeated retransmissions of the request for the responder.",
+      "zh-CHS": "o 如果任何一个对等方都有信息表明事务的一部分可能在IP层被分段，从而对IKE交换造成干扰，则该对等方应使用IKE分段。此信息可能从较低的层传递，由配置提供，或通过启发式方法导出。启发式的示例是在发起方多次重传之后缺少完整的响应，以及接收响应方请求的重复重传。"
+    },
+    {
+      "indent": 3,
+      "text": "o If either peer knows that IKE fragmentation has been used in a previous exchange in the context of the current IKE SA, that peer SHOULD continue to use IKE fragmentation for the messages that are larger than the current fragmentation threshold (see Section 2.5.1).",
+      "zh-CHS": "o 如果任一对等方知道IKE分段已在当前IKE SA上下文中的先前交换中使用，则该对等方应继续对大于当前分段阈值的消息使用IKE分段（参见第2.5.1节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o IKE fragmentation SHOULD NOT be used in cases where IP-layer fragmentation of both the request and response messages is unlikely. For example, there is no point in fragmenting liveness check messages.",
+      "zh-CHS": "o 在请求和响应消息的IP层碎片不太可能出现的情况下，不应使用IKE碎片。例如，对活动性检查消息进行分段是没有意义的。"
+    },
+    {
+      "indent": 3,
+      "text": "o If none of the above apply, the responder SHOULD respond in the same form (fragmented or not) as the request message to which it is responding. Note that the other guidelines might override this because of information or heuristics available to the responder.",
+      "zh-CHS": "o 如果上述任何一项都不适用，响应者应以与其响应的请求消息相同的形式（分段或不分段）进行响应。请注意，由于响应者可用的信息或启发法，其他指南可能会覆盖这一点。"
+    },
+    {
+      "indent": 3,
+      "text": "In most cases, IKE fragmentation will be used in the IKE_AUTH exchange, especially if certificates are employed.",
+      "zh-CHS": "在大多数情况下，IKE碎片将用于IKE_身份验证交换，特别是在使用证书的情况下。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Fragmenting Message",
+      "section_title": true,
+      "zh-CHS": "2.5. 碎片化信息"
+    },
+    {
+      "indent": 3,
+      "text": "Only messages that contain an Encrypted payload are subject to IKE fragmentation. For the purpose of construction of IKE Fragment messages, the original (unencrypted) content of the Encrypted payload is split into chunks. The content is treated as a binary blob and is split regardless of the boundaries of inner payloads. Each of the resulting chunks is treated as an original content of the Encrypted Fragment payload and is then encrypted and authenticated. Thus, the Encrypted Fragment payload contains a chunk of the original content of the Encrypted payload in encrypted form. The cryptographic processing of the Encrypted Fragment payload is identical to that",
+      "zh-CHS": "只有包含加密负载的消息才会受到IKE碎片的影响。为了构造IKE片段消息，加密有效负载的原始（未加密）内容被分割成块。内容被视为二进制blob，并被拆分，而不考虑内部有效负载的边界。每个结果块都被视为加密片段有效载荷的原始内容，然后被加密和验证。因此，加密片段有效载荷包含加密形式的加密有效载荷的原始内容块。加密片段有效载荷的加密处理与此相同"
+    },
+    {
+      "indent": 3,
+      "text": "described in Section 3.14 of [RFC7296], as well as documents updating such processing for particular algorithms or modes, such as [RFC5282].",
+      "zh-CHS": "如[RFC7296]第3.14节所述，以及针对特定算法或模式（如[RFC5282]）更新此类处理的文件。"
+    },
+    {
+      "indent": 3,
+      "text": "As is the case for the Encrypted payload, the Encrypted Fragment payload, if present in a message, MUST be the last payload in the message.",
+      "zh-CHS": "与加密有效负载的情况一样，加密片段有效负载（如果存在于消息中）必须是消息中的最后一个有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "The Encrypted Fragment payload is denoted SKF{...}, and its payload type is 53. This payload is also called the \"Encrypted and Authenticated Fragment\" payload.",
+      "zh-CHS": "加密的片段有效载荷表示为SKF{…}，其有效载荷类型为53。该有效载荷也称为“加密和认证片段”有效载荷。"
+    },
+    {
+      "indent": 3,
+      "text": "                     1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n| Next Payload  |C|  RESERVED   |         Payload Length        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|        Fragment Number        |        Total Fragments        |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                     Initialization Vector                     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n~                      Encrypted content                        ~\n+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|               |             Padding (0-255 octets)            |\n+-+-+-+-+-+-+-+-+                               +-+-+-+-+-+-+-+-+\n|                                               |  Pad Length   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n~                    Integrity Checksum Data                    ~\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "Encrypted Fragment Payload",
+      "zh-CHS": "加密片段有效载荷"
+    },
+    {
+      "indent": 3,
+      "text": "o Next Payload (1 octet) - in the very first fragment (with Fragment Number equal to 1), this field MUST be set to the payload type of the first inner payload (the same as for the Encrypted payload). In the rest of the Fragment messages (with Fragment Number greater than 1), this field MUST be set to zero.",
+      "zh-CHS": "o 下一个有效载荷（1个八位组）-在第一个片段（片段编号等于1）中，此字段必须设置为第一个内部有效载荷的有效载荷类型（与加密有效载荷相同）。在其余片段消息（片段编号大于1）中，此字段必须设置为零。"
+    },
+    {
+      "indent": 3,
+      "text": "o Fragment Number (2 octets, unsigned integer) - current Fragment message number, starting from 1. This field MUST be less than or equal to the next field (Total Fragments). This field MUST NOT be zero.",
+      "zh-CHS": "o 片段编号（2个八位字节，无符号整数）-当前片段消息编号，从1开始。此字段必须小于或等于下一个字段（总片段数）。此字段不能为零。"
+    },
+    {
+      "indent": 3,
+      "text": "o Total Fragments (2 octets, unsigned integer) - number of Fragment messages into which the original message was divided. This field MUST NOT be zero. With PMTU discovery, this field plays an additional role. See Section 2.5.2 for details.",
+      "zh-CHS": "o Total Fragments（2个八位字节，无符号整数）—原始消息被分割成的片段消息数。此字段不能为零。在PMTU发现中，此字段起着额外的作用。详见第2.5.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "The other fields are identical to those specified in Section 3.14 of [RFC7296].",
+      "zh-CHS": "其他字段与[RFC7296]第3.14节中规定的字段相同。"
+    },
+    {
+      "indent": 3,
+      "text": "When prepending the IKE header to the IKE Fragment messages, it MUST be taken intact from the original message, except for the Length and Next Payload fields. The Length field is adjusted to reflect the length of the IKE Fragment message being constructed, and the Next Payload field is set to the payload type of the first payload in that message (in most cases, it will be the Encrypted Fragment payload). After prepending the IKE header and all payloads that possibly precede the Encrypted payload in the original message (if any; see Section 2.5.3), the resulting messages are sent to the peer.",
+      "zh-CHS": "在将IKE头添加到IKE片段消息之前，除了长度和下一个有效负载字段外，它必须从原始消息中完整获取。调整长度字段以反映正在构造的IKE片段消息的长度，并将下一个有效负载字段设置为该消息中第一个有效负载的有效负载类型（在大多数情况下，它将是加密的片段有效负载）。在原始消息（如果有，请参阅第2.5.3节）中预加IKE头和加密有效负载之前的所有有效负载后，生成的消息将发送给对等方。"
+    },
+    {
+      "indent": 3,
+      "text": "Below is an example of fragmenting a message.",
+      "zh-CHS": "下面是一个分解消息的示例。"
+    },
+    {
+      "indent": 3,
+      "text": "HDR(MID=n), SK(NextPld=PLD1) {PLD1 ... PLDN}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 29,
+      "text": "Original Message",
+      "zh-CHS": "原始消息"
+    },
+    {
+      "indent": 3,
+      "text": "HDR(MID=n), SKF(NextPld=PLD1, Frag#=1, TotalFrags=m) {...},\nHDR(MID=n), SKF(NextPld=0, Frag#=2, TotalFrags=m) {...},\n...\nHDR(MID=n), SKF(NextPld=0, Frag#=m, TotalFrags=m) {...}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 27,
+      "text": "IKE Fragment Messages",
+      "zh-CHS": "IKE片段消息"
+    },
+    {
+      "indent": 0,
+      "text": "2.5.1. Selecting Fragment Size",
+      "section_title": true,
+      "zh-CHS": "2.5.1. 选择片段大小"
+    },
+    {
+      "indent": 3,
+      "text": "When splitting the content of an Encrypted payload into chunks, the sender SHOULD choose their size so that the resulting IP datagrams will be smaller than some fragmentation threshold. Implementations may calculate the fragmentation threshold using various sources of information.",
+      "zh-CHS": "当将加密有效负载的内容拆分为块时，发送方应选择其大小，以便生成的IP数据报小于某个碎片阈值。实现可以使用各种信息源计算碎片阈值。"
+    },
+    {
+      "indent": 3,
+      "text": "If the sender has information about the PMTU size, it SHOULD use it. The responder in the exchange may use the maximum size of the received IKE Fragment message IP datagrams as a threshold when constructing a fragmented response. Successful completion of previous exchanges (including those exchanges that cannot employ IKE fragmentation, e.g., IKE_SA_INIT) may be an indication that the fragmentation threshold can be set to the size of the largest message of those messages already sent.",
+      "zh-CHS": "如果发送方有关于PMTU大小的信息，则应使用该信息。在构造分段响应时，交换中的响应者可以使用接收到的IKE分段消息IP数据报的最大大小作为阈值。成功完成以前的交换（包括不能采用IKE分段的那些交换，例如IKE_SA_INIT）可能表示可以将分段阈值设置为已经发送的那些消息中最大消息的大小。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, for messages to be sent over IPv6, it is RECOMMENDED that a value of 1280 bytes as a maximum IP datagram size be used ([RFC2460]). For messages to be sent over IPv4, it is RECOMMENDED that a value of 576 bytes as a maximum IP datagram size be used. The",
+      "zh-CHS": "否则，对于通过IPv6发送的消息，建议使用1280字节的值作为最大IP数据报大小（[RFC2460]）。对于通过IPv4发送的消息，建议使用576字节的值作为最大IP数据报大小。这个"
+    },
+    {
+      "indent": 3,
+      "text": "presence of tunnels on the path may reduce these values. Implementations may use other values if they are appropriate in the current environment.",
+      "zh-CHS": "路径上存在隧道可能会降低这些值。如果在当前环境中合适，实现可以使用其他值。"
+    },
+    {
+      "indent": 3,
+      "text": "According to [RFC0791], the minimum IPv4 datagram size that is guaranteed not to be further fragmented is 68 bytes, but it is generally impossible to use such a small value for the solution described in this document. Using 576 bytes is a compromise -- the value is large enough for the presented solution and small enough to avoid IP fragmentation in most situations. Several other UDP-based protocols (Syslog, DNS, etc.) use 576 bytes as a safe low limit for IP datagram size.",
+      "zh-CHS": "根据[RFC0791]，保证不会进一步碎片化的最小IPv4数据报大小为68字节，但通常不可能对本文档中描述的解决方案使用如此小的值。使用576字节是一种折衷方案——该值对于所提供的解决方案来说足够大，而对于大多数情况来说足够小，可以避免IP碎片。其他几种基于UDP的协议（Syslog、DNS等）使用576字节作为IP数据报大小的安全下限。"
+    },
+    {
+      "indent": 3,
+      "text": "See Appendix B for correlation between IP datagram size and Encrypted payload content size.",
+      "zh-CHS": "有关IP数据报大小和加密有效负载内容大小之间的相关性，请参见附录B。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5.2. PMTU Discovery",
+      "section_title": true,
+      "zh-CHS": "2.5.2. PMTU发现"
+    },
+    {
+      "indent": 3,
+      "text": "The amount of traffic that the IKE endpoint produces during the lifetime of an IKE SA is fairly modest -- it is usually below 100 KB within a period of several hours. Most of this traffic consists of relatively short messages -- usually below several hundred bytes. In most cases, the only time when IKE endpoints exchange messages of several KB in size is IKE SA establishment, and often each endpoint sends exactly one such message.",
+      "zh-CHS": "IKE端点在IKE SA的生存期内产生的通信量相当适中——通常在几个小时内低于100 KB。大多数通信量由相对较短的消息组成——通常低于几百字节。在大多数情况下，IKE端点交换大小为几KB的消息的唯一时间是IKE SA建立，并且通常每个端点只发送一条这样的消息。"
+    },
+    {
+      "indent": 3,
+      "text": "For the reasons articulated above, implementing PMTU discovery in IKE is OPTIONAL. It is believed that using the values recommended in Section 2.5.1 as a fragmentation threshold will be sufficient in most cases. Using these values could lead to suboptimal fragmentation, but it is acceptable given the amount of traffic IKE produces. Implementations may support PMTU discovery if there are good reasons to do it (for example, if they are intended to be used in environments where the MTU size might be less than the values listed in Section 2.5.1).",
+      "zh-CHS": "出于上述原因，在IKE中实现PMTU发现是可选的。一般认为，在大多数情况下，使用第2.5.1节中建议的值作为碎片阈值就足够了。使用这些值可能会导致次优分段，但考虑到IKE产生的通信量，这是可以接受的。如果有充分的理由，实施可能支持PMTU发现（例如，如果它们打算在MTU大小可能小于第2.5.1节中列出的值的环境中使用）。"
+    },
+    {
+      "indent": 3,
+      "text": "PMTU discovery in IKE follows recommendations given in Section 10.4 of [RFC4821] with some modifications, induced by the distinctive features of IKE listed above. The difference is that the PMTU search is performed downward, while in [RFC4821] it is performed upward. The reason for this change is that IKE usually sends large messages only when the IKE SA is being established, and in many cases there is only one such message. If the probing were performed upward, this message would be fragmented using the smallest allowable threshold, and usually all other messages are small enough to avoid IP fragmentation, so continued probing would be of little value.",
+      "zh-CHS": "IKE中的PMTU发现遵循[RFC4821]第10.4节中给出的建议，并根据上述IKE的显著特征进行了一些修改。不同之处在于，PMTU搜索是向下执行的，而在[RFC4821]中是向上执行的。这种变化的原因是，IKE通常仅在建立IKE SA时发送大型消息，并且在许多情况下只有一条这样的消息。如果向上执行探测，则该消息将使用允许的最小阈值进行分段，并且通常所有其他消息都小到足以避免IP分段，因此继续探测将没有什么价值。"
+    },
+    {
+      "indent": 3,
+      "text": "It is the initiator of the exchange who performs PMTU discovery. This is done by probing several values of fragmentation threshold. Implementations MUST be prepared to probe in every exchange that utilizes IKE fragmentation to deal with possible changes in path MTU over time. While doing probes, it MUST start from larger values and refragment the original message, using the next smaller value of the threshold if it did not receive a response in a reasonable time after several retransmissions. The exact number of retransmissions and length of timeouts are not covered in this specification because they do not affect interoperability. However, the timeout interval is supposed to be relatively short, so that unsuccessful probes would not delay IKE operations too much. Performing a few retries within several seconds for each probe seems appropriate, but different environments may require different rules. When starting a new probe, the node MUST reset its retransmission timers so that if it employs exponential back-off the timers will start over. After reaching the smallest allowed value for the fragmentation threshold, an implementation MUST continue retransmitting until the exchange either completes or times out using some timeout interval as discussed in Section 2.4 of [RFC7296].",
+      "zh-CHS": "执行PMTU发现的是exchange的发起人。这是通过探测碎片阈值的几个值来实现的。实现必须准备好在每个利用IKE碎片处理路径MTU随时间可能发生的变化的交换中进行探测。在执行探测时，必须从较大的值开始，并重新格式化原始消息，如果在多次重新传输后在合理的时间内未收到响应，则使用下一个较小的阈值。由于不影响互操作性，因此本规范不包括重新传输的确切次数和超时时间长度。但是，超时时间间隔应该相对较短，因此不成功的探测不会对IKE操作造成太多延迟。在几秒钟内对每个探测器执行几次重试似乎是合适的，但不同的环境可能需要不同的规则。启动新探测器时，节点必须重置其重传计时器，以便如果采用指数后退，计时器将重新启动。在达到碎片阈值的最小允许值后，实现必须继续重新传输，直到交换完成或使用[RFC7296]第2.4节中讨论的某个超时间隔超时为止。"
+    },
+    {
+      "indent": 3,
+      "text": "PMTU discovery in IKE is supposed to be coarse-grained, i.e., it is expected that a node will try only a few fragmentation thresholds in order to minimize delays caused by unsuccessful probes. If path MTU information is not yet available, the endpoint may use the link MTU size when it starts probing. In subsequent exchanges, the node should start with the current value of the fragmentation threshold.",
+      "zh-CHS": "IKE中的PMTU发现被认为是粗粒度的，也就是说，期望节点只尝试几个碎片阈值，以最小化因探测失败而导致的延迟。如果路径MTU信息尚不可用，端点在开始探测时可能会使用链接MTU大小。在随后的交换中，节点应以碎片阈值的当前值开始。"
+    },
+    {
+      "indent": 3,
+      "text": "If an implementation is capable of receiving ICMP error messages, it can additionally utilize classic PMTU discovery methods, as described in [RFC1191] and [RFC1981]. In particular, if the initiator receives a Packet Too Big error in response to the probe, and it contains a smaller value than the current fragmentation threshold, then the initiator SHOULD stop retransmitting the probe and SHOULD select a new value for the fragmentation threshold that is less than or equal to the value from the ICMP message and meets the requirements listed below.",
+      "zh-CHS": "如[RFC1191]和[RFC1981]所述，如果实现能够接收ICMP错误消息，则还可以利用经典的PMTU发现方法。特别是，如果发起方接收到响应于探测的数据包错误过大，且其包含的值小于当前碎片阈值，然后，启动器应停止重新传输探测器，并应为碎片阈值选择一个小于或等于ICMP消息中的值的新值，并满足以下列出的要求。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of PMTU discovery, the Total Fragments field is used to distinguish between different sets of fragments, i.e., the sets that were created by fragmenting the original message using different fragmentation thresholds. Since the sender starts from larger fragments and then makes them smaller, the value in the Total Fragments field increases with each new probe. When selecting the next smaller value for the fragmentation threshold, the sender MUST ensure that the value in the Total Fragments field is really increased. This requirement should not be a problem for the sender, because PMTU discovery in IKE is supposed to be coarse-grained, so",
+      "zh-CHS": "在PMTU发现的情况下，Total Fragments（总碎片）字段用于区分不同的碎片集，即通过使用不同碎片阈值对原始消息进行碎片化而创建的碎片集。由于发送方从较大的片段开始，然后将其变小，因此Total fragments字段中的值会随着每个新探测的增加而增加。当为碎片阈值选择下一个较小的值时，发送方必须确保Total Fragments字段中的值确实增加。对于发送方来说，这个要求应该不是问题，因为IKE中的PMTU发现应该是粗粒度的，所以"
+    },
+    {
+      "indent": 3,
+      "text": "the difference between previous and next fragmentation thresholds should be significant anyway. The need to distinguish between the sets is vital for the receiver, since receiving a valid fragment from a newer set means that it has to start the reassembly process over and not mix fragments from different sets.",
+      "zh-CHS": "无论如何，上一个碎片阈值和下一个碎片阈值之间的差异应该很大。区分不同集合的需要对接收者来说至关重要，因为从较新集合接收有效片段意味着它必须重新开始重组过程，而不是混合来自不同集合的片段。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5.3. Fragmenting Messages Containing Unprotected Payloads",
+      "section_title": true,
+      "zh-CHS": "2.5.3. 对包含未受保护的有效负载的消息进行分段"
+    },
+    {
+      "indent": 3,
+      "text": "Currently, there are no IKEv2 exchanges that define messages, containing both unprotected payloads and payloads, that are protected by the Encrypted payload. However, IKEv2 does not prohibit such construction. If some future IKEv2 extension defines such a message and it needs to be fragmented, all unprotected payloads MUST be placed in the first fragment (with the Fragment Number field equal to 1), along with the Encrypted Fragment payload, which MUST be present in every IKE Fragment message and be the last payload in it.",
+      "zh-CHS": "目前，没有IKEv2交换定义包含未受保护的有效负载和受加密有效负载保护的有效负载的消息。然而，IKEv2并不禁止此类施工。如果某个未来的IKEv2扩展定义了这样一条消息，并且需要对其进行分段，则所有未受保护的有效载荷必须与加密的片段有效载荷一起放置在第一个片段中（片段编号字段等于1），加密的片段有效载荷必须出现在每个IKE片段消息中，并且是其中的最后一个有效载荷。"
+    },
+    {
+      "indent": 3,
+      "text": "Below is an example of a fragmenting message that contains both protected and unprotected payloads.",
+      "zh-CHS": "下面是一个包含受保护和未受保护有效负载的分段消息示例。"
+    },
+    {
+      "indent": 3,
+      "text": "HDR(MID=n), PLD0, SK(NextPld=PLD1) {PLD1 ... PLDN}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 29,
+      "text": "Original Message",
+      "zh-CHS": "原始消息"
+    },
+    {
+      "indent": 3,
+      "text": "HDR(MID=n), PLD0, SKF(NextPld=PLD1, Frag#=1, TotalFrags=m) {...},\nHDR(MID=n), SKF(NextPld=0, Frag#=2, TotalFrags=m) {...},\n...\nHDR(MID=n), SKF(NextPld=0, Frag#=m, TotalFrags=m) {...}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 27,
+      "text": "IKE Fragment Messages",
+      "zh-CHS": "IKE片段消息"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the size of each IP datagram bearing IKE Fragment messages should not exceed the fragmentation threshold, including the first one, that contains unprotected payloads. This will reduce the size of the Encrypted Fragment payload content in the first IKE Fragment message to accommodate all unprotected payloads. In an extreme case, the Encrypted Fragment payload will contain no data, but it still must be present in the message, because only its presence allows the receiver to determine that the sender has used IKE fragmentation.",
+      "zh-CHS": "请注意，包含IKE片段消息的每个IP数据报的大小不应超过包含未保护有效负载的片段阈值（包括第一个）。这将减小第一个IKE片段消息中加密片段有效负载内容的大小，以容纳所有未受保护的有效负载。在极端情况下，加密的片段负载将不包含数据，但它仍然必须存在于消息中，因为只有它的存在才允许接收方确定发送方使用了IKE片段。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Receiving IKE Fragment Message",
+      "section_title": true,
+      "zh-CHS": "2.6. 接收IKE片段消息"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver identifies the IKE Fragment message by the presence of an Encrypted Fragment payload in it. In most cases, it will be the first and only payload in the message; however, this may not be true for some hypothetical IKE exchanges (see Section 2.5.3).",
+      "zh-CHS": "接收器通过IKE片段消息中存在的加密片段有效载荷来识别IKE片段消息。在大多数情况下，它将是消息中的第一个也是唯一的有效载荷；然而，对于某些假设的IKE交换，这可能不是真的（见第2.5.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receiving the IKE Fragment message, the following actions are performed:",
+      "zh-CHS": "收到IKE片段消息后，执行以下操作："
+    },
+    {
+      "indent": 3,
+      "text": "o Check message validity - in particular, check whether the values in the Fragment Number and the Total Fragments fields in the Encrypted Fragment payload are valid. The following tests need to be performed.",
+      "zh-CHS": "o 检查消息有效性-特别是，检查加密片段有效负载中片段编号和总片段字段中的值是否有效。需要执行以下测试。"
+    },
+    {
+      "indent": 6,
+      "text": "* check that the Fragment Number and the Total Fragments fields contain non-zero values",
+      "zh-CHS": "* 检查片段编号和总片段字段是否包含非零值"
+    },
+    {
+      "indent": 6,
+      "text": "* check that the value in the Fragment Number field is less than or equal to the value in the Total Fragments field",
+      "zh-CHS": "* 检查片段编号字段中的值是否小于或等于总片段字段中的值"
+    },
+    {
+      "indent": 6,
+      "text": "* if reassembling has already started, check that the value in the Total Fragments field is equal to or greater than the Total Fragments field in the fragments that have already been stored in the reassembling queue",
+      "zh-CHS": "* 如果已开始重新组装，请检查Total Fragments字段中的值是否等于或大于已存储在重新组装队列中的片段中的Total Fragments字段"
+    },
+    {
+      "indent": 6,
+      "text": "If any of these tests fail, the message MUST be silently discarded.",
+      "zh-CHS": "如果这些测试中的任何一个失败，则必须以静默方式丢弃消息。"
+    },
+    {
+      "indent": 3,
+      "text": "o Check that this IKE Fragment message is new for the receiver and not a replay. If an IKE Fragment message with the same Message ID, Fragment Number, and Total Fragments fields is already present in the reassembling queue, this message is considered a replay and MUST be silently discarded.",
+      "zh-CHS": "o 检查此IKE片段消息对于接收器是新的，而不是重播。如果重组队列中已存在具有相同消息ID、片段编号和总片段字段的IKE片段消息，则此消息被视为重播，必须以静默方式丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "o Verify IKE Fragment message authenticity by checking the Integrity Check Value (ICV) in the Encrypted Fragment payload. If the ICV check fails, the message MUST be silently discarded.",
+      "zh-CHS": "o 通过检查加密片段负载中的完整性检查值（ICV），验证IKE片段消息的真实性。如果ICV检查失败，则必须以静默方式丢弃该消息。"
+    },
+    {
+      "indent": 3,
+      "text": "o If reassembling is not finished yet and the Total Fragments field in the received fragment is greater than the Total Fragments field in those fragments that are in the reassembling queue, the receiver MUST discard all received fragments and start the reassembly process over with just the received IKE Fragment message.",
+      "zh-CHS": "o 如果重新组装尚未完成，并且接收到的片段中的Total Fragments字段大于重新组装队列中那些片段中的Total Fragments字段，则接收方必须丢弃所有接收到的片段，并仅使用接收到的IKE片段消息重新开始重新组装过程。"
+    },
+    {
+      "indent": 3,
+      "text": "o Store the message in the reassembling queue waiting for the rest of the fragments to arrive.",
+      "zh-CHS": "o 将消息存储在重新组装队列中，等待其余片段到达。"
+    },
+    {
+      "indent": 3,
+      "text": "When all IKE Fragment messages (as indicated in the Total Fragments field) are received, the decrypted content of all Encrypted Fragment payloads is merged together to form the content of the original Encrypted payload and, therefore, along with the IKE header and",
+      "zh-CHS": "当接收到所有IKE片段消息（如Total Fragments字段中所示）时，所有加密片段有效载荷的解密内容合并在一起，以形成原始加密有效载荷的内容，因此与IKE头和"
+    },
+    {
+      "indent": 3,
+      "text": "unprotected payloads (if any), the original message. Then, it is processed as if it was received, verified, and decrypted as a regular IKE message.",
+      "zh-CHS": "未受保护的有效负载（如果有），原始消息。然后，将其作为常规IKE消息进行接收、验证和解密处理。"
+    },
+    {
+      "indent": 3,
+      "text": "If the receiver does not get all IKE fragments needed to reassemble the original message within a timeout interval, it MUST discard all IKE Fragment messages received so far for the exchange. The next actions depend on the role of the receiver in the exchange.",
+      "zh-CHS": "如果接收方没有在超时时间间隔内获得重新组装原始消息所需的所有IKE片段，则它必须丢弃迄今为止为交换接收的所有IKE片段消息。接下来的操作取决于接收方在交换中的角色。"
+    },
+    {
+      "indent": 3,
+      "text": "o The initiator acts as described in Section 2.1 of [RFC7296]. It either retransmits the fragmented request message or deems the IKE SA to have failed and deletes it. The number of retransmits and length of timeouts for the initiator are not covered in this specification, since they are assumed to be the same as in a regular IKEv2 exchange and are discussed in Section 2.4 of [RFC7296].",
+      "zh-CHS": "o 发起者按照[RFC7296]第2.1节所述进行操作。它或者重新传输分段请求消息，或者认为IKE SA失败并将其删除。本规范未涵盖启动器的重传次数和超时长度，因为假定它们与常规IKEv2交换中的相同，并在[RFC7296]的第2.4节中讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "o The responder in this case acts as if no request message was received. It would delete any memory of the incomplete request message and not treat it as an IKE SA failure. It is RECOMMENDED that the reassembling timeout for the responder be equal to the time interval that the implementation waits before completely giving up when acting as the initiator of an exchange. Section 2.4 of [RFC7296] gives recommendations for selecting this interval. Implementations can use a shorter timeout to conserve memory.",
+      "zh-CHS": "o 在这种情况下，响应者的行为就像没有收到请求消息一样。它将删除不完整请求消息的任何内存，并且不会将其视为IKE SA故障。建议响应程序的重新组装超时时间等于在作为交换的发起程序时，实现在完全放弃之前等待的时间间隔。[RFC7296]第2.4节给出了选择该间隔的建议。实现可以使用更短的超时来节省内存。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.1. Replay Detection and Retransmissions",
+      "section_title": true,
+      "zh-CHS": "2.6.1. 重播检测和重传"
+    },
+    {
+      "indent": 3,
+      "text": "According to Section 2.2 of [RFC7296], the Message ID is used, in particular, to identify retransmissions of IKE messages. Each request or response message, sent by either side, must have a unique Message ID, or be considered a retransmission otherwise. This logic has already been updated by [RFC6311], which deliberately allows any number of messages with zero Message ID. This document also updates this logic for those situations where IKE fragmentation is in use.",
+      "zh-CHS": "根据[RFC7296]第2.2节，消息ID尤其用于识别IKE消息的重传。任何一方发送的每个请求或响应消息必须具有唯一的消息ID，否则将被视为重传。[RFC6311]已经更新了该逻辑，故意允许任何数量的消息ID为零。本文档还针对使用IKE碎片的情况更新了该逻辑。"
+    },
+    {
+      "indent": 3,
+      "text": "If an incoming message contains an Encrypted Fragment payload, the values of the Fragment Number and Total Fragments fields MUST be used along with the Message ID to detect retransmissions and replays.",
+      "zh-CHS": "如果传入消息包含加密的片段有效负载，则必须将片段编号和总片段字段的值与消息ID一起使用，以检测重传和重播。"
+    },
+    {
+      "indent": 3,
+      "text": "If the responder receives a retransmitted fragment of a request when it has already processed that request and has sent back a response, that event MUST only trigger a retransmission of the response message (fragmented or not) if the Fragment Number field in the received fragment is set to 1; otherwise, it MUST be ignored.",
+      "zh-CHS": "如果响应者在已处理请求并已发送回响应时接收到请求的重传片段，则该事件必须仅在接收片段中的片段编号字段设置为1时触发响应消息（片段或非片段）的重传；否则，它必须被忽略。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Interaction with Other IKE Extensions",
+      "section_title": true,
+      "zh-CHS": "3. 与其他IKE扩展的交互"
+    },
+    {
+      "indent": 3,
+      "text": "IKE fragmentation is compatible with most IKE extensions, such as IKE Session Resumption ([RFC5723]), the Quick Crash Detection Method ([RFC6290]), and so on. It neither affects their operation nor is affected by them. It is believed that IKE fragmentation will also be compatible with future IKE extensions, if they follow general principles of formatting, sending, and receiving IKE messages, as described in [RFC7296].",
+      "zh-CHS": "IKE分段与大多数IKE扩展兼容，例如IKE会话恢复（[RFC5723]）、快速崩溃检测方法（[RFC6290]）等等。它既不影响它们的运作，也不受它们的影响。据信，如果IKE分段遵循格式化、发送和接收IKE消息的一般原则（如[RFC7296]所述），则IKE分段也将与未来的IKE扩展兼容。"
+    },
+    {
+      "indent": 3,
+      "text": "When IKE fragmentation is used with IKE Session Resumption ([RFC5723]), messages of an IKE_SESSION_RESUME exchange cannot be fragmented, since they do not contain an Encrypted payload. These messages may be large due to the ticket size. To avoid IP fragmentation in this situation, it is recommended that smaller tickets be used, e.g., by utilizing a \"ticket by reference\" approach instead of \"ticket by value\".",
+      "zh-CHS": "当IKE分段与IKE会话恢复（[RFC5723]）一起使用时，IKE_会话_恢复交换的消息不能分段，因为它们不包含加密的有效负载。由于票证的大小，这些消息可能很大。为了避免这种情况下的IP碎片，建议使用较小的票证，例如，通过使用“参考票证”方法，而不是“价值票证”。"
+    },
+    {
+      "indent": 3,
+      "text": "Protocol Support for High Availability of IKEv2/IPsec, described in [RFC6311], requires special care when deciding whether to fragment an IKE message or not. Since it deliberately allows any number of synchronization exchanges to have the same Message ID, namely zero, standard IKEv2 replay detection logic, based on checking the Message ID, is not applicable for such messages, and the receiver has to check message content to detect replays. When implementing IKE fragmentation along with [RFC6311], IKE Message ID Synchronization messages MUST NOT be sent fragmented, to simplify the receiver's task of detecting replays. Fortunately, these messages are small, and there is no point in fragmenting them anyway.",
+      "zh-CHS": "[RFC6311]中描述的对IKEv2/IPsec高可用性的协议支持，在决定是否分割IKE消息时需要特别小心。由于故意允许任意数量的同步交换具有相同的消息ID，即零，因此基于检查消息ID的标准IKEv2重播检测逻辑不适用于此类消息，并且接收器必须检查消息内容以检测重播。当与[RFC6311]一起实现IKE分段时，IKE消息ID同步消息不能被分段发送，以简化接收器检测重播的任务。幸运的是，这些消息很小，并且没有必要对它们进行分割。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Transport Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 运输考虑"
+    },
+    {
+      "indent": 3,
+      "text": "With IKE fragmentation, if any single IKE Fragment message gets lost, the receiver becomes unable to reassemble the original message. So, in general, using IKE fragmentation implies a higher probability that the message will not be delivered to the peer. Although in most network environments the difference will be insignificant, on some lossy networks it may become noticeable. When using IKE fragmentation, implementations MAY use longer timeouts and do more retransmits than usual before considering the peer dead.",
+      "zh-CHS": "使用IKE片段，如果任何单个IKE片段消息丢失，接收器将无法重新组合原始消息。因此，一般来说，使用IKE分段意味着消息不传递给对等方的概率更高。虽然在大多数网络环境中，这种差异是微不足道的，但在一些有损网络上，这种差异可能会变得明显。当使用IKE分段时，实现可能会使用更长的超时时间，并且在考虑对等端死机之前比通常情况下进行更多的重传。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that Fragment messages are not individually acknowledged. The response Fragment messages are all sent back together only when all fragments of the request are received, and the original request message is reassembled and successfully processed.",
+      "zh-CHS": "请注意，片段消息不是单独确认的。只有当接收到请求的所有片段，并且重新组装并成功处理原始请求消息时，响应片段消息才会一起发回。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Most of the security considerations for IKE fragmentation are the same as those for the base IKEv2 protocol described in [RFC7296]. This extension introduces the Encrypted Fragment payload to protect the content of an IKE Message Fragment. This allows the receiver to individually check the authenticity of fragments, thus protecting peers from a DoS attack.",
+      "zh-CHS": "IKE分段的大多数安全注意事项与[RFC7296]中描述的基本IKEv2协议相同。此扩展引入了加密的片段有效负载，以保护IKE消息片段的内容。这允许接收方单独检查片段的真实性，从而保护对等方免受DoS攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The Security Considerations section of [RFC7296] mentions a possible attack on IKE where an attacker could prevent an exchange from completing by exhausting the IP reassembly buffers. The mechanism described in this document allows IKE to avoid IP fragmentation and therefore increases its robustness to DoS attacks.",
+      "zh-CHS": "[RFC7296]的安全注意事项部分提到了对IKE的可能攻击，攻击者可以通过耗尽IP重组缓冲区来阻止交换完成。本文档中描述的机制允许IKE避免IP碎片，从而提高其对DoS攻击的鲁棒性。"
+    },
+    {
+      "indent": 3,
+      "text": "The following attack is possible with IKE fragmentation. An attacker can initiate an IKE_SA_INIT exchange, complete it, compute SK_a and SK_e, and then send a large but still incomplete set of IKE_AUTH fragments. These fragments will pass the ICV check and will be stored in reassembly buffers, but since the set is incomplete, the reassembling will never succeed and eventually will time out. If the set is large, this attack could potentially exhaust the receiver's memory resources.",
+      "zh-CHS": "IKE碎片可能导致以下攻击。攻击者可以发起IKE_SA_INIT交换，完成交换，计算SK_a和SK_e，然后发送一组较大但仍然不完整的IKE_AUTH片段。这些碎片将通过ICV检查并存储在重组缓冲区中，但由于集合不完整，重组将永远不会成功，最终将超时。如果集合较大，此攻击可能会耗尽接收器的内存资源。"
+    },
+    {
+      "indent": 3,
+      "text": "To mitigate the impact of this attack, it is RECOMMENDED that the receiver limit the number of fragments it stores in the reassembling queue so that the sum of the sizes of Encrypted Fragment payload contents (after decryption) for fragments that are already placed into the reassembling queue is less than some value that is reasonable for the implementation. If the peer sends so many fragments that the above condition is not met, the receiver can consider this situation to be either an attack or a broken sender implementation. In either case, the receiver SHOULD drop the connection and discard all the received fragments.",
+      "zh-CHS": "为了减轻此攻击的影响，建议接收方限制其存储在重组队列中的片段数量，以便加密片段有效负载内容的大小之和（解密后）对于已经放入重新组装队列的片段，该值小于对实现合理的某个值。如果对等体发送如此多的片段使得上述条件不满足，则接收器可以认为这种情况是攻击或中断发送器实现。在任何一种情况下，接收器都应该断开连接并丢弃所有接收到的片段。"
+    },
+    {
+      "indent": 3,
+      "text": "This value can be predefined, can be a configurable option, or can be calculated dynamically, depending on the receiver's memory load. Some care should be taken when selecting this value because if it is too small it might prevent a legitimate peer from establishing an IKE SA if the size of messages it sends exceeds this value. It is NOT RECOMMENDED for this value to exceed 64 KB because any IKE message before fragmentation would likely be shorter than that.",
+      "zh-CHS": "该值可以是预定义的，可以是可配置的选项，也可以根据接收器的内存负载动态计算。在选择此值时应特别小心，因为如果此值太小，则可能会阻止合法对等方在其发送的消息大小超过此值时建立IKE SA。不建议该值超过64 KB，因为碎片之前的任何IKE消息都可能比该值短。"
+    },
+    {
+      "indent": 3,
+      "text": "If IKE fragments arrive in order, it is possible, but not advised, for the receiver to parse the beginning of the message that is being reassembled and extract the already-available payloads before the reassembly is complete. It can be dangerous to take any action based on the content of these payloads, because the fragments that have not",
+      "zh-CHS": "如果IKE片段按顺序到达，则接收方可以（但不建议）解析正在重新组装的消息的开头，并在重新组装完成之前提取已经可用的有效载荷。根据这些有效载荷的内容采取任何行动都可能是危险的，因为这些碎片没有"
+    },
+    {
+      "indent": 3,
+      "text": "yet been received might contain payloads that could change the meaning of them (or could even make the whole message invalid), and this can potentially be exploited by an attacker. It is important to address this threat by ensuring that all the fragments are received prior to parsing the reassembled message, as described in Section 2.6.",
+      "zh-CHS": "然而，收到的邮件可能包含可能会改变其含义（甚至可能使整个邮件无效）的有效负载，攻击者可能会利用此漏洞进行攻击。如第2.6节所述，重要的是通过确保在解析重新组装的消息之前接收到所有片段来应对这种威胁。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new payload in the \"IKEv2 Payload Types\" registry:",
+      "zh-CHS": "本文档在“IKEv2有效负载类型”注册表中定义了一个新的有效负载："
+    },
+    {
+      "indent": 5,
+      "text": "53 Encrypted and Authenticated Fragment SKF",
+      "zh-CHS": "53加密和认证片段SKF"
+    },
+    {
+      "indent": 3,
+      "text": "This document also defines a new Notify Message Type in the \"IKEv2 Notify Message Types - Status Types\" registry:",
+      "zh-CHS": "本文档还定义了“IKEv2通知消息类型-状态类型”注册表中的新通知消息类型："
+    },
+    {
+      "indent": 5,
+      "text": "16430 IKEV2_FRAGMENTATION_SUPPORTED",
+      "zh-CHS": "16430支持IKEV2_碎片化_"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7296] Kaufman, C., Hoffman, P., Nir, Y., Eronen, P., and T. Kivinen, \"Internet Key Exchange Protocol Version 2 (IKEv2)\", STD 79, RFC 7296, October 2014, <http://www.rfc-editor.org/info/rfc7296>.",
+      "zh-CHS": "[RFC7296]Kaufman，C.，Hoffman，P.，Nir，Y.，Eronen，P.，和T.Kivinen，“互联网密钥交换协议版本2（IKEv2）”，STD 79，RFC 72962014年10月<http://www.rfc-editor.org/info/rfc7296>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6311] Singh, R., Kalyani, G., Nir, Y., Sheffer, Y., and D. Zhang, \"Protocol Support for High Availability of IKEv2/ IPsec\", RFC 6311, July 2011, <http://www.rfc-editor.org/info/rfc6311>.",
+      "zh-CHS": "[RFC6311]Singh，R.，Kalyani，G.，Nir，Y.，Sheffer，Y.，和D.Zhang，“IKEv2/IPsec高可用性的协议支持”，RFC 63112011年7月<http://www.rfc-editor.org/info/rfc6311>."
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC0791] Postel, J., \"Internet Protocol\", STD 5, RFC 791, September 1981, <http://www.rfc-editor.org/info/rfc791>.",
+      "zh-CHS": "[RFC0791]Postel，J.，“互联网协议”，STD 5，RFC 7911981年9月<http://www.rfc-editor.org/info/rfc791>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1191] Mogul, J. and S. Deering, \"Path MTU discovery\", RFC 1191, November 1990, <http://www.rfc-editor.org/info/rfc1191>.",
+      "zh-CHS": "[RFC1191]Mogul，J.和S.Deering，“MTU发现路径”，RFC1191，1990年11月<http://www.rfc-editor.org/info/rfc1191>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1981] McCann, J., Deering, S., and J. Mogul, \"Path MTU Discovery for IP version 6\", RFC 1981, August 1996, <http://www.rfc-editor.org/info/rfc1981>.",
+      "zh-CHS": "[RFC1981]McCann，J.，Deering，S.，和J.Mogul，“IP版本6的路径MTU发现”，RFC 1981，1996年8月<http://www.rfc-editor.org/info/rfc1981>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2460] Deering, S. and R. Hinden, \"Internet Protocol, Version 6 (IPv6) Specification\", RFC 2460, December 1998, <http://www.rfc-editor.org/info/rfc2460>.",
+      "zh-CHS": "[RFC2460]Deering，S.和R.Hinden，“互联网协议，第6版（IPv6）规范”，RFC 2460，1998年12月<http://www.rfc-editor.org/info/rfc2460>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4787] Audet, F. and C. Jennings, \"Network Address Translation (NAT) Behavioral Requirements for Unicast UDP\", BCP 127, RFC 4787, January 2007, <http://www.rfc-editor.org/info/rfc4787>.",
+      "zh-CHS": "[RFC4787]Audet，F.和C.Jennings，“单播UDP的网络地址转换（NAT）行为要求”，BCP 127，RFC 4787，2007年1月<http://www.rfc-editor.org/info/rfc4787>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4821] Mathis, M. and J. Heffner, \"Packetization Layer Path MTU Discovery\", RFC 4821, March 2007, <http://www.rfc-editor.org/info/rfc4821>.",
+      "zh-CHS": "[RFC4821]Mathis，M.和J.Heffner，“打包层路径MTU发现”，RFC 48212007年3月<http://www.rfc-editor.org/info/rfc4821>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5282] Black, D. and D. McGrew, \"Using Authenticated Encryption Algorithms with the Encrypted Payload of the Internet Key Exchange version 2 (IKEv2) Protocol\", RFC 5282, August 2008, <http://www.rfc-editor.org/info/rfc5282>.",
+      "zh-CHS": "[RFC5282]Black，D.和D.McGrew，“使用互联网密钥交换第2版（IKEv2）协议加密有效载荷的认证加密算法”，RFC 5282，2008年8月<http://www.rfc-editor.org/info/rfc5282>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5405] Eggert, L. and G. Fairhurst, \"Unicast UDP Usage Guidelines for Application Designers\", BCP 145, RFC 5405, November 2008, <http://www.rfc-editor.org/info/rfc5405>.",
+      "zh-CHS": "[RFC5405]Eggert，L.和G.Fairhurst，“应用程序设计者的单播UDP使用指南”，BCP 145，RFC 5405，2008年11月<http://www.rfc-editor.org/info/rfc5405>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5723] Sheffer, Y. and H. Tschofenig, \"Internet Key Exchange Protocol Version 2 (IKEv2) Session Resumption\", RFC 5723, January 2010, <http://www.rfc-editor.org/info/rfc5723>.",
+      "zh-CHS": "[RFC5723]Sheffer，Y.和H.Tschofenig，“互联网密钥交换协议第2版（IKEv2）会话恢复”，RFC 57232010年1月<http://www.rfc-editor.org/info/rfc5723>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6290] Nir, Y., Wierbowski, D., Detienne, F., and P. Sethi, \"A Quick Crash Detection Method for the Internet Key Exchange Protocol (IKE)\", RFC 6290, June 2011, <http://www.rfc-editor.org/info/rfc6290>.",
+      "zh-CHS": "[RFC6290]Nir，Y.，Wierbowski，D.，Detiene，F.，和P.Sethi，“互联网密钥交换协议（IKE）的快速崩溃检测方法”，RFC 62902011年6月<http://www.rfc-editor.org/info/rfc6290>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6888] Perreault, S., Yamagata, I., Miyakawa, S., Nakagawa, A., and H. Ashida, \"Common Requirements for Carrier-Grade NATs (CGNs)\", BCP 127, RFC 6888, April 2013, <http://www.rfc-editor.org/info/rfc6888>.",
+      "zh-CHS": "[RFC6888]Perreault，S.，Yamagata，I.，Miyakawa，S.，Nakagawa，A.，和H.Ashida，“载体级NAT（CGN）的通用要求”，BCP 127，RFC 6888，2013年4月<http://www.rfc-editor.org/info/rfc6888>."
+    },
+    {
+      "indent": 3,
+      "text": "[FRAGDROP] Jaeggli, J., Colitti, L., Kumari, W., Vyncke, E., Kaeo, M., and T. Taylor, \"Why Operators Filter Fragments and What It Implies\", Work in Progress, draft-taylor-v6ops-fragdrop-02, December 2013.",
+      "zh-CHS": "[FRAGDROP]Jaeggli，J.，Coletti，L.，Kumari，W.，Vyncke，E.，Kaeo，M.，和T.Taylor，“为什么操作员过滤碎片及其含义”，正在进行的工作，草稿-Taylor-v6ops-FRAGDROP-022013年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BLACKHOLES] De Boer, M. and J. Bosma, \"Discovering Path MTU black holes on the Internet using RIPE Atlas\", July 2012, <http://www.nlnetlabs.nl/downloads/publications/ pmtu-black-holes-msc-thesis.pdf>.",
+      "zh-CHS": "[黑洞]De Boer，M.和J.Bosma，“使用成熟的Atlas在互联网上发现路径MTU黑洞”，2012年7月<http://www.nlnetlabs.nl/downloads/publications/ pmtu黑洞理学硕士论文.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[DOSUDPPROT] Kaufman, C., Perlman, R., and B. Sommerfeld, \"DoS protection for UDP-based protocols\", ACM Conference on Computer and Communications Security, October 2003.",
+      "zh-CHS": "[Dosudprot]Kaufman，C.，Perlman，R.，和B.Sommerfeld，“基于UDP协议的DoS保护”，ACM计算机和通信安全会议，2003年10月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Design Rationale",
+      "section_title": true,
+      "zh-CHS": "附录A.设计原理"
+    },
+    {
+      "indent": 3,
+      "text": "The simplest approach to IKE fragmentation would have been to fragment a message that is fully formed and ready to be sent. However, if a message got fragmented after being encrypted and authenticated, this could make a simple DoS attack possible. The attacker could infrequently emit forged but valid-looking fragments into the network, and some of these fragments would be fetched by the receiver into the reassembling queue. The receiver would not be able to distinguish forged fragments from valid ones and would only be able to determine that some of the received fragments were forged after the whole message was reassembled and its authenticity check failed.",
+      "zh-CHS": "IKE分段的最简单方法是将一条完全成形并准备好发送的消息分段。然而，如果一条消息在经过加密和身份验证后变得支离破碎，这可能会使简单的DoS攻击成为可能。攻击者很少会将伪造但看起来有效的片段发送到网络中，其中一些片段会被接收方提取到重组队列中。接收方将无法区分伪造片段和有效片段，只能在重新组装整个报文且其真实性检查失败后，才能确定部分接收到的片段是伪造的。"
+    },
+    {
+      "indent": 3,
+      "text": "To prevent this kind of attack and also reduce vulnerability to some other kinds of DoS attacks, it was decided to perform fragmentation before applying cryptographic protection to the message. In this case, each Fragment message becomes individually encrypted and authenticated; this allows the receiver to determine forged fragments and not store them in the reassembling queue.",
+      "zh-CHS": "为了防止此类攻击，同时降低对其他类型DoS攻击的脆弱性，决定在对消息应用加密保护之前执行分段。在这种情况下，每个片段消息被单独加密和认证；这允许接收方确定伪造的片段，而不是将其存储在重新组装队列中。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Correlation between IP Datagram Size and Encrypted Payload Content Size",
+      "zh-CHS": "附录B.IP数据报大小和加密有效负载内容大小之间的相关性"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of IPv4, the content size of the Encrypted Payload is less than the IP datagram size by the sum of the following values:",
+      "zh-CHS": "在IPv4的情况下，加密有效负载的内容大小小于IP数据报大小的以下值之和："
+    },
+    {
+      "indent": 3,
+      "text": "o IPv4 header size (typically 20 bytes, up to 60 if IP options are present)",
+      "zh-CHS": "o IPv4标头大小（通常为20字节，如果存在IP选项，则最多为60字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o UDP header size (8 bytes)",
+      "zh-CHS": "o UDP标头大小（8字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o non-ESP (Encapsulating Security Payload) marker size (4 bytes if present)",
+      "zh-CHS": "o 非ESP（封装安全有效负载）标记大小（4字节，如果存在）"
+    },
+    {
+      "indent": 3,
+      "text": "o IKE header size (28 bytes)",
+      "zh-CHS": "o IKE头大小（28字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Encrypted payload header size (4 bytes)",
+      "zh-CHS": "o 加密的有效负载标头大小（4字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o initialization vector (IV) size (variable)",
+      "zh-CHS": "o 初始化向量（IV）大小（变量）"
+    },
+    {
+      "indent": 3,
+      "text": "o padding and its size (at least 1 byte)",
+      "zh-CHS": "o 填充及其大小（至少1字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o ICV size (variable)",
+      "zh-CHS": "o ICV大小（可变）"
+    },
+    {
+      "indent": 3,
+      "text": "The sum may be estimated as 61..105 bytes + IV + ICV + padding.",
+      "zh-CHS": "总和可估计为61..105字节+IV+ICV+填充。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case of IPv6, the content size of the Encrypted Payload is less than the IP datagram size by the sum of the following values:",
+      "zh-CHS": "在IPv6的情况下，加密有效负载的内容大小小于IP数据报大小的以下值之和："
+    },
+    {
+      "indent": 3,
+      "text": "o IPv6 header size (40 bytes)",
+      "zh-CHS": "o IPv6标头大小（40字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o IPv6 extension headers (optional; size varies)",
+      "zh-CHS": "o IPv6扩展标头（可选；大小不同）"
+    },
+    {
+      "indent": 3,
+      "text": "o UDP header size (8 bytes)",
+      "zh-CHS": "o UDP标头大小（8字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o non-ESP marker size (4 bytes if present)",
+      "zh-CHS": "o 非ESP标记大小（如果存在，则为4字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o IKE header size (28 bytes)",
+      "zh-CHS": "o IKE头大小（28字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o Encrypted payload header size (4 bytes)",
+      "zh-CHS": "o 加密的有效负载标头大小（4字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o IV size (variable)",
+      "zh-CHS": "o IV尺寸（可变）"
+    },
+    {
+      "indent": 3,
+      "text": "o padding and its size (at least 1 byte)",
+      "zh-CHS": "o 填充及其大小（至少1字节）"
+    },
+    {
+      "indent": 3,
+      "text": "o ICV size (variable)",
+      "zh-CHS": "o ICV大小（可变）"
+    },
+    {
+      "indent": 3,
+      "text": "If no extension header is present, the sum may be estimated as 81..85 bytes + IV + ICV + padding. If extension headers are present, the payload content size is further reduced by the sum of the size of the extension headers. The length of each extension header can be calculated as 8 * (Hdr Ext Len) bytes, except for the fragment header, which is always 8 bytes in length.",
+      "zh-CHS": "如果不存在扩展头，则总和可估计为81..85字节+IV+ICV+填充。如果存在扩展头，有效负载内容大小将进一步减少扩展头大小之和。每个扩展头的长度可以计算为8*（Hdr Ext Len）字节，但片段头除外，其长度始终为8字节。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The author would like to thank Tero Kivinen, Yoav Nir, Paul Wouters, Yaron Sheffer, Joe Touch, Derek Atkins, Ole Troan, and others for their reviews and valuable comments. Thanks to Ron Bonica for contributing text to the Introduction section. Thanks to Paul Hoffman and Barry Leiba for improving text clarity.",
+      "zh-CHS": "作者要感谢Tero Kivinen、Yoav Nir、Paul Wouters、Yaron Sheffer、Joe Touch、Derek Atkins、Ole Troan和其他人的评论和宝贵意见。感谢Ron Bonica为简介部分提供文本。感谢Paul Hoffman和Barry Leiba提高了文本清晰度。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Valery Smyslov ELVIS-PLUS PO Box 81 Moscow (Zelenograd) 124460 Russian Federation",
+      "zh-CHS": "Valery Smyslov ELVIS-PLUS邮政信箱81莫斯科（Zelenograd）124460俄罗斯联邦"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +7 495 276 0211\nEMail: svan@elvis.ru",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

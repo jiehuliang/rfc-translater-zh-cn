@@ -1,0 +1,1373 @@
+{
+  "title": {
+    "text": "RFC 4474: Enhancements for Authenticated Identity Management in the Session Initiation Protocol (SIP)",
+    "zh-CHS": "RFC 4474"
+  },
+  "number": 4474,
+  "created_at": "2021-11-14 01:29:00.230251+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        J. Peterson\nRequest for Comments: 4474                                       NeuStar\nCategory: Standards Track                                    C. Jennings\n                                                           Cisco Systems\n                                                             August 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "Enhancements for Authenticated Identity Management in the Session Initiation Protocol (SIP)",
+      "zh-CHS": "会话启动协议（SIP）中身份验证管理的增强功能"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The existing security mechanisms in the Session Initiation Protocol (SIP) are inadequate for cryptographically assuring the identity of the end users that originate SIP requests, especially in an interdomain context. This document defines a mechanism for securely identifying originators of SIP messages. It does so by defining two new SIP header fields, Identity, for conveying a signature used for validating the identity, and Identity-Info, for conveying a reference to the certificate of the signer.",
+      "zh-CHS": "会话发起协议（SIP）中的现有安全机制不足以以加密方式确保发起SIP请求的最终用户的身份，尤其是在域间上下文中。本文档定义了一种安全识别SIP消息发起人的机制。它通过定义两个新的SIP头字段Identity来实现，Identity用于传递用于验证身份的签名，Identity Info用于传递对签名者证书的引用。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Terminology .....................................................3\n3. Background ......................................................3\n4. Overview of Operations ..........................................6\n5. Authentication Service Behavior .................................7\n   5.1. Identity within a Dialog and Retargeting ..................10\n6. Verifier Behavior ..............................................11\n7. Considerations for User Agent ..................................12\n8. Considerations for Proxy Servers ...............................13\n9. Header Syntax ..................................................13\n10. Compliance Tests and Examples .................................16\n   10.1. Identity-Info with a Singlepart MIME body ................17\n   10.2. Identity for a Request with No MIME Body or Contact ......20\n11. Identity and the TEL URI Scheme ...............................22\n12. Privacy Considerations ........................................23\n13. Security Considerations .......................................24\n   13.1. Handling of digest-string Elements .......................24\n   13.2. Display-Names and Identity ...............................27\n   13.3. Securing the Connection to the Authentication Service ....28\n   13.4. Domain Names and Subordination ...........................29\n   13.5. Authorization and Transitional Strategies ................30\n14. IANA Considerations ...........................................31\n   14.1. Header Field Names .......................................31\n   14.2. 428 'Use Identity Header' Response Code ..................32\n   14.3. 436 'Bad Identity-Info' Response Code ....................32\n   14.4. 437 'Unsupported Certificate' Response Code ..............32\n   14.5. 438 'Invalid Identity Header' Response Code ..............33\n   14.6. Identity-Info Parameters .................................33\n   14.7. Identity-Info Algorithm Parameter Values .................33\nAppendix A. Acknowledgements ......................................34\nAppendix B. Bit-Exact Archive of Examples of Messages .............34\n   B.1. Encoded Reference Files ...................................35\nAppendix C. Original Requirements .................................38\nReferences ........................................................39\n   Normative References ...........................................39\n   Informative References .........................................39",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document provides enhancements to the existing mechanisms for authenticated identity management in the Session Initiation Protocol (SIP, RFC 3261 [1]). An identity, for the purposes of this document, is defined as a SIP URI, commonly a canonical address-of-record (AoR) employed to reach a user (such as 'sip:alice@atlanta.example.com').",
+      "zh-CHS": "本文档增强了会话启动协议（SIP，RFC 3261[1]）中认证身份管理的现有机制。在本文档中，身份被定义为SIP URI，通常是用于到达用户的规范记录地址（AoR）（如“SIP:alice@atlanta.example.com')."
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3261 stipulates several places within a SIP request where a user can express an identity for themselves, notably the user-populated From header field. However, the recipient of a SIP request has no way to verify that the From header field has been populated appropriately, in the absence of some sort of cryptographic authentication mechanism.",
+      "zh-CHS": "RFC 3261规定了SIP请求中的几个位置，其中用户可以为自己表示身份，特别是从标头字段填充的用户。但是，在缺少某种加密身份验证机制的情况下，SIP请求的接收者无法验证From标头字段是否已正确填充。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3261 specifies a number of security mechanisms that can be employed by SIP user agents (UAs), including Digest, Transport Layer Security (TLS), and S/MIME (implementations may support other security schemes as well). However, few SIP user agents today support the end-user certificates necessary to authenticate themselves (via S/MIME, for example), and furthermore Digest authentication is limited by the fact that the originator and destination must share a prearranged secret. It is desirable for SIP user agents to be able to send requests to destinations with which they have no previous association -- just as in the telephone network today, one can receive a call from someone with whom one has no previous association, and still have a reasonable assurance that the person's displayed Caller-ID is accurate. A cryptographic approach, like the one described in this document, can probably provide a much stronger and less-spoofable assurance of identity than the telephone network provides today.",
+      "zh-CHS": "RFC 3261指定了SIP用户代理（UAs）可以使用的许多安全机制，包括摘要、传输层安全（TLS）和S/MIME（实现也可以支持其他安全方案）。然而，现在很少有SIP用户代理支持对自己进行身份验证所必需的最终用户证书（例如，通过S/MIME），而且摘要身份验证受到以下事实的限制：发起者和目的地必须共享预先安排的秘密。SIP用户代理希望能够将请求发送到他们以前没有关联的目的地——就像在今天的电话网络中一样，人们可以接收来自与他们以前没有关联的人的呼叫，并且仍然可以合理地保证此人显示的呼叫者ID是准确的。加密方法，如本文档中所述，可能会提供比今天的电话网络更强大、更不可信的身份保证。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, the key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" are to be interpreted as described in RFC 2119 [2] and indicate requirement levels for compliant SIP implementations.",
+      "zh-CHS": "在本文件中，关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”将按照RFC 2119[2]中的描述进行解释，并表示符合SIP实施的要求级别。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Background",
+      "section_title": true,
+      "zh-CHS": "3. 出身背景"
+    },
+    {
+      "indent": 3,
+      "text": "The usage of many SIP applications and services is governed by authorization policies. These policies may be automated, or they may be applied manually by humans. An example of the latter would be an Internet telephone application that displays the Caller-ID of a caller, which a human may review before answering a call. An example of the former would be a presence service that compares the identity",
+      "zh-CHS": "许多SIP应用程序和服务的使用由授权策略控制。这些策略可以是自动化的，也可以由人工应用。后者的一个例子是一个互联网电话应用程序，它显示呼叫者的呼叫者ID，人们在接听电话之前可以查看该ID。前者的一个例子是比较身份的状态服务"
+    },
+    {
+      "indent": 3,
+      "text": "of potential subscribers to a whitelist before determining whether it should accept or reject the subscription. In both of these cases, attackers might attempt to circumvent these authorization policies through impersonation. Since the primary identifier of the sender of a SIP request, the From header field, can be populated arbitrarily by the controller of a user agent, impersonation is very simple today. The mechanism described in this document aspires to provide a strong identity system for SIP in which authorization policies cannot be circumvented by impersonation.",
+      "zh-CHS": "在确定是否应接受或拒绝订阅之前，对白名单的潜在订阅方进行排序。在这两种情况下，攻击者可能试图通过模拟绕过这些授权策略。由于SIP请求的发送方的主标识符“发件人”头字段可以由用户代理的控制器任意填充，因此模拟现在非常简单。本文档中描述的机制旨在为SIP提供一个强大的身份系统，在该系统中，无法通过模拟规避授权策略。"
+    },
+    {
+      "indent": 3,
+      "text": "All RFC 3261-compliant user agents support Digest authentication, which utilizes a shared secret, as a means for authenticating themselves to a SIP registrar. Registration allows a user agent to express that it is an appropriate entity to which requests should be sent for a particular SIP AoR URI (e.g., 'sip:alice@atlanta.example.com').",
+      "zh-CHS": "所有符合RFC 3261的用户代理都支持摘要身份验证，摘要身份验证利用共享秘密作为向SIP注册器进行身份验证的手段。注册允许用户代理表示它是一个适当的实体，针对特定SIP AoR URI（例如，“SIP:alice@atlanta.example.com')."
+    },
+    {
+      "indent": 3,
+      "text": "By the definition of identity used in this document, registration is a proof of the identity of the user to a registrar. However, the credentials with which a user agent proves its identity to a registrar cannot be validated by just any user agent or proxy server -- these credentials are only shared between the user agent and their domain administrator. So this shared secret does not immediately help a user to authenticate to a wide range of recipients. Recipients require a means of determining whether or not the 'return address' identity of a non-REGISTER request (i.e., the From header field value) has legitimately been asserted.",
+      "zh-CHS": "根据本文件中使用的身份定义，注册是向注册官证明用户身份的证明。但是，用户代理向注册器证明其身份所用的凭据不能仅由任何用户代理或代理服务器验证——这些凭据仅在用户代理与其域管理员之间共享。因此，此共享秘密不会立即帮助用户向广泛的收件人进行身份验证。收件人需要一种方法来确定非注册请求的“返回地址”标识（即，发件人标头字段值）是否已合法断言。"
+    },
+    {
+      "indent": 3,
+      "text": "The AoR URI used for registration is also the URI with which a UA commonly populates the From header field of requests in order to provide a 'return address' identity to recipients. From an authorization perspective, if you can prove you are eligible to register in a domain under a particular AoR, you can prove you can legitimately receive requests for that AoR, and accordingly, when you place that AoR in the From header field of a SIP request other than a registration (like an INVITE), you are providing a 'return address' where you can legitimately be reached. In other words, if you are authorized to receive requests for that 'return address', logically, it follows that you are also authorized to assert that 'return address' in your From header field. This is of course only one manner in which a domain might determine how a particular user is authorized to populate the From header field; as an aside, for other sorts of URIs in the From (like anonymous URIs), other authorization policies would apply.",
+      "zh-CHS": "用于注册的AoR URI也是UA通常用来填充请求的From头字段的URI，以便向收件人提供“返回地址”标识。从授权的角度来看，如果您可以证明您有资格在特定AoR下的域中注册，那么您可以证明您可以合法地接收该AoR的请求，并且相应地，当您将该AoR放入SIP请求的From header字段而不是注册（如INVITE）时，你提供了一个“回信地址”，可以合法地联系到你。换句话说，如果您有权接收对该“返回地址”的请求，那么从逻辑上讲，您也有权在From标头字段中声明该“返回地址”。当然，这只是域确定特定用户如何被授权填充From header字段的一种方式；另外，对于From中的其他类型的URI（如匿名URI），将应用其他授权策略。"
+    },
+    {
+      "indent": 3,
+      "text": "Ideally, then, SIP user agents should have some way of proving to recipients of SIP requests that their local domain has authenticated them and authorized the population of the From header field. This",
+      "zh-CHS": "理想情况下，SIP用户代理应该有某种方式向SIP请求的接收者证明他们的本地域已经对他们进行了身份验证，并授权了From头字段的填充。这"
+    },
+    {
+      "indent": 3,
+      "text": "document proposes a mediated authentication architecture for SIP in which requests are sent to a server in the user's local domain, which authenticates such requests (using the same practices by which the domain would authenticate REGISTER requests). Once a message has been authenticated, the local domain then needs some way to communicate to other SIP entities that the sending user has been authenticated and its use of the From header field has been authorized. This document addresses how that imprimatur of authentication can be shared.",
+      "zh-CHS": "该文件提出了一种SIP中介认证体系结构，其中请求被发送到用户本地域中的服务器，该服务器对此类请求进行认证（使用域对注册请求进行认证的相同实践）。消息经过身份验证后，本地域需要某种方式与其他SIP实体通信，以确认发送用户已通过身份验证，并且其对From头字段的使用已获得授权。本文档介绍了如何共享认证许可。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3261 already describes an architecture very similar to this in Section 26.3.2.2, in which a user agent authenticates itself to a local proxy server, which in turn authenticates itself to a remote proxy server via mutual TLS, creating a two-link chain of transitive authentication between the originator and the remote domain. While this works well in some architectures, there are a few respects in which this is impractical. For one, transitive trust is inherently weaker than an assertion that can be validated end-to-end. It is possible for SIP requests to cross multiple intermediaries in separate administrative domains, in which case transitive trust becomes even less compelling.",
+      "zh-CHS": "RFC 3261已经在第26.3.2.2节中描述了与此非常类似的体系结构，其中用户代理向本地代理服务器进行身份验证，本地代理服务器通过相互TLS向远程代理服务器进行身份验证，从而在发起人和远程域之间创建了一个两链路的可传递身份验证链。虽然这在某些体系结构中工作得很好，但在某些方面这是不切实际的。首先，传递性信任本质上比可以端到端验证的断言弱。SIP请求有可能在不同的管理域中跨多个中介，在这种情况下，传递性信任变得更不重要。"
+    },
+    {
+      "indent": 3,
+      "text": "One solution to this problem is to use 'trusted' SIP intermediaries that assert an identity for users in the form of a privileged SIP header. A mechanism for doing so (with the P-Asserted-Identity header) is given in [12]. However, this solution allows only hop-by-hop trust between intermediaries, not end-to-end cryptographic authentication, and it assumes a managed network of nodes with strict mutual trust relationships, an assumption that is incompatible with widespread Internet deployment.",
+      "zh-CHS": "这个问题的一个解决方案是使用“受信任的”SIP中介，以特权SIP头的形式为用户断言身份。[12]中给出了这样做的机制（使用P-Asserted-Identity报头）。但是，此解决方案只允许中间层之间的逐跳信任，而不允许端到端加密身份验证，并且它假设节点的管理网络具有严格的相互信任关系，这一假设与广泛的Internet部署不兼容。"
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, this document specifies a means of sharing a cryptographic assurance of end-user SIP identity in an interdomain or intradomain context that is based on the concept of an 'authentication service' and a new SIP header, the Identity header. Note that the scope of this document is limited to providing this identity assurance for SIP requests; solving this problem for SIP responses is more complicated and is a subject for future work.",
+      "zh-CHS": "因此，本文件规定了在域间或域内上下文中共享最终用户SIP身份的加密保证的方法，该方法基于“认证服务”和新SIP报头（身份报头）的概念。注意，本文件的范围仅限于为SIP请求提供此身份保证；解决SIP响应的这个问题更为复杂，是未来工作的主题。"
+    },
+    {
+      "indent": 3,
+      "text": "This specification allows either a user agent or a proxy server to provide identity services and to verify identities. To maximize end-to-end security, it is obviously preferable for end-users to acquire their own certificates and corresponding private keys; if they do, they can act as an authentication service. However, end-user certificates may be neither practical nor affordable, given the difficulties of establishing a Public Key Infrastructure (PKI) that extends to end-users, and moreover, given the potentially large number of SIP user agents (phones, PCs, laptops, PDAs, gaming",
+      "zh-CHS": "此规范允许用户代理或代理服务器提供身份服务并验证身份。为了最大限度地提高端到端的安全性，终端用户显然更希望获得自己的证书和相应的私钥；如果这样做，它们可以充当身份验证服务。然而，考虑到建立扩展到最终用户的公钥基础设施（PKI）的困难，并且考虑到潜在的大量SIP用户代理（电话、PC、笔记本电脑、PDA、游戏），最终用户证书可能既不实用也不经济"
+    },
+    {
+      "indent": 3,
+      "text": "devices) that may be employed by a single user. In such environments, synchronizing keying material across multiple devices may be very complex and requires quite a good deal of additional endpoint behavior. Managing several certificates for the various devices is also quite problematic and unpopular with users. Accordingly, in the initial use of this mechanism, it is likely that intermediaries will instantiate the authentication service role.",
+      "zh-CHS": "可由单个用户使用的设备。在这样的环境中，跨多个设备同步键控材料可能非常复杂，并且需要大量额外的端点行为。为各种设备管理多个证书也是一个很大的问题，用户不喜欢这样做。因此，在该机制的初始使用中，中介机构很可能会实例化身份验证服务角色。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Overview of Operations",
+      "section_title": true,
+      "zh-CHS": "4. 业务概览"
+    },
+    {
+      "indent": 3,
+      "text": "This section provides an informative (non-normative) high-level overview of the mechanisms described in this document.",
+      "zh-CHS": "本节提供了本文件中所述机制的信息性（非规范性）高层概述。"
+    },
+    {
+      "indent": 3,
+      "text": "Imagine the case where Alice, who has the home proxy of example.com and the address-of-record sip:alice@example.com, wants to communicate with sip:bob@example.org.",
+      "zh-CHS": "想象一下，Alice拥有example.com的主代理和记录sip的地址：alice@example.com，希望与sip通信：bob@example.org."
+    },
+    {
+      "indent": 3,
+      "text": "Alice generates an INVITE and places her identity in the From header field of the request. She then sends an INVITE over TLS to an authentication service proxy for her domain.",
+      "zh-CHS": "Alice生成一个INVITE，并将她的身份放在请求的From头字段中。然后，她通过TLS向其域的身份验证服务代理发送邀请。"
+    },
+    {
+      "indent": 3,
+      "text": "The authentication service authenticates Alice (possibly by sending a Digest authentication challenge) and validates that she is authorized to assert the identity that is populated in the From header field. This value may be Alice's AoR, or it may be some other value that the policy of the proxy server permits her to use. It then computes a hash over some particular headers, including the From header field and the bodies in the message. This hash is signed with the certificate for the domain (example.com, in Alice's case) and inserted in a new header field in the SIP message, the 'Identity' header.",
+      "zh-CHS": "身份验证服务对Alice进行身份验证（可能通过发送摘要身份验证质询），并验证她是否有权断言在From标头字段中填充的标识。该值可能是Alice的AoR，也可能是代理服务器的策略允许她使用的其他值。然后，它计算一些特定头上的散列，包括From头字段和消息中的正文。该散列使用域的证书（例如Alice的例子中的example.com）进行签名，并插入到SIP消息中的新头字段“Identity”头中。"
+    },
+    {
+      "indent": 3,
+      "text": "The proxy, as the holder of the private key of its domain, is asserting that the originator of this request has been authenticated and that she is authorized to claim the identity (the SIP address-of-record) that appears in the From header field. The proxy also inserts a companion header field, Identity-Info, that tells Bob how to acquire its certificate, if he doesn't already have it.",
+      "zh-CHS": "代理作为其域私钥的持有者，声明此请求的发起人已通过身份验证，并且她有权声明“发件人”标头字段中显示的身份（记录的SIP地址）。代理还插入一个附带的标题字段Identity Info，它告诉Bob如果他还没有证书，如何获取证书。"
+    },
+    {
+      "indent": 3,
+      "text": "When Bob's domain receives the request, it verifies the signature provided in the Identity header, and thus can validate that the domain indicated by the host portion of the AoR in the From header field authenticated the user, and permitted the user to assert that From header field value. This same validation operation may be performed by Bob's user agent server (UAS).",
+      "zh-CHS": "当Bob的域接收到请求时，它会验证标识标头中提供的签名，从而可以验证由来自标头字段中AoR的主机部分指示的域是否对用户进行了身份验证，并允许用户断言来自标头字段值。相同的验证操作可由Bob的用户代理服务器（UAS）执行。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Authentication Service Behavior",
+      "section_title": true,
+      "zh-CHS": "5. 身份验证服务行为"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new role for SIP entities called an authentication service. The authentication service role can be instantiated by a proxy server or a user agent. Any entity that instantiates the authentication service role MUST possess the private key of a domain certificate. Intermediaries that instantiate this role MUST be capable of authenticating one or more SIP users that can register in that domain. Commonly, this role will be instantiated by a proxy server, since these entities are more likely to have a static hostname, hold a corresponding certificate, and have access to SIP registrar capabilities that allow them to authenticate users in their domain. It is also possible that the authentication service role might be instantiated by an entity that acts as a redirect server, but that is left as a topic for future work.",
+      "zh-CHS": "本文档为SIP实体定义了一个称为身份验证服务的新角色。身份验证服务角色可以由代理服务器或用户代理实例化。任何身份验证实体都必须拥有实例化该服务的私钥的域。实例化此角色的中介体必须能够对可以在该域中注册的一个或多个SIP用户进行身份验证。通常，此角色将由代理服务器实例化，因为这些实体更有可能具有静态主机名、持有相应的证书并具有访问SIP注册器功能的权限，这些功能允许它们对其域中的用户进行身份验证。身份验证服务角色也可能由充当重定向服务器的实体实例化，但这将作为未来工作的主题。"
+    },
+    {
+      "indent": 3,
+      "text": "SIP entities that act as an authentication service MUST add a Date header field to SIP requests if one is not already present (see Section 9 for information on how the Date header field assists verifiers). Similarly, authentication services MUST add a Content-Length header field to SIP requests if one is not already present; this can help verifiers to double-check that they are hashing exactly as many bytes of message-body as the authentication service when they verify the message.",
+      "zh-CHS": "充当身份验证服务的SIP实体必须在SIP请求中添加日期头字段（如果尚未添加日期头字段）（有关日期头字段如何协助验证器的信息，请参阅第9节）。类似地，身份验证服务必须向SIP请求添加一个内容长度头字段（如果还没有）；这有助于验证器在验证消息时仔细检查消息体的散列字节数是否与验证服务的散列字节数相同。"
+    },
+    {
+      "indent": 3,
+      "text": "Entities instantiating the authentication service role perform the following steps, in order, to generate an Identity header for a SIP request:",
+      "zh-CHS": "实例化身份验证服务角色的实体执行以下步骤，以便为SIP请求生成标识头："
+    },
+    {
+      "indent": 3,
+      "text": "Step 1:",
+      "zh-CHS": "步骤1："
+    },
+    {
+      "indent": 3,
+      "text": "The authentication service MUST extract the identity of the sender from the request. The authentication service takes this value from the From header field; this AoR will be referred to here as the 'identity field'. If the identity field contains a SIP or SIP Secure (SIPS) URI, the authentication service MUST extract the hostname portion of the identity field and compare it to the domain(s) for which it is responsible (following the procedures in RFC 3261, Section 16.4, used by a proxy server to determine the domain(s) for which it is responsible). If the identity field uses the TEL URI scheme, the policy of the authentication service determines whether or not it is responsible for this identity; see Section 11 for more information. If the authentication service is not responsible for the identity in question, it SHOULD process and forward the request normally, but it MUST NOT add an Identity header; see below for more information on authentication service handling of an existing Identity header.",
+      "zh-CHS": "身份验证服务必须从请求中提取发件人的身份。身份验证服务从from头字段获取该值；此AoR在此处称为“标识字段”。如果标识字段包含SIP或SIP安全（SIPS）URI，则身份验证服务必须提取标识字段的主机名部分，并将其与其负责的域进行比较（遵循RFC 3261第16.4节中的过程，由代理服务器用于确定其负责的域）。如果标识字段使用TEL-URI方案，则认证服务的策略确定其是否负责该标识；更多信息请参见第11节。如果认证服务不负责所涉及的身份，则应正常处理和转发请求，但不得添加身份标头；有关现有标识标头的身份验证服务处理的更多信息，请参见下文。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 2:",
+      "zh-CHS": "步骤2："
+    },
+    {
+      "indent": 3,
+      "text": "The authentication service MUST determine whether or not the sender of the request is authorized to claim the identity given in the identity field. In order to do so, the authentication service MUST authenticate the sender of the message. Some possible ways in which this authentication might be performed include:",
+      "zh-CHS": "身份验证服务必须确定请求的发送方是否有权声明标识字段中给定的标识。为此，身份验证服务必须对消息的发送者进行身份验证。执行此身份验证的一些可能方式包括："
+    },
+    {
+      "indent": 9,
+      "text": "If the authentication service is instantiated by a SIP intermediary (proxy server), it may challenge the request with a 407 response code using the Digest authentication scheme (or viewing a Proxy-Authentication header sent in the request, which was sent in anticipation of a challenge using cached credentials, as described in RFC 3261, Section 22.3). Note that if that proxy server is maintaining a TLS connection with the client over which the client had previously authenticated itself using Digest authentication, the identity value obtained from that previous authentication step can be reused without an additional Digest challenge.",
+      "zh-CHS": "如果认证服务由SIP中介（代理服务器）实例化，则它可以使用摘要认证方案使用407响应码来质询请求（或查看请求中发送的代理身份验证标头，该标头是在预期使用缓存凭据的质询时发送的，如RFC 3261第22.3节所述）。请注意，如果该代理服务器正在维护与客户端的TLS连接，该客户端以前使用摘要身份验证对其自身进行了身份验证，则可以重用从先前身份验证步骤获得的标识值，而无需额外的摘要质询。"
+    },
+    {
+      "indent": 9,
+      "text": "If the authentication service is instantiated by a SIP user agent, a user agent can be said to authenticate its user on the grounds that the user can provision the user agent with the private key of the domain, or preferably by providing a password that unlocks said private key.",
+      "zh-CHS": "如果认证服务由SIP用户代理实例化，则可以说用户代理认证其用户，理由是用户可以向用户代理提供域的私钥，或者优选地通过提供解锁所述私钥的密码。"
+    },
+    {
+      "indent": 3,
+      "text": "Authorization of the use of a particular username in the From header field is a matter of local policy for the authentication service, one that depends greatly on the manner in which authentication is performed. For example, one policy might be as follows: the username given in the 'username' parameter of the Proxy-Authorization header MUST correspond exactly to the username in the From header field of the SIP message. However, there are many cases in which this is too limiting or inappropriate; a realm might use 'username' parameters in Proxy-Authorization that do not correspond to the user-portion of SIP From headers, or a user might manage multiple accounts in the same administrative domain. In this latter case, a domain might maintain a mapping between the values in the 'username' parameter of Proxy-Authorization and a set of one or more SIP URIs that might legitimately be asserted for that 'username'. For example, the username can correspond to the 'private identity' as defined in Third Generation Partnership Project (3GPP), in which case the From header field can contain any one of the public identities associated with this private identity. In this instance, another policy might be as follows: the URI in the From header field MUST correspond exactly to one of the mapped URIs associated with the 'username' given in the Proxy-Authorization header. Various exceptions to such policies might arise for cases like anonymity; if the AoR asserted in the From",
+      "zh-CHS": "授权在From头字段中使用特定用户名是身份验证服务的本地策略问题，这在很大程度上取决于执行身份验证的方式。例如，一个策略可能如下：代理授权头的“username”参数中给出的用户名必须与SIP消息的From头字段中的用户名完全对应。然而，在许多情况下，这是过于有限或不适当的；域可能在代理授权中使用“username”参数，这些参数与来自头的SIP的用户部分不对应，或者用户可能在同一管理域中管理多个帐户。在后一种情况下，域可能会维护代理授权的“username”参数中的值与一组可合法为该“username”断言的一个或多个SIP URI之间的映射。例如，用户名可以对应于第三代合作伙伴关系项目（3GPP）中定义的“私有身份”，在这种情况下，From header字段可以包含与该私有身份相关联的任何一个公共身份。在本例中，另一个策略可能如下所示：From标头字段中的URI必须与与代理授权标头中给定的“username”关联的一个映射URI完全对应。对于匿名等情况，此类政策可能会出现各种例外情况；如果AoR在From中断言"
+    },
+    {
+      "indent": 3,
+      "text": "header field uses a form like 'sip:anonymous@example.com', then the 'example.com' proxy should authenticate that the user is a valid user in the domain and insert the signature over the From header field as usual.",
+      "zh-CHS": "标题字段使用类似“sip:anonymous@example.com，则“example.com”代理应验证该用户是否是域中的有效用户，并像往常一样在From标头字段上插入签名。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this check is performed on the addr-spec in the From header field (e.g., the URI of the sender, like 'sip:alice@atlanta.example.com'); it does not convert the display-name portion of the From header field (e.g., 'Alice Atlanta'). Authentication services MAY check and validate the display-name as well, and compare it to a list of acceptable display-names that may be used by the sender; if the display-name does not meet policy constraints, the authentication service MUST return a 403 response code. The reason phrase should indicate the nature of the problem; for example, \"Inappropriate Display Name\". However, the display-name is not always present, and in many environments the requisite operational procedures for display-name validation may not exist. For more information, see Section 13.2.",
+      "zh-CHS": "请注意，此检查是在From头字段中的addr spec上执行的（例如，发送方的URI，如“sip:alice@atlanta.example.com'); 它不会转换From标头字段的显示名称部分（例如，“Alice Atlanta”）。认证服务还可以检查和验证显示名称，并将其与发送方可能使用的可接受显示名称列表进行比较；如果显示名称不符合策略约束，则身份验证服务必须返回403响应代码。理由短语应表明问题的性质；例如，“不适当的显示名称”。但是，显示名称并不总是存在，在许多环境中，可能不存在显示名称验证所需的操作过程。有关更多信息，请参见第13.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 3:",
+      "zh-CHS": "步骤3："
+    },
+    {
+      "indent": 3,
+      "text": "The authentication service SHOULD ensure that any preexisting Date header in the request is accurate. Local policy can dictate precisely how accurate the Date must be; a RECOMMENDED maximum discrepancy of ten minutes will ensure that the request is unlikely to upset any verifiers. If the Date header contains a time different by more than ten minutes from the current time noted by the authentication service, the authentication service SHOULD reject the request. This behavior is not mandatory because a user agent client (UAC) could only exploit the Date header in order to cause a request to fail verification; the Identity header is not intended to provide a source of non-repudiation or a perfect record of when messages are processed. Finally, the authentication service MUST verify that the Date header falls within the validity period of its certificate. For more information on the security properties associated with the Date header field value, see Section 9.",
+      "zh-CHS": "身份验证服务应该确保请求中任何预先存在的日期头都是准确的。当地政策可以精确规定日期的准确性；建议的最大差异为10分钟，这将确保请求不太可能打乱任何验证者。如果日期标头包含的时间与身份验证服务记录的当前时间相差超过十分钟，则身份验证服务应拒绝该请求。此行为不是强制性的，因为用户代理客户端（UAC）只能利用日期头导致请求验证失败；标识头的目的不是提供不可否认性的来源，也不是提供消息处理时间的完美记录。最后，身份验证服务必须验证日期头是否在其证书的有效期内。有关与日期标头字段值关联的安全属性的更多信息，请参阅第9节。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 4:",
+      "zh-CHS": "步骤4："
+    },
+    {
+      "indent": 3,
+      "text": "The authentication service MUST form the identity signature and add an Identity header to the request containing this signature. After the Identity header has been added to the request, the authentication service MUST also add an Identity-Info header. The Identity-Info header contains a URI from which its certificate can be acquired. Details on the generation of both of these headers are provided in Section 9.",
+      "zh-CHS": "身份验证服务必须形成身份签名，并向包含此签名的请求添加身份标头。将标识标头添加到请求后，身份验证服务还必须添加标识信息标头。Identity Info标头包含一个URI，可以从中获取其证书。第9节提供了有关生成这两个标头的详细信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the authentication service MUST forward the message normally.",
+      "zh-CHS": "最后，身份验证服务必须正常转发消息。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Identity within a Dialog and Retargeting",
+      "section_title": true,
+      "zh-CHS": "5.1. 对话框中的标识和重定目标"
+    },
+    {
+      "indent": 3,
+      "text": "Retargeting is broadly defined as the alteration of the Request-URI by intermediaries. More specifically, retargeting supplants the original target URI with one that corresponds to a different user, a user that is not authorized to register under the original target URI. By this definition, retargeting does not include translation of the Request-URI to a contact address of an endpoint that has registered under the original target URI, for example.",
+      "zh-CHS": "重定目标被广泛定义为中介对请求URI的更改。更具体地说，重定目标将原始目标URI替换为与不同用户（未授权在原始目标URI下注册的用户）对应的URI。根据该定义，重定目标不包括将请求URI转换为已在原始目标URI下注册的端点的联系地址。"
+    },
+    {
+      "indent": 3,
+      "text": "When a dialog-forming request is retargeted, this can cause a few wrinkles for the Identity mechanism when it is applied to requests sent in the backwards direction within a dialog. This section provides some non-normative considerations related to this case.",
+      "zh-CHS": "当一个对话框形成请求被重定目标时，当它被应用于对话框中向后发送的请求时，这可能会导致标识机制出现一些褶皱。本节提供了一些与本案例相关的非规范性考虑。"
+    },
+    {
+      "indent": 3,
+      "text": "When a request is retargeted, it may reach a SIP endpoint whose user is not identified by the URI designated in the To header field value. The value in the To header field of a dialog-forming request is used as the From header field of requests sent in the backwards direction during the dialog, and is accordingly the header that would be signed by an authentication service for requests sent in the backwards direction. In retargeting cases, if the URI in the From header does not identify the sender of the request in the backwards direction, then clearly it would be inappropriate to provide an Identity signature over that From header. As specified above, if the authentication service is not responsible for the domain in the From header field of the request, it MUST NOT add an Identity header to the request, and it should process/forward the request normally.",
+      "zh-CHS": "当一个请求被重定目标时，它可能会到达一个SIP端点，该端点的用户没有被To头字段值中指定的URI识别。对话框形成请求的To header字段中的值用作对话框期间向后发送的请求的From header字段，并且相应地是认证服务将为向后发送的请求签名的头。在重定目标的情况下，如果From头中的URI没有向后标识请求的发送者，那么显然在From头上提供身份签名是不合适的。如上所述，如果身份验证服务不负责请求的From header字段中的域，则它不能向请求添加标识头，并且它应该正常处理/转发请求。"
+    },
+    {
+      "indent": 3,
+      "text": "Any means of anticipating retargeting, and so on, is outside the scope of this document, and likely to have equal applicability to response identity as it does to requests in the backwards direction within a dialog. Consequently, no special guidance is given for implementers here regarding the 'connected party' problem; authentication service behavior is unchanged if retargeting has occurred for a dialog-forming request. Ultimately, the authentication service provides an Identity header for requests in the backwards dialog when the user is authorized to assert the identity given in the From header field, and if they are not, an Identity header is not provided.",
+      "zh-CHS": "任何预期重定目标等的方法都不在本文档的范围内，并且对响应标识的适用性可能与对对话框中反向请求的适用性相同。因此，此处未就“关联方”问题为实施者提供特别指导；如果对形成对话框的请求进行了重定目标，则身份验证服务行为将保持不变。最终，当用户被授权断言From header字段中给出的标识时，身份验证服务会在向后对话框中为请求提供标识头，如果没有，则不会提供标识头。"
+    },
+    {
+      "indent": 3,
+      "text": "For further information on the problems of response identity and the potential solution spaces, see [15].",
+      "zh-CHS": "有关响应恒等式和潜在解空间问题的更多信息，请参见[15]。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Verifier Behavior",
+      "section_title": true,
+      "zh-CHS": "6. 验证者行为"
+    },
+    {
+      "indent": 3,
+      "text": "This document introduces a new logical role for SIP entities called a server. When a verifier receives a SIP message containing an Identity header, it may inspect the signature to verify the identity of the sender of the message. Typically, the results of a verification are provided as input to an authorization process that is outside the scope of this document. If an Identity header is not present in a request, and one is required by local policy (for example, based on a per-sending-domain policy, or a per-sending-user policy), then a 428 'Use Identity Header' response MUST be sent.",
+      "zh-CHS": "本文档为SIP实体引入了一个新的逻辑角色，称为服务器。当验证器接收到包含标识报头的SIP消息时，它可以检查签名以验证消息的发送者的标识。通常，验证结果作为输入提供给本文件范围之外的授权流程。如果请求中不存在标识标头，且本地策略（例如，基于每发送域策略或每发送用户策略）需要标识标头，则必须发送428“使用标识标头”响应。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to verify the identity of the sender of a message, an entity acting as a verifier MUST perform the following steps, in the order here specified.",
+      "zh-CHS": "为了验证消息发送者的身份，作为验证者的实体必须按照此处指定的顺序执行以下步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 1:",
+      "zh-CHS": "步骤1："
+    },
+    {
+      "indent": 3,
+      "text": "The verifier MUST acquire the certificate for the signing domain. Implementations supporting this specification SHOULD have some means of retaining domain certificates (in accordance with normal practices for certificate lifetimes and revocation) in order to prevent themselves from needlessly downloading the same certificate every time a request from the same domain is received. Certificates cached in this manner should be indexed by the URI given in the Identity-Info header field value.",
+      "zh-CHS": "验证程序必须获取签名域的证书。支持此规范的实现应该有一些保留域证书的方法（根据证书生存期和吊销的正常实践），以防止每次收到来自同一域的请求时不必要地下载同一证书。以这种方式缓存的证书应该由Identity Info标头字段值中给定的URI索引。"
+    },
+    {
+      "indent": 3,
+      "text": "Provided that the domain certificate used to sign this message is not previously known to the verifier, SIP entities SHOULD discover this certificate by dereferencing the Identity-Info header, unless they have some more efficient implementation-specific way of acquiring certificates for that domain. If the URI scheme in the Identity-Info header cannot be dereferenced, then a 436 'Bad Identity-Info' response MUST be returned. The verifier processes this certificate in the usual ways, including checking that it has not expired, that the chain is valid back to a trusted certification authority (CA), and that it does not appear on revocation lists. Once the certificate is acquired, it MUST be validated following the procedures in RFC 3280 [9]. If the certificate cannot be validated (it is self-signed and untrusted, or signed by an untrusted or unknown certificate authority, expired, or revoked), the verifier MUST send a 437 'Unsupported Certificate' response.",
+      "zh-CHS": "假设验证器之前不知道用于签署此消息的域证书，则SIP实体应通过取消引用Identity Info报头来发现此证书，除非它们有更有效的特定于实现的方法来获取该域的证书。如果标识信息标头中的URI方案无法取消引用，则必须返回436“错误标识信息”响应。验证器以通常的方式处理该证书，包括检查该证书是否已过期，该链是否有效返回到受信任的证书颁发机构（CA），以及该证书是否未出现在吊销列表中。获得证书后，必须按照RFC 3280[9]中的程序对其进行验证。如果证书无法验证（它是自签名和不受信任的，或由不受信任或未知的证书颁发机构签名、过期或吊销），验证器必须发送437“不受支持的证书”响应。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 2:",
+      "zh-CHS": "步骤2："
+    },
+    {
+      "indent": 3,
+      "text": "The verifier MUST follow the process described in Section 13.4 to determine if the signer is authoritative for the URI in the From header field.",
+      "zh-CHS": "验证器必须遵循第13.4节中描述的过程，以确定签名者是否对From头字段中的URI具有权威性。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 3:",
+      "zh-CHS": "步骤3："
+    },
+    {
+      "indent": 3,
+      "text": "The verifier MUST verify the signature in the Identity header field, following the procedures for generating the hashed digest-string described in Section 9. If a verifier determines that the signature on the message does not correspond to the reconstructed digest-string, then a 438 'Invalid Identity Header' response MUST be returned.",
+      "zh-CHS": "验证器必须按照第9节中描述的生成哈希摘要字符串的过程，验证标识头字段中的签名。如果验证器确定消息上的签名与重建的摘要字符串不对应，则必须返回438“无效标识头”响应。"
+    },
+    {
+      "indent": 3,
+      "text": "Step 4:",
+      "zh-CHS": "步骤4："
+    },
+    {
+      "indent": 3,
+      "text": "The verifier MUST validate the Date, Contact, and Call-ID headers in the manner described in Section 13.1; recipients that wish to verify Identity signatures MUST support all of the operations described there. It must furthermore ensure that the value of the Date header falls within the validity period of the certificate whose corresponding private key was used to sign the Identity header.",
+      "zh-CHS": "验证者必须按照第13.1节所述的方式验证日期、联系人和呼叫ID标题；希望验证身份签名的收件人必须支持此处描述的所有操作。它还必须确保日期标头的值在证书的有效期内，证书的相应私钥用于对标识标头进行签名。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Considerations for User Agent",
+      "section_title": true,
+      "zh-CHS": "7. 用户代理的注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "This mechanism can be applied opportunistically to existing SIP deployments; accordingly, it requires no change to SIP user agent behavior in order for it to be effective. However, because this mechanism does not provide integrity protection between the UAC and the authentication service, a UAC SHOULD implement some means of providing this integrity. TLS would be one such mechanism, which is attractive because it MUST be supported by SIP proxy servers, but is potentially problematic because it is a hop-by-hop mechanism. See Section 13.3 for more information about securing the channel between the UAC and the authentication service.",
+      "zh-CHS": "该机制可机会主义地应用于现有SIP部署；因此，它不需要改变SIP用户代理行为，就可以使其有效。但是，由于此机制不提供UAC和身份验证服务之间的完整性保护，UAC应该实现一些提供此完整性的方法。TLS就是这样一种机制，它很有吸引力，因为它必须由SIP代理服务器支持，但由于它是一种逐跳机制，因此可能存在问题。有关UAC和身份验证服务之间通道安全的更多信息，请参见第13.3节。"
+    },
+    {
+      "indent": 3,
+      "text": "When a UAC sends a request, it MUST accurately populate the From header field with a value corresponding to an identity that it believes it is authorized to claim. In a request, it MUST set the URI portion of its From header to match a SIP, SIPS, or TEL URI AoR that it is authorized to use in the domain (including anonymous URIs, as described in RFC 3323 [3]). In general, UACs SHOULD NOT use the TEL URI form in the From header field (see Section 11).",
+      "zh-CHS": "当UAC发送请求时，它必须使用一个对应于它认为有权声明的身份的值准确地填充From header字段。在请求中，它必须将其From头的URI部分设置为与授权在域中使用的SIP、SIPS或TEL URI AoR相匹配（包括匿名URI，如RFC 3323[3]中所述）。一般来说，UAC不应该在From头字段中使用TEL URI表单（参见第11节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this document defines a number of new 4xx response codes. If user agents support these response codes, they will be able to respond intelligently to Identity-based error conditions.",
+      "zh-CHS": "请注意，本文档定义了许多新的4xx响应代码。如果用户代理支持这些响应代码，它们将能够智能地响应基于身份的错误条件。"
+    },
+    {
+      "indent": 3,
+      "text": "The UAC MUST also be capable of sending requests, including mid-call requests, through an 'outbound' proxy (the authentication service). The best way to accomplish this is using pre-loaded Route headers and loose routing. For a given domain, if an entity that can instantiate the authentication service role is not in the path of dialog-forming",
+      "zh-CHS": "UAC还必须能够通过“出站”代理（身份验证服务）发送请求，包括通话中的请求。实现这一点的最佳方法是使用预加载的路由头和松散路由。对于给定域，如果可以实例化身份验证服务角色的实体不在对话形成路径中"
+    },
+    {
+      "indent": 3,
+      "text": "requests, identity for mid-dialog requests in the backwards direction cannot be provided.",
+      "zh-CHS": "请求，不能提供向后的mid对话请求的标识。"
+    },
+    {
+      "indent": 3,
+      "text": "As a recipient of a request, a user agent that can verify signed identities should also support an appropriate user interface to render the validity of identity to a user. User agent implementations SHOULD differentiate signed From header field values from unsigned From header field values when rendering to an end-user the identity of the sender of a request.",
+      "zh-CHS": "作为请求的接收者，可以验证签名身份的用户代理还应该支持适当的用户界面，以便向用户呈现身份的有效性。当向最终用户呈现请求发送者的身份时，用户代理实现应区分已签名和未签名的头字段值与未签名和头字段值。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Considerations for Proxy Servers",
+      "section_title": true,
+      "zh-CHS": "8. 代理服务器的注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "Domain policy may require proxy servers to inspect and verify the identity provided in SIP requests. A proxy server may wish to ascertain the identity of the sender of the message to provide spam prevention or call control services. Even if a proxy server does not act as an authentication service, it MAY validate the Identity header before it makes a forwarding decision for a request. Proxy servers MUST NOT remove or modify an existing Identity or Identity-Info header in a request.",
+      "zh-CHS": "域策略可能要求代理服务器检查和验证SIP请求中提供的标识。代理服务器可能希望确定消息发送者的身份，以提供垃圾邮件预防或呼叫控制服务。即使代理服务器不充当身份验证服务，它也可能在为请求做出转发决定之前验证标识头。代理服务器不得删除或修改请求中的现有标识或标识信息头。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Header Syntax",
+      "section_title": true,
+      "zh-CHS": "9. 标题语法"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies two new SIP headers: Identity and Identity-Info. Each of these headers can appear only once in a SIP message. The grammar for these two headers is (following the ABNF [6] in RFC 3261 [1]):",
+      "zh-CHS": "本文档指定了两个新的SIP头：Identity和Identity Info。每个标题在SIP消息中只能出现一次。这两个头的语法是（在RFC 3261[1]中的ABNF[6]之后）："
+    },
+    {
+      "indent": 3,
+      "text": "Identity = \"Identity\" HCOLON signed-identity-digest signed-identity-digest = LDQUOT 32LHEX RDQUOT",
+      "zh-CHS": "Identity=“Identity”HCOLON签名的身份摘要签名的身份摘要=LDQUOT 32LHEX RDQUOT"
+    },
+    {
+      "indent": 3,
+      "text": "Identity-Info = \"Identity-Info\" HCOLON ident-info *( SEMI ident-info-params ) ident-info = LAQUOT absoluteURI RAQUOT ident-info-params = ident-info-alg / ident-info-extension ident-info-alg = \"alg\" EQUAL token ident-info-extension = generic-param",
+      "zh-CHS": "Identity Info=“Identity Info”HCOLON ident Info*（半ident Info params）ident Info=LAQUOT绝对uri RAQUOT ident Info params=ident Info alg/ident Info extension ident Info alg=“alg”EQUAL token ident Info extension=generic param"
+    },
+    {
+      "indent": 3,
+      "text": "The signed-identity-digest is a signed hash of a canonical string generated from certain components of a SIP request. To create the contents of the signed-identity-digest, the following elements of a SIP message MUST be placed in a bit-exact string in the order specified here, separated by a vertical line, \"|\" or %x7C, character:",
+      "zh-CHS": "签名标识摘要是从SIP请求的某些组件生成的规范字符串的签名哈希。要创建签名标识摘要的内容，SIP消息的以下元素必须按此处指定的顺序以位精确的字符串形式放置，并用竖线“|”或%x7C字符分隔："
+    },
+    {
+      "indent": 3,
+      "text": "o The AoR of the UA sending the message, or addr-spec of the From header field (referred to occasionally here as the 'identity field').",
+      "zh-CHS": "o 发送消息的UA的AoR，或From头字段的addr规范（此处偶尔称为“标识字段”）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The addr-spec component of the To header field, which is the AoR to which the request is being sent. o The callid from Call-Id header field. o The digit (1*DIGIT) and method (method) portions from CSeq header field, separated by a single space (ABNF SP, or %x20). Note that the CSeq header field allows linear whitespace (LWS) rather than SP to separate the digit and method portions, and thus the CSeq header field may need to be transformed in order to be canonicalized. The authentication service MUST strip leading zeros from the 'digit' portion of the Cseq before generating the digest-string. o The Date header field, with exactly one space each for each SP and the weekday and month items case set as shown in BNF in RFC 3261. RFC 3261 specifies that the BNF for weekday and month is a choice amongst a set of tokens. The RFC 2234 rules for the BNF specify that tokens are case sensitive. However, when used to construct the canonical string defined here, the first letter of each week and month MUST be capitalized, and the remaining two letters must be lowercase. This matches the capitalization provided in the definition of each token. All requests that use the Identity mechanism MUST contain a Date header. o The addr-spec component of the Contact header field value. If the request does not contain a Contact header, this field MUST be empty (i.e., there will be no whitespace between the fourth and fifth \"|\" characters in the canonical string). o The body content of the message with the bits exactly as they are in the Message (in the ABNF for SIP, the message-body). This includes all components of multipart message bodies. Note that the message-body does NOT include the CRLF separating the SIP headers from the message-body, but does include everything that follows that CRLF. If the message has no body, then message-body will be empty, and the final \"|\" will not be followed by any additional characters.",
+      "zh-CHS": "o To标头字段的addr spec组件，该字段是请求发送到的AoR。o callid from Call Id header字段。o CSeq头字段中的数字（1*位）和方法（方法）部分，由单个空格（ABNF SP或%x20）分隔。请注意，CSeq头字段允许线性空白（LWS）而不是SP来分隔数字和方法部分，因此可能需要转换CSeq头字段以进行规范化。在生成摘要字符串之前，身份验证服务必须从Cseq的“数字”部分去掉前导零。o日期标题字段，每个SP和工作日和月项目案例集各有一个空格，如RFC 3261中的BNF所示。RFC 3261指定工作日和月份的BNF是一组令牌中的选择。BNF的RFC 2234规则规定令牌区分大小写。但是，当用于构造此处定义的规范字符串时，每周和每月的第一个字母必须大写，其余两个字母必须小写。这与每个标记的定义中提供的大小写匹配。所有使用标识机制的请求都必须包含日期头。o联系人标题字段值的addr spec组件。如果请求不包含联系人标头，则此字段必须为空（即，规范字符串中的第四个和第五个“|”字符之间将没有空格）。o消息的正文内容，其位与消息中的位完全相同（在ABNF for SIP中，消息正文）。这包括多部分消息体的所有组件。请注意，消息体不包括将SIP头与消息体分离的CRLF，而是包括CRLF之后的所有内容。如果消息没有正文，则消息正文将为空，并且最后的“|”后面不会有任何附加字符。"
+    },
+    {
+      "indent": 3,
+      "text": "For more information on the security properties of these headers, and why their inclusion mitigates replay attacks, see Section 13 and [5]. The precise formulation of this digest-string is, therefore (following the ABNF [6] in RFC 3261 [1]):",
+      "zh-CHS": "有关这些头的安全属性的更多信息，以及为什么包含这些头可以减轻重播攻击，请参阅第13节和[5]。因此，该摘要字符串的精确公式为（遵循RFC 3261[1]中的ABNF[6]）："
+    },
+    {
+      "indent": 3,
+      "text": "digest-string = addr-spec \"|\" addr-spec \"|\" callid \"|\" 1*DIGIT SP Method \"|\" SIP-date \"|\" [ addr-spec ] \"|\" message-body",
+      "zh-CHS": "摘要字符串=addr spec“|”addr spec“|”callid“|”1位SP方法“|”SIP日期“|”[addr spec]“|”消息正文"
+    },
+    {
+      "indent": 3,
+      "text": "Note again that the first addr-spec MUST be taken from the From header field value, the second addr-spec MUST be taken from the To header field value, and the third addr-spec MUST be taken from the Contact header field value, provided the Contact header is present in the request.",
+      "zh-CHS": "再次注意，如果请求中存在联系人标头，则第一个addr spec必须取自from header字段值，第二个addr spec必须取自To header字段值，第三个addr spec必须取自Contact header字段值。"
+    },
+    {
+      "indent": 3,
+      "text": "After the digest-string is formed, it MUST be hashed and signed with the certificate for the domain. The hashing and signing algorithm is specified by the 'alg' parameter of the Identity-Info header (see below for more information on Identity-Info header parameters). This document defines only one value for the 'alg' parameter: 'rsa-sha1'; further values MUST be defined in a Standards Track RFC, see Section 14.7 for more information. All implementations of this specification MUST support 'rsa-sha1'. When the 'rsa-sha1' algorithm is specified in the 'alg' parameter of Identity-Info, the hash and signature MUST be generated as follows: compute the results of signing this string with sha1WithRSAEncryption as described in RFC 3370 [7] and base64 encode the results as specified in RFC 3548 [8]. A 1024-bit or longer RSA key MUST be used. The result is placed in the Identity header field. For detailed examples of the usage of this algorithm, see Section 10.",
+      "zh-CHS": "摘要字符串形成后，必须对其进行哈希运算并使用域的证书进行签名。哈希和签名算法由Identity Info标头的“alg”参数指定（有关Identity Info标头参数的更多信息，请参阅下文）。本文档仅为“alg”参数定义了一个值：“rsa-sha1”；更多值必须在标准轨道RFC中定义，更多信息请参见第14.7节。本规范的所有实现都必须支持“rsa-sha1”。当在Identity Info的“alg”参数中指定“rsa-sha1”算法时，必须按如下方式生成哈希和签名：按照RFC 3370[7]中的说明，使用rsa加密计算对该字符串签名的结果，并按照RFC 3548[8]中的规定对结果进行base64编码。必须使用1024位或更长的RSA密钥。结果放置在标识标头字段中。有关此算法使用的详细示例，请参见第10节。"
+    },
+    {
+      "indent": 3,
+      "text": "The 'absoluteURI' portion of the Identity-Info header MUST contain a URI which dereferences to a resource containing the certificate of the authentication service. All implementations of this specification MUST support the use of HTTP and HTTPS URIs in the Identity-Info header. Such HTTP and HTTPS URIs MUST follow the conventions of RFC 2585 [10], and for those URIs the indicated resource MUST be of the form 'application/pkix-cert' described in that specification. Note that this introduces key lifecycle management concerns; were a domain to change the key available at the Identity-Info URI before a verifier evaluates a request signed by an authentication service, this would cause obvious verifier failures. When a rollover occurs, authentication services SHOULD thus provide new Identity-Info URIs for each new certificate, and SHOULD continue to make older key acquisition URIs available for a duration longer than the plausible lifetime of a SIP message (an hour would most likely suffice).",
+      "zh-CHS": "Identity Info标头的“absoluteURI”部分必须包含一个URI，该URI取消对包含身份验证服务证书的资源的引用。本规范的所有实现都必须支持在Identity Info标头中使用HTTP和HTTPS URI。此类HTTP和HTTPS URI必须遵循RFC 2585[10]的约定，对于这些URI，指示的资源必须采用该规范中描述的“应用程序/pkix证书”形式。注意，这引入了关键的生命周期管理问题；如果域在验证器评估由身份验证服务签名的请求之前更改标识信息URI上可用的密钥，这将导致验证器明显失败。当发生翻滚时，身份验证服务应为每个新证书提供新的标识信息URI，并应继续使旧的密钥获取URI在比SIP消息的合理生存期更长的时间内可用（一小时很可能就足够了）。"
+    },
+    {
+      "indent": 3,
+      "text": "The Identity-Info header field MUST contain an 'alg' parameter. No other parameters are defined for the Identity-Info header in this document. Future Standards Track RFCs may define additional Identity-Info header parameters.",
+      "zh-CHS": "标识信息标题字段必须包含“alg”参数。此文档中没有为标识信息标题定义其他参数。未来的标准跟踪RFC可能会定义额外的标识信息头参数。"
+    },
+    {
+      "indent": 3,
+      "text": "This document adds the following entries to Table 2 of RFC 3261 [1]:",
+      "zh-CHS": "本文件将以下条目添加到RFC 3261[1]的表2中："
+    },
+    {
+      "indent": 6,
+      "text": "Header field         where   proxy   ACK  BYE  CAN  INV  OPT  REG\n------------         -----   -----   ---  ---  ---  ---  ---  ---\nIdentity               R       a      o    o    -    o    o    o",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 43,
+      "text": "SUB  NOT  REF  INF  UPD  PRA\n---  ---  ---  ---  ---  ---\n o    o    o    o    o    o",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Header field         where   proxy   ACK  BYE  CAN  INV  OPT  REG\n------------         -----   -----   ---  ---  ---  ---  ---  ---\nIdentity-Info          R       a      o    o    -    o    o    o",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 43,
+      "text": "SUB  NOT  REF  INF  UPD  PRA\n---  ---  ---  ---  ---  ---\n o    o    o    o    o    o",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note, in the table above, that this mechanism does not protect the CANCEL method. The CANCEL method cannot be challenged, because it is hop-by-hop, and accordingly authentication service behavior for CANCEL would be significantly limited. Note as well that the REGISTER method uses Contact header fields in very unusual ways that complicate its applicability to this mechanism, and the use of Identity with REGISTER is consequently a subject for future study, although it is left as optional here for forward-compatibility reasons. The Identity and Identity-Info header MUST NOT appear in CANCEL.",
+      "zh-CHS": "请注意，在上表中，此机制不保护CANCEL方法。CANCEL方法不能被质疑，因为它是逐跳的，因此CANCEL的身份验证服务行为将受到很大限制。还要注意的是，REGISTER方法以非常不寻常的方式使用Contact头字段，这使其对该机制的适用性变得复杂，因此，使用带有REGISTER的Identity是未来研究的主题，尽管出于向前兼容性的原因，这里将其保留为可选。身份和身份信息标题不得出现在“取消”中。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Compliance Tests and Examples",
+      "section_title": true,
+      "zh-CHS": "10. 符合性测试和示例"
+    },
+    {
+      "indent": 3,
+      "text": "The examples in this section illustrate the use of the Identity header in the context of a SIP transaction. Implementers are advised to verify their compliance with the specification against the following criteria:",
+      "zh-CHS": "本节中的示例说明了在SIP事务上下文中使用标识头。建议实施者根据以下标准验证其是否符合规范："
+    },
+    {
+      "indent": 3,
+      "text": "o Implementations of the authentication service role MUST generate identical base64 identity strings to the ones shown in the Identity headers in these examples when presented with the source message and utilizing the appropriate supplied private key for the domain in question. o Implementations of the verifier role MUST correctly validate the given messages containing the Identity header when utilizing the supplied certificates (with the caveat about self-signed certificates below).",
+      "zh-CHS": "o 身份验证服务角色的实现必须生成与这些示例中的标识头中显示的标识字符串相同的base64标识字符串（当与源消息一起显示时），并为相关域使用适当提供的私钥。o当使用提供的证书时，验证器角色的实现必须正确验证包含标识头的给定消息（下面是关于自签名证书的警告）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the following examples use self-signed certificates, rather than certificates issued by a recognized certificate authority. The use of self-signed certificates for this mechanism is NOT RECOMMENDED, and it appears here only for illustrative purposes. Therefore, in compliance testing, implementations of verifiers SHOULD generate appropriate warnings about the use of self-signed certificates. Also, the example certificates in this section have placed their domain name subject in the subjectAltName field; in practice, certificate authorities may place domain names in other locations in the certificate (see Section 13.4 for more information).",
+      "zh-CHS": "请注意，以下示例使用自签名证书，而不是由公认的证书颁发机构颁发的证书。不建议在此机制中使用自签名证书，此处仅用于说明目的。因此，在符合性测试中，验证器的实现应该生成关于使用自签名证书的适当警告。此外，本节中的示例证书已将其域名主题置于subjectAltName字段中；实际上，证书颁发机构可以将域名放在证书中的其他位置（有关更多信息，请参阅第13.4节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that all examples in this section use the 'rsa-sha1' algorithm.",
+      "zh-CHS": "请注意，本节中的所有示例都使用“rsa-sha1”算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Bit-exact reference files for these messages and their various transformations are supplied in Appendix B.",
+      "zh-CHS": "这些消息及其各种转换的位精确参考文件见附录B。"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Identity-Info with a Singlepart MIME body",
+      "section_title": true,
+      "zh-CHS": "10.1. 具有单部分MIME正文的标识信息"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the following private key and certificate pair assigned to 'atlanta.example.com' (rendered in OpenSSL format).",
+      "zh-CHS": "考虑下面的私钥和证书对，指定为“亚特兰大.Simult.com”（以OpenSSL格式呈现）。"
+    },
+    {
+      "indent": 3,
+      "text": "-----BEGIN RSA PRIVATE KEY-----\nMIICXQIBAAKBgQDPPMBtHVoPkXV+Z6jq1LsgfTELVWpy2BVUffJMPH06LL0cJSQO\naIeVzIojzWtpauB7IylZKlAjB5f429tRuoUiedCwMLKblWAqZt6eHWpCNZJ7lONc\nIEwnmh2nAccKk83Lp/VH3tgAS/43DQoX2sndnYh+g8522Pzwg7EGWspzzwIDAQAB\nAoGBAK0W3tnEFD7AjVQAnJNXDtx59Aa1Vu2JEXe6oi+OrkFysJjbZJwsLmKtrgtt\nPXOU8t2mZpi0wK4hX4tZhntiwGKkUPC3h9Bjp+GerifP341RMyMO+6fPgjqOzUDw\n+rPjjMpwD7AkcEcqDgbTrZnWv/QnCSaaF3xkUGfFkLx5OKcRAkEA7UxnsE8XaT30\ntP/UUc51gNk2KGKgxQQTHopBcew9yfeCRFhvdL7jpaGatEi5iZwGGQQDVOVHUN1H\n0YLpHQjRowJBAN+R2bvA/Nimq464ZgnelEDPqaEAZWaD3kOfhS9+vL7oqES+u5E0\nJ7kXb7ZkiSVUg9XU/8PxMKx/DAz0dUmOL+UCQH8C9ETUMI2uEbqHbBdVUGNk364C\nDFcndSxVh+34KqJdjiYSx6VPPv26X9m7S0OydTkSgs3/4ooPxo8HaMqXm80CQB+r\nxbB3UlpOohcBwFK9mTrlMB6Cs9ql66KgwnlL9ukEhHHYozGatdXeoBCyhUsogdSU\n6/aSAFcvWEGtj7/vyJECQQCCS1lKgEXoNQPqONalvYhyyMZRXFLdD4gbwRPK1uXK\nYpk3CkfFzOyfjeLcGPxXzq2qzuHzGTDxZ9PAepwX4RSk\n-----END RSA PRIVATE KEY-----\n-----BEGIN CERTIFICATE-----\nMIIC3TCCAkagAwIBAgIBADANBgkqhkiG9w0BAQUFADBZMQswCQYDVQQGEwJVUzEL\nMAkGA1UECAwCR0ExEDAOBgNVBAcMB0F0bGFudGExDTALBgNVBAoMBElFVEYxHDAa\nBgNVBAMME2F0bGFudGEuZXhhbXBsZS5jb20wHhcNMDUxMDI0MDYzNjA2WhcNMDYx\nMDI0MDYzNjA2WjBZMQswCQYDVQQGEwJVUzELMAkGA1UECAwCR0ExEDAOBgNVBAcM\nB0F0bGFudGExDTALBgNVBAoMBElFVEYxHDAaBgNVBAMME2F0bGFudGEuZXhhbXBs\nZS5jb20wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAM88wG0dWg+RdX5nqOrU\nuyB9MQtVanLYFVR98kw8fTosvRwlJA5oh5XMiiPNa2lq4HsjKVkqUCMHl/jb21G6\nhSJ50LAwspuVYCpm3p4dakI1knuU41wgTCeaHacBxwqTzcun9Ufe2ABL/jcNChfa\nyd2diH6DznbY/PCDsQZaynPPAgMBAAGjgbQwgbEwHQYDVR0OBBYEFNmU/MrbVYcE\nKDr/20WISrG1j1rNMIGBBgNVHSMEejB4gBTZlPzK21WHBCg6/9tFiEqxtY9azaFd\npFswWTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkdBMRAwDgYDVQQHDAdBdGxhbnRh",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "MQ0wCwYDVQQKDARJRVRGMRwwGgYDVQQDDBNhdGxhbnRhLmV4YW1wbGUuY29tggEA\nMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADgYEADdQYtswBDmTSTq0mt211\n7alm/XGFrb2zdbU0vorxRdOZ04qMyrIpXG1LEmnEOgcocyrXRBvq5p6WbZAcEQk0\nDsE3Ve0Nc8x9nmvljW7GsMGFCnCuo4ODTf/1lGdVr9DeCzcj10YUQ3MRemDMXhY2\nCtDisLWl7SXOORcZAi1oU9w=\n-----END CERTIFICATE-----",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A user of atlanta.example.com, Alice, wants to send an INVITE to bob@biloxi.example.org. She therefore creates the following INVITE request, which she forwards to the atlanta.example.org proxy server that instantiates the authentication service role:",
+      "zh-CHS": "atlanta.example.com的一名用户Alice希望向发送邀请bob@biloxi.example.org. 因此，她创建以下INVITE请求，并将其转发到atlanta.example.org代理服务器，该服务器实例化身份验证服务角色："
+    },
+    {
+      "indent": 9,
+      "text": "INVITE sip:bob@biloxi.example.org SIP/2.0\nVia: SIP/2.0/TLS pc33.atlanta.example.com;branch=z9hG4bKnashds8\nTo: Bob <sip:bob@biloxi.example.org>\nFrom: Alice <sip:alice@atlanta.example.com>;tag=1928301774\nCall-ID: a84b4c76e66710\nCSeq: 314159 INVITE\nMax-Forwards: 70\nDate: Thu, 21 Feb 2002 13:02:03 GMT\nContact: <sip:alice@pc33.atlanta.example.com>\nContent-Type: application/sdp\nContent-Length: 147",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "v=0\no=UserA 2890844526 2890844526 IN IP4 pc33.atlanta.example.com\ns=Session SDP\nc=IN IP4 pc33.atlanta.example.com\nt=0 0\nm=audio 49172 RTP/AVP 0\na=rtpmap:0 PCMU/8000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When the authentication service receives the INVITE, it authenticates Alice by sending a 407 response. As a result, Alice adds an Authorization header to her request, and resends to the atlanta.example.com authentication service. Now that the service is sure of Alice's identity, it calculates an Identity header for the request. The canonical string over which the identity signature will be generated is the following (note that the first line wraps because of RFC editorial conventions):",
+      "zh-CHS": "当身份验证服务接收到邀请时，它通过发送407响应对Alice进行身份验证。结果，Alice在她的请求中添加了一个授权头，并重新发送到atlanta.example.com身份验证服务。既然服务确定了Alice的身份，它就为请求计算一个身份头。将在其上生成标识签名的规范字符串如下（注意，由于RFC编辑约定，第一行换行）："
+    },
+    {
+      "indent": 3,
+      "text": "sip:alice@atlanta.example.com|sip:bob@biloxi.example.org|\na84b4c76e66710|314159 INVITE|Thu, 21 Feb 2002 13:02:03 GMT|\nsip:alice@pc33.atlanta.example.com|v=0\no=UserA 2890844526 2890844526 IN IP4 pc33.atlanta.example.com\ns=Session SDP\nc=IN IP4 pc33.atlanta.example.com\nt=0 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "m=audio 49172 RTP/AVP 0\na=rtpmap:0 PCMU/8000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The resulting signature (sha1WithRsaEncryption) using the private RSA key given above, with base64 encoding, is the following:",
+      "zh-CHS": "使用上面给出的RSA私钥并使用base64编码生成的签名（SHA1 WithRSAEcryption）如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "ZYNBbHC00VMZr2kZt6VmCvPonWJMGvQTBDqghoWeLxJfzB2a1pxAr3VgrB0SsSAa\nifsRdiOPoQZYOy2wrVghuhcsMbHWUSFxI6p6q5TOQXHMmz6uEo3svJsSH49thyGn\nFVcnyaZ++yRlBYYQTLqWzJ+KVhPKbfU/pryhVn9Yc6U=",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, the atlanta.example.com authentication service will create an Identity header containing that base64 signature string (175 bytes). It will also add an HTTPS URL where its certificate is made available. With those two headers added, the message looks like the following:",
+      "zh-CHS": "因此，atlanta.example.com身份验证服务将创建一个包含该base64签名字符串（175字节）的标识头。它还将在证书可用的位置添加HTTPS URL。添加这两个标题后，消息如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "INVITE sip:bob@biloxi.example.org SIP/2.0\nVia: SIP/2.0/TLS pc33.atlanta.example.com;branch=z9hG4bKnashds8\nTo: Bob <sip:bob@biloxi.example.org>\nFrom: Alice <sip:alice@atlanta.example.com>;tag=1928301774\nCall-ID: a84b4c76e66710\nCSeq: 314159 INVITE\nMax-Forwards: 70\nDate: Thu, 21 Feb 2002 13:02:03 GMT\nContact: <sip:alice@pc33.atlanta.example.com>\nIdentity:\n  \"ZYNBbHC00VMZr2kZt6VmCvPonWJMGvQTBDqghoWeLxJfzB2a1pxAr3VgrB0SsSAa\n   ifsRdiOPoQZYOy2wrVghuhcsMbHWUSFxI6p6q5TOQXHMmz6uEo3svJsSH49thyGn\n   FVcnyaZ++yRlBYYQTLqWzJ+KVhPKbfU/pryhVn9Yc6U=\"\nIdentity-Info: <https://atlanta.example.com/atlanta.cer>;alg=rsa-sha1\nContent-Type: application/sdp\nContent-Length: 147",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "v=0\no=UserA 2890844526 2890844526 IN IP4 pc33.atlanta.example.com\ns=Session SDP\nc=IN IP4 pc33.atlanta.example.com\nt=0 0\nm=audio 49172 RTP/AVP 0\na=rtpmap:0 PCMU/8000",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "atlanta.example.com then forwards the request normally. When Bob receives the request, if he does not already know the certificate of atlanta.example.com, he dereferences the URL in the Identity-Info header to acquire the certificate. Bob then generates the same canonical string given above, from the same headers of the SIP request. Using this canonical string, the signed digest in the Identity header, and the certificate discovered by dereferencing the",
+      "zh-CHS": "atlanta.example.com然后正常转发请求。当Bob收到请求时，如果他还不知道atlanta.example.com的证书，他将取消对Identity Info标头中URL的引用以获取证书。Bob然后从SIP请求的相同头生成上面给出的相同规范字符串。使用此规范字符串、标识标头中的已签名摘要以及通过取消引用"
+    },
+    {
+      "indent": 3,
+      "text": "Identity-Info header, Bob can verify that the given set of headers and the message body have not been modified.",
+      "zh-CHS": "标识信息标头，Bob可以验证给定的标头集和消息正文是否未被修改。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Identity for a Request with No MIME Body or Contact",
+      "section_title": true,
+      "zh-CHS": "10.2. 没有MIME正文或联系人的请求的标识"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the following private key and certificate pair assigned to \"biloxi.example.org\".",
+      "zh-CHS": "考虑下面的私钥和证书对被分配给“BIOXI.Simult.org”。"
+    },
+    {
+      "indent": 3,
+      "text": "-----BEGIN RSA PRIVATE KEY-----\nMIICXgIBAAKBgQC/obBYLRMPjskrAqWOiGPAUxI3/m2ti7ix4caqCTAuFX5cLegQ\n7nmquLOHfIhxVIqT2f06UA0lOo2NVofK9G7MTkVbVNiyAlLYUDEj7XWLDICf3ZHL\n6Fr/+CF7wrQ9r4kv7XiJKxodVCCd/DhCT9Gp+VDoe8HymqOW/KsneriyIwIDAQAB\nAoGBAJ7fsFIKXKkjWgj8ksGOthS3Sn19xPSCyEdBxfEm2Pj7/Nzzeli/PcOaic0k\nJALBcnqN2fHEeIGK/9xUBxTufgQYVJqvyHERs6rXX/iT4Ynm9t1905EiQ9ZpHsrI\n/AMMUYA1QrGgAIHvZLVLzq+9KLDEZ+HQbuCLJXF+6bl0Eb5BAkEA636oMANp0Qa3\nmYWEQ2utmGsYxkXSfyBb18TCOwCty0ndBR24zyOJF2NbZS98Lz+Ga25hfIGw/JHK\nnD9bOE88UwJBANBRSpd4bmS+m48R/13tRESAtHqydNinX0kS/RhwHr7mkHTU3k/M\nFxQtx34I3GKzaZxMn0A66KS9v/SHdnF+ePECQQCGe7QshyZ8uitLPtZDclCWhEKH\nqAQHmUEZvUF2VHLrbukLLOgHUrHNa24cILv4d3yaCVUetymNcuyTwhKj24wFAkAO\nz/jx1EplN3hwL+NsllZoWI58uvu7/Aq2c3czqaVGBbb317sHCYgKk0bAG3kwO3mi\n93/LXWT1cdiYVpmBcHDBAkEAmpgkFj+xZu5gWASY5ujv+FCMP0WwaH5hTnXu+tKe\nPJ3d2IJZKxGnl6itKRN7GeRh9PSK0kZSqGFeVrvsJ4Nopg==\n-----END RSA PRIVATE KEY-----\n-----BEGIN CERTIFICATE-----\nMIIC1jCCAj+gAwIBAgIBADANBgkqhkiG9w0BAQUFADBXMQswCQYDVQQGEwJVUzEL\nMAkGA1UECAwCTVMxDzANBgNVBAcMBkJpbG94aTENMAsGA1UECgwESUVURjEbMBkG\nA1UEAwwSYmlsb3hpLmV4YW1wbGUuY29tMB4XDTA1MTAyNDA2NDAyNloXDTA2MTAy\nNDA2NDAyNlowVzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAk1TMQ8wDQYDVQQHDAZC\naWxveGkxDTALBgNVBAoMBElFVEYxGzAZBgNVBAMMEmJpbG94aS5leGFtcGxlLmNv\nbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAv6GwWC0TD47JKwKljohjwFMS\nN/5trYu4seHGqgkwLhV+XC3oEO55qrizh3yIcVSKk9n9OlANJTqNjVaHyvRuzE5F\nW1TYsgJS2FAxI+11iwyAn92Ry+ha//ghe8K0Pa+JL+14iSsaHVQgnfw4Qk/RqflQ\n6HvB8pqjlvyrJ3q4siMCAwEAAaOBsTCBrjAdBgNVHQ4EFgQU0Z+RL47W/APDtc5B\nfSoQXuEFE/wwfwYDVR0jBHgwdoAU0Z+RL47W/APDtc5BfSoQXuEFE/yhW6RZMFcx\nCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJNUzEPMA0GA1UEBwwGQmlsb3hpMQ0wCwYD\nVQQKDARJRVRGMRswGQYDVQQDDBJiaWxveGkuZXhhbXBsZS5jb22CAQAwDAYDVR0T\nBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOBgQBiyKHIt8TXfGNfpnJXi5jCizOxmY8Y\ngln8tyPFaeyq95TGcvTCWzdoBLVpBD+fpRWrX/II5sE6VHbbAPjjVmKbZwzQAtpp\nP2Fauj28t94ZeDHN2vqzjfnHjCO24kG3Juf2T80ilp9YHcDwxjUFrt86UnlC+yid\nyaTeusW5Gu7v1g==\n-----END CERTIFICATE-----",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Bob (bob@biloxi.example.org) now wants to send a BYE request to Alice at the end of the dialog initiated in the previous example. He therefore creates the following BYE request, which he forwards to the 'biloxi.example.org' proxy server that instantiates the authentication service role:",
+      "zh-CHS": "鲍勃(bob@biloxi.example.org)现在，我们希望在上一个示例中启动的对话框结束时向Alice发送BYE请求。因此，他创建以下BYE请求，并将其转发到“biloxi.example.org”代理服务器，该代理服务器实例化身份验证服务角色："
+    },
+    {
+      "indent": 3,
+      "text": "BYE sip:alice@pc33.atlanta.example.com SIP/2.0\nVia: SIP/2.0/TLS 192.0.2.4;branch=z9hG4bKnashds10\nMax-Forwards: 70\nFrom: Bob <sip:bob@biloxi.example.org>;tag=a6c85cf\nTo: Alice <sip:alice@atlanta.example.com>;tag=1928301774\nCall-ID: a84b4c76e66710\nCSeq: 231 BYE\nContent-Length: 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When the authentication service receives the BYE, it authenticates Bob by sending a 407 response. As a result, Bob adds an Authorization header to his request, and resends to the biloxi.example.org authentication service. Now that the service is sure of Bob's identity, it prepares to calculate an Identity header for the request. Note that this request does not have a Date header field. Accordingly, the biloxi.example.org will add a Date header to the request before calculating the identity signature. If the Content-Length header were not present, the authentication service would add it as well. The baseline message is thus:",
+      "zh-CHS": "当认证服务接收到BYE时，它通过发送407响应来认证Bob。结果，Bob向他的请求中添加了一个授权头，并重新发送到biloxi.example.org身份验证服务。既然服务确定了Bob的身份，它就准备为请求计算一个身份头。请注意，此请求没有日期标头字段。因此，biloxi.example.org将在计算身份签名之前向请求添加一个日期头。如果内容长度头不存在，身份验证服务也会添加它。因此，基线信息是："
+    },
+    {
+      "indent": 3,
+      "text": "BYE sip:alice@pc33.atlanta.example.com SIP/2.0\nVia: SIP/2.0/TLS 192.0.2.4;branch=z9hG4bKnashds10\nMax-Forwards: 70\nFrom: Bob <sip:bob@biloxi.example.org>;tag=a6c85cf\nTo: Alice <sip:alice@atlanta.example.com>;tag=1928301774\nDate: Thu, 21 Feb 2002 14:19:51 GMT\nCall-ID: a84b4c76e66710\nCSeq: 231 BYE\nContent-Length: 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Also note that this request contains no Contact header field. Accordingly, biloxi.example.org will place no value in the canonical string for the addr-spec of the Contact address. Also note that there is no message body, and accordingly, the signature string will terminate, in this case, with two vertical bars. The canonical string over which the identity signature will be generated is the following (note that the first line wraps because of RFC editorial conventions):",
+      "zh-CHS": "还要注意，此请求不包含联系人标头字段。因此，biloxi.example.org不会在联系人地址的addr规范字符串中放置任何值。还要注意的是，没有消息体，因此，在本例中，签名字符串将以两个竖条终止。将在其上生成标识签名的规范字符串如下（注意，由于RFC编辑约定，第一行换行）："
+    },
+    {
+      "indent": 3,
+      "text": "sip:bob@biloxi.example.org|sip:alice@atlanta.example.com|\na84b4c76e66710|231 BYE|Thu, 21 Feb 2002 14:19:51 GMT||",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The resulting signature (sha1WithRsaEncryption) using the private RSA key given above for biloxi.example.org, with base64 encoding, is the following:",
+      "zh-CHS": "使用上面为biloxi.example.org提供的RSA私钥（base64编码）生成的签名（sha1WithRsaEncryption）如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "sv5CTo05KqpSmtHt3dcEiO/1CWTSZtnG3iV+1nmurLXV/HmtyNS7Ltrg9dlxkWzo\neU7d7OV8HweTTDobV3itTmgPwCFjaEmMyEI3d7SyN21yNDo2ER/Ovgtw0Lu5csIp\npPqOg1uXndzHbG7mR6Rl9BnUhHufVRbp51Mn3w0gfUs=",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, the biloxi.example.org authentication service will create an Identity header containing that base64 signature string. It will also add an HTTPS URL where its certificate is made available. With those two headers added, the message looks like the following:",
+      "zh-CHS": "因此，biloxi.example.org身份验证服务将创建一个包含该base64签名字符串的标识头。它还将在证书可用的位置添加HTTPS URL。添加这两个标题后，消息如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "BYE sip:alice@pc33.atlanta.example.com SIP/2.0\nVia: SIP/2.0/TLS 192.0.2.4;branch=z9hG4bKnashds10\nMax-Forwards: 70\nFrom: Bob <sip:bob@biloxi.example.org>;tag=a6c85cf\nTo: Alice <sip:alice@atlanta.example.com>;tag=1928301774\nDate: Thu, 21 Feb 2002 14:19:51 GMT\nCall-ID: a84b4c76e66710\nCSeq: 231 BYE\nIdentity:\n  \"sv5CTo05KqpSmtHt3dcEiO/1CWTSZtnG3iV+1nmurLXV/HmtyNS7Ltrg9dlxkWzo\n   eU7d7OV8HweTTDobV3itTmgPwCFjaEmMyEI3d7SyN21yNDo2ER/Ovgtw0Lu5csIp\n   pPqOg1uXndzHbG7mR6Rl9BnUhHufVRbp51Mn3w0gfUs=\"\nIdentity-Info: <https://biloxi.example.org/biloxi.cer>;alg=rsa-sha1\nContent-Length: 0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "biloxi.example.org then forwards the request normally.",
+      "zh-CHS": "然后biloxi.example.org正常转发请求。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Identity and the TEL URI Scheme",
+      "section_title": true,
+      "zh-CHS": "11. 身份和TEL-URI方案"
+    },
+    {
+      "indent": 3,
+      "text": "Since many SIP applications provide a Voice over IP (VoIP) service, telephone numbers are commonly used as identities in SIP deployments. In the majority of cases, this is not problematic for the identity mechanism described in this document. Telephone numbers commonly appear in the username portion of a SIP URI (e.g., 'sip:+17005551008@chicago.example.com;user=phone'). That username conforms to the syntax of the TEL URI scheme (RFC 3966 [13]). For this sort of SIP address-of-record, chicago.example.com is the appropriate signatory.",
+      "zh-CHS": "由于许多SIP应用程序提供IP语音（VoIP）服务，因此在SIP部署中，电话号码通常用作身份。在大多数情况下，这对于本文档中描述的身份机制来说是没有问题的。电话号码通常出现在SIPURI的用户名部分（例如，“SIP:+17005551008@chicago.example.com；用户=电话）。该用户名符合TEL URI方案的语法（RFC 3966[13]）。对于此类SIP记录地址，chicago.example.com是合适的签字人。"
+    },
+    {
+      "indent": 3,
+      "text": "It is also possible for a TEL URI to appear in the SIP To or From header field outside the context of a SIP or SIPS URI (e.g., 'tel:+17005551008'). In this case, it is much less clear which signatory is appropriate for the identity. Fortunately for the identity mechanism, this form of the TEL URI is more common for the To header field and Request-URI in SIP than in the From header field, since the UAC has no option but to provide a TEL URI alone when the remote domain to which a request is sent is unknown. The local domain, however, is usually known by the UAC, and accordingly it can",
+      "zh-CHS": "TEL URI也可能出现在SIP或SIPS URI上下文之外的SIP to或From头字段中（例如，“TEL:+17005551008”）。在这种情况下，不太清楚哪个签字人适合该身份。幸运的是，对于身份机制来说，这种形式的TEL-URI在SIP中的To-header字段和Request-URI比From-header字段更常见，因为当请求发送到的远程域未知时，UAC别无选择，只能单独提供TEL-URI。然而，UAC通常知道本地域，因此它可以"
+    },
+    {
+      "indent": 3,
+      "text": "form a proper From header field containing a SIP URI with a username in TEL URI form. Implementations that intend to send their requests through an authentication service SHOULD put telephone numbers in the From header field into SIP or SIPS URIs whenever possible.",
+      "zh-CHS": "形成一个适当的From头字段，该字段包含一个SIPURI，用户名为TEL URI形式。打算通过身份验证服务发送请求的实现应尽可能将From头字段中的电话号码放入SIP或SIPS URI中。"
+    },
+    {
+      "indent": 3,
+      "text": "If the local domain is unknown to a UAC formulating a request, it most likely will not be able to locate an authentication service for its request, and therefore the question of providing identity in these cases is somewhat moot. However, an authentication service MAY sign a request containing a TEL URI in the From header field. This is permitted in this specification strictly for forward compatibility purposes. In the longer-term, it is possible that ENUM [14] may provide a way to determine which administrative domain is responsible for a telephone number, and this may aid in the signing and verification of SIP identities that contain telephone numbers. This is a subject for future work.",
+      "zh-CHS": "如果本地域对于提出请求的UAC来说是未知的，那么它很可能无法找到其请求的身份验证服务，因此在这些情况下提供身份的问题有些没有意义。但是，身份验证服务可以在From头字段中对包含TEL URI的请求进行签名。在本规范中，这完全是出于前向兼容性目的而允许的。从长远来看，枚举[14]可能提供一种方法来确定哪个管理域负责电话号码，这可能有助于对包含电话号码的SIP身份进行签名和验证。这是今后工作的主题。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Privacy Considerations",
+      "section_title": true,
+      "zh-CHS": "12. 隐私考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The identity mechanism presented in this document is compatible with the standard SIP practices for privacy described in RFC 3323 [3]. A SIP proxy server can act both as a privacy service and as an authentication service. Since a user agent can provide any From header field value that the authentication service is willing to authorize, there is no reason why private SIP URIs that contain legitimate domains (e.g., sip:anonymous@example.com) cannot be signed by an authentication service. The construction of the Identity header is the same for private URIs as it is for any other sort of URIs.",
+      "zh-CHS": "本文档中介绍的身份机制与RFC 3323[3]中描述的隐私标准SIP实践兼容。SIP代理服务器既可以作为隐私服务，也可以作为身份验证服务。由于用户代理可以提供身份验证服务愿意授权的任何From header字段值，因此没有理由使用包含合法域的私有SIP URI（例如，SIP：anonymous@example.com)无法由身份验证服务签名。私有URI的标识头的构造与任何其他类型的URI的构造相同。"
+    },
+    {
+      "indent": 3,
+      "text": "Note, however, that an authentication service must possess a certificate corresponding to the host portion of the addr-spec of the From header field of any request that it signs; accordingly, using domains like 'anonymous.invalid' will not be possible for privacy services that also act as authentication services. The assurance offered by the usage of anonymous URIs with a valid domain portion is \"this is a known user in my domain that I have authenticated, but I am keeping its identity private\". The use of the domain 'anonymous.invalid' entails that no corresponding authority for the domain can exist, and as a consequence, authentication service functions are meaningless.",
+      "zh-CHS": "但是，请注意，身份验证服务必须拥有一个证书，该证书对应于它所签署的任何请求的From头字段的addr spec的主机部分；因此，对于同时充当身份验证服务的隐私服务，不可能使用“anonymous.invalid”之类的域。使用具有有效域部分的匿名URI所提供的保证是“这是我的域中的已知用户，我已对其进行了身份验证，但我将其身份保密”。使用域“anonymous.invalid”意味着该域不存在相应的权限，因此，身份验证服务功能毫无意义。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"header\" level of privacy described in RFC 3323 requests that a privacy service alter the Contact header field value of a SIP message. Since the Contact header field is protected by the signature in an Identity header, privacy services cannot be applied after authentication services without a resulting integrity violation.",
+      "zh-CHS": "RFC 3323中描述的“头”隐私级别请求隐私服务改变SIP消息的联系人头字段值。由于联系人标头字段受身份标头中签名的保护，因此在身份验证服务之后不能应用隐私服务，而不会导致完整性冲突。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3325 [12] defines the \"id\" priv-value token, which is specific to the P-Asserted-Identity header. The sort of assertion provided by the P-Asserted-Identity header is very different from the Identity header presented in this document. It contains additional information about the sender of a message that may go beyond what appears in the From header field; P-Asserted-Identity holds a definitive identity for the sender that is somehow known to a closed network of intermediaries that presumably the network will use this identity for billing or security purposes. The danger of this network-specific information leaking outside of the closed network motivated the \"id\" priv-value token. The \"id\" priv-value token has no implications for the Identity header, and privacy services MUST NOT remove the Identity header when a priv-value of \"id\" appears in a Privacy header.",
+      "zh-CHS": "RFC 3325[12]定义了特定于P-Asserted-Identity报头的“id”priv-value令牌。P-Asserted-Identity头提供的断言类型与本文中提供的Identity头非常不同。它包含有关邮件发件人的其他信息，这些信息可能超出了“发件人”标题字段中显示的信息；P-Asserted-Identity为发送方持有一个最终身份，该身份在某种程度上为封闭的中介网络所知，该网络可能会将该身份用于计费或安全目的。这种特定于网络的信息泄漏到封闭网络之外的危险激发了“id”priv-value令牌。“id”priv value令牌对标识标头没有影响，并且当隐私标头中出现“id”priv值时，隐私服务不得删除标识标头。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, note that unlike RFC 3325, the mechanism described in this specification adds no information to SIP requests that has privacy implications.",
+      "zh-CHS": "最后，请注意，与RFC3325不同，本规范中描述的机制没有向SIP请求添加任何涉及隐私的信息。"
+    },
+    {
+      "indent": 0,
+      "text": "13. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "13. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Handling of digest-string Elements",
+      "section_title": true,
+      "zh-CHS": "13.1. 字符串元素的摘要处理"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism that provides a signature over the Contact, Date, Call-ID, CSeq, To, and From header fields of SIP requests. While a signature over the From header field would be sufficient to secure a URI alone, the additional headers provide replay protection and reference integrity necessary to make sure that the Identity header will not be used in cut-and-paste attacks. In general, the considerations related to the security of these headers are the same as those given in RFC 3261 for including headers in tunneled 'message/sip' MIME bodies (see Section 23 in particular). The following section details the individual security properties obtained by including each of these header fields within the signature; collectively, this set of header fields provides the necessary properties to prevent impersonation.",
+      "zh-CHS": "本文档描述了一种机制，该机制通过SIP请求的联系人、日期、呼叫ID、CSeq、到和从标头字段提供签名。虽然通过From标头字段的签名足以单独保护URI，但附加标头提供重播保护和引用完整性，以确保在剪切和粘贴攻击中不会使用标识标头。通常，与这些头的安全性相关的注意事项与RFC 3261中给出的在隧道“message/sip”MIME主体中包含头的注意事项相同（具体参见第23节）。下一节详细介绍了通过在签名中包含这些头字段而获得的各个安全属性；总的来说，这组标题字段提供了防止模拟的必要属性。"
+    },
+    {
+      "indent": 3,
+      "text": "The From header field indicates the identity of the sender of the message, and the SIP address-of-record URI in the From header field is the identity of a SIP user, for the purposes of this document. The To header field provides the identity of the SIP user that this request targets. Providing the To header field in the Identity signature serves two purposes: first, it prevents cut-and-paste attacks in which an Identity header from legitimate request for one user is cut-and-pasted into a request for a different user; second, it preserves the starting URI scheme of the request, which helps prevent downgrade attacks against the use of SIPS.",
+      "zh-CHS": "出于本文档的目的，From header字段表示消息发送者的身份，From header字段中记录URI的SIP地址是SIP用户的身份。To header字段提供此请求所针对的SIP用户的标识。在身份签名中提供To header字段有两个目的：首先，它防止剪切粘贴攻击，其中一个用户的合法请求的身份头被剪切粘贴到另一个用户的请求中；其次，它保留了请求的起始URI方案，这有助于防止针对SIP使用的降级攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The Date and Contact headers provide reference integrity and replay protection, as described in RFC 3261, Section 23.4.2. Implementations of this specification MUST NOT deem valid a request with an outdated Date header field (the RECOMMENDED interval is that the Date header must indicate a time within 3600 seconds of the receipt of a message). Implementations MUST also record Call-IDs received in valid requests containing an Identity header, and MUST remember those Call-IDs for at least the duration of a single Date interval (i.e., commonly 3600 seconds). Because a SIP-compliant UA never generates the same Call-ID twice, verifiers can use the Call-ID to recognize cut-and-paste attacks; the Call-ID serves as a nonce. The result of this is that if an Identity header is replayed within the Date interval, verifiers will recognize that it is invalid because of a Call-ID duplication; if an Identity header is replayed after the Date interval, verifiers will recognize that it is invalid because the Date is stale. The CSeq header field contains a numbered identifier for the transaction, and the name of the method of the request; without this information, an INVITE request could be cut-and-pasted by an attacker and transformed into a BYE request without changing any fields covered by the Identity header, and moreover requests within a certain transaction could be replayed in potentially confusing or malicious ways.",
+      "zh-CHS": "日期和联系人标头提供参考完整性和重播保护，如RFC 3261第23.4.2节所述。本规范的实施不得将具有过期日期标头字段的请求视为有效（建议的时间间隔是，日期标头必须指示收到消息后3600秒内的时间）。实现还必须记录在包含标识头的有效请求中接收到的调用ID，并且必须至少在单个日期间隔（即通常3600秒）内记住这些调用ID。因为符合SIP的UA不会两次生成相同的呼叫ID，验证器可以使用该呼叫ID来识别剪切和粘贴攻击；调用ID用作临时值。这样做的结果是，如果在日期间隔内重放标识头，验证器将识别出它是无效的，因为调用ID重复；如果在日期间隔之后重放标识头，则验证程序将识别该标识头无效，因为该日期已过时。CSeq头字段包含事务的编号标识符和请求方法的名称；如果没有这些信息，攻击者可以剪切和粘贴INVITE请求，并将其转换为BYE请求，而无需更改标识标头所覆盖的任何字段，此外，特定事务中的请求可能会以潜在的混乱或恶意方式重播。"
+    },
+    {
+      "indent": 3,
+      "text": "The Contact header field is included to tie the Identity header to a particular user agent instance that generated the request. Were an active attacker to intercept a request containing an Identity header, and cut-and-paste the Identity header field into its own request (reusing the From, To, Contact, Date, and Call-ID fields that appear in the original message), the attacker would not be eligible to receive SIP requests from the called user agent, since those requests are routed to the URI identified in the Contact header field. However, the Contact header is only included in dialog-forming requests, so it does not provide this protection in all cases.",
+      "zh-CHS": "Contact header字段用于将Identity header绑定到生成请求的特定用户代理实例。如果主动攻击者拦截包含标识标头的请求，并将标识标头字段剪切并粘贴到自己的请求中（重用原始消息中显示的发件人、收件人、联系人、日期和呼叫ID字段），则攻击者将没有资格接收来自被叫用户代理的SIP请求，因为这些请求被路由到Contact header字段中标识的URI。但是，联系人标头仅包含在对话框形成请求中，因此它并不在所有情况下都提供这种保护。"
+    },
+    {
+      "indent": 3,
+      "text": "It might seem attractive to provide a signature over some of the information present in the Via header field value(s). For example, without a signature over the sent-by field of the topmost Via header, an attacker could remove that Via header and insert its own in a cut-and-paste attack, which would cause all responses to the request to be routed to a host of the attacker's choosing. However, a signature over the topmost Via header does not prevent attacks of this nature, since the attacker could leave the topmost Via intact and merely insert a new Via header field directly after it, which would cause responses to be routed to the attacker's host \"on their way\" to the valid host, which has exactly the same end result. Although it is possible that an intermediary-based authentication service could guarantee that no Via hops are inserted between the sending user agent and the authentication service, it could not",
+      "zh-CHS": "在Via头字段值中存在的一些信息上提供签名似乎很有吸引力。例如，如果在最顶端的Via头的sent by字段上没有签名，攻击者可以删除该Via头并在剪切粘贴攻击中插入自己的签名，这将导致对请求的所有响应路由到攻击者选择的主机。但是，最顶端的Via头上的签名并不能阻止这种性质的攻击，因为攻击者可以保持最顶端的Via原封不动，只在其后面直接插入一个新的Via头字段，这将导致响应被路由到攻击者的主机“途中”到有效主机，而有效主机具有完全相同的最终结果。尽管基于中介的认证服务可以保证在发送用户代理和认证服务之间不插入任何Via跃点，但它不能"
+    },
+    {
+      "indent": 3,
+      "text": "prevent an attacker from adding a Via hop after the authentication service, and thereby preempting responses. It is necessary for the proper operation of SIP for subsequent intermediaries to be capable of inserting such Via header fields, and thus it cannot be prevented. As such, though it is desirable, securing Via is not possible through the sort of identity mechanism described in this document; the best known practice for securing Via is the use of SIPS.",
+      "zh-CHS": "防止攻击者在身份验证服务之后添加Via-hop，从而抢占响应。为了使后续中介能够插入这样的Via头字段，SIP的正确操作是必要的，因此不能阻止。因此，尽管需要，但不可能通过本文件中描述的身份机制来保护Via；保护通孔的最佳实践是使用SIP。"
+    },
+    {
+      "indent": 3,
+      "text": "This mechanism also provides a signature over the bodies of SIP requests. The most important reason for doing so is to protect Session Description Protocol (SDP) bodies carried in SIP requests. There is little purpose in establishing the identity of the user that originated a SIP request if this assurance is not coupled with a comparable assurance over the media descriptors. Note, however, that this is not perfect end-to-end security. The authentication service itself, when instantiated at a intermediary, could conceivably change the SDP (and SIP headers, for that matter) before providing a signature. Thus, while this mechanism reduces the chance that a replayer or man-in-the-middle will modify SDP, it does not eliminate it entirely. Since it is a foundational assumption of this mechanism that the users trust their local domain to vouch for their security, they must also trust the service not to violate the integrity of their message without good reason. Note that RFC 3261, Section 16.6, states that SIP proxy servers \"MUST NOT add to, modify, or remove the message body.\"",
+      "zh-CHS": "该机制还提供SIP请求主体上的签名。这样做的最重要原因是为了保护SIP请求中携带的会话描述协议（SDP）主体。如果该保证不与通过媒体描述符的可比保证相结合，那么建立发起SIP请求的用户的身份就没有什么意义。但是，请注意，这并不是完美的端到端安全性。身份验证服务本身在中介处实例化时，可以想象在提供签名之前更改SDP（以及SIP头）。因此，虽然这种机制减少了重放者或中间人修改SDP的机会，但并不能完全消除SDP。由于这种机制的一个基本假设是用户信任其本地域以保证其安全性，因此他们还必须信任服务，以免在没有充分理由的情况下破坏其消息的完整性。请注意，RFC 3261第16.6节规定，SIP代理服务器“不得添加、修改或删除消息正文。”"
+    },
+    {
+      "indent": 3,
+      "text": "In the end analysis, the Identity and Identity-Info headers cannot protect themselves. Any attacker could remove these headers from a SIP request, and modify the request arbitrarily afterwards. However, this mechanism is not intended to protect requests from men-in-the-middle who interfere with SIP messages; it is intended only to provide a way that SIP users can prove definitively that they are who they claim to be. At best, by stripping identity information from a request, a man-in-the-middle could make it impossible to distinguish any illegitimate messages he would like to send from those messages sent by an authorized user. However, it requires a considerably greater amount of energy to mount such an attack than it does to mount trivial impersonations by just copying someone else's From header field. This mechanism provides a way that an authorized user can provide a definitive assurance of his identity that an unauthorized user, an impersonator, cannot.",
+      "zh-CHS": "归根结底，标识和标识信息头无法保护自己。任何攻击者都可以从SIP请求中删除这些头，然后任意修改请求。然而，该机制并不打算保护来自中间人的请求，中间人干扰SIP消息；它的目的只是提供一种方式，让SIP用户能够明确地证明他们是他们所声称的那个人。充其量，通过从请求中剥离身份信息，中间人可能无法区分他想要发送的任何非法消息和授权用户发送的消息。然而，与仅从头字段复制其他人的模拟相比，发起这样的攻击所需的能量要多得多。这种机制提供了一种方式，授权用户可以提供其身份的最终保证，而未经授权的用户（冒名顶替者）不能。"
+    },
+    {
+      "indent": 3,
+      "text": "One additional respect in which the Identity-Info header cannot protect itself is the 'alg' parameter. The 'alg' parameter is not included in the digest-string, and accordingly, a man-in-the-middle might attempt to modify the 'alg' parameter. However, it is important to note that preventing men-in-the-middle is not the primary impetus for this mechanism. Moreover, changing the 'alg'",
+      "zh-CHS": "标识信息头无法保护自身的另一个方面是“alg”参数。摘要字符串中不包含“alg”参数，因此，中间的人可能会试图修改“alg”参数。然而，重要的是要指出，防止男子处于中间地位并不是这一机制的主要动力。此外，更改“alg”"
+    },
+    {
+      "indent": 3,
+      "text": "would at worst result in some sort of bid-down attack, and at best cause a failure in the verifier. Note that only one valid 'alg' parameter is defined in this document and that thus there is currently no weaker algorithm to which the mechanism can be bid down. 'alg' has been incorporated into this mechanism for forward-compatibility reasons in case the current algorithm exhibits weaknesses, and requires swift replacement, in the future.",
+      "zh-CHS": "在最坏的情况下会导致某种出价下降攻击，在最好的情况下会导致验证器失败。请注意，本文档中只定义了一个有效的“alg”参数，因此目前没有较弱的算法可以对该机制进行报价。”由于前向兼容性的原因，alg’已被纳入该机制中，以防当前算法出现缺陷，并需要在将来快速更换。"
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Display-Names and Identity",
+      "section_title": true,
+      "zh-CHS": "13.2. 显示名称和标识"
+    },
+    {
+      "indent": 3,
+      "text": "As a matter of interface design, SIP user agents might render the display-name portion of the From header field of a caller as the identity of the caller; there is a significant precedent in email user interfaces for this practice. As such, it might seem that the lack of a signature over the display-name is a significant omission.",
+      "zh-CHS": "作为接口设计的问题，SIP用户代理可以将调用者的From报头字段的显示名称部分呈现为调用者的标识；这种做法在电子邮件用户界面中有一个重要的先例。因此，显示名称上缺少签名似乎是一个重大遗漏。"
+    },
+    {
+      "indent": 3,
+      "text": "However, there are several important senses in which a signature over the display-name does not prevent impersonation. In the first place, a particular display-name, like \"Jon Peterson\", is not unique in the world; many users in different administrative domains might legitimately claim that name. Furthermore, enrollment practices for SIP-based services might have a difficult time discerning the legitimate display-name for a user; it is safe to assume that impersonators will be capable of creating SIP accounts with arbitrary display-names. The same situation prevails in email today. Note that an impersonator who attempted to replay a message with an Identity header, changing only the display-name in the From header field, would be detected by the other replay protection mechanisms described in Section 13.1.",
+      "zh-CHS": "然而，在一些重要的意义上，显示名称上的签名并不能阻止模拟。首先，一个特定的显示名称，如“Jon Peterson”，在世界上并非独一无二；不同管理域中的许多用户可能会合法地使用该名称。此外，基于SIP的服务的注册实践可能难以识别用户的合法显示名称；可以安全地假设，模拟者将能够创建具有任意显示名称的SIP帐户。同样的情况在今天的电子邮件中也普遍存在。请注意，第13.1节中描述的其他重播保护机制将检测到试图重播带有标识标头的消息的模拟者，该模拟者仅更改“发件人标头”字段中的显示名称。"
+    },
+    {
+      "indent": 3,
+      "text": "Of course, an authentication service can enforce policies about the display-name even if the display-name is not signed. The exact mechanics for creating and operationalizing such policies is outside the scope of this document. The effect of this policy would not be to prevent impersonation of a particular unique identifier like a SIP URI (since display-names are not unique identifiers), but to allow a domain to manage the claims made by its users. If such policies are enforced, users would not be free to claim any display-name of their choosing. In the absence of a signature, man-in-the-middle attackers could conceivably alter the display-names in a request with impunity. Note that the scope of this specification is impersonation attacks, however, and that a man-in-the-middle might also strip the Identity and Identity-Info headers from a message.",
+      "zh-CHS": "当然，身份验证服务可以强制执行有关显示名的策略，即使显示名没有签名。创建和实施此类政策的确切机制不在本文件范围内。此策略的效果不是防止模拟特定的唯一标识符（如SIP URI）（因为显示名称不是唯一标识符），而是允许域管理其用户提出的声明。如果强制执行此类策略，用户将无法自由声明其选择的任何显示名称。在没有签名的情况下，中间人攻击者可以不受惩罚地更改请求中的显示名称。但是，请注意，此规范的范围是模拟攻击，中间人也可能会从消息中删除标识和标识信息头。"
+    },
+    {
+      "indent": 3,
+      "text": "There are many environments in which policies regarding the display-name aren't feasible. Distributing bit-exact and internationalizable display-names to end-users as part of the enrollment or registration process would require mechanisms that are not explored in this",
+      "zh-CHS": "在许多环境中，有关显示名称的策略不可行。作为注册或注册过程的一部分，向最终用户分发位精确且可国际化的显示名称将需要本文未探讨的机制"
+    },
+    {
+      "indent": 3,
+      "text": "document. In the absence of policy enforcement regarding domain names, there are conceivably attacks that an adversary could mount against SIP systems that rely too heavily on the display-name in their user interface, but this argues for intelligent interface design, not changes to the mechanisms. Relying on a non-unique identifier for identity would ultimately result in a weak mechanism.",
+      "zh-CHS": "文件在没有关于域名的政策实施的情况下，可以想象对手可能会对过度依赖其用户界面中显示名称的SIP系统发起攻击，但这需要智能界面设计，而不是机制的改变。依赖非唯一标识符进行标识最终会导致机制薄弱。"
+    },
+    {
+      "indent": 0,
+      "text": "13.3. Securing the Connection to the Authentication Service",
+      "section_title": true,
+      "zh-CHS": "13.3. 保护与身份验证服务的连接"
+    },
+    {
+      "indent": 3,
+      "text": "The assurance provided by this mechanism is strongest when a user agent forms a direct connection, preferably one secured by TLS, to an intermediary-based authentication service. The reasons for this are twofold:",
+      "zh-CHS": "当用户代理与基于中介的认证服务形成直接连接（最好是由TLS保护的连接）时，该机制提供的保证最强。原因有两方面："
+    },
+    {
+      "indent": 6,
+      "text": "If a user does not receive a certificate from the authentication service over this TLS connection that corresponds to the expected domain (especially when the user receives a challenge via a mechanism such as Digest), then it is possible that a rogue server is attempting to pose as an authentication service for a domain that it does not control, possibly in an attempt to collect shared secrets for that domain.",
+      "zh-CHS": "如果用户未通过此TLS连接从认证服务接收到与预期域对应的证书（尤其是当用户通过诸如摘要之类的机制接收质询时），则流氓服务器可能正试图充当其不控制的域的认证服务，可能是为了收集该域的共享机密。"
+    },
+    {
+      "indent": 6,
+      "text": "Without TLS, the various header field values and the body of the request will not have integrity protection when the request arrives at an authentication service. Accordingly, a prior legitimate or illegitimate intermediary could modify the message arbitrarily.",
+      "zh-CHS": "如果没有TLS，当请求到达身份验证服务时，各种头字段值和请求主体将没有完整性保护。因此，先前合法或非法的中间人可以任意修改电文。"
+    },
+    {
+      "indent": 3,
+      "text": "Of these two concerns, the first is most material to the intended scope of this mechanism. This mechanism is intended to prevent impersonation attacks, not man-in-the-middle attacks; integrity over the header and bodies is provided by this mechanism only to prevent replay attacks. However, it is possible that applications relying on the presence of the Identity header could leverage this integrity protection, especially body integrity, for services other than replay protection.",
+      "zh-CHS": "在这两个问题中，第一个问题对这一机制的预期范围最为重要。此机制旨在防止模拟攻击，而不是中间人攻击；此机制仅为防止重播攻击而提供标头和正文的完整性。但是，依赖于标识头的存在的应用程序可能会利用此完整性保护，特别是主体完整性，来保护重播保护以外的服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Accordingly, direct TLS connections SHOULD be used between the UAC and the authentication service whenever possible. The opportunistic nature of this mechanism, however, makes it very difficult to constrain UAC behavior, and moreover there will be some deployment architectures where a direct connection is simply infeasible and the UAC cannot act as an authentication service itself. Accordingly, when a direct connection and TLS are not possible, a UAC should use the SIPS mechanism, Digest 'auth-int' for body integrity, or both when it can. The ultimate decision to add an Identity header to a",
+      "zh-CHS": "因此，只要可能，UAC和身份验证服务之间应使用直接TLS连接。然而，这种机制的机会主义性质使得很难约束UAC行为，而且会有一些部署架构，其中直接连接根本不可行，UAC本身不能充当身份验证服务。因此，当无法实现直接连接和TLS时，UAC应使用SIPS机制，或在可能的情况下使用“auth int”来实现身体完整性，或同时使用两者。将标识标头添加到"
+    },
+    {
+      "indent": 3,
+      "text": "request lies with the authentication service, of course; domain policy must identify those cases where the UAC's security association with the authentication service is too weak.",
+      "zh-CHS": "当然，请求取决于身份验证服务；域策略必须识别UAC与身份验证服务的安全关联太弱的情况。"
+    },
+    {
+      "indent": 0,
+      "text": "13.4. Domain Names and Subordination",
+      "section_title": true,
+      "zh-CHS": "13.4. 域名及其从属关系"
+    },
+    {
+      "indent": 3,
+      "text": "When a verifier processes a request containing an Identity-Info header, it must compare the domain portion of the URI in the From header field of the request with the domain name that is the subject of the certificate acquired from the Identity-Info header. While it might seem that this should be a straightforward process, it is complicated by two deployment realities. In the first place, certificates have varying ways of describing their subjects, and may indeed have multiple subjects, especially in 'virtual hosting' cases where multiple domains are managed by a single application. Secondly, some SIP services may delegate SIP functions to a subordinate domain and utilize the procedures in RFC 3263 [4] that allow requests for, say, 'example.com' to be routed to 'sip.example.com'. As a result, a user with the AoR 'sip:jon@example.com' may process its requests through a host like 'sip.example.com', and it may be that latter host that acts as an authentication service.",
+      "zh-CHS": "当验证器处理包含Identity Info标头的请求时，它必须将请求的From标头字段中URI的域部分与作为从Identity Info标头获取的证书主题的域名进行比较。虽然这似乎应该是一个简单的过程，但由于两个部署现实，这一过程变得复杂。首先，证书有不同的描述主题的方式，并且可能确实有多个主题，特别是在“虚拟主机”的情况下，其中多个域由单个应用程序管理。其次，一些SIP服务可以将SIP功能委托给从属域，并利用RFC 3263[4]中的过程，允许将请求（例如，'example.com'路由到'SIP.example.com'。因此，具有AoR的sip的用户：jon@example.com'可以通过像'sip.example.com'这样的主机处理其请求，并且可能是后一个主机充当身份验证服务。"
+    },
+    {
+      "indent": 3,
+      "text": "To meet the second of these problems, a domain that deploys an authentication service on a subordinate host MUST be willing to supply that host with the private keying material associated with a certificate whose subject is a domain name that corresponds to the domain portion of the AoRs that the domain distributes to users. Note that this corresponds to the comparable case of routing inbound SIP requests to a domain. When the NAPTR and SRV procedures of RFC 3263 are used to direct requests to a domain name other than the domain in the original Request-URI (e.g., for 'sip:jon@example.com', the corresponding SRV records point to the service 'sip1.example.org'), the client expects that the certificate passed back in any TLS exchange with that host will correspond exactly with the domain of the original Request-URI, not the domain name of the host. Consequently, in order to make inbound routing to such SIP services work, a domain administrator must similarly be willing to share the domain's private key with the service. This design decision was made to compensate for the insecurity of the DNS, and it makes certain potential approaches to DNS-based 'virtual hosting' unsecurable for SIP in environments where domain administrators are unwilling to share keys with hosting services.",
+      "zh-CHS": "为了解决第二个问题，在从属主机上部署身份验证服务的域必须愿意向该主机提供与证书相关联的私钥材料，证书的主题是与域分发给用户的AOR的域部分相对应的域名。注意，这对应于将入站SIP请求路由到域的类似情况。当RFC 3263的NAPTR和SRV过程用于将请求定向到原始请求URI中的域以外的域名时（例如，对于“sip:jon@example.com，相应的SRV记录指向服务“sip1.example.org”），客户端希望在与该主机的任何TLS交换中传回的证书将与原始请求URI的域完全对应，而不是主机的域名。因此，为了使到此类SIP服务的入站路由工作，域管理员必须同样愿意与服务共享域的私钥。做出此设计决策是为了补偿DNS的不安全性，并且在域管理员不愿意与托管服务共享密钥的环境中，它使得基于DNS的“虚拟主机”的某些潜在方法无法用于SIP。"
+    },
+    {
+      "indent": 3,
+      "text": "A verifier MUST evaluate the correspondence between the user's identity and the signing certificate by following the procedures defined in RFC 2818 [11], Section 3.1. While RFC 2818 deals with the use of HTTP in TLS, the procedures described are applicable to",
+      "zh-CHS": "验证者必须按照RFC 2818[11]第3.1节中规定的程序评估用户身份和签名证书之间的对应关系。虽然RFC 2818涉及在TLS中使用HTTP，但所描述的过程适用于"
+    },
+    {
+      "indent": 3,
+      "text": "verifying identity if one substitutes the \"hostname of the server\" in HTTP for the domain portion of the user's identity in the From header field of a SIP request with an Identity header.",
+      "zh-CHS": "验证身份，如果将SIP请求的From标头字段中用户身份的域部分替换为HTTP中的“服务器主机名”，则使用身份标头。"
+    },
+    {
+      "indent": 3,
+      "text": "Because the domain certificates that can be used by authentication services need to assert only the hostname of the authentication service, existing certificate authorities can provide adequate certificates for this mechanism. However, not all proxy servers and user agents will be able to support the root certificates of all certificate authorities, and moreover there are some significant differences in the policies by which certificate authorities issue their certificates. This document makes no recommendations for the usage of particular certificate authorities, nor does it describe any particular policies that certificate authorities should follow, but it is anticipated that operational experience will create de facto standards for authentication services. Some federations of service providers, for example, might only trust certificates that have been provided by a certificate authority operated by the federation. It is strongly RECOMMENDED that self-signed domain certificates should not be trusted by verifiers, unless some previous key exchange has justified such trust.",
+      "zh-CHS": "由于身份验证服务可以使用的域证书只需要声明身份验证服务的主机名，因此现有的证书颁发机构可以为此机制提供足够的证书。但是，并非所有代理服务器和用户代理都能够支持所有证书颁发机构的根证书，而且证书颁发机构颁发证书的策略存在一些显著差异。本文档未对特定证书颁发机构的使用提出建议，也未描述证书颁发机构应遵循的任何特定策略，但预计运营经验将为认证服务创建事实上的标准。例如，服务提供商的某些联合会可能只信任由联合会操作的证书颁发机构提供的证书。强烈建议验证者不要信任自签名域证书，除非以前的某个密钥交换证明了这种信任的合理性。"
+    },
+    {
+      "indent": 3,
+      "text": "For further information on certificate security and practices, see RFC 3280 [9]. The Security Considerations of RFC 3280 are applicable to this document.",
+      "zh-CHS": "有关证书安全性和实践的更多信息，请参阅RFC 3280[9]。RFC 3280的安全注意事项适用于本文件。"
+    },
+    {
+      "indent": 0,
+      "text": "13.5. Authorization and Transitional Strategies",
+      "section_title": true,
+      "zh-CHS": "13.5. 授权和过渡战略"
+    },
+    {
+      "indent": 3,
+      "text": "Ultimately, the worth of an assurance provided by an Identity header is limited by the security practices of the domain that issues the assurance. Relying on an Identity header generated by a remote administrative domain assumes that the issuing domain used its administrative practices to authenticate its users. However, it is possible that some domains will implement policies that effectively make users unaccountable (e.g., ones that accept unauthenticated registrations from arbitrary users). The value of an Identity header from such domains is questionable. While there is no magic way for a verifier to distinguish \"good\" from \"bad\" domains by inspecting a SIP request, it is expected that further work in authorization practices could be built on top of this identity solution; without such an identity solution, many promising approaches to authorization policy are impossible. That much said, it is RECOMMENDED that authentication services based on proxy servers employ strong authentication practices such as token-based identifiers.",
+      "zh-CHS": "最终，标识头提供的保证的价值受到发布保证的域的安全实践的限制。依赖远程管理域生成的标识头时，假定颁发域使用其管理实践对其用户进行身份验证。但是，有些域可能会实施有效地使用户不负责任的策略（例如，接受任意用户未经验证的注册的域）。来自此类域的标识头的值值得怀疑。虽然验证者没有神奇的方法通过检查SIP请求来区分“好”和“坏”域，但预计可以在此身份解决方案的基础上进一步开展授权实践工作；没有这样的身份解决方案，许多有前途的授权策略方法是不可能的。话虽如此，建议基于代理服务器的身份验证服务采用强大的身份验证实践，如基于令牌的标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "One cannot expect the Identity and Identity-Info headers to be supported by every SIP entity overnight. This leaves the verifier in a compromising position; when it receives a request from a given SIP",
+      "zh-CHS": "不能指望每个SIP实体一夜之间就能支持标识和标识信息头。这使得验证者处于一个妥协的位置；当它收到来自给定SIP的请求时"
+    },
+    {
+      "indent": 3,
+      "text": "user, how can it know whether or not the sender's domain supports Identity? In the absence of ubiquitous support for identity, some transitional strategies are necessary.",
+      "zh-CHS": "用户，它如何知道发件人的域是否支持标识？在缺乏对身份的普遍支持的情况下，一些过渡策略是必要的。"
+    },
+    {
+      "indent": 6,
+      "text": "A verifier could remember when it receives a request from a domain that uses Identity, and in the future, view messages received from that domain without Identity headers with skepticism.",
+      "zh-CHS": "验证器可以记住何时收到来自使用标识的域的请求，并且在将来，以怀疑的态度查看从该域收到的没有标识头的消息。"
+    },
+    {
+      "indent": 6,
+      "text": "A verifier could query the domain through some sort of callback system to determine whether or not it is running an authentication service. There are a number of potential ways in which this could be implemented; use of the SIP OPTIONS method is one possibility. This is left as a subject for future work.",
+      "zh-CHS": "验证器可以通过某种回调系统查询域，以确定它是否正在运行身份验证服务。有许多可能的方法可以实现这一点；使用SIP选项方法是一种可能性。这是留给今后工作的一个主题。"
+    },
+    {
+      "indent": 3,
+      "text": "In the long term, some sort of identity mechanism, either the one documented in this specification or a successor, must become mandatory-to-use for the SIP protocol; that is the only way to guarantee that this protection can always be expected by verifiers.",
+      "zh-CHS": "从长远来看，某种身份机制（本规范中记录的身份机制或后续身份机制）必须强制用于SIP协议；这是确保验证者始终可以期望这种保护的唯一方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, it is worth noting that the presence or absence of the Identity headers cannot be the sole factor in making an authorization decision. Permissions might be granted to a message on the basis of the specific verified Identity or really on any other aspect of a SIP request. Authorization policies are outside the scope of this specification, but this specification advises any future authorization work not to assume that messages with valid Identity headers are always good.",
+      "zh-CHS": "最后，值得注意的是，标识头的存在与否不能成为做出授权决策的唯一因素。可以根据特定的已验证身份或SIP请求的任何其他方面向消息授予权限。授权策略不在本规范的范围内，但本规范建议任何未来的授权工作不要假设具有有效标识头的消息总是好的。"
+    },
+    {
+      "indent": 0,
+      "text": "14. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "14. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document requests changes to the header and response-code sub-registries of the SIP parameters IANA registry, and requests the creation of two new registries for parameters for the Identity-Info header.",
+      "zh-CHS": "本文档请求更改SIP参数IANA注册表的头和响应代码子注册表，并请求为标识信息头的参数创建两个新注册表。"
+    },
+    {
+      "indent": 0,
+      "text": "14.1. Header Field Names",
+      "section_title": true,
+      "zh-CHS": "14.1. 标题字段名"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies two new SIP headers: Identity and Identity-Info. Their syntax is given in Section 9. These headers are defined by the following information, which has been added to the header sub-registry under http://www.iana.org/assignments/sip-parameters.",
+      "zh-CHS": "本文档指定了两个新的SIP头：Identity和Identity Info。第9节给出了它们的语法。这些标头由以下信息定义，这些信息已添加到下的标头子注册表中http://www.iana.org/assignments/sip-parameters."
+    },
+    {
+      "indent": 9,
+      "text": "Header Name: Identity Compact Form: y Header Name: Identity-Info Compact Form: n",
+      "zh-CHS": "标题名称：标识压缩表单：y标题名称：标识信息压缩表单：n"
+    },
+    {
+      "indent": 0,
+      "text": "14.2. 428 'Use Identity Header' Response Code",
+      "section_title": true,
+      "zh-CHS": "14.2. 428“使用标识头”响应代码"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a new SIP response code, which is described in Section 6. It is sent when a verifier receives a SIP request that lacks an Identity header in order to indicate that the request should be re-sent with an Identity header. This response code is defined by the following information, which has been added to the method and response-code sub-registry under http://www.iana.org/assignments/sip-parameters.",
+      "zh-CHS": "本文件注册了一个新的SIP响应代码，如第6节所述。当验证器接收到缺少标识头的SIP请求时发送该消息，以指示该请求应使用标识头重新发送。此响应代码由以下信息定义，这些信息已添加到下的方法和响应代码子注册表中http://www.iana.org/assignments/sip-parameters."
+    },
+    {
+      "indent": 9,
+      "text": "Response Code Number: 428 Default Reason Phrase: Use Identity Header",
+      "zh-CHS": "响应代码：428默认原因短语：使用标识标头"
+    },
+    {
+      "indent": 0,
+      "text": "14.3. 436 'Bad Identity-Info' Response Code",
+      "section_title": true,
+      "zh-CHS": "14.3. 436“错误身份信息”响应代码"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a new SIP response code, which is described in Section 6. It is used when the Identity-Info header contains a URI that cannot be dereferenced by the verifier (either the URI scheme is unsupported by the verifier, or the resource designated by the URI is otherwise unavailable). This response code is defined by the following information, which has been added to the method and response-code sub-registry under http://www.iana.org/assignments/sip-parameters.",
+      "zh-CHS": "本文件注册了一个新的SIP响应代码，如第6节所述。当Identity Info标头包含验证器无法取消引用的URI（验证器不支持URI方案，或者URI指定的资源不可用）时，使用它。此响应代码由以下信息定义，这些信息已添加到下的方法和响应代码子注册表中http://www.iana.org/assignments/sip-parameters."
+    },
+    {
+      "indent": 9,
+      "text": "Response Code Number: 436 Default Reason Phrase: Bad Identity-Info",
+      "zh-CHS": "响应代码：436默认原因短语：错误标识信息"
+    },
+    {
+      "indent": 0,
+      "text": "14.4. 437 'Unsupported Certificate' Response Code",
+      "section_title": true,
+      "zh-CHS": "14.4. 437“不支持的证书”响应代码"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a new SIP response code, which is described in Section 6. It is used when the verifier cannot validate the certificate referenced by the URI of the Identity-Info header, because, for example, the certificate is self-signed, or signed by a root certificate authority for whom the verifier does not possess a root certificate. This response code is defined by the following information, which has been added to the method and response-code sub-registry under http://www.iana.org/assignments/sip-parameters.",
+      "zh-CHS": "本文件注册了一个新的SIP响应代码，如第6节所述。当验证器无法验证由标识信息头的URI引用的证书时，例如，由于该证书是自签名的，或由验证器不拥有根证书的根证书颁发机构签名，因此使用该方法。此响应代码由以下信息定义，这些信息已添加到下的方法和响应代码子注册表中http://www.iana.org/assignments/sip-parameters."
+    },
+    {
+      "indent": 9,
+      "text": "Response Code Number: 437 Default Reason Phrase: Unsupported Certificate",
+      "zh-CHS": "响应代码：437默认原因短语：不支持的证书"
+    },
+    {
+      "indent": 0,
+      "text": "14.5. 438 'Invalid Identity Header' Response Code",
+      "section_title": true,
+      "zh-CHS": "14.5. 438“无效标识标头”响应代码"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a new SIP response code, which is described in Section 6. It is used when the verifier receives a message with an Identity signature that does not correspond to the digest-string calculated by the verifier. This response code is defined by the following information, which has been added to the method and response-code sub-registry under http://www.iana.org/assignments/sip-parameters.",
+      "zh-CHS": "本文件注册了一个新的SIP响应代码，如第6节所述。当验证器接收到具有与验证器计算的摘要字符串不对应的身份签名的消息时，将使用它。此响应代码由以下信息定义，这些信息已添加到下的方法和响应代码子注册表中http://www.iana.org/assignments/sip-parameters."
+    },
+    {
+      "indent": 9,
+      "text": "Response Code Number: 438 Default Reason Phrase: Invalid Identity Header",
+      "zh-CHS": "响应代码：438默认原因短语：无效标识标头"
+    },
+    {
+      "indent": 0,
+      "text": "14.6. Identity-Info Parameters",
+      "section_title": true,
+      "zh-CHS": "14.6. 标识信息参数"
+    },
+    {
+      "indent": 3,
+      "text": "The IANA has created a new registry for Identity-Info headers. This registry is to be prepopulated with a single entry for a parameter called 'alg', which describes the algorithm used to create the signature that appears in the Identity header. Registry entries must contain the name of the parameter and the specification in which the parameter is defined. New parameters for the Identity-Info header may be defined only in Standards Track RFCs.",
+      "zh-CHS": "IANA已经为标识信息头创建了一个新的注册表。此注册表将预填充一个名为“alg”的参数的单个条目，该参数描述用于创建出现在标识标头中的签名的算法。注册表项必须包含参数名称和定义参数的规范。只能在标准跟踪RFC中定义标识信息标头的新参数。"
+    },
+    {
+      "indent": 0,
+      "text": "14.7. Identity-Info Algorithm Parameter Values",
+      "section_title": true,
+      "zh-CHS": "14.7. 身份信息算法参数值"
+    },
+    {
+      "indent": 3,
+      "text": "The IANA has created a new registry for Identity-Info 'alg' parameter values. This registry is to be prepopulated with a single entry for a value called 'rsa-sha1', which describes the algorithm used to create the signature that appears in the Identity header. Registry entries must contain the name of the 'alg' parameter value and the specification in which the value is described. New values for the 'alg' parameter may be defined only in Standards Track RFCs.",
+      "zh-CHS": "IANA已为标识信息“alg”参数值创建了一个新的注册表。此注册表将预填充一个名为“rsa-sha1”的值的单个条目，该值描述了用于创建出现在标识标头中的签名的算法。注册表项必须包含“alg”参数值的名称和描述该值的规范。“alg”参数的新值只能在标准轨道RFC中定义。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Eric Rescorla, Rohan Mahy, Robert Sparks, Jonathan Rosenberg, Mark Watson, Henry Sinnreich, Alan Johnston, Patrik Faltstrom, Paul Kyzviat, Adam Roach, John Elwell, Aki Niemi, and Jim Schaad for their comments. Jonathan Rosenberg provided detailed fixes to innumerable sections of the document. The bit-archive presented in Appendix B follows the pioneering example of RFC 4475 [16]. Thanks to Hans Persson and Tao Wan for thorough nit reviews.",
+      "zh-CHS": "作者要感谢Eric Rescorla、Rohan Mahy、Robert Sparks、Jonathan Rosenberg、Mark Watson、Henry Sinnreich、Alan Johnston、Patrik Faltstrom、Paul Kyzviat、Adam Roach、John Elwell、Aki Niemi和Jim Schaad的评论。乔纳森·罗森博格（Jonathan Rosenberg）对文档的无数部分进行了详细的修复。附录B中的bit档案遵循RFC 4475[16]的开创性示例。感谢Hans Persson和Tao Wan对nit的全面审查。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Bit-Exact Archive of Examples of Messages",
+      "section_title": true,
+      "zh-CHS": "附录B.信息示例的Bit精确存档"
+    },
+    {
+      "indent": 3,
+      "text": "The following text block is an encoded, gzip-compressed TAR archive of files that represent the transformations performed on the examples of messages discussed in Section 10. It includes for each example:",
+      "zh-CHS": "下面的文本块是一个编码的、gzip压缩的TAR文件归档，表示在第10节讨论的消息示例上执行的转换。对于每个示例，它包括："
+    },
+    {
+      "indent": 3,
+      "text": "o  (foo).message: the original message\no  (foo).canonical: the canonical string constructed from that\n   message\no  (foo).sha1: the SHA1 hash of the canonical string (hexadecimal)\no  (foo).signed: the RSA-signed SHA1 hash of the canonical string\n   (binary)\no  (foo).signed.enc: the base64 encoding of the RSA-signed SHA1 hash\n   of the canonical string as it would appear in the request\no  (foo).identity: the original message with the Identity and\n   Identity-Info headers added",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Also included in the archive are two public key/certificate pairs, for atlanta.example.com and biloxi.example.org, respectively, including:",
+      "zh-CHS": "存档中还包括两个公钥/证书对，分别用于atlanta.example.com和biloxi.example.org，包括："
+    },
+    {
+      "indent": 3,
+      "text": "o (foo).cer: the certificate of the domain o (foo).privkey: the private key of the domain o (foo).pubkey: the public key of the domain, extracted from the cert file for convenience",
+      "zh-CHS": "o （foo）.cer：域o（foo）的证书。privkey：域o（foo）的私钥。pubkey：域的公钥，为方便起见从证书文件中提取"
+    },
+    {
+      "indent": 3,
+      "text": "To recover the compressed archive file intact, the text of this document may be passed as input to the following Perl script (the output should be redirected to a file or piped to \"tar -xzvf -\").",
+      "zh-CHS": "要完整地恢复压缩的归档文件，可以将本文档的文本作为输入传递给以下Perl脚本（输出应重定向到文件或通过管道传输到“tar-xzvf-”）。"
+    },
+    {
+      "indent": 3,
+      "text": "#!/usr/bin/perl\nuse strict;\nmy $bdata = \"\";\nuse MIME::Base64;\nwhile(<>) {\n if (/-- BEGIN MESSAGE ARCHIVE --/ .. /-- END MESSAGE ARCHIVE --/) {\n     if ( m/^\\s*[^\\s]+\\s*$/) {\n         $bdata = $bdata . $_;\n     }\n  }\n}\nprint decode_base64($bdata);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Alternatively, the base-64 encoded block can be edited by hand to remove document structure lines and fed as input to any base-64 decoding utility.",
+      "zh-CHS": "或者，可以手动编辑base-64编码块以移除文档结构行，并将其作为输入馈送到任何base-64解码实用程序。"
+    },
+    {
+      "indent": 0,
+      "text": "B.1. Encoded Reference Files",
+      "section_title": true,
+      "zh-CHS": "B.1. 编码参考文件"
+    },
+    {
+      "indent": 3,
+      "text": "-- BEGIN MESSAGE ARCHIVE --\nH4sICFfaz0QCA25ld2lkZW50LnRhcgDsW0us5NhZ7gUSwqiF2CAhFikiIQhFt992\n+U46it+u8qPK5Uc9WPlVfj/KdpXtomEDCxaAhFggISE2WSHCIoIFioQQC8gqAhRA\nQQTY8JJAbMgGIYTv7b7T09PT0xNl+mqS3F8qVd3jY/uc85//+87/nXOLoIv9oGjB\nB2/PIAiDSBwfv1GERInxG8EwAh6/37UHMIQRKIljCI4+gGCUGKtP8Ad3YKemderJ\n5EFSBW1QN2Xxmnp5GtblqXqUPfIffBdZcet/p82conUee0H9sfsfhiACw17nfwQa\ny+Dra+MkQGFkrI+TOPJgAt37/63bo2tjeHGuTVh+bc6FOUub/E0poM7nLGqyLJ06\nId3NGTocPxytMWF6jNJYpDqIoXVLoDlmr+pNx+o7ztZ1ke8WtnXhFUClU5GGLZ6l\nO3YN8T3P0Usm1GyG9lQGEiBXFE6+yPecSSvPykuV4TPB5ne9xNEO8KxQVXnk3cqn\n/TaK3C3T7A08cRGokyJPUzmrV7k5pHK7i5bQyOambNcDLxUmH9zMD2sl8FGa+WGt\nBG6bGe5nHafvFnK5n0dnT6N1nmF0mgt3EK3OxQVdiuMzZrNOhPxNOF37W7w4LmsL\nOA0Mpeqt7RTKTrDX1CztZgezbM7rLlvQeBnhWzWOV5qDZEdMahLZTo8Wq0oZOL4X\nFgkgMhY4pNBdU53sHVvlaIX5TjqH0+JkYXAXmmzgSI7H9N3RvHingrIOAUIzCph4\nGhsdHGDwET+WCO5SuDtwxXKNvneGYrWiQ5WhaTEJXb0LXb6Trgd2DS0ZZscLWm6B\nau3aO48HZK4GEWgzN2oRTuBaG/vLXA+aZKh8kDBYyJj7bHWREXgjMWxIgFQrxPyx\nb3eUc3EEH6iEptuYL1zFRCpr22rPXujFs9EPx0s+o67pbhzRa/eOjvEZX+wjt1hH\ngKpDHdvdXJA5er1Y22tRXXed+KwyxzFadFtZyW1st4E7V7ROO4Rqw5Cnx6ncXb/Z\n5ztdUOmx34dX3Ck8cydPc76+a5uO4XLTMI9Q3iIwDJBOloNbUahd5OK7FnQu637t\nL/cQdlSHel5tRVjh84Jfhl7pDfV2zZyPeEVs3D3t8XoKAVzDo3YAad6sp4r8nCUb\nUmxUUWAL9lRiS848gHAm+nZNcQF78RIY2lk6qq6DnFO30Q4B2JaLG2WTkcZ2uVx7\nezqGS4vqngA30c5r3KsI8ODevsvtFf6v6vicBsMd8j+ME+Qt/0PjAnCsT5AQes//\nd8z/a4OerNZze4z+iczvXqwBtvrI+7TMhDq3WqlMK9nlKt3a0z2RHGGlCQ8jMtub\nakAY2zocFupKgghFgbyFoS8BZx7Yl3mZXDZt5ZwYcj5kezmjEwY/YCO4rk+lFQc+\n26mK7GYb+rhviUDaVKy2X5DZUvOAOd8VeYQUtOfJ6QxVKtCW0DakDRBDOb3cIk3h\nF7toGs5wBFldupDkxU1TXS7dnKN1mgFumFWGNmhb8AJH0omt08VC23Jtj1O0A9sn\nZMFvA6KMp8s6FYZmkbj7RdcoudzWYdsCq+3SmrVIvq9iqJOxaIu1+6ho406UU2vF\nohHFJNVUDOr4sEIxeK0O6nJKHFZhclxeLK4DpvUqSdSqG1+eerx35ELXrPfF5gzq\nBWs4joD2qSUehFTp8aXsremUp0mrLxp+tnVMFALaFWhZHg6HWorIohz2um5KZcV4\nQUcNh4BdC9HZV8ikckSn5WM83neiONKavbQlS4MlANoplaQn67JbMLQ2XSPumQa1",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "OD9iBLYPiyDjudXR4en9xuHQdHmIDGp6VsjyyBvTE85DwIJMty65T2PDtkJqa4Gz\nVa/KPcjRF8i38qUytVhdmrEUb1rqHDnx7lFyGd+2RC1FCYwFOMErfKO3oymKyceF\nn8Q7oyfs1eqMEFsqJw1oOfhmaoQNCmJluerLmeSox20+g1idmdZA7zKolVXLMvKY\nTpCp3KwzlSHYhjpmBCGHXZEp1CnlI0nalZdxHPxtUDLsEFlNGfqGBRCgY9CCd97w\nYpuQ4HlY8Kyus6wBZ3LIb0tNXx2XmpOdd9EwqPv1VlB8Dgvdbr2S4dNWBnZVirLp\nQbgsh0MSKJ646reXI3K8nKSLaHL9nlrRQdVtsbWRviDVDwyrTzD+n9yPGf7fhP8j\n5kO3+I/AN/k/gZHYPf7fMf6vLEaZs++FfvGg0pDIGkfRmLsj2PLX6R5NY6JGcywT\n6x9OCcDrOOGjUgLwOk74qJQAvJYT3o3O93f6e3b958ZZ2cdvQ/55s/6DvEf/QbBr\n/YeAifv4/yToP3DCsnQyfZP+s32j/mOO6Tp3ub75uf6TLipXpDDH5DWVbp7VCzve\nsGxrnfDuWEEErgvprjN2eda4aFS9PzVXGWzLmTSsmvSgcTQyfgYtK6/LkOsy4D2F\nnX15k4AAm6p+k9Y/FxD2LOBs+nMgph+o/YgXev+u9pM/746BZ4EotJ7YZ0qunQHX\nZJni8v5B4wWaXjKJTnfhLmWvRYMzIXYbFjI5jFzInZwlZZR0gmoAGoi39e6ENYEk\nHsO0UyJ7umXRkl/i+LGOLxE6zD3bkFOqoJYZrS3Mo5bYjjSc16cLjwvABjZ3Tbgw\nEIHu51MYjruBLihkPUwjBwTDKJjJ0MqZLpQpjMVG40i2HhaHDtNTcH08ZDpASGdm\nVh2T7DzUC/SINbE6epSnaWfJNGP36oT2b+QcHeOFULeg/XStYOQGpFdc6+EMcDBK\nfXviBR7sukN3IxIljBR2fkm/UvlF3SHaEOu9Kng98MJNO5PObPM9s20E9IU2zrbV\nNVXduLbrRP35fLmVfYCXdZ9mrHGr+yzi5y5+n7CIsCNRdBx901oTYGirG/vMgJcP\nmP/XeqHOxIMszduZuT2I2qEqFtsYT9j4suzz3WwHhFkxa4eV4ATDkcJN0Tub7Obi\nl4xiVww3PVTrTb0F53O84Qlbcl16TBnsXHb33UWn26oCVojgnBJk1lLYPuAkDTkf\nL8mhkBJ2iWCpiC5OB8ScQXFWUTvJ47o+sYS6nRFWkbHTIfaBwTGDU7PBxRN5hsMn\n97rPvb3K/29B/nmz/kOit/wPI+NaYFz/49j9/s8nR/8Jb/UfFixdZqes1VXSpDV9\n3CxjcUVb/RwFc6SNybjHPOfImvRJ2OKeEoQ6QBb58aQspcM86u350UQOEGHRULYs\nEc0uDzIlkqqZ2q6txQOdKTuL4xNyu1G4OXtA95ICEEINTlmB7GqdqrH0TG7jhdyX\nvs2yPshFrEmJ1dTmymAmDflxuQHlpgjqeJi/pP8syEMjzOWtnCabMJmljbhsIwM1\nCpjqVwY78D7TH/gcWSUkqF0uQRaDK2/pxB6UAouR+r3iqCEHiQ/mogxSvcX05ukQ\n6jt7cTwPEr9uiHq7BWMT2xU51cIUhPOxTu0rqannADguEKwdDeu1GNJz6bxXbOVy\nnFKywvH7qaS7J1ZZbIUp4WYQ7+LMtf5DoESp0loF6Q4K5LsNryOnNhebXZ9ujcPA\nuPDMZJcd2w5Q4TNrBLsMy4WAaO7eoGbKZSo6CB4d5mIHLiQZKDjKXfKzmXWj/zBr\no/IxNzemOTZbgzDarnmDbqXj4GtxsYVSA1xHnVSTeSqZFpqCKiD0etuj2BwV5Yuz\n79UCoglCNqgzaEh+IUyD1Y2YIgak3kTDfnaKW2XV7jkvYzcRL0vAkdal3OL3Z0tA\nbEmp3VOqKMtQsmpJcxDMmytnzEcHh7WtoB1yzTsNZhfJCYJ1Ap3SS+ACJj3MV5mG\nRp0y1Zos25ebOT47nU8kSB8RD/UuR8cWGddFYbKR2F0op5BLi2jaLdE8BigUVLYb\nE/b8eGdXOeNJ3M1I51WYCsm035/wcEMbO/yUnKcCq66gTedIeGQW29O0lQNgtUB9\nZL7Yy71YZETcymuNFIN1RK0MGUr3Y5osBHZ9bhaYVlYvEewnVwN6Bf8/fvnnW9N/\nyBv9B8Wge/z/jtB/Xk8JwOs44aNSAvA6TviolAC8lhPu9Z9X4n8IHntOURax52R3\nG//jAvD5+S8MxbGb9R8K38f/nVgTV1du6X7+OfwHvZNXWfC4rMOn15ecLPaCz9/u\nDdxe9cr8qTPDXMwjiYAgRtx+iqDwhNnxT83o9DMTBJ4IgTtBRkdPYOwKpq5weCKq\n5tOn9wnXJzn+b37F7cdM/2/M/2AUe3H+E7vZ/0eg+/2fO7ExZicvAr3yUPTxB0T7\nxJivQOQx9BCwY+fq9i/QVIwJTI2/HiOPsXfc2im86MmFikTMlQunifwGHm9Rnf6R\nUNadU/vN1YQcS4S6zK8mTOlOPvt6/PncO60TPnEIb4Z7h4eAWV5N6OtGPrvntcD0\n7LaxVTMUgkkSewhwThtcTT4UmB4CrJNlj+bc1eRlXBsvGMHxavIc3h4C8+chcjX5\ndHPGWbOEcPlYGXkrtajv8fEShNmNaezbQkRjewoX+alWtjYo5e2gGaTS1iHlZ326\nuZQPgckLCyzSJ5f2TOoC0+RK10bj1szDVccKicPn6sDPUZ80Bg2BB40rEX4NLs9h\n20HKCfeaefXSw6rVcRnCp23hXyRXJPM1sc4oprAi6XSw126Fw2qBdlB4sJonn37R\np0fz4jCO8mejtq2aKxB81Sfv2SX63DtOFj6pG+dREznwOE5l0Y6PeaQERdhGV5Nx\n6O7R9TsM//OgaZwwuOP9Pwh7cf57hH7i5vw3gd/j/z3+fyz4/1Gh/XsSwV6K/2sk\nfwvveFP8QyRxm/9hY43r+Efg+/Ofd2KGRMM/9VLu/5knkwM5IyjUP6A4jPuI5wfU\nGEw4jsEocX2ghnQdGMbgA3bP8N9l8R+HReDfefwj7/7/H0ZCOPHs/A95H/93YV/6",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "P0b7Veqnf3f9W3/5n9/42+/75f/65g/4f3X4+p/9w0/8wt8Mv/97f/jX/zt88Stf\n+/Ljv/unb379+OvZvw3aN/7jn59+6vt/Q7n6sU3/RS36oT/5cS+a/8pXGLL7gy+R\neY1dET/8qa/+8Q9Wf/HlP6r/9DNf+J9f+8Wf/c3f/vs/z4p/Eb8Q/PePfu2Xfu53\nrB/59381fvIfH05+Xr6PwE9c/D8OCu9u4/+F/nt9BOBG/yXuz//djf77bYoYwLcr\nXADfilhxv+B4a/EfF+e4fTtbQG+Kfxy6Pv+D4SiMosTN+V9yzAnu4/9O4v9DN3k+\nZHfoffs/6JgQ4NRkrtlz84N2gdArCLmC0JtdoDfrDU/PT8bsu3xiNUFN/3875/Pa\nNBiH8Yt6CBS0Q2SDYcYEkSl9k75Nmkmn7ebWde2WLm3646Jp2q7FtU2btq496EGc\nKMgu4sH5a4dN8NccCMLYP6AMwcv+Bg/e1NMuZimTdlvXyWxx4/s5pQ0N5SXPk/d9\nnrclaSuHrBhbaKb6cHiUHOYxWe8SBkK1CTFVTWbSpDDAGwjZ1vATeRvaWPWnbFIh\nmsyQmKNYmhz38Sa7yG+ckGy5vJKSlF5E8v0ev8mq3bwHPCTYqv9mVEAN9//p+Z+m\nf9qCMMvqv/+k4fnfEiqCJbcJfVPnuyR/9XS0YxBorSR4jTK/zWywKUlfjUftlEvW\na4qqzKsSE0pyvrf629Ubir6awigcGnVEnP0IiZ5wjr4ezjNiqr/IZ9IBl2eo6PU5\nBrITiUwg5p5yxcsOWqKUKXvOLE7kHEhQBbtU0/Ek4+p4NDnGZ7zh0FiJvpETJxKF\nhKx6Is6AXxicGmYUJmvxjXmDTk+qzBSuZMxq0aUKTszlE6WhdM3FBkU5XZLCPT2l\n8UlHKOT1ubOBsqtnREzwI5G436TkSgkxzYVkxr9bYbTDCFT/r0y9yshXUrRhlxRF\nG0sprxm2SY0q2/NYCrMGwkDAo6GZ/t+MCqhh/4/MVf2Pvv7DDMz/wP8Pg/+DyQEH\nyP+bUQE23P+JqD/zfxpZ9P5fewv8vwXo/d/W7OecjaRZhGWaZq04LtGUjCPIwkUQ\nkrUXmI1xEstIUQmbOVD/IdN/EyrAPfZ/Ff2z+v5P7RD03wpit+2TyoevQvtisv3j\nfJz48e1pxN3xs+1I74vpO89MxqurnY/XnlxeLFx702lcIjvurZ8ods/MHQtevPD+\nbbBr+dR5amnN25XtflV+/fCLPbs62/fO+OD7yqzx9EzqbtfLk4GznxZurp+JHZ0+\n7l5+tPr8vtj2OfXr0sLKnHgrqM6DAv9H/f/bCnCP/Z+ufzOm9PyfhfVfS9hvJkXs\nN4ci/iZ7gtkGAAAAAAAAAAAAAAAAAAAAAAAAAABAPX4DY+BfEQB4AAA=\n-- END MESSAGE ARCHIVE --",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Appendix C. Original Requirements",
+      "section_title": true,
+      "zh-CHS": "附录C.原始要求"
+    },
+    {
+      "indent": 3,
+      "text": "The following requirements were crafted throughout the development of the mechanism described in this document. They are preserved here for historical reasons.",
+      "zh-CHS": "在本文件所述机制的整个开发过程中，制定了以下要求。由于历史原因，它们被保存在这里。"
+    },
+    {
+      "indent": 3,
+      "text": "o The mechanism must allow a UAC or a proxy server to provide a strong cryptographic identity assurance in a request that can be verified by a proxy server or UAS. o User agents that receive identity assurances must be able to validate these assurances without performing any network lookup. o User agents that hold certificates on behalf of their user must be capable of adding this identity assurance to requests. o Proxy servers that hold certificates on behalf of their domain must be capable of adding this identity assurance to requests; a UAC is not required to support this mechanism in order for an identity assurance to be added to a request in this fashion. o The mechanism must prevent replay of the identity assurance by an attacker. o In order to provide full replay protection, the mechanism must be capable of protecting the integrity of SIP message bodies (to ensure that media offers and answers are linked to the signaling identity). o It must be possible for a user to have multiple AoRs (i.e., accounts or aliases) that it is authorized to use within a domain, and for the UAC to assert one identity while authenticating itself as another, related, identity, as permitted by the local policy of the domain.",
+      "zh-CHS": "o 该机制必须允许UAC或代理服务器在可由代理服务器或UAS验证的请求中提供强大的加密身份保证。o接收身份保证的用户代理必须能够在不执行任何网络查找的情况下验证这些保证。o代表其用户持有证书的用户代理必须能够将此身份保证添加到请求中。o代表其域持有证书的代理服务器必须能够将此身份保证添加到请求中；为了以这种方式将身份保证添加到请求中，UAC不需要支持这种机制。o该机制必须防止攻击者重播身份保证。o为了提供完全的重播保护，该机制必须能够保护SIP消息体的完整性（以确保媒体提供和应答链接到信令标识）。o用户必须能够拥有多个授权在域内使用的AOR（即帐户或别名），并且UAC必须能够根据域的本地策略，在将自身认证为另一个相关身份的同时声明一个身份。"
+    },
+    {
+      "indent": 0,
+      "text": "References",
+      "zh-CHS": "工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "Normative References",
+      "zh-CHS": "规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M., and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002.",
+      "zh-CHS": "[1] Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.，和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[2] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Peterson, J., \"A Privacy Mechanism for the Session Initiation Protocol (SIP)\", RFC 3323, November 2002.",
+      "zh-CHS": "[3] Peterson，J.，“会话启动协议（SIP）的隐私机制”，RFC3323，2002年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Rosenberg, J. and H. Schulzrinne, \"Session Initiation Protocol (SIP): Locating SIP Servers\", RFC 3263, June 2002.",
+      "zh-CHS": "[4] Rosenberg，J.和H.Schulzrinne，“会话启动协议（SIP）：定位SIP服务器”，RFC3263，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Peterson, J., \"Session Initiation Protocol (SIP) Authenticated Identity Body (AIB) Format\", RFC 3893, September 2004.",
+      "zh-CHS": "[5] Peterson，J.，“会话发起协议（SIP）认证身份主体（AIB）格式”，RFC 3893，2004年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Crocker, D. and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", RFC 4234, October 2005.",
+      "zh-CHS": "[6] Crocker，D.和P.Overell，“语法规范的扩充BNF:ABNF”，RFC 42342005年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Housley, R., \"Cryptographic Message Syntax (CMS) Algorithms\", RFC 3370, August 2002.",
+      "zh-CHS": "[7] Housley，R.，“加密消息语法（CMS）算法”，RFC3370，2002年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Josefsson, S., \"The Base16, Base32, and Base64 Data Encodings\", RFC 3548, July 2003.",
+      "zh-CHS": "[8] Josefsson，S.，“Base16、Base32和Base64数据编码”，RFC3548，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Housley, R., Polk, W., Ford, W., and D. Solo, \"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile\", RFC 3280, April 2002.",
+      "zh-CHS": "[9] Housley，R.，Polk，W.，Ford，W.，和D.Solo，“Internet X.509公钥基础设施证书和证书撤销列表（CRL）配置文件”，RFC 32802002年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Housley, R. and P. Hoffman, \"Internet X.509 Public Key Infrastructure Operational Protocols: FTP and HTTP\", RFC 2585, May 1999.",
+      "zh-CHS": "[10] Housley，R.和P.Hoffman，“Internet X.509公钥基础设施操作协议：FTP和HTTP”，RFC 2585，1999年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Rescorla, E., \"HTTP Over TLS\", RFC 2818, May 2000.",
+      "zh-CHS": "[11] Rescorla，E.，“TLS上的HTTP”，RFC 2818，2000年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Informative References",
+      "zh-CHS": "资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Jennings, C., Peterson, J., and M. Watson, \"Private Extensions to the Session Initiation Protocol (SIP) for Asserted Identity within Trusted Networks\", RFC 3325, November 2002.",
+      "zh-CHS": "[12] Jennings，C.，Peterson，J.，和M.Watson，“在可信网络中用于断言身份的会话启动协议（SIP）的私有扩展”，RFC 33252002年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Schulzrinne, H., \"The tel URI for Telephone Numbers\", RFC 3966, December 2004.",
+      "zh-CHS": "[13] Schulzrinne，H.，“电话号码的电话URI”，RFC 3966，2004年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Faltstrom, P. and M. Mealling, \"The E.164 to Uniform Resource Identifiers (URI) Dynamic Delegation Discovery System (DDDS) Application (ENUM)\", RFC 3761, April 2004.",
+      "zh-CHS": "[14] Faltstrom，P.和M.Mealling，“E.164到统一资源标识符（URI）动态委托发现系统（DDDS）应用程序（ENUM）”，RFC 3761，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[15] Peterson, J., \"Retargeting and Security in SIP: A Framework and Requirements\", Work in Progress, February 2005.",
+      "zh-CHS": "[15] Peterson，J.，“SIP中的重定目标和安全：框架和要求”，正在进行的工作，2005年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[16] Sparks, R., Ed., Hawrylyshen, A., Johnston, A., Rosenberg, J., and H. Schulzrinne, \"Session Initiation Protocol (SIP) Torture Test Messages, RFC 4475, May 2006.",
+      "zh-CHS": "[16] Sparks，R.，Ed.，Hawrylyshen，A.，Johnston，A.，Rosenberg，J.，和H.Schulzrinne，“会话启动协议（SIP）酷刑测试消息，RFC 4475，2006年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Jon Peterson NeuStar, Inc. 1800 Sutter St Suite 570 Concord, CA 94520 US",
+      "zh-CHS": "美国加利福尼亚州康科德市萨特街1800号570室Jon Peterson NeuStar，Inc.94520"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 925/363-8720\nEMail: jon.peterson@neustar.biz\nURI:   http://www.neustar.biz/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Cullen Jennings Cisco Systems 170 West Tasman Drive MS: SJC-21/2 San Jose, CA 95134 USA",
+      "zh-CHS": "Cullen Jennings Cisco Systems 170西塔斯曼大道MS:SJC-21/2美国加利福尼亚州圣何塞95134"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 408 902-3341\nEMail: fluffy@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

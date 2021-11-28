@@ -1,0 +1,1925 @@
+{
+  "title": {
+    "text": "RFC 4696: An Implementation Guide for RTP MIDI",
+    "zh-CHS": "RFC 4696"
+  },
+  "number": 4696,
+  "created_at": "2021-11-14 17:21:55.083623+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         J. Lazzaro\nRequest for Comments: 4696                                  J. Wawrzynek\nCategory: Informational                                      UC Berkeley\n                                                           November 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "An Implementation Guide for RTP MIDI",
+      "zh-CHS": "RTP MIDI的实现指南"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This memo offers non-normative implementation guidance for the Real-time Protocol (RTP) MIDI (Musical Instrument Digital Interface) payload format. The memo presents its advice in the context of a network musical performance application. In this application two musicians, located in different physical locations, interact over a network to perform as they would if located in the same room. Underlying the performances are RTP MIDI sessions over unicast UDP. Algorithms for sending and receiving recovery journals (the resiliency structure for the payload format) are described in detail. Although the memo focuses on network musical performance, the presented implementation advice is relevant to other RTP MIDI applications.",
+      "zh-CHS": "本备忘录为实时协议（RTP）MIDI（乐器数字接口）有效载荷格式提供了非规范性实施指南。备忘录在网络音乐表演应用程序的背景下提出了建议。在这个应用程序中，两个音乐家位于不同的物理位置，通过网络进行交互，就像他们位于同一个房间一样进行表演。性能的基础是单播UDP上的RTP MIDI会话。详细描述了发送和接收恢复日志（有效负载格式的弹性结构）的算法。虽然备忘录重点关注网络音乐性能，但提出的实现建议与其他RTP MIDI应用程序相关。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Starting the Session ............................................3\n3. Session Management: Session Housekeeping ........................6\n4. Sending Streams: General Considerations .........................7\n   4.1. Queuing and Coding Incoming MIDI Data .....................11\n   4.2. Sending Packets with Empty MIDI Lists .....................12\n   4.3. Congestion Control and Bandwidth Management ...............13\n5. Sending Streams: The Recovery Journal ..........................14\n   5.1. Initializing the RJSS .....................................16\n   5.2. Traversing the RJSS .......................................19\n   5.3. Updating the RJSS .........................................19\n   5.4. Trimming the RJSS .........................................20\n   5.5. Implementation Notes ......................................21\n6. Receiving Streams: General Considerations ......................21\n   6.1 The NMP Receiver Design ....................................22\n   6.2 High-Jitter Networks, Local Area Networks ..................24\n7. Receiving Streams: The Recovery Journal ........................25\n   7.1. Chapter W: MIDI Pitch Wheel (0xE) .........................30\n   7.2. Chapter N: MIDI NoteOn (0x8) and NoteOff (0x9) ............30\n   7.3. Chapter C: MIDI Control Change (0xB) ......................32\n   7.4. Chapter P: MIDI Program Change (0xC) ......................34\n8. Security Considerations ........................................35\n9. IANA Considerations ............................................35\n10. Acknowledgements ..............................................35\n11. References ....................................................35\n   11.1. Normative References .....................................35\n   11.2. Informative References ...................................36",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4695] normatively defines a Real-time Transport Protocol (RTP, [RFC3550]) payload format for the MIDI (Musical Instrument Digital Interface) command language [MIDI], for use under any applicable RTP profile, such as the Audio/Visual Profile (AVP, [RFC3551]).",
+      "zh-CHS": "[RFC4695]规范性地定义了MIDI（乐器数字接口）命令语言[MIDI]的实时传输协议（RTP，[RFC3550]）有效载荷格式，用于任何适用的RTP配置文件，如音频/视频配置文件（AVP，[RFC3551]）。"
+    },
+    {
+      "indent": 3,
+      "text": "However, [RFC4695] does not define algorithms for sending and receiving MIDI streams. Implementors are free to use any sending or receiving algorithm that conforms to the normative text in [RFC4695], [RFC3550], [RFC3551], and [MIDI].",
+      "zh-CHS": "但是，[RFC4695]没有定义发送和接收MIDI流的算法。实现者可以自由使用任何符合[RFC4695]、[RFC3550]、[RFC3551]和[MIDI]标准文本的发送或接收算法。"
+    },
+    {
+      "indent": 3,
+      "text": "In this memo, we offer implementation guidance on sending and receiving MIDI RTP streams. Unlike [RFC4695], this memo is not normative.",
+      "zh-CHS": "在本备忘录中，我们提供了发送和接收MIDI RTP流的实现指南。与[RFC4695]不同，本备忘录不规范。"
+    },
+    {
+      "indent": 3,
+      "text": "RTP is a mature protocol, and excellent RTP reference materials are available [RTPBOOK]. This memo aims to complement the existing literature by focusing on issues that are specific to the MIDI payload format.",
+      "zh-CHS": "RTP是一个成熟的协议，并且有优秀的RTP参考资料[RTPBOOK]。本备忘录旨在通过关注MIDI有效载荷格式特有的问题来补充现有文献。"
+    },
+    {
+      "indent": 3,
+      "text": "The memo focuses on one application: two-party network musical performance over wide-area networks, following the interoperability guidelines in Appendix C.7.2 of [RFC4695]. Underlying the performances are RTP MIDI sessions over unicast UDP transport. Resiliency is provided by the recovery journal system [RFC4695]. The application also uses the RTP Control Protocol (RTCP, [RFC3550]).",
+      "zh-CHS": "备忘录重点关注一个应用：根据[RFC4695]附录C.7.2中的互操作性指南，在广域网上进行两党网络音乐表演。性能的基础是单播UDP传输上的RTP MIDI会话。恢复能力由恢复日志系统[RFC4695]提供。该应用程序还使用RTP控制协议（RTCP，[RFC3550]）。"
+    },
+    {
+      "indent": 3,
+      "text": "The application targets a network with a particular set of characteristics: low nominal jitter, low packet loss, and occasional outlier packets that arrive very late. However, in Section 6.2 of this memo, we discuss adapting the application to other network environments.",
+      "zh-CHS": "该应用程序针对具有一组特定特征的网络：低标称抖动、低数据包丢失和偶尔出现的异常数据包到达得很晚。但是，在本备忘录的第6.2节中，我们将讨论如何使应用程序适应其他网络环境。"
+    },
+    {
+      "indent": 3,
+      "text": "As defined in [NMP], a network musical performance occurs when musicians located at different physical locations interact over a network to perform as they would if located in the same room.",
+      "zh-CHS": "正如[NMP]中所定义的那样，当位于不同物理位置的音乐家通过网络进行交互以执行他们在同一房间中的表演时，就会发生网络音乐表演。"
+    },
+    {
+      "indent": 3,
+      "text": "Sections 2-3 of this memo describe session startup and maintenance. Sections 4-5 cover sending MIDI streams, and Sections 6-7 cover receiving MIDI streams.",
+      "zh-CHS": "本备忘录第2-3节描述了会话启动和维护。第4-5节介绍发送MIDI流，第6-7节介绍接收MIDI流。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Starting the Session",
+      "section_title": true,
+      "zh-CHS": "2. 开始会话"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we describe how the application starts a two-player session. We assume that the two parties have agreed on a session configuration, embodied by a pair of Session Description Protocol (SDP, [RFC4566]) session descriptions.",
+      "zh-CHS": "在本节中，我们将描述应用程序如何启动两人会话。我们假设双方已就会话配置达成一致，该配置由一对会话描述协议（SDP，[RFC4566]）会话描述来体现。"
+    },
+    {
+      "indent": 3,
+      "text": "One session description (Figure 1) defines how the first party wishes to receive its stream. The other session description (Figure 2) defines how the second party wishes to receive its stream.",
+      "zh-CHS": "一个会话描述（图1）定义了第一方希望如何接收其流。另一个会话描述（图2）定义了第二方希望如何接收其流。"
+    },
+    {
+      "indent": 3,
+      "text": "The session description in Figure 1 codes that the first party intends to receive a MIDI stream on IP4 number 192.0.2.94 (coded in the c= line) at UDP port 16112 (coded in the m= line). Implicit in the SDP m= line syntax [RFC4566] is that the first party also intends to receive an RTCP stream on 192.0.2.94 at UDP port 16113 (16112 + 1). The receiver expects that the PT field of each RTP header in the received stream will be set to 96 (coded in the m= line).",
+      "zh-CHS": "图1中的会话描述表明，第一方打算在UDP端口16112（在m=行中编码）接收IP4 192.0.2.94（在c=行中编码）上的MIDI流。在第1行中，第[RTCP.1619]方的流[rfp.1619]也是接收UDP的隐式语法。接收机期望接收流中每个RTP报头的PT字段将设置为96（在m=行中编码）。"
+    },
+    {
+      "indent": 3,
+      "text": "Likewise, the session description in Figure 2 codes that the second party intends to receive a MIDI stream on IP4 number 192.0.2.105 at UDP port 5004 and intends to receive an RTCP stream on 192.0.2.105 at",
+      "zh-CHS": "同样，图2中的会话描述编码第二方打算在UDP端口5004接收IP4 192.0.2.105上的MIDI流，并打算在UDP端口5004接收192.0.2.105上的RTCP流"
+    },
+    {
+      "indent": 3,
+      "text": "UDP port 5005 (5004 + 1). The second party expects that the PT RTP header field of received stream will be set to 101.",
+      "zh-CHS": "UDP端口5005（5004+1）。第二方期望接收流的PT RTP报头字段将被设置为101。"
+    },
+    {
+      "indent": 0,
+      "text": "v=0\no=first 2520644554 2838152170 IN IP4 first.example.net\ns=Example\nt=0 0\nc=IN IP4 192.0.2.94\nm=audio 16112 RTP/AVP 96\nb=AS:20\nb=RS:0\nb=RR:400\na=rtpmap:96 mpeg4-generic/44100\na=fmtp:96 streamtype=5; mode=rtp-midi; config=\"\"; profile-level-id=12;\ncm_unused=ABFGHJKMQTVXYZ; cm_unused=C120-127; ch_never=ADEFMQTVX;\ntsmode=buffer; linerate=320000; octpos=last; mperiod=44; rtp_ptime=0;\nrtp_maxptime=0; guardtime=44100; render=synthetic; rinit=\"audio/asc\";\nurl=\"http://example.net/sa.asc\";\ncid=\"xjflsoeiurvpa09itnvlduihgnvet98pa3w9utnuighbuk\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "(The a=fmtp line has been wrapped to fit the page to accommodate memo formatting restrictions; it constitutes a single line in SDP.)",
+      "zh-CHS": "（a=fmtp行已被包装以适合页面，以适应备忘录格式限制；它在SDP中构成一行。）"
+    },
+    {
+      "indent": 12,
+      "text": "Figure 1. Session description for first participant",
+      "zh-CHS": "图1。第一个参与者的会话描述"
+    },
+    {
+      "indent": 0,
+      "text": "v=0\no=second 2520644554 2838152170 IN IP4 second.example.net\ns=Example\nt=0 0\nc=IN IP4 192.0.2.105\nm=audio 5004 RTP/AVP 101\nb=AS:20\nb=RS:0\nb=RR:400\na=rtpmap:101 mpeg4-generic/44100\na=fmtp:101 streamtype=5; mode=rtp-midi; config=\"\"; profile-level-id=12;\ncm_unused=ABFGHJKMQTVXYZ; cm_unused=C120-127; ch_never=ADEFMQTVX;\ntsmode=buffer; linerate=320000;octpos=last;mperiod=44; guardtime=44100;\nrtp_ptime=0; rtp_maxptime=0; render=synthetic; rinit=\"audio/asc\";\nurl=\"http://example.net/sa.asc\";\ncid=\"xjflsoeiurvpa09itnvlduihgnvet98pa3w9utnuighbuk\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "(The a=fmtp line has been wrapped to fit the page to accommodate memo formatting restrictions; it constitutes a single line in SDP.)",
+      "zh-CHS": "（a=fmtp行已被包装以适合页面，以适应备忘录格式限制；它在SDP中构成一行。）"
+    },
+    {
+      "indent": 10,
+      "text": "Figure 2. Session description for second participant",
+      "zh-CHS": "图2。第二个参与者的会话描述"
+    },
+    {
+      "indent": 3,
+      "text": "The session descriptions use the mpeg4-generic media type (coded in the a=rtpmap line) to specify the use of the MPEG 4 Structured Audio renderer [MPEGSA]. The session descriptions also use parameters to customize the stream (Appendix C of [RFC4695]). The parameter values are identical for both parties, yielding identical rendering environments for the two client hosts.",
+      "zh-CHS": "会话描述使用mpeg4通用媒体类型（在a=rtpmap行中编码）来指定MPEG 4结构化音频呈现器[MPEGSA]的使用。会话描述还使用参数自定义流（RFC4695的附录C）。参数值对于双方都相同，从而为两台客户端主机提供相同的渲染环境。"
+    },
+    {
+      "indent": 3,
+      "text": "The bandwidth (b=) AS parameter [RFC4566] [RFC3550] indicates that the total RTP session bandwidth is 20 kbs. This value assumes that the two players send 10 kbs streams concurrently. To derive the 10 kbs value, we begin with the analysis of RTP MIDI payload bandwidth in Appendix A.4 of [NMP] and add in RTP and IP4 packet overhead and a small safety factor.",
+      "zh-CHS": "作为参数[RFC4566][RFC3550]的带宽（b=）表示RTP会话总带宽为20 kbs。该值假设两个播放器同时发送10 kbs的流。为了得出10 kbs的值，我们首先分析[NMP]附录A.4中的RTP MIDI有效负载带宽，并添加RTP和IP4数据包开销和一个小的安全系数。"
+    },
+    {
+      "indent": 3,
+      "text": "The bandwidth RR parameter [RFC3556] indicates that the shared RTCP session bandwidth for the two parties is 400 bps. We set the bandwidth SR parameter to 0 bps, to signal that sending parties and non-sending parties equally share the 400 bps of RTCP bandwidth. (Note that in this particular example, the guardtime parameter value of 44100 ensures that both parties are sending for the duration of the session.) The 400 bps RTCP bandwidth value supports one RTCP packet per 5 seconds from each party, containing a Sender Report and CNAME information [RFC3550].",
+      "zh-CHS": "带宽RR参数[RFC3556]表示双方的共享RTCP会话带宽为400 bps。我们将带宽SR参数设置为0 bps，以表示发送方和非发送方平等共享RTCP带宽的400 bps。（请注意，在此特定示例中，guardtime参数值44100确保双方在会话期间发送。）400 bps RTCP带宽值支持各方每5秒发送一个RTCP数据包，其中包含发送方报告和CNAME信息[RFC3550]。"
+    },
+    {
+      "indent": 3,
+      "text": "We now show an example of code that implements the actions the parties take during the session. The code is written in C and uses the standard network programming techniques described in [STEVENS]. We show code for the first party (the second party takes a symmetric set of actions).",
+      "zh-CHS": "现在，我们展示一个代码示例，它实现了各方在会话期间采取的操作。该代码是用C编写的，并使用了[STEVENS]中描述的标准网络编程技术。我们为第一方显示代码（第二方执行一组对称操作）。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 3 shows how the first party initializes a pair of socket descriptors (rtp_fd and rtcp_fd) to send and receive UDP packets. After the code in Figure 3 runs, the first party may check for new RTP or RTCP packets by calling recv() on rtp_fd or rtcp_fd.",
+      "zh-CHS": "图3显示了第一方如何初始化一对套接字描述符（rtp_fd和rtcp_fd）来发送和接收UDP数据包。在图3中的代码运行之后，第一方可以通过在RTP_fd或RTCP_fd上调用recv（）来检查新的RTP或RTCP数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Applications may use recv() to receive UDP packets on a socket using one of two general methods: \"blocking\" or \"non-blocking\".",
+      "zh-CHS": "应用程序可以使用recv（）在套接字上使用两种常用方法之一接收UDP数据包：“阻塞”或“非阻塞”。"
+    },
+    {
+      "indent": 3,
+      "text": "A call to recv() on a blocking UDP socket puts the calling thread to sleep until a new packet arrives.",
+      "zh-CHS": "在阻塞UDP套接字上调用recv（）会使调用线程处于休眠状态，直到新数据包到达。"
+    },
+    {
+      "indent": 3,
+      "text": "A call to recv() on a non-blocking socket acts to poll the device: the recv() call returns immediately, with a return value that indicates the polling result. In this case, a positive return value signals the size of a new received packet, and a negative return value (coupled with an errno value of EAGAIN) indicates that no new packet was available.",
+      "zh-CHS": "在非阻塞套接字上调用recv（）可以轮询设备：recv（）调用立即返回，返回值指示轮询结果。在这种情况下，正返回值表示新接收到的分组的大小，负返回值（加上EAGAIN的errno值）表示没有新分组可用。"
+    },
+    {
+      "indent": 3,
+      "text": "The choice of blocking or non-blocking sockets is a critical application choice. Blocking sockets offer the lowest potential latency (as the OS wakes the caller as soon as a packet has arrived). However, audio applications that use blocking sockets must adopt a multi-threaded program architecture, so that audio samples may be generated on a \"rendering thread\" while the \"network thread\" sleeps, awaiting the next packet. The architecture must also support a thread communication mechanism, so that the network thread has a mechanism to send MIDI commands the rendering thread.",
+      "zh-CHS": "阻塞或非阻塞套接字的选择是应用程序的关键选择。阻塞套接字提供了最低的潜在延迟（当数据包到达时，操作系统会立即唤醒调用者）。但是，使用阻塞套接字的音频应用程序必须采用多线程程序体系结构，以便在“网络线程”休眠时，在“渲染线程”上生成音频样本，等待下一个数据包。该体系结构还必须支持线程通信机制，以便网络线程具有向渲染线程发送MIDI命令的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "In contrast, audio applications that use non-blocking sockets may be coded using a single thread, that alternates between audio sample generation and network polling. This architecture trades off increased network latency (as a packet may arrive between polls) for a simpler program architecture. For simplicity, our example uses non-blocking sockets and presumes a single run loop. Figure 4 shows how the example configures its sockets to be non-blocking.",
+      "zh-CHS": "相反，使用非阻塞套接字的音频应用程序可以使用单个线程进行编码，该线程在音频样本生成和网络轮询之间交替进行。这种体系结构将增加的网络延迟（因为数据包可能在轮询之间到达）转换为更简单的程序体系结构。为了简单起见，我们的示例使用非阻塞套接字，并假定一个运行循环。图4显示了示例如何将其套接字配置为非阻塞。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 5 shows how to use recv() to check a non-blocking socket for new packets.",
+      "zh-CHS": "图5显示了如何使用recv（）检查新数据包的非阻塞套接字。"
+    },
+    {
+      "indent": 3,
+      "text": "The first party also uses rtp_fd and rtcp_fd to send RTP and RTCP packets to the second party. In Figure 6, we show how to initialize socket structures that address the second party. In Figure 7, we show how to use one of these structures in a sendto() call to send an RTP packet to the second party.",
+      "zh-CHS": "第一方还使用rtp_fd和rtcp_fd向第二方发送rtp和rtcp数据包。在图6中，我们展示了如何初始化针对第二方的套接字结构。在图7中，我们展示了如何在sendto（）调用中使用这些结构之一向第二方发送RTP数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the code shown in Figures 3-7 assumes a clear network path between the participants. The code may not work if firewalls or Network Address Translation (NAT) devices are present in the network path.",
+      "zh-CHS": "请注意，图3-7所示的代码假定参与者之间有一条清晰的网络路径。如果网络路径中存在防火墙或网络地址转换（NAT）设备，则代码可能无法工作。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Session Management: Session Housekeeping",
+      "section_title": true,
+      "zh-CHS": "3. 会话管理：会话内务管理"
+    },
+    {
+      "indent": 3,
+      "text": "After the two-party interactive session is set up, the parties begin to send and receive RTP packets. In Sections 4-7, we discuss RTP MIDI sending and receiving algorithms. In this section, we describe session \"housekeeping\" tasks that the participants also perform.",
+      "zh-CHS": "双方交互会话建立后，双方开始发送和接收RTP数据包。在第4-7节中，我们将讨论RTP MIDI发送和接收算法。在本节中，我们将介绍参与者也执行的会话“内务管理”任务。"
+    },
+    {
+      "indent": 3,
+      "text": "One housekeeping task is the maintenance of the 32-bit Synchronization Source (SSRC) value that uniquely identifies each party. Section 8 of [RFC3550] describes SSRC issues in detail, as does Section 2.1 in [RFC4695]. Another housekeeping task is the sending and receiving of RTCP. Section 6 of [RFC3550] describes RTCP in detail.",
+      "zh-CHS": "一项内务管理任务是维护唯一标识各方的32位同步源（SSRC）值。[RFC3550]第8节详细描述了SSRC问题，以及[RFC4695]第2.1节。另一项内务管理任务是发送和接收RTCP。[RFC3550]第6节详细描述了RTCP。"
+    },
+    {
+      "indent": 3,
+      "text": "Another housekeeping task concerns security. As detailed in the Security Considerations section of [RFC4695], per-packet authentication is strongly recommended for use with MIDI streams, because the acceptance of rogue packets may lead to the execution of arbitrary MIDI commands.",
+      "zh-CHS": "另一项内务管理任务涉及安全性。如[RFC4695]的“安全注意事项”部分所述，强烈建议在MIDI流中使用每个数据包身份验证，因为接受恶意数据包可能导致执行任意MIDI命令。"
+    },
+    {
+      "indent": 3,
+      "text": "A final housekeeping task concerns the termination of the session. In our two-party example, the session terminates upon the exit of one of the participants. A clean termination may require active effort by a receiver, as a MIDI stream stopped at an arbitrary point may cause stuck notes and other indefinite artifacts in the MIDI renderer.",
+      "zh-CHS": "最后一项内务处理任务涉及会话的终止。在我们的两党示例中，会话在一个参与者退出时终止。一个干净的终止可能需要接收器的积极努力，因为在任意点停止的MIDI流可能会在MIDI渲染器中导致音符卡住和其他不确定的伪影。"
+    },
+    {
+      "indent": 3,
+      "text": "The exit of a party may be signalled in several ways. Session management tools may offer a reliable signal for termination (such as the SIP BYE method [RFC3261]). The (unreliable) RTCP BYE packet [RFC3550] may also signal the exit of a party. Receivers may also sense the lack of RTCP activity and timeout a party or may use transport methods to detect an exit.",
+      "zh-CHS": "一方的退出可以通过几种方式发出信号。会话管理工具可以提供可靠的终止信号（例如SIP BYE方法[RFC3261]）。（不可靠）RTCP BYE数据包[RFC3550]也可能发出一方退出的信号。接收者还可能感觉到一方缺少RTCP活动和超时，或者可能使用传输方法来检测退出。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Sending Streams: General Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 发送流：一般注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we discuss sender implementation issues.",
+      "zh-CHS": "在本节中，我们将讨论发送方实现问题。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender is a real-time data-driven entity. On an ongoing basis, the sender checks to see if the local player has generated new MIDI data. At any time, the sender may transmit a new RTP packet to the remote player for the reasons described below:",
+      "zh-CHS": "发送方是一个实时数据驱动实体。发送方会持续检查本地播放器是否生成了新的MIDI数据。出于下述原因，发送方可随时向远程播放器发送新的RTP分组："
+    },
+    {
+      "indent": 3,
+      "text": "1. New MIDI data has been generated by the local player, and the sender decides that it is time to issue a packet coding the data.",
+      "zh-CHS": "1. 本地播放器已经生成了新的MIDI数据，发送方决定是时候发布一个对数据进行编码的包了。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The local player has not generated new MIDI data, but the sender decides that too much time has elapsed since the last RTP packet transmission. The sender transmits a packet in order to relay updated header and recovery journal data.",
+      "zh-CHS": "2. 本地播放器尚未生成新的MIDI数据，但发送方认为自上次RTP数据包传输以来已过了太多时间。发送方发送一个数据包以中继更新的报头和恢复日志数据。"
+    },
+    {
+      "indent": 3,
+      "text": "In both cases, the sender generates a packet that consists of an RTP header, a MIDI command section, and a recovery journal. In the first case, the MIDI list of the MIDI command section codes the new MIDI data. In the second case, the MIDI list is empty.",
+      "zh-CHS": "在这两种情况下，发送方都会生成一个包含RTP头、MIDI命令部分和恢复日志的数据包。在第一种情况下，MIDI命令部分的MIDI列表对新的MIDI数据进行编码。在第二种情况下，MIDI列表为空。"
+    },
+    {
+      "indent": 3,
+      "text": "#include <sys/types.h>\n#include <sys/socket.h>\n#include <netinet/in.h>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "int rtp_fd, rtcp_fd;       /* socket descriptors */\nstruct sockaddr_in addr;   /* for bind address   */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/*********************************/\n/* create the socket descriptors */\n/*********************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "if ((rtp_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)\n  ERROR_RETURN(\"Couldn't create Internet RTP socket\");",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "if ((rtcp_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)\n  ERROR_RETURN(\"Couldn't create Internet RTCP socket\");",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/**********************************/\n/* bind the RTP socket descriptor */\n/**********************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "memset(&(addr.sin_zero), 0, 8);\naddr.sin_family = AF_INET;\naddr.sin_addr.s_addr = htonl(INADDR_ANY);\naddr.sin_port = htons(16112); /* port 16112, from SDP */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "if (bind(rtp_fd, (struct sockaddr *)&addr,\n         sizeof(struct sockaddr)) < 0)\n   ERROR_RETURN(\"Couldn't bind Internet RTP socket\");",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/***********************************/\n/* bind the RTCP socket descriptor */\n/***********************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "memset(&(addr.sin_zero), 0, 8);\naddr.sin_family = AF_INET;\naddr.sin_addr.s_addr = htonl(INADDR_ANY);\naddr.sin_port = htons(16113); /* port 16113, from SDP */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "if (bind(rtcp_fd, (struct sockaddr *)&addr,\n         sizeof(struct sockaddr)) < 0)\n    ERROR_RETURN(\"Couldn't bind Internet RTCP socket\");",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "Figure 3. Setup code for listening for RTP/RTCP packets",
+      "zh-CHS": "图3。用于侦听RTP/RTCP数据包的设置代码"
+    },
+    {
+      "indent": 3,
+      "text": "#include <unistd.h>\n#include <fcntl.h>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/***************************/\n/* set non-blocking status */\n/***************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "if (fcntl(rtp_fd, F_SETFL, O_NONBLOCK)) ERROR_RETURN(\"Couldn't unblock Internet RTP socket\");",
+      "zh-CHS": "if（fcntl（rtp_fd，F_SETFL，O_NONBLOCK））错误_返回（“无法解除阻止Internet rtp套接字”）；"
+    },
+    {
+      "indent": 5,
+      "text": "if (fcntl(rtcp_fd, F_SETFL, O_NONBLOCK)) ERROR_RETURN(\"Couldn't unblock Internet RTCP socket\");",
+      "zh-CHS": "if（fcntl（rtcp_fd、F_SETFL、O_NONBLOCK））错误_返回（“无法解除阻止Internet rtcp套接字”）；"
+    },
+    {
+      "indent": 7,
+      "text": "Figure 4. Code to set socket descriptors to be non-blocking",
+      "zh-CHS": "图4。将套接字描述符设置为非阻塞的代码"
+    },
+    {
+      "indent": 3,
+      "text": "#include <errno.h>\n#define UDPMAXSIZE 1472     /* based on Ethernet MTU of 1500 */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "unsigned char packet[UDPMAXSIZE+1];\nint len, normal;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "while ((len = recv(rtp_fd, packet, UDPMAXSIZE + 1, 0)) > 0)\n {\n   /*  process packet[].  If (len == UDPMAXSIZE + 1), recv()\n    *  may be returning a truncated packet -- process with care\n    */\n }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/* line below sets \"normal\" to 1 if the recv() return */\n/*   status indicates no packets are left to process  */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "normal = (len < 0) && (errno == EAGAIN);",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "if (!normal)\n {\n   /*\n    *  recv() return status indicates an empty UDP payload\n    *  (len == 0) or an error condition (coded by (len < 0)\n    *  and (errno != EAGAIN)).  Examine len and errno, and\n    *  take appropriate recovery action.\n    */\n }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "Figure 5. Code to check rtp_fd for new RTP packets",
+      "zh-CHS": "图5。用于检查新rtp数据包的rtp_fd的代码"
+    },
+    {
+      "indent": 3,
+      "text": "#include <arpa/inet.h>\n#include <netinet/in.h>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "struct sockaddr_in * rtp_addr;      /* RTP destination IP/port  */\nstruct sockaddr_in * rtcp_addr;     /* RTCP destination IP/port */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/* set RTP address, as coded in Figure 2's SDP */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "rtp_addr = calloc(1, sizeof(struct sockaddr_in));\nrtp_addr->sin_family = AF_INET;\nrtp_addr->sin_port = htons(5004);\nrtp_addr->sin_addr.s_addr = inet_addr(\"192.0.2.105\");",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/* set RTCP address, as coded in Figure 2's SDP */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "rtcp_addr = calloc(1, sizeof(struct sockaddr_in));\nrtcp_addr->sin_family = AF_INET;\nrtcp_addr->sin_port = htons(5005);   /* 5004 + 1 */\nrtcp_addr->sin_addr.s_addr = rtp_addr->sin_addr.s_addr;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "Figure 6. Initializing destination addresses for RTP and RTCP",
+      "zh-CHS": "图6。正在初始化RTP和RTCP的目标地址"
+    },
+    {
+      "indent": 3,
+      "text": "unsigned char packet[UDPMAXSIZE];  /* RTP packet to send   */\nint size;                          /* length of RTP packet */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/* first fill packet[] and set size ... then: */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "if (sendto(rtp_fd, packet, size, 0, rtp_addr,\n           sizeof(struct sockaddr))  == -1)\n  {\n    /*\n     * try again later if errno == EAGAIN or EINTR\n     *\n     * other errno values --> an operational error\n     */\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Figure 7. Using sendto() to send an RTP packet",
+      "zh-CHS": "图7。使用sendto（）发送RTP数据包"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 8 shows the 5 steps a sender takes to issue a packet. This algorithm corresponds to the code fragment for sending RTP packets shown in Figure 7 of Section 2. Steps 1, 2, and 3 occur before the sendto() call in the code fragment. Step 4 corresponds to the sendto() call itself. Step 5 may occur once Step 3 completes.",
+      "zh-CHS": "图8显示了发送方发出数据包的5个步骤。该算法对应于用于发送RTP数据包的代码片段，如第2节图7所示。步骤1、2和3发生在代码片段中的sendto（）调用之前。步骤4对应于sendto（）调用本身。步骤5可能在步骤3完成后发生。"
+    },
+    {
+      "indent": 3,
+      "text": "The algorithm for Sending a Packet is as follows:",
+      "zh-CHS": "发送数据包的算法如下："
+    },
+    {
+      "indent": 3,
+      "text": "1. Generate the RTP header for the new packet. See Section 2.1 of [RFC4695] for details.",
+      "zh-CHS": "1. 为新数据包生成RTP报头。详见[RFC4695]第2.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Generate the MIDI command section for the new packet. See Section 3 of [RFC4695] for details.",
+      "zh-CHS": "2. 为新数据包生成MIDI命令部分。详见[RFC4695]第3节。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Generate the recovery journal for the new packet. We discuss this process in Section 5.2. The generation algorithm examines the Recovery Journal Sending Structure (RJSS), a stateful coding of a history of the stream.",
+      "zh-CHS": "3. 为新数据包生成恢复日志。我们将在第5.2节中讨论此过程。生成算法检查恢复日志发送结构（RJSS），这是流历史的有状态编码。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Send the new packet to the receiver.",
+      "zh-CHS": "4. 将新数据包发送给接收方。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Update the RJSS to include the data coded in the MIDI command section of the packet sent in step 4. We discuss the update procedure in Section 5.3.",
+      "zh-CHS": "5. 更新RJS以包含在步骤4中发送的数据包的MIDI命令部分中编码的数据。我们将在第5.3节中讨论更新程序。"
+    },
+    {
+      "indent": 13,
+      "text": "Figure 8. A 5 step algorithm for sending a packet",
+      "zh-CHS": "图8。发送数据包的五步算法"
+    },
+    {
+      "indent": 3,
+      "text": "In the sections that follow, we discuss specific sender implementation issues in detail.",
+      "zh-CHS": "在接下来的部分中，我们将详细讨论特定的发送方实现问题。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Queuing and Coding Incoming MIDI Data",
+      "section_title": true,
+      "zh-CHS": "4.1. 对传入的MIDI数据进行排队和编码"
+    },
+    {
+      "indent": 3,
+      "text": "Simple senders transmit a new packet as soon as the local player generates a complete MIDI command. The system described in [NMP] uses this algorithm. This algorithm minimizes the sender queuing latency, as the sender never delays the transmission of a new MIDI command.",
+      "zh-CHS": "只要本地播放器生成完整的MIDI命令，简单的发送者就会发送一个新的数据包。[NMP]中描述的系统使用此算法。由于发送方从不延迟新MIDI命令的传输，此算法将发送方排队延迟降至最低。"
+    },
+    {
+      "indent": 3,
+      "text": "In a relative sense, this algorithm uses bandwidth inefficiently, as it does not amortize the overhead of a packet over several commands. This inefficiency may be acceptable for sparse MIDI streams (see Appendix A.4 of [NMP]). More sophisticated sending algorithms [GRAME] improve efficiency by coding small groups of commands into a single packet, at the expense of increasing the sender queuing latency.",
+      "zh-CHS": "在相对意义上，该算法使用带宽效率低下，因为它不会将数据包的开销分摊到多个命令上。这种低效率对于稀疏MIDI流是可以接受的（参见[NMP]的附录A.4）。更复杂的发送算法[GRAME]通过将小组命令编码到单个数据包中来提高效率，但代价是增加发送方排队延迟。"
+    },
+    {
+      "indent": 3,
+      "text": "Senders assign a timestamp value to each command issued by the local player (Appendix C.3 of [RFC4695]). Senders may code the timestamp value of the first MIDI list command in two ways. The most efficient method is to set the RTP timestamp of the packet to the timestamp value of the first command. In this method, the Z bit of the MIDI command section header (Figure 2 of [RFC4695]) is set to 0, and the RTP timestamps increment at a non-uniform rate.",
+      "zh-CHS": "发送方为本地播放器发出的每个命令分配一个时间戳值（RFC4695的附录C.3）。发送方可以通过两种方式对第一个MIDI list命令的时间戳值进行编码。最有效的方法是将数据包的RTP时间戳设置为第一个命令的时间戳值。在该方法中，MIDI命令节头（RFC4695的图2）的Z位设置为0，RTP时间戳以非均匀速率递增。"
+    },
+    {
+      "indent": 3,
+      "text": "However, in some applications, senders may wish to generate a stream whose RTP timestamps increment at a uniform rate. To do so, senders may use the Delta Time MIDI list field to code a timestamp for the first command in the list. In this case, the Z bit of the MIDI command section header is set to 1.",
+      "zh-CHS": "然而，在一些应用程序中，发送方可能希望生成RTP时间戳以统一速率递增的流。为此，发送者可以使用Delta Time MIDI列表字段为列表中的第一个命令编码时间戳。在这种情况下，MIDI命令节头的Z位设置为1。"
+    },
+    {
+      "indent": 3,
+      "text": "Senders should strive to maintain a constant relationship between the RTP packet timestamp and the packet sending time: if two packets have RTP timestamps that differ by 1 second, the second packet should be sent 1 second after the first packet. To the receiver, variance in this relationship is indistinguishable from network jitter. Latency issues are discussed in detail in Section 6.",
+      "zh-CHS": "发送方应努力保持RTP数据包时间戳和数据包发送时间之间的恒定关系：如果两个数据包的RTP时间戳相差1秒，则第二个数据包应在第一个数据包之后1秒发送。对于接收器来说，这种关系中的差异与网络抖动是无法区分的。第6节详细讨论了延迟问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Senders may alter the running status coding of the first command in the MIDI list, in order to comply with the coding rules defined in Section 3.2 of [RFC4695]. The P header bit (Figure 2 of [RFC4695]) codes this alteration of the source command stream.",
+      "zh-CHS": "发送方可以更改MIDI列表中第一个命令的运行状态编码，以符合[RFC4695]第3.2节中定义的编码规则。P头位（RFC4695的图2）对源命令流的这种更改进行编码。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Sending Packets with Empty MIDI Lists",
+      "section_title": true,
+      "zh-CHS": "4.2. 发送带有空MIDI列表的数据包"
+    },
+    {
+      "indent": 3,
+      "text": "During a session, musicians might refrain from generating MIDI data for extended periods of time (seconds or even minutes). If an RTP stream followed the dynamics of a silent MIDI source and stopped sending RTP packets, system behavior might be degraded in the following ways:",
+      "zh-CHS": "在会话期间，音乐家可能会在较长时间内（几秒甚至几分钟）不生成MIDI数据。如果RTP流遵循静默MIDI源的动态并停止发送RTP数据包，则系统行为可能会以以下方式降级："
+    },
+    {
+      "indent": 3,
+      "text": "o The receiver's model of network performance may fall out of date.",
+      "zh-CHS": "o 接收器的网络性能模型可能会过时。"
+    },
+    {
+      "indent": 3,
+      "text": "o Network middleboxes (such as Network Address Translators) may \"time-out\" the silent stream and drop the port and IP association state.",
+      "zh-CHS": "o 网络中间盒（如网络地址转换器）可能会“超时”静默流，并放弃端口和IP关联状态。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the session does not use RTCP, receivers may misinterpret the silent stream as a dropped network connection.",
+      "zh-CHS": "o 如果会话不使用RTCP，接收器可能会将静默流误解为断开的网络连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Senders avoid these problems by sending \"keep-alive\" RTP packets during periods of network inactivity. Keep-alive packets have empty MIDI lists.",
+      "zh-CHS": "发送方通过在网络不活动期间发送“保持活动”RTP数据包来避免这些问题。保持活动的数据包具有空的MIDI列表。"
+    },
+    {
+      "indent": 3,
+      "text": "Session participants may specify the frequency of keep-alive packets during session configuration with the MIME parameter \"guardtime\" (Appendix C.4.2 of [RFC4695]). The session descriptions shown in Figures 1-2 use guardtime to specify a keep-alive sending interval of 1 second.",
+      "zh-CHS": "会话参与者可以使用MIME参数“guardtime”（RFC4695的附录C.4.2）在会话配置期间指定保持活动数据包的频率。图1-2所示的会话描述使用guardtime指定1秒的保持活动发送间隔。"
+    },
+    {
+      "indent": 3,
+      "text": "Senders may also send empty packets to improve the performance of the recovery journal system. As we describe in Section 6, the recovery process begins when a receiver detects a break in the RTP sequence",
+      "zh-CHS": "发送方还可以发送空数据包以提高恢复日志系统的性能。正如我们在第6节中所描述的，当接收机检测到RTP序列中的中断时，恢复过程开始"
+    },
+    {
+      "indent": 3,
+      "text": "number pattern of the stream. The receiver uses the recovery journal of the break packet to guide corrective rendering actions, such as ending stuck notes and updating out-of-date controller values.",
+      "zh-CHS": "流的数字模式。接收方使用中断数据包的恢复日志来指导正确的呈现操作，例如结束卡住的便笺和更新过期的控制器值。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the situation where the local player produces a MIDI NoteOff command (which the sender promptly transmits in a packet) but then 5 seconds pass before the player produces another MIDI command (which the sender transmits in a second packet). If the packet coding the NoteOff is lost, the receiver is not aware of the packet loss incident for 5 seconds, and the rendered MIDI performance contains a note that sounds for 5 seconds too long.",
+      "zh-CHS": "考虑本地播放器产生MIDI通知命令（发送者在一个包中迅速发送）的情况，但是在播放器产生另一个MIDI命令（发送方在第二个包中发送）之前5秒通过。如果对NoteOff进行编码的数据包丢失，则接收器在5秒钟内没有意识到数据包丢失事件，并且呈现的MIDI性能包含一个听起来太长5秒钟的音符。"
+    },
+    {
+      "indent": 3,
+      "text": "To handle this situation, senders may transmit empty packets to \"guard\" the stream during silent sections. The guard packet algorithm defined in Section 7.3 of [NMP], as applied to the situation described above, sends a guard packet after 100 ms of player inactivity, and sends a second guard packet 100 ms later. Subsequent guard packets are sent with an exponential backoff, with a limiting period of 1 second (set by the \"guardtime\" parameter in Figures 1-2). The algorithm terminates once MIDI activity resumes, or once RTCP receiver reports indicate that the receiver is up to date.",
+      "zh-CHS": "为了处理这种情况，发送方可以在静默段期间发送空数据包以“保护”流。[NMP]第7.3节中定义的保护包算法适用于上述情况，在100 ms的玩家不活动后发送保护包，并在100 ms后发送第二个保护包。随后的保护数据包以指数退避的方式发送，限制时间为1秒（由图1-2中的“guardtime”参数设置）。一旦MIDI活动恢复，或者一旦RTCP接收器报告表明接收器是最新的，算法就会终止。"
+    },
+    {
+      "indent": 3,
+      "text": "The perceptual quality of guard packet-sending algorithms is a quality of implementation issue for RTP MIDI applications. Sophisticated implementations may tailor the guard packet sending rate to the nature of the MIDI commands recently sent in the stream, to minimize the perceptual impact of moderate packet loss.",
+      "zh-CHS": "保护包发送算法的感知质量是RTP MIDI应用程序的实现质量问题。复杂的实现可以根据最近在流中发送的MIDI命令的性质调整保护包发送速率，以最小化中等包丢失的感知影响。"
+    },
+    {
+      "indent": 3,
+      "text": "As an example of this sort of specialization, the guard packet algorithm described in [NMP] protects against the transient artifacts that occur when NoteOn commands are lost. The algorithm sends a guard packet 1 ms after every packet whose MIDI list contains a NoteOn command. The Y bit in Chapter N note logs (Appendix A.6 of [RFC4695]) supports this use of guard packets.",
+      "zh-CHS": "作为这种专门化的一个例子，[NMP]中描述的保护包算法可以防止NoteOn命令丢失时出现的瞬态伪影。该算法在其MIDI列表包含NoteOn命令的每个数据包之后1ms发送一个保护数据包。第N章注释日志（RFC4695的附录A.6）中的Y位支持保护包的这种使用。"
+    },
+    {
+      "indent": 3,
+      "text": "Congestion control and bandwidth management are key issues in guard packet algorithms. We discuss these issues in the next section.",
+      "zh-CHS": "拥塞控制和带宽管理是保护包算法中的关键问题。我们将在下一节讨论这些问题。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Congestion Control and Bandwidth Management",
+      "section_title": true,
+      "zh-CHS": "4.3. 拥塞控制和带宽管理"
+    },
+    {
+      "indent": 3,
+      "text": "The congestion control section of [RFC4695] discusses the importance of congestion control for RTP MIDI streams and references the normative text in [RFC3550] and [RFC3551] that concerns congestion control. To comply with the requirements described in those normative documents, RTP MIDI senders may use several methods to control the sending rate:",
+      "zh-CHS": "[RFC4695]的拥塞控制部分讨论了RTP MIDI流拥塞控制的重要性，并参考了[RFC3550]和[RFC3551]中有关拥塞控制的规范性文本。为了符合这些规范性文件中所述的要求，RTP MIDI发送者可以使用几种方法来控制发送速率："
+    },
+    {
+      "indent": 3,
+      "text": "o As described in Section 4.1, senders may pack several MIDI commands into a single packet, thereby reducing stream bandwidth (at the expense of increasing sender queuing latency).",
+      "zh-CHS": "o 如第4.1节所述，发送方可将多个MIDI命令打包成一个数据包，从而减少流带宽（以增加发送方排队延迟为代价）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Guard packet algorithms (Section 4.2) may be designed in a parametric way, so that the tradeoff between artifact reduction and stream bandwidth may be tuned dynamically.",
+      "zh-CHS": "o 保护包算法（第4.2节）可以以参数化方式设计，以便可以动态调整伪影减少和流带宽之间的权衡。"
+    },
+    {
+      "indent": 3,
+      "text": "o The recovery journal size may be reduced by adapting the techniques described in Section 5 of this memo. Note that in all cases, the recovery journal sender must conform to the normative text in Section 4 of [RFC4695].",
+      "zh-CHS": "o 通过采用本备忘录第5节所述的技术，可以减少回收日志的大小。请注意，在所有情况下，恢复日志发送方必须符合[RFC4695]第4节中的规范性文本。"
+    },
+    {
+      "indent": 3,
+      "text": "o The incoming MIDI stream may be modified to reduce the number of MIDI commands without significantly altering the performance. Lossy \"MIDI filtering\" algorithms are well developed in the MIDI community and may be directly applied to RTP MIDI rate management.",
+      "zh-CHS": "o 可以修改传入的MIDI流，以减少MIDI命令的数量，而不会显著改变性能。有损“MIDI过滤”算法在MIDI社区得到了很好的发展，可以直接应用于RTP MIDI速率管理。"
+    },
+    {
+      "indent": 3,
+      "text": "RTP MIDI senders incorporate these rate control methods into feedback systems to implement congestion control and bandwidth management. Sections 10 and 6.4.4 of [RFC3550] and Section 2 in [RFC3551] describe feedback systems for congestion control in RTP, and Section 6 of [RFC4566] describes bandwidth management in media sessions.",
+      "zh-CHS": "RTP MIDI发送器将这些速率控制方法合并到反馈系统中，以实现拥塞控制和带宽管理。[RFC3550]的第10节和第6.4.4节以及[RFC3551]的第2节描述了RTP中拥塞控制的反馈系统，[RFC4566]的第6节描述了媒体会话中的带宽管理。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Sending Streams: The Recovery Journal",
+      "section_title": true,
+      "zh-CHS": "5. 发送流：恢复日志"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we describe how senders implement the recovery journal system. The implementation we describe uses the default \"closed-loop\" recovery journal semantics (Appendix C.2.2.2 of [RFC4695]).",
+      "zh-CHS": "在本节中，我们将介绍发件人如何实现恢复日志系统。我们描述的实现使用默认的“闭环”恢复日志语义（RFC4695的附录C.2.2.2）。"
+    },
+    {
+      "indent": 3,
+      "text": "We begin by describing the Recovery Journal Sending Structure (RJSS). Senders use the RJSS to generate the recovery journal section for RTP MIDI packets.",
+      "zh-CHS": "我们首先描述恢复日志发送结构（RJSS）。发送方使用RJS为RTP MIDI数据包生成恢复日志部分。"
+    },
+    {
+      "indent": 3,
+      "text": "The RJSS is a hierarchical representation of the checkpoint history of the stream. The checkpoint history holds the MIDI commands that are at risk to packet loss (Appendix A.1 of [RFC4695] precisely defines the checkpoint history). The layout of the RJSS mirrors the hierarchical structure of the recovery journal bitfields.",
+      "zh-CHS": "RJS是流的检查点历史的分层表示。检查点历史记录保存有数据包丢失风险的MIDI命令（RFC4695的附录A.1精确定义了检查点历史记录）。RJS的布局反映了恢复日志位字段的层次结构。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 9 shows an RJSS implementation for a simple sender. The leaf level of the RJSS hierarchy (the jsend_chapter structures) corresponds to channel chapters (Appendices A.2-9 in [RFC4695]). The second level of the hierarchy (jsend_channel) corresponds to the channel journal header (Figure 9 in [RFC4695]). The top level of the hierarchy (jsend_journal) corresponds to the recovery journal header (Figure 8 in [RFC4695]).",
+      "zh-CHS": "图9显示了一个简单发送器的RJSS实现。RJSS层次结构的叶级（jsend_章节结构）对应于通道章节（RFC4695中的附录A.2-9）。层次结构的第二级（jsend_通道）对应于通道日志头（RFC4695中的图9）。层次结构的顶层（jsend_journal）对应于恢复日志头（RFC4695中的图8）。"
+    },
+    {
+      "indent": 3,
+      "text": "Each RJSS data structure may code several items:",
+      "zh-CHS": "每个RJSS数据结构可对多个项目进行编码："
+    },
+    {
+      "indent": 3,
+      "text": "1. The current contents of the recovery journal bitfield associated with the RJSS structure (jheader[], cheader[], or a chapter bitfield).",
+      "zh-CHS": "1. 与RJSS结构关联的恢复日志位字段的当前内容（jheader[]、cheader[]或章节位字段）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. A seqnum variable. Seqnum codes the extended RTP sequence number of the most recent packet that added information to the RJSS structure. If the seqnum of a structure is updated, the seqnums of all structures above it in the recovery journal hierarchy are also updated. Thus, a packet that caused an update to a specific jsend_chapter structure would update the seqnum values of this structure and of the jsend_channel and jsend_journal structures that contain it.",
+      "zh-CHS": "2. seqnum变量。Seqnum编码向RJSS结构添加信息的最新数据包的扩展RTP序列号。如果更新了结构的seqnum，则恢复日志层次结构中它上面的所有结构的seqnum也会更新。因此，导致特定jsend_章节结构更新的数据包将更新此结构以及包含它的jsend_通道和jsend_日志结构的seqnum值。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Ancillary variables used by the sending algorithm.",
+      "zh-CHS": "3. 发送算法使用的辅助变量。"
+    },
+    {
+      "indent": 3,
+      "text": "A seqnum variable for a level is set to zero if the checkpoint history contains no information at the level of the seqnum variable, and no information at any level below the level of the seqnum variable. This coding scheme assumes that the first sequence number of a stream is normalized to 1, and limits the total number of stream packets to 2^32 - 1.",
+      "zh-CHS": "如果检查点历史记录在seqnum变量级别不包含任何信息，并且在seqnum变量级别以下的任何级别都不包含任何信息，则级别的seqnum变量将设置为零。此编码方案假定流的第一个序列号被规范化为1，并将流数据包的总数限制为2^32-1。"
+    },
+    {
+      "indent": 3,
+      "text": "The cm_unused and ch_never parameters in Figures 1-2 define the subset of MIDI commands supported by the sender (see Appendix C.2.3 of [RFC4695] for details). The sender transmits most voice commands but does not transmit system commands. The sender assumes that the MIDI source uses note commands in the typical way. Thus, the sender does not use the Chapter E note resiliency tools (Appendix A.7 of [RFC4695]). The sender does not support Control Change commands for controller numbers with All Notes Off (123-127), All Sound Off (120), and Reset All Controllers (121) semantics and does not support enhanced Chapter C encoding (Appendix A.3.3 of [RFC4695]).",
+      "zh-CHS": "图1-2中的cm_unused和ch_never参数定义了发送方支持的MIDI命令子集（详见[RFC4695]的附录C.2.3）。发送方发送大多数语音命令，但不发送系统命令。发送方假设MIDI源以典型方式使用note命令。因此，发送方不使用第E章注释弹性工具（RFC4695的附录A.7）。发送方不支持控制器编号的控制更改命令，所有注释关闭（123-127）、所有声音关闭（120）和重置所有控制器（121）语义，并且不支持增强的C章编码（RFC4695的附录A.3.3））。"
+    },
+    {
+      "indent": 3,
+      "text": "We chose this subset of MIDI commands to simplify the example. In particular, the command restrictions ensure that all commands are active, that all note commands are N-active, and that all Control Change commands are C-active (see Appendix A.1 of [RFC4695] for definitions of active, N-active, and C-active).",
+      "zh-CHS": "我们选择这个MIDI命令子集来简化示例。特别是，命令限制确保所有命令均为激活状态，所有注释命令均为N激活状态，所有控制变更命令均为C激活状态（有关激活、N激活和C激活的定义，请参见[RFC4695]的附录A.1）。"
+    },
+    {
+      "indent": 3,
+      "text": "In the sections that follow, we describe the tasks a sender performs to manage the recovery journal system.",
+      "zh-CHS": "在接下来的部分中，我们将描述发送方为管理恢复日志系统而执行的任务。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Initializing the RJSS",
+      "section_title": true,
+      "zh-CHS": "5.1. 初始化RJS"
+    },
+    {
+      "indent": 3,
+      "text": "At the start of a stream, the sender initializes the RJSS. All seqnum variables are set to zero, including all elements of note_seqnum[] and control_seqnum[].",
+      "zh-CHS": "在流的开始，发送方初始化RJS。所有seqnum变量都设置为零，包括note_seqnum[]和control_seqnum[]的所有元素。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender initializes jheader[] to form a recovery journal header that codes an empty journal. The S bit of the header is set to 1, and the A, Y, R, and TOTCHAN header fields are set to zero. The checkpoint packet sequence number field is set to the sequence number of the upcoming first RTP packet (per Appendix A.1 of [RFC4695]).",
+      "zh-CHS": "发送方初始化jheader[]以形成对空日志进行编码的恢复日志头。标头的S位设置为1，A、Y、R和TOTCHAN标头字段设置为零。检查点数据包序列号字段设置为即将到来的第一个RTP数据包的序列号（根据[RFC4695]的附录A.1）。"
+    },
+    {
+      "indent": 5,
+      "text": "typedef unsigned char  uint8;      /* must be 1 octet  */\ntypedef unsigned short uint16;     /* must be 2 octet  */\ntypedef unsigned long  uint32;     /* must be 4 octets */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/**************************************************************/\n/* leaf level hierarchy: Chapter W, Appendix A.5 of [RFC4695] */\n/**************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jsend_chapterw {  /* Pitch Wheel (0xE) */\n uint8  chapterw[2]; /* bitfield Figure A.5.1 [RFC4695] */\n uint32 seqnum;      /* extended sequence number, or 0 */\n} jsend_chapterw;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/**************************************************************/\n/* leaf level hierarchy: Chapter N, Appendix A.6 of [RFC4695] */\n/**************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jsend_chaptern { /* Note commands (0x8, 0x9) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "/* chapter N maximum size is 274 octets: a 2 octet header, */\n/* and a maximum of 128 2-octet logs and 16 OFFBIT octets  */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": " uint8  chaptern[274];     /* bitfield Figure A.6.1 [RFC4695] */\n uint16 size;              /* actual size of chaptern[]     */\n uint32 seqnum;            /* extended seq number, or 0     */\n uint32 note_seqnum[128];  /* most recent note seqnum, or 0 */\n uint32 note_tstamp[128];  /* NoteOn execution timestamp    */\n uint32 bitfield_ptr[128]; /* points to a chapter log, or 0 */\n} jsend_chaptern;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/**************************************************************/\n/* leaf level hierarchy: Chapter C, Appendix A.3 of [RFC4695] */\n/**************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jsend_chapterc {     /* Control Change (0xB) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "/* chapter C maximum size is 257 octets: a 1 octet header */\n/* and a maximum of 128 2-octet logs                      */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": " uint8  chapterc[257];    /* bitfield Figure A.3.1 [RFC4695] */\n uint16 size;             /* actual size of chapterc[]      */\n uint32 seqnum;           /* extended sequence number, or 0 */\n uint32 control_seqnum[128]; /* most recent seqnum, or 0    */\n uint32 bitfield_ptr[128]; /* points to a chapter log, or 0 */\n} jsend_chapterc;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "Figure 9. Recovery Journal Sending Structure (part 1)",
+      "zh-CHS": "图9。恢复日志发送结构（第1部分）"
+    },
+    {
+      "indent": 5,
+      "text": "/**************************************************************/\n/* leaf level hierarchy: Chapter P, Appendix A.2 of [RFC4695] */\n/**************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jsend_chapterp { /* MIDI Program Change (0xC) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint8  chapterp[3]; /* bitfield Figure A.2.1 [RFC4695] */\nuint32 seqnum;      /* extended sequence number, or 0 */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jsend_chapterp;",
+      "zh-CHS": "}jsend_章；"
+    },
+    {
+      "indent": 5,
+      "text": "/***************************************************/\n/* second-level of hierarchy, for channel journals */\n/***************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jsend_channel {",
+      "zh-CHS": "typedef结构jsend_通道{"
+    },
+    {
+      "indent": 6,
+      "text": "uint8  cheader[3]; /* header Figure 9 [RFC4695]) */\nuint32 seqnum;     /* extended sequence number, or 0  */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "jsend_chapterp chapterp;           /* chapter P info  */\njsend_chapterc chapterc;           /* chapter C info  */\njsend_chapterw chapterw;           /* chapter W info  */\njsend_chaptern chaptern;           /* chapter N info  */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jsend_channel;",
+      "zh-CHS": "}jsend_通道；"
+    },
+    {
+      "indent": 5,
+      "text": "/*******************************************************/\n/* top level of hierarchy, for recovery journal header */\n/*******************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "typedef struct jsend_journal {",
+      "zh-CHS": "类型定义结构jsend_日志{"
+    },
+    {
+      "indent": 6,
+      "text": "uint8 jheader[3]; /* header Figure 8, [RFC4695] */\n                  /* Note: Empty journal has a header */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint32 seqnum;    /* extended sequence number, or 0   */\n                  /* seqnum = 0 codes empty journal   */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "jsend_channel channels[16];  /* channel journal state */\n                             /* index is MIDI channel */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "} jsend_journal;",
+      "zh-CHS": "}jsend_杂志；"
+    },
+    {
+      "indent": 7,
+      "text": "Figure 9. Recovery Journal Sending Structure (part 2)",
+      "zh-CHS": "图9。恢复日志发送结构（第2部分）"
+    },
+    {
+      "indent": 3,
+      "text": "In jsend_chaptern, elements of note_tstamp[] are set to zero. In jsend_chaptern and jsend_chapterc, elements of bitfield_ptr[] are set to the null pointer index value (bitfield_ptr[] is an array whose elements point to the first octet of the note or control log associated with the array index).",
+      "zh-CHS": "在jsend_chaptern中，note_tstamp[]的元素设置为零。在jsend_chaptern和jsend_chapterc中，位字段_ptr[]的元素设置为空指针索引值（位字段_ptr[]是一个数组，其元素指向与数组索引关联的注释或控制日志的第一个八位字节）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Traversing the RJSS",
+      "section_title": true,
+      "zh-CHS": "5.2. 穿越RJS"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever an RTP packet is created (Step 3 of the algorithm defined in Figure 8), the sender traverses the RJSS to create the recovery journal for the packet. The traversal begins at the top level of the RJSS. The sender copies jheader[] into the packet and then sets the S bit of jheader[] to 1.",
+      "zh-CHS": "无论何时创建RTP数据包（图8中定义的算法的步骤3），发送方都会遍历RJS为数据包创建恢复日志。遍历从RJS的顶层开始。发送方将jheader[]复制到数据包中，然后将jheader[]的S位设置为1。"
+    },
+    {
+      "indent": 3,
+      "text": "The traversal continues depth-first, visiting every jsend_channel whose seqnum variable is non-zero. The sender copies the cheader[] array into the packet and then sets the S bit of cheader[] to 1. After each cheader[] copy, the sender visits each leaf-level chapter, in the order of its appearance in the chapter journal Table of Contents (first P, then C, then W, then N, as shown in Figure 9 of [RFC4695]).",
+      "zh-CHS": "遍历继续深度优先，访问seqnum变量非零的每个jsend_通道。发送方将cheader[]数组复制到数据包中，然后将cheader[]的S位设置为1。在每个cheader[]副本之后，发送者按照其在章节日志目录中的出现顺序访问每个叶级章节（首先是P，然后是C，然后是W，然后是N，如[RFC4695]的图9所示）。"
+    },
+    {
+      "indent": 3,
+      "text": "If a chapter has a non-zero seqnum, the sender copies the chapter bitfield array into the packet and then sets the S bit of the RJSS array to 1. For chaptern[], the B bit is also set to 1. For the variable-length chapters (chaptern[] and chapterc[]), the sender checks the size variable to determine the bitfield length.",
+      "zh-CHS": "如果章节具有非零seqnum，则发送方将章节位字段数组复制到数据包中，然后将RJSS数组的S位设置为1。对于chaptern[]，B位也设置为1。对于可变长度章节（chaptern[]和chapterc[]），发送方检查大小变量以确定位字段长度。"
+    },
+    {
+      "indent": 3,
+      "text": "Before copying chaptern[], the sender updates the Y bit of each note log to code the onset of the associated NoteOn command (Figure A.6.3 in [RFC4695]). To determine the Y bit value, the sender checks the note_tstamp[] array for note timing information.",
+      "zh-CHS": "在复制chaptern[]之前，发送方更新每个注释日志的Y位，以对相关NoteOn命令的开始进行编码（参见[RFC4695]中的图A.6.3）。为了确定Y位值，发送方检查note_tstamp[]数组中的note定时信息。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Updating the RJSS",
+      "section_title": true,
+      "zh-CHS": "5.3. 更新RJS"
+    },
+    {
+      "indent": 3,
+      "text": "After an RTP packet is sent, the sender updates the RJSS to refresh the checkpoint history (Step 5 of the sending algorithm defined in Figure 8). For each command in the MIDI list of the sent packet, the sender performs the update procedure we now describe.",
+      "zh-CHS": "发送RTP数据包后，发送方更新RJS以刷新检查点历史（图8中定义的发送算法的步骤5）。对于发送包的MIDI列表中的每个命令，发送方执行我们现在描述的更新过程。"
+    },
+    {
+      "indent": 3,
+      "text": "The update procedure begins at the leaf level. The sender generates a new bitfield array for the chapter associated with the MIDI command using the chapter-specific semantics defined in Appendix A of [RFC4695].",
+      "zh-CHS": "更新过程从叶级开始。发送方使用[RFC4695]附录a中定义的章节特定语义为与MIDI命令关联的章节生成新的位字段数组。"
+    },
+    {
+      "indent": 3,
+      "text": "For Chapter N and Chapter C, the sender uses the bitfield_ptr[] array to locate and update an existing log for a note or controller. If a log does not exist, the sender adds a log to the end of the",
+      "zh-CHS": "对于第N章和第C章，发送方使用位字段_ptr[]数组查找和更新便笺或控制器的现有日志。如果日志不存在，发送方将在日志的末尾添加日志"
+    },
+    {
+      "indent": 3,
+      "text": "chaptern[] or chapterc[] bitfield and changes the bitfield_ptr[] value to point to the log. For Chapter N, the sender also updates note_tstamp[].",
+      "zh-CHS": "chaptern[]或chapterc[]位字段，并更改位字段_ptr[]值以指向日志。对于第N章，发送方还更新了注释_tstamp[]。"
+    },
+    {
+      "indent": 3,
+      "text": "The sender also clears the S bit of the chapterp[], chapterw[], or chapterc[] bitfield. For chaptern[], the sender clears the S bit or the B bit of the bitfield, as described in Appendix A.6 of [RFC4695].",
+      "zh-CHS": "发送方还清除chapterp[]、chapterw[]或chapterc[]位字段的S位。对于chaptern[]，发送方清除位字段的S位或B位，如[RFC4695]的附录A.6所述。"
+    },
+    {
+      "indent": 3,
+      "text": "Next, the sender refreshes the upper levels of the RJSS hierarchy. At the second level, the sender updates the cheader[] bitfield of the channel associated with the command. The sender sets the S bit of cheader[] to 0. If the new command forced the addition of a new chapter or channel journal, the sender may also update other cheader[] fields. At the top level, the sender updates the top-level jheader[] bitfield in a similar manner.",
+      "zh-CHS": "接下来，发送方刷新RJSS层次结构的上层。在第二级，发送方更新与命令关联的通道的cheader[]位字段。发送方将cheader[]的S位设置为0。如果新命令强制添加新章节或频道日志，发送方还可能更新其他cheader[]字段。在顶层，发送方以类似的方式更新顶层jheader[]位字段。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, the sender updates the seqnum variables associated with the changed bitfield arrays. The sender sets the seqnum variables to the extended sequence number of the packet.",
+      "zh-CHS": "最后，发送方更新与更改的位字段数组关联的seqnum变量。发送方将seqnum变量设置为数据包的扩展序列号。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Trimming the RJSS",
+      "section_title": true,
+      "zh-CHS": "5.4. 修剪RJS"
+    },
+    {
+      "indent": 3,
+      "text": "At regular intervals, receivers send RTCP receiver reports to the sender (as described in Section 6.4.2 of [RFC3550]). These reports include the extended highest sequence number received (EHSNR) field. This field codes the highest sequence number that the receiver has observed from the sender, extended to disambiguate sequence number rollover.",
+      "zh-CHS": "接收方定期向发送方发送RTCP接收方报告（如[RFC3550]第6.4.2节所述）。这些报告包括扩展的最高接收序列号（EHSNR）字段。此字段对接收方从发送方观察到的最高序列号进行编码，扩展以消除序列号翻转的歧义。"
+    },
+    {
+      "indent": 3,
+      "text": "When the sender receives an RTCP receiver report, it runs the RJSS trimming algorithm. The trimming algorithm uses the EHSNR to trim away parts of the RJSS. In this way, the algorithm reduces the size of recovery journals sent in subsequent RTP packets. The algorithm conforms to the closed-loop sending policy defined in Appendix C.2.2.2 of [RFC4695].",
+      "zh-CHS": "当发送方收到RTCP接收方报告时，它运行RJSS微调算法。修剪算法使用EHSNR修剪部分RJS。通过这种方式，该算法减少了在后续RTP数据包中发送的恢复日志的大小。该算法符合[RFC4695]附录C.2.2.2中定义的闭环发送策略。"
+    },
+    {
+      "indent": 3,
+      "text": "The trimming algorithm relies on the following observation: if the EHSNR indicates that a packet with sequence number K has been received, MIDI commands sent in packets with sequence numbers J <= K may be removed from the RJSS without violating the closed-loop policy.",
+      "zh-CHS": "微调算法依赖于以下观察：如果EHSNR指示已接收到序列号为K的数据包，则在序列号为J<=K的数据包中发送的MIDI命令可以从RJS中删除，而不会违反闭环策略。"
+    },
+    {
+      "indent": 3,
+      "text": "To begin the trimming algorithm, the sender extracts the EHSNR field from the receiver report and adjusts the EHSNR to reflect the sequence number extension prefix of the sender. Then, the sender compares the adjusted EHSNR value with seqnum fields at each level of the RJSS, starting at the top level.",
+      "zh-CHS": "为了开始微调算法，发送方从接收方报告中提取EHSNR字段，并调整EHSNR以反映发送方的序列号扩展前缀。然后，发送方将调整后的EHSNR值与RJS每个级别的seqnum字段进行比较，从顶层开始。"
+    },
+    {
+      "indent": 3,
+      "text": "Levels whose seqnum is less than or equal to the adjusted EHSNR are trimmed, by setting the seqnum to zero. If necessary, the jheader[] and cheader[] arrays above the trimmed level are adjusted to match the new journal layout. The checkpoint packet sequence number field of jheader[] is updated to match the EHSNR.",
+      "zh-CHS": "通过将seqnum设置为零，对seqnum小于或等于调整后EHSNR的级别进行修剪。如有必要，将调整修剪级别上方的jheader[]和cheader[]阵列，以匹配新的日志布局。jheader[]的检查点数据包序列号字段被更新以匹配EHSNR。"
+    },
+    {
+      "indent": 3,
+      "text": "At the leaf level, the sender trims the size of the variable-length chaptern[] and chapterc[] bitfields. The sender loops through the note_seqnum[] or control_seqnum[] array and removes chaptern[] or chapterc[] logs whose seqnum value is less than or equal to the adjusted EHSNR. The sender sets the associated bitfield_ptr[] to null and updates the LENGTH field of the associated cheader[] bitfield.",
+      "zh-CHS": "在叶级别，发送方修剪可变长度chaptern[]和chapterc[]位字段的大小。发送方在note_seqnum[]或control_seqnum[]数组中循环，并删除seqnum值小于或等于调整后的EHSNR的chaptern[]或chapterc[]日志。发送方将关联的位字段_ptr[]设置为null，并更新关联的cheader[]位字段的长度字段。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the trimming algorithm does not add information to the checkpoint history. As a consequence, the trimming algorithm does not clear the S bit (and for chaptern[], the B bit) of any recovery journal bitfield. As a second consequence, the trimming algorithm does not set RJSS seqnum variables to the EHSNR value.",
+      "zh-CHS": "请注意，修剪算法不会向检查点历史添加信息。因此，修剪算法不会清除任何恢复日志位字段的S位（对于chaptern[]，则为B位）。第二个结果是，微调算法不会将RJSS seqnum变量设置为EHSNR值。"
+    },
+    {
+      "indent": 0,
+      "text": "5.5. Implementation Notes",
+      "section_title": true,
+      "zh-CHS": "5.5. 实施说明"
+    },
+    {
+      "indent": 3,
+      "text": "For pedagogical purposes, the recovery journal sender we describe has been simplified in several ways. In practice, an implementation would use enhanced versions of the traversing, updating, and trimming algorithms presented in Sections 5.2-5.4.",
+      "zh-CHS": "出于教学目的，我们描述的恢复日志发送器已通过几种方式进行了简化。实际上，实现将使用第5.2-5.4节中介绍的遍历、更新和修剪算法的增强版本。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Receiving Streams: General Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 接收流：一般考虑"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we discuss receiver implementation issues.",
+      "zh-CHS": "在本节中，我们将讨论接收器实现问题。"
+    },
+    {
+      "indent": 3,
+      "text": "To begin, we imagine that an ideal network carries the RTP stream. Packets are never lost or reordered, and the end-to-end latency is constant. In addition, we assume that all commands coded in the MIDI list of a packet share the same timestamp (an assumption coded by the \"rtp_ptime\" and \"rtp_maxptime\" values in Figures 1-2; see Appendix C.4.1 of [RFC4695] for details).",
+      "zh-CHS": "首先，我们设想一个理想的网络承载RTP流。数据包永远不会丢失或重新排序，并且端到端延迟是恒定的。此外，我们假设在数据包的MIDI列表中编码的所有命令共享相同的时间戳（由图1-2中的“rtp_ptime”和“rtp_maxptime”值编码的假设；有关详细信息，请参见[RFC4695]的附录C.4.1）。"
+    },
+    {
+      "indent": 3,
+      "text": "Under these conditions, a simple algorithm may be used to render a high-quality performance. Upon receipt of an RTP packet, the receiver immediately executes the commands coded in the MIDI command section of the payload. Commands are executed in the order of their appearance in the MIDI list. The command timestamps are ignored.",
+      "zh-CHS": "在这些条件下，可以使用简单的算法来呈现高质量的性能。接收到RTP数据包后，接收器立即执行有效载荷MIDI命令部分中编码的命令。命令按其在MIDI列表中的出现顺序执行。忽略命令时间戳。"
+    },
+    {
+      "indent": 3,
+      "text": "Unfortunately, this simple algorithm breaks down once we relax our assumptions about the network and the MIDI list:",
+      "zh-CHS": "不幸的是，一旦我们放松对网络和MIDI列表的假设，这个简单的算法就会崩溃："
+    },
+    {
+      "indent": 3,
+      "text": "1. If we permit lost and reordered packets to occur in the network, the algorithm may produce unrecoverable rendering artifacts, violating the mandate defined in Section 4 of [RFC4695].",
+      "zh-CHS": "1. 如果我们允许丢失和重新排序的数据包出现在网络中，算法可能会产生不可恢复的渲染伪影，这违反了[RFC4695]第4节中定义的规定。"
+    },
+    {
+      "indent": 3,
+      "text": "2. If we permit the network to exhibit variable latency, the algorithm modulates the network jitter onto the rendered MIDI command stream.",
+      "zh-CHS": "2. 如果我们允许网络显示可变延迟，则该算法将网络抖动调制到渲染的MIDI命令流上。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If we permit a MIDI list to code commands with different timestamps, the algorithm adds temporal jitter to the rendered performance, as it ignores MIDI list timestamps.",
+      "zh-CHS": "3. 如果我们允许MIDI列表使用不同的时间戳对命令进行编码，则该算法会增加渲染性能的时间抖动，因为它会忽略MIDI列表时间戳。"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we discuss interactive receiver design techniques under these relaxed assumptions. Section 6.1 describes a receiver design for high-performance Wide Area Networks (WANs), and Section 6.2 discusses design issues for other types of networks.",
+      "zh-CHS": "在本节中，我们将讨论这些宽松假设下的交互式接收器设计技术。第6.1节描述了高性能广域网（WAN）的接收机设计，第6.2节讨论了其他类型网络的设计问题。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. The NMP Receiver Design",
+      "section_title": true,
+      "zh-CHS": "6.1. NMP接收机设计"
+    },
+    {
+      "indent": 3,
+      "text": "The Network Musical Performance (NMP) system [NMP] is an interactive performance application that uses an early version of the RTP MIDI payload format. NMP is designed for use between universities within the State of California, which use the high-performance CalREN2 network.",
+      "zh-CHS": "网络音乐表演（NMP）系统[NMP]是一种交互式表演应用程序，使用早期版本的RTP MIDI有效载荷格式。NMP设计用于加利福尼亚州内使用高性能CalREN2网络的大学之间。"
+    },
+    {
+      "indent": 3,
+      "text": "In the NMP system, network artifacts may affect how a musician hears the performances of remote players. However, the network does not affect how a musician hears his own performance.",
+      "zh-CHS": "在NMP系统中，网络伪影可能会影响音乐家聆听远程播放器表演的方式。然而，网络并不影响音乐家聆听自己表演的方式。"
+    },
+    {
+      "indent": 3,
+      "text": "Several aspects of CalREN2 network behavior (as measured in 2001 timeframe, as documented in [NMP]) guided the NMP system design:",
+      "zh-CHS": "CalREN2网络行为的几个方面（如[NMP]中记录的，在2001年时间范围内测量）指导了NMP系统设计："
+    },
+    {
+      "indent": 3,
+      "text": "o The median symmetric latency (1/2 the round-trip time) of packets sent between network sites is comparable to the acoustic latency between two musicians located in the same room. For example, the latency between Berkeley and Stanford is 2.1 ms, corresponding to an acoustic distance of 2.4 feet (0.72 meters). These campuses are 40 miles (64 km) apart. Preserving the benefits of the underlying network latency at the application level was a key NMP design goal.",
+      "zh-CHS": "o 网络站点之间发送的数据包的平均对称延迟（往返时间的1/2）与位于同一房间的两个音乐家之间的声音延迟相当。例如，伯克利和斯坦福之间的延迟为2.1毫秒，对应于2.4英尺（0.72米）的声学距离。这些校园相距40英里（64公里）。在应用程序级别保留底层网络延迟的好处是NMP设计的一个关键目标。"
+    },
+    {
+      "indent": 3,
+      "text": "o For most times of day, the nominal temporal jitter is quite short. For Berkeley-Stanford, the standard deviation of the round-trip time was under 200 microseconds.",
+      "zh-CHS": "o 对于一天中的大多数时间，标称时间抖动非常短。对于伯克利-斯坦福大学，往返时间的标准偏差不到200微秒。"
+    },
+    {
+      "indent": 3,
+      "text": "o For most times of day, a few percent (0-4%) of the packets sent arrive significantly late (> 40 ms), probably due to a queuing transient somewhere in the network path. More rarely (< 0.1%), a packet is lost during the transient.",
+      "zh-CHS": "o 对于一天中的大多数时间，发送的数据包中有百分之几（0-4%）到达的时间明显延迟（>40毫秒），这可能是由于网络路径中的某个地方出现了排队瞬态。更为罕见的是（<0.1%），数据包在瞬态期间丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "o At predictable times during the day (before lunchtime, at the end of the workday, etc.), network performance deteriorates (10-20% late packets) in a manner that makes the network unsuitable for low-latency interactive use.",
+      "zh-CHS": "o 在一天中可预测的时间（午餐时间之前、工作日结束时等），网络性能会恶化（10-20%的延迟数据包），导致网络不适合低延迟交互使用。"
+    },
+    {
+      "indent": 3,
+      "text": "o CalREN2 has deeply over-provisioned bandwidth, relative to MIDI bandwidth usage.",
+      "zh-CHS": "o 相对于MIDI带宽使用情况，CalREN2的带宽严重过剩。"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP sender freely uses network bandwidth to improve the performance experience. As soon as a musician generates a MIDI command, an RTP packet coding the command is sent to the other players. This sending algorithm reduces latency at the cost of bandwidth. In addition, guard packets (described in Section 4.2) are sent at frequent intervals to minimize the impact of packet loss.",
+      "zh-CHS": "NMP发送方可以自由使用网络带宽来改善性能体验。一旦音乐家生成MIDI命令，一个编码该命令的RTP包就会发送给其他播放器。这种发送算法以带宽为代价减少延迟。此外，保护数据包（如第4.2节所述）以频繁的间隔发送，以尽量减少数据包丢失的影响。"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP receiver maintains a model of the stream and uses this model as the basis of its resiliency system. Upon receipt of a packet, the receiver predicts the RTP sequence number and the RTP timestamp (with error bars) of the packet. Under normal network conditions, about 95% of received packets fit the predictions [NMP]. In this common case, the receiver immediately executes the MIDI command coded in the packet.",
+      "zh-CHS": "NMP接收器维护流的模型，并将此模型用作其弹性系统的基础。在接收到分组后，接收机预测分组的RTP序列号和RTP时间戳（带有错误条）。在正常网络条件下，大约95%的接收数据包符合预测[NMP]。在这种常见情况下，接收器立即执行包中编码的MIDI命令。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the NMP receiver does not use a playout buffer; the design is optimized for lowest latency at the expense of command jitter. Thus, the NMP receiver design does not completely satisfy the interoperability text in Appendix C.7.2 of [RFC4695], which requires that receivers in network musical performance applications be capable of using a playout buffer.",
+      "zh-CHS": "请注意，NMP接收器不使用播放缓冲区；该设计以牺牲命令抖动为代价，优化了最低延迟。因此，NMP接收机设计不完全满足[RFC4695]附录C.7.2中的互操作性文本，该文本要求网络音乐表演应用中的接收机能够使用播放缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "Occasionally, an incoming packet fits the sequence number prediction, but falls outside the timestamp prediction error bars (see Appendix B of [NMP] for timestamp model details). In most cases, the receiver still executes the command coded in the packet. However, the receiver discards NoteOn commands with non-zero velocity. By discarding late commands that sound notes, the receiver prevents \"straggler notes\" from disturbing a performance. By executing all other late commands, the receiver quiets \"soft stuck notes\" immediately and updates the state of the MIDI system.",
+      "zh-CHS": "有时，传入数据包符合序列号预测，但超出了时间戳预测误差条（有关时间戳模型的详细信息，请参见[NMP]的附录B）。在大多数情况下，接收器仍然执行包中编码的命令。但是，接收器会丢弃速度非零的NoteOn命令。通过丢弃发出音符的后期命令，接收器可以防止“散乱音符”干扰演出。通过执行所有其他延迟命令，接收器立即停止“软卡音符”，并更新MIDI系统的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "More rarely, an incoming packet does not fit the sequence number prediction. The receiver keeps track of the highest sequence number received in the stream and predicts that an incoming packet will have",
+      "zh-CHS": "更罕见的是，传入数据包不符合序列号预测。接收机跟踪流中接收到的最高序列号，并预测传入的分组将具有相同的序列号"
+    },
+    {
+      "indent": 3,
+      "text": "a sequence number one greater than this value. If the sequence number of an incoming packet is greater than the prediction, a packet loss has occurred. If the sequence number of the received packet is less than the prediction, the packet has been received out of order. All sequence number calculations are modulo 2^16 and use standard methods (described in [RFC3550]) to avoid tracking errors during rollover.",
+      "zh-CHS": "大于此值的序号1。如果传入数据包的序列号大于预测值，则发生数据包丢失。如果接收到的分组的序列号小于预测值，则分组已被无序接收。所有序列号计算均为模2^16，并使用标准方法（如[RFC3550]所述）避免翻滚期间出现跟踪错误。"
+    },
+    {
+      "indent": 3,
+      "text": "If a packet loss has occurred, the receiver examines the journal section of the received packet and uses it to gracefully recover from the loss episode. We describe this recovery procedure in Section 7 of this memo. The recovery process may result in the execution of one or more MIDI commands. After executing the recovery commands, the receiver processes the MIDI command encoded in the packet using the timestamp model test described above.",
+      "zh-CHS": "如果发生数据包丢失，接收方将检查所接收数据包的日志部分，并使用它从丢失事件中正常恢复。我们在本备忘录第7节中描述了该恢复程序。恢复过程可能导致执行一个或多个MIDI命令。在执行恢复命令之后，接收机使用上面描述的时间戳模型测试处理包中编码的MIDI命令。"
+    },
+    {
+      "indent": 3,
+      "text": "If a packet is received out of order, the receiver ignores the packet. The receiver takes this action because a packet received out of order is always preceded by a packet that signalled a loss event. This loss event triggered the recovery process, which may have executed recovery commands. The MIDI command coded in the out-of-order packet might, if executed, duplicate these recovery commands, and this duplication might endanger the integrity of the stream. Thus, ignoring the out-of-order packet is the safe approach.",
+      "zh-CHS": "如果接收到的数据包顺序不正确，则接收方将忽略该数据包。接收方采取此操作是因为无序接收的数据包之前总是有一个表示丢失事件的数据包。此丢失事件触发了恢复过程，该过程可能已执行恢复命令。如果执行无序数据包中编码的MIDI命令，可能会复制这些恢复命令，并且这种复制可能会危及流的完整性。因此，忽略无序数据包是安全的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. High-Jitter Networks, Local Area Networks",
+      "section_title": true,
+      "zh-CHS": "6.2. 高抖动网络、局域网"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP receiver targets a network with a particular set of characteristics: low nominal jitter, low packet loss, and occasional outlier packets that arrive very late. In this section, we consider how networks with different characteristics impact receiver design.",
+      "zh-CHS": "NMP接收器的目标网络具有一组特定的特征：低标称抖动、低数据包丢失和偶尔出现的异常数据包到达得很晚。在这一节中，我们考虑不同特性的网络如何影响接收机设计。"
+    },
+    {
+      "indent": 3,
+      "text": "Networks with significant nominal jitter cannot use the buffer-free receiver design described in Section 6.1. For example, the NMP system performs poorly for musicians that use dial-up modem connections, because the buffer-free receiver design modulates modem jitter onto the performances. Receivers designed for high-jitter networks should use a substantial playout buffer. References [GRAME] and [CCRMA] describe how to use playout buffers in latency-critical applications.",
+      "zh-CHS": "具有显著标称抖动的网络不能使用第6.1节所述的无缓冲区接收器设计。例如，NMP系统对于使用拨号调制解调器连接的音乐家表现不佳，因为无缓冲区接收器设计将调制解调器抖动调制到演出上。为高抖动网络设计的接收机应使用大量的播放缓冲区。参考文献[GRAME]和[CCRMA]描述了如何在延迟关键型应用程序中使用播放缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "Receivers intended for use on Local Area Networks (LANs) face a different set of issues. A dedicated LAN fabric built with modern hardware is in many ways a predictable environment. The network problems addressed by the NMP receiver design (packet loss and outlier late packets) might only occur under extreme network overload conditions.",
+      "zh-CHS": "用于局域网（LAN）的接收器面临一系列不同的问题。用现代硬件构建的专用LAN结构在许多方面都是可预测的环境。NMP接收器设计解决的网络问题（数据包丢失和异常延迟数据包）可能仅在极端网络过载条件下发生。"
+    },
+    {
+      "indent": 3,
+      "text": "Systems designed for this environment may choose to configure streams without the recovery journal system (Appendix C.2.1 of [RFC4695]). Receivers may also wish to forego or simplify the detection of outlier late packets. Receivers should monitor the RTP sequence numbers of incoming packets to detect network unreliability.",
+      "zh-CHS": "为该环境设计的系统可以选择在不使用恢复日志系统的情况下配置流（RFC4695的附录C.2.1）。接收机还可能希望放弃或简化异常延迟数据包的检测。接收器应监控传入数据包的RTP序列号，以检测网络的不可靠性。"
+    },
+    {
+      "indent": 3,
+      "text": "However, in some respects, LAN applications may be more demanding than WAN applications. In LAN applications, musicians may be receiving performance feedback from audio that is rendered from the stream. The tolerance a musician has for latency and jitter in this context may be quite low.",
+      "zh-CHS": "然而，在某些方面，LAN应用程序可能比WAN应用程序要求更高。在LAN应用程序中，音乐家可能从流中呈现的音频接收性能反馈。在这种情况下，音乐家对延迟和抖动的容忍度可能很低。"
+    },
+    {
+      "indent": 3,
+      "text": "To reduce the perceived jitter, receivers may use a small playout buffer (in the range of 100us to 2ms). The buffer adds a small amount of latency to the system, which may be annoying to some players. Receiver designs should include buffer tuning parameters to let musicians adjust the tradeoff between latency and jitter.",
+      "zh-CHS": "为了减少感知到的抖动，接收机可以使用一个小的播放缓冲区（在100us到2ms的范围内）。缓冲区会给系统增加少量延迟，这可能会让一些玩家感到恼火。接收器设计应包括缓冲区调谐参数，以便音乐家调整延迟和抖动之间的权衡。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Receiving Streams: The Recovery Journal",
+      "section_title": true,
+      "zh-CHS": "7. 接收流：恢复日志"
+    },
+    {
+      "indent": 3,
+      "text": "In this section, we describe the recovery algorithm used by the NMP receiver [NMP]. In most ways, the recovery techniques we describe are generally applicable to interactive receiver design. However, a few aspects of the design are specialized for the NMP system:",
+      "zh-CHS": "在本节中，我们将介绍NMP接收器[NMP]使用的恢复算法。在大多数情况下，我们描述的恢复技术通常适用于交互式接收机设计。但是，设计的几个方面专门用于NMP系统："
+    },
+    {
+      "indent": 3,
+      "text": "o The recovery algorithm covers a subset of the MIDI command set. MIDI Systems (0xF), Poly Aftertouch (0xA), and Channel Aftertouch (0xD) commands are not protected, and Control Change (0xB) command protection is simplified. Note commands for a particular note number are assumed to follow the typical NoteOn->NoteOff->NoteOn ->NoteOff pattern. The cm_unused and ch_never parameters in Figures 1-2 specify this coverage.",
+      "zh-CHS": "o 恢复算法覆盖MIDI命令集的一个子集。MIDI系统（0xF）、多声道后触摸（0xA）和通道后触摸（0xD）命令不受保护，控制更改（0xB）命令保护得到简化。特定注释编号的注释命令假定遵循典型的NoteOn->NoteOff->NoteOn->NoteOff模式。图1-2中的cm_unused和ch_never参数规定了该覆盖范围。"
+    },
+    {
+      "indent": 3,
+      "text": "o The NMP system does not use a playout buffer. Therefore, the recovery algorithm does not address interactions with a playout buffer.",
+      "zh-CHS": "o NMP系统不使用播放缓冲区。因此，恢复算法不处理与播放缓冲区的交互。"
+    },
+    {
+      "indent": 3,
+      "text": "At a high level, the receiver algorithm works as follows. Upon detection of a packet loss, the receiver examines the recovery journal of the packet that ends the loss event. If necessary, the receiver executes one or more MIDI commands to recover from the loss.",
+      "zh-CHS": "在高层，接收器算法的工作原理如下。在检测到数据包丢失时，接收器检查结束丢失事件的数据包的恢复日志。如有必要，接收器执行一个或多个MIDI命令以从丢失中恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "To prepare for recovery, a receiver maintains a data structure, the Recovery Journal Receiver Structure (RJRS). The RJRS codes information about the MIDI commands the receiver executes (both incoming stream commands and self-generated recovery commands). At the start of the stream, the RJRS is initialized to code that no commands have been executed. Immediately after executing a MIDI",
+      "zh-CHS": "为了准备恢复，接收器维护一个数据结构，即恢复日志接收器结构（RJRS）。RJRS编码有关接收器执行的MIDI命令的信息（传入流命令和自行生成的恢复命令）。在流的开始，RJRS被初始化为没有执行任何命令的代码。在执行MIDI之后立即"
+    },
+    {
+      "indent": 3,
+      "text": "command, the receiver updates the RJRS with information about the command.",
+      "zh-CHS": "命令时，接收器使用有关该命令的信息更新RJR。"
+    },
+    {
+      "indent": 3,
+      "text": "We now describe the recovery algorithm in detail. We begin with two definitions that classify loss events. These definitions assume that the packet that ends the loss event has RTP sequence number I.",
+      "zh-CHS": "我们现在详细描述恢复算法。我们从两个对损失事件进行分类的定义开始。这些定义假定结束丢失事件的数据包具有RTP序列号I。"
+    },
+    {
+      "indent": 3,
+      "text": "o Single-packet loss. A single-packet loss occurs if the last packet received before the loss event (excluding out-of-order packets) has the sequence number I-2 (modulo 2^16).",
+      "zh-CHS": "o 单包丢失。如果在丢失事件之前收到的最后一个数据包（不包括无序数据包）的序列号为I-2（模2^16），则会发生单数据包丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "o Multi-packet loss. A multi-packet loss occurs if the last packet received before the loss event (excluding out-of-order packets) has a sequence number less than I-2 (modulo 2^16).",
+      "zh-CHS": "o 多包丢失。如果在丢失事件之前收到的最后一个数据包（不包括无序数据包）的序列号小于I-2（模2^16），则会发生多数据包丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon detection of a packet loss, the recovery algorithm examines the recovery journal header (Figure 8 of [RFC4695]) to check for special cases:",
+      "zh-CHS": "在检测到数据包丢失时，恢复算法检查恢复日志头（RFC4695的图8），以检查特殊情况："
+    },
+    {
+      "indent": 3,
+      "text": "o If the header field A is 0, the recovery journal has no channel journals, so no action is taken.",
+      "zh-CHS": "o 如果标题字段A为0，则恢复日志没有通道日志，因此不采取任何操作。"
+    },
+    {
+      "indent": 3,
+      "text": "o If a single-packet loss has occurred, and if the header S bit is 1, the lost packet has a MIDI command section with an empty MIDI list. No action is taken.",
+      "zh-CHS": "o 如果发生了单个数据包丢失，并且报头的位为1，则丢失的数据包具有一个MIDI命令部分，其中包含一个空的MIDI列表。没有采取任何行动。"
+    },
+    {
+      "indent": 3,
+      "text": "If these checks fail, the algorithm parses the recovery journal body. For each channel journal (Figure 9 in [RFC4695]) in the recovery journal, the receiver compares the data in each chapter journal (Appendix A of [RFC4695]) to the RJRS data for the chapter. If the data are inconsistent, the algorithm infers that MIDI commands related to the chapter journal have been lost. The recovery algorithm executes MIDI commands to repair this loss and updates the RJRS to reflect the repair.",
+      "zh-CHS": "如果这些检查失败，算法将解析恢复日志正文。对于恢复日志中的每个通道日志（参见[RFC4695]中的图9]），接收器将每个章节日志（参见[RFC4695]的附录A）中的数据与该章节的RJRS数据进行比较。如果数据不一致，则算法推断与章节日志相关的MIDI命令已丢失。恢复算法执行MIDI命令来修复此丢失，并更新RJR以反映修复情况。"
+    },
+    {
+      "indent": 3,
+      "text": "For single-packet losses, the receiver skips channel and chapter journals whose S bits are set to 1. For multi-packet losses, the receiver parses each channel and chapter journal and checks for inconsistency.",
+      "zh-CHS": "对于单包丢失，接收器跳过S位设置为1的通道和章节日志。对于多数据包丢失，接收器解析每个通道和章节日志并检查不一致性。"
+    },
+    {
+      "indent": 3,
+      "text": "In the sections that follow, we describe the recovery steps that are specific to each chapter journal. We cover 4 chapter journal types: P (Program Change, 0xC), C (Control Change, 0xB), W (Pitch Wheel, 0xE), and N (Note, 0x8 and 0x9). Chapters are parsed in the order of their appearance in the channel journal (P, then W, then N, then C).",
+      "zh-CHS": "在接下来的章节中，我们将描述特定于每个章节的恢复步骤。我们讨论了4章日志类型：P（程序更改，0xC）、C（控制更改，0xB）、W（变桨轮，0xE）和N（注，0x8和0x9）。章节按照它们在通道日志中的出现顺序（P、W、N、C）进行解析。"
+    },
+    {
+      "indent": 3,
+      "text": "The sections below reference the C implementation of the RJRS shown in Figure 10. This structure is hierarchical, reflecting the recovery journal architecture. At the leaf level, specialized data structures (jrec_chapterw, jrec_chaptern, jrec_chapterc, and jrec_chapterp) code state variables for a single chapter journal type. A mid-level structure (jrec_channel) represents a single MIDI channel, and a top-level structure (jrec_stream) represents the entire MIDI stream.",
+      "zh-CHS": "下面的部分参考了图10所示的RJR的C实现。此结构是分层的，反映了恢复日志体系结构。在叶级，专门的数据结构（jrec_chapterw、jrec_chaptern、jrec_chapterc和jrec_chapterp）为单个章节日志类型编码状态变量。中级结构（jrec_通道）表示单个MIDI通道，顶级结构（jrec_流）表示整个MIDI流。"
+    },
+    {
+      "indent": 5,
+      "text": "typedef unsigned char  uint8;       /* must be 1 octet  */\ntypedef unsigned short uint16;      /* must be 2 octets */\ntypedef unsigned long  uint32;      /* must be 4 octets */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/*****************************************************************/\n/* leaf level of hierarchy: Chapter W, Appendix A.5 of [RFC4695] */\n/*****************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jrec_chapterw {   /* MIDI Pitch Wheel (0xE) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint16 val;           /* most recent 14-bit wheel value   */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jrec_chapterw;",
+      "zh-CHS": "}jrec_章；"
+    },
+    {
+      "indent": 5,
+      "text": "/*****************************************************************/\n/* leaf level of hierarchy: Chapter N, Appendix A.6 of [RFC4695] */\n/*****************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jrec_chaptern { /* Note commands (0x8, 0x9) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "/* arrays of length 128 --> one for each MIDI Note number */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint32 time[128];    /* exec time of most recent NoteOn */\nuint32 extseq[128];  /* extended seqnum for that NoteOn */\nuint8  vel[128];     /* NoteOn velocity (0 for NoteOff) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jrec_chaptern;",
+      "zh-CHS": "}jrec_chaptern；"
+    },
+    {
+      "indent": 5,
+      "text": "/*****************************************************************/\n/* leaf level of hierarchy: Chapter C, Appendix A.3 of [RFC4695] */\n/*****************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jrec_chapterc {     /* Control Change (0xB) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "/* array of length 128 --> one for each controller number */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint8 value[128];   /* Chapter C value tool state */\nuint8 count[128];   /* Chapter C count tool state */\nuint8 toggle[128];  /* Chapter C toggle tool state */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jrec_chapterc;",
+      "zh-CHS": "}jrec_章c；"
+    },
+    {
+      "indent": 8,
+      "text": "Figure 10. Recovery Journal Receiving Structure (part 1)",
+      "zh-CHS": "图10。回收日志接收结构（第1部分）"
+    },
+    {
+      "indent": 5,
+      "text": "/*****************************************************************/\n/* leaf level of hierarchy: Chapter P, Appendix A.2 of [RFC4695] */\n/*****************************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jrec_chapterp { /* MIDI Program Change (0xC) */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint8 prognum;       /* most recent 7-bit program value  */\nuint8 prognum_qual;  /* 1 once first 0xC command arrives */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint8 bank_msb;     /* most recent Bank Select MSB value */\nuint8 bank_msb_qual;   /* 1 once first 0xBn 0x00 arrives */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "uint8 bank_lsb;     /* most recent Bank Select LSB value */\nuint8 bank_lsb_qual;   /* 1 once first 0xBn 0x20 arrives */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jrec_chapterp;",
+      "zh-CHS": "}jrec_章；"
+    },
+    {
+      "indent": 5,
+      "text": "/***************************************************/\n/* second-level of hierarchy, for MIDI channels    */\n/***************************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "typedef struct jrec_channel {",
+      "zh-CHS": "typedef结构jrec_通道{"
+    },
+    {
+      "indent": 6,
+      "text": "jrec_chapterp chapterp;  /* Program Change (0xC) info  */\njrec_chapterc chapterc;  /* Control Change (0xB) info  */\njrec_chapterw chapterw;  /* Pitch Wheel (0xE) info  */\njrec_chaptern chaptern;  /* Note (0x8, 0x9) info  */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "} jrec_channel;",
+      "zh-CHS": "}jrec_频道；"
+    },
+    {
+      "indent": 5,
+      "text": "/***********************************************/\n/* top level of hierarchy, for the MIDI stream */\n/***********************************************/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "typedef struct jrec_stream {",
+      "zh-CHS": "typedef结构jrec_流{"
+    },
+    {
+      "indent": 6,
+      "text": "jrec_channel channels[16];  /* index is MIDI channel */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "} jrec_stream;",
+      "zh-CHS": "}jrec_溪；"
+    },
+    {
+      "indent": 7,
+      "text": "Figure 10. Recovery Journal Receiving Structure (part 2)",
+      "zh-CHS": "图10。回收日志接收结构（第2部分）"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Chapter W: MIDI Pitch Wheel (0xE)",
+      "section_title": true,
+      "zh-CHS": "7.1. 第W章：MIDI音高轮（0xE）"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter W of the recovery journal protects against the loss of MIDI Pitch Wheel (0xE) commands. A common use of the Pitch Wheel command is to transmit the current position of a rotary \"pitch wheel\" controller placed on the side of MIDI piano controllers. Players use the pitch wheel to dynamically alter the pitch of all depressed keys.",
+      "zh-CHS": "恢复日志的第W章保护MIDI音高轮（0xE）命令的丢失。“俯仰轮”命令的一个常见用途是传输放置在MIDI钢琴控制器一侧的旋转“俯仰轮”控制器的当前位置。玩家使用音高轮动态改变所有按下键的音高。"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP receiver maintains the jrec_chapterw structure (Figure 10) for each voice channel in jrec_stream to code pitch wheel state information. In jrec_chapterw, val holds the 14-bit data value of the most recent Pitch Wheel command that has arrived on a channel. At the start of the stream, val is initialized to the default pitch wheel value (0x2000).",
+      "zh-CHS": "NMP接收器为jrec_流中的每个语音通道维护jrec_chapterw结构（图10），以编码俯仰轮状态信息。在jrec_chapterw中，val保存已到达通道的最新变桨轮命令的14位数据值。在流的开始处，val被初始化为默认的俯仰轮值（0x2000）。"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of a loss event, a receiver may find a Chapter W (Appendix A.5 in [RFC4695]) bitfield in a channel journal. This chapter codes the 14-bit data value of the most recent MIDI Pitch Wheel command in the checkpoint history. If the Chapter W and jrec_chapterw pitch wheel values do not match, one or more commands have been lost.",
+      "zh-CHS": "在丢失事件结束时，接收机可能会在信道日志中找到章节W（RFC4695中的附录a.5）位字段。本章对检查点历史记录中最新MIDI俯仰轮命令的14位数据值进行编码。如果章节W和jrec_章节W节距轮值不匹配，则一个或多个命令已丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "To recover from this loss, the NMP receiver immediately executes a MIDI Pitch Wheel command on the channel, using the data value coded in the recovery journal. The receiver then updates the jrec_chapterw variables to reflect the executed command.",
+      "zh-CHS": "为了从丢失中恢复，NMP接收器立即使用恢复日志中编码的数据值在通道上执行MIDI俯仰轮命令。然后，接收器更新jrec_chapterw变量以反映执行的命令。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Chapter N: MIDI NoteOn (0x8) and NoteOff (0x9)",
+      "section_title": true,
+      "zh-CHS": "7.2. 第N章：MIDI音符开启（0x8）和音符关闭（0x9）"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter N of the recovery journal protects against the loss of MIDI NoteOn (0x9) and NoteOff (0x8) commands. If a NoteOn command is lost, a note is skipped. If a NoteOff command is lost, a note may sound indefinitely. Recall that NoteOn commands with a velocity value of 0 have the semantics of NoteOff commands.",
+      "zh-CHS": "恢复日志的第N章防止MIDI NoteOn（0x9）和NoteOff（0x8）命令丢失。如果NoteOn命令丢失，则跳过注释。如果NoteOff命令丢失，则音符可能会无限期地响起。回想一下，速度值为0的NoteOn命令具有NoteOff命令的语义。"
+    },
+    {
+      "indent": 3,
+      "text": "The recovery algorithms in this section only work for MIDI sources that produce NoteOn->NoteOff->NoteOn->NoteOff patterns for a note number. Piano keyboard and drum pad controllers produce these patterns. MIDI sources that use NoteOn->NoteOn->NoteOff->NoteOff patterns for legato repeated notes, such as guitar and wind controllers, require more sophisticated recovery strategies. Chapter E (not used in this example) supports recovery algorithms for atypical note command patterns (see Appendix A.7 of [RFC4695] for details).",
+      "zh-CHS": "本节中的恢复算法仅适用于为音符编号生成NoteOn->NoteOff->NoteOn->NoteOff模式的MIDI源。钢琴键盘和鼓垫控制器产生这些图案。使用NoteOn->NoteOn->NoteOff->NoteOff模式进行连奏重复音符的MIDI源，如吉他和风控制器，需要更复杂的恢复策略。第E章（本例中未使用）支持非典型note命令模式的恢复算法（详情参见[RFC4695]的附录A.7）。"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP receiver maintains a jrec_chaptern structure (Figure 10) for each voice channel in jrec_stream to code note-related state information. State is kept for each of the 128 note numbers on a",
+      "zh-CHS": "NMP接收器为jrec_流中的每个语音通道维护jrec_chaptern结构（图10），以编码注释相关的状态信息。一张表上128个注释编号中的每一个都保留状态"
+    },
+    {
+      "indent": 3,
+      "text": "channel, using three arrays of length 128 (vel[], seq[], and time[]). The arrays are initialized to zero at the start of a stream.",
+      "zh-CHS": "通道，使用三个长度为128的数组（vel[]、seq[]和time[]）。数组在流的开头初始化为零。"
+    },
+    {
+      "indent": 3,
+      "text": "The vel[n] array element holds information about the most recent note command for note number n. If this command is a NoteOn command, vel[n] holds the velocity data for the command. If this command is a NoteOff command, vel[n] is set to 0.",
+      "zh-CHS": "vel[n]数组元素保存有关注释编号n的最新注释命令的信息。如果该命令是NoteOn命令，则vel[n]保存该命令的速度数据。如果此命令是NoteOff命令，则将vel[n]设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "The time[n] and extseq[n] array elements code information about the most recently executed NoteOn command. The time[n] element holds the execution time of the command, referenced to the local timebase of the receiver. The extseq[n] element holds the RTP extended sequence number of the packet associated with the command. For incoming stream commands, extseq[n] codes the packet of the associated MIDI list. For commands executed to perform loss recovery, extseq[n] codes the packet of the associated recovery journal.",
+      "zh-CHS": "time[n]和extseq[n]数组元素是关于最近执行的NoteOn命令的代码信息。time[n]元素保存命令的执行时间，参考接收器的本地时基。extseq[n]元素保存与命令关联的数据包的RTP扩展序列号。对于传入流命令，extseq[n]对相关MIDI列表的数据包进行编码。对于执行丢失恢复的命令，extseq[n]对相关恢复日志的数据包进行编码。"
+    },
+    {
+      "indent": 3,
+      "text": "The Chapter N recovery journal bitfield (Figure A.6.1 in [RFC4695]) consists of two data structures: a bit array coding recently sent NoteOff commands that are vulnerable to packet loss, and a note log list coding recently sent NoteOn commands that are vulnerable to packet loss.",
+      "zh-CHS": "第N章恢复日志位字段（参见[RFC4695]中的图A.6.1）由两个数据结构组成：位数组编码最近发送的易丢失数据包的NoteOff命令，以及注释日志列表编码最近发送的易丢失数据包的NoteOn命令。"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of a loss event, Chapter N recovery processing begins with the NoteOff bit array. For each set bit in the array, the receiver checks the corresponding vel[n] element in jrec_chaptern. If vel[n] is non-zero, a NoteOff command or a NoteOff->NoteOn->NoteOff command sequence has been lost. To recover from this loss, the receiver immediately executes a NoteOff command for the note number on the channel and sets vel[n] to 0.",
+      "zh-CHS": "在丢失事件结束时，第N章恢复处理从NoteOff位数组开始。对于数组中的每个设置位，接收器检查jrec_chaptern中相应的vel[n]元素。如果vel[n]为非零，则NoteOff命令或NoteOff->NoteOn->NoteOff命令序列已丢失。为了从丢失中恢复，接收器立即对通道上的注释编号执行NoteOff命令，并将vel[n]设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "The receiver then parses the note log list, using the S bit to skip over \"safe\" logs in the single-packet loss case. For each at-risk note log, the receiver checks the corresponding vel[n] element.",
+      "zh-CHS": "然后，接收方解析注释日志列表，在单包丢失情况下，使用S位跳过“安全”日志。对于每个风险注释日志，接收者检查相应的vel[n]元素。"
+    },
+    {
+      "indent": 3,
+      "text": "If vel[n] is zero, a NoteOn command or a NoteOn->NoteOff->NoteOn command sequence has been lost. The receiver may execute the most recent lost NoteOn (to play the note) or may take no action (to skip the note), based on criteria we describe at the end of this section. Whether the note is played or skipped, the receiver updates the vel[n], time[n], and extseq[n] elements as if the NoteOn executed.",
+      "zh-CHS": "如果vel[n]为零，说明NoteOn命令或NoteOn->NoteOff->NoteOn命令序列已丢失。根据我们在本节末尾描述的标准，接收者可以执行最近丢失的备忘（播放备忘），也可以不采取任何行动（跳过备忘）。无论是播放还是跳过该音符，接收者都会更新vel[n]、time[n]和extseq[n]元素，就像执行了该音符一样。"
+    },
+    {
+      "indent": 3,
+      "text": "If vel[n] is non-zero, the receiver performs several checks to test if a NoteOff->NoteOn sequence has been lost.",
+      "zh-CHS": "如果vel[n]为非零，接收器将执行多项检查，以测试NoteOff->NoteOn序列是否丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "o If vel[n] does not match the note log velocity, the note log must code a different NoteOn command, and thus a NoteOff->NoteOn sequence has been lost.",
+      "zh-CHS": "o 如果vel[n]与note log速度不匹配，则note log必须编码不同的NoteOn命令，因此NoteOff->NoteOn序列已丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "o If extseq[n] is less than the (extended) checkpoint packet sequence numbed coded in the recovery journal header (Figure 8 of [RFC4695]), the vel[n] NoteOn command is not in the checkpoint history, and thus a NoteOff->NoteOn sequence has been lost.",
+      "zh-CHS": "o 如果extseq[n]小于恢复日志头（RFC4695的图8）中编码的（扩展的）检查点数据包序列号，则vel[n]NoteOn命令不在检查点历史记录中，因此NoteOff->NoteOn序列已丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Y bit is set to 1, the NoteOn is musically \"simultaneous\" with the RTP timestamp of the packet. If time[n] codes a time value that is clearly not recent, a NoteOff->NoteOn sequence has been lost.",
+      "zh-CHS": "o 如果Y位设置为1，则注释在音乐上与数据包的RTP时间戳“同步”。如果时间[n]编码的时间值明显不是最近的，则NoteOff->NoteOn序列已丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "If these tests indicate a lost NoteOff->NoteOn sequence, the receiver immediately executes a NoteOff command. The receiver decides if the most graceful action is to play or to skip the lost NoteOn, using the criteria we describe at the end of this section. Whether or not the receiver issues a NoteOn command, the vel[n], time[n], and extseq[n] arrays are updated as if it did.",
+      "zh-CHS": "如果这些测试表明丢失了NoteOff->NoteOn序列，则接收器立即执行NoteOff命令。接收者根据我们在本节末尾描述的标准，决定最优雅的动作是播放还是跳过丢失的音符。无论接收器是否发出NoteOn命令，vel[n]、time[n]和extseq[n]数组都会像发出NoteOn命令一样进行更新。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the tests above do not catch all lost NoteOff->NoteOn commands. If a fast NoteOn->NoteOff->NoteOn sequence occurs on a note number with identical velocity values for both NoteOn commands, a lost NoteOff->NoteOn does not result in the recovery algorithm generating a NoteOff command. Instead, the first NoteOn continues to sound, to be terminated by the future NoteOff command. In practice, this (rare) outcome is not musically objectionable.",
+      "zh-CHS": "注意，上面的测试并没有捕获所有丢失的NoteOff->NoteOn命令。如果两个NoteOn命令的速度值相同的音符编号上出现快速NoteOn->NoteOff->NoteOn序列，则丢失的NoteOff->NoteOn不会导致恢复算法生成NoteOff命令。相反，第一个NoteOn将继续发出声音，并由future NoteOff命令终止。实际上，这种（罕见的）结果在音乐上并不令人反感。"
+    },
+    {
+      "indent": 3,
+      "text": "The number of tests in this resiliency algorithm may seem excessive. However, in some common cases, a subset of the tests is not useful. For example, MIDI streams that assigns the same velocity value to all note events are often produced by inexpensive keyboards. The vel[n] tests are not useful for these streams.",
+      "zh-CHS": "此弹性算法中的测试次数似乎过多。然而，在一些常见情况下，测试的子集是没有用处的。例如，为所有音符事件指定相同速度值的MIDI流通常由廉价键盘生成。vel[n]测试对这些流没有用处。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, we discuss how the receiver decides whether to play or to skip a lost NoteOn command. The note log Y bit is set if the NoteOn is \"simultaneous\" with the RTP timestamp of the packet holding the note log. If Y is 0, the receiver does not execute a NoteOn command. If Y is 1, and if the packet has not arrived late, the receiver immediately executes a NoteOn command for the note number, using the velocity coded in the note log.",
+      "zh-CHS": "最后，我们讨论接收者如何决定是播放还是跳过丢失的NoteOn命令。如果NoteOn与保存note log的数据包的RTP时间戳“同步”，则设置note log Y位。如果Y为0，则接收器不执行NoteOn命令。如果Y为1，并且如果数据包没有延迟到达，则接收方立即使用注释日志中编码的速度对注释编号执行NoteOn命令。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Chapter C: MIDI Control Change (0xB)",
+      "section_title": true,
+      "zh-CHS": "7.3. 第C章：MIDI控制更改（0xB）"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter C (Appendix A.3 in [RFC4695]) protects against the loss of MIDI Control Change commands. A Control Change command alters the 7-bit value of one of the 128 MIDI controllers.",
+      "zh-CHS": "第C章（RFC4695中的附录A.3）防止MIDI控制更改命令丢失。控制更改命令更改128个MIDI控制器之一的7位值。"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter C offers three tools for protecting a Control Change command: the value tool (for graded controllers such as sliders), the toggle tool (for on/off switches), and the count tool (for momentary-contact",
+      "zh-CHS": "第C章提供了三种用于保护控制更改命令的工具：值工具（用于分级控制器，如滑块）、切换工具（用于打开/关闭开关）和计数工具（用于瞬时接触）"
+    },
+    {
+      "indent": 3,
+      "text": "switches). Senders choose a tool to encode recovery information for a controller and encode the tool type along with the data in the journal (Figures A.3.2 and A.3.3 in [RFC4695]).",
+      "zh-CHS": "开关）。发送者选择一种工具来编码控制器的恢复信息，并将工具类型与日志中的数据一起编码（图[RFC4695]中的图a.3.2和a.3.3]）。"
+    },
+    {
+      "indent": 3,
+      "text": "A few uses of Control Change commands are not solely protected by Chapter C. The protection of controllers 0 and 32 (Bank Select MSB and Bank Select LSB) is shared between Chapter C and Chapter P (Section 7.4).",
+      "zh-CHS": "控制更改命令的一些使用不受第C章的单独保护。控制器0和32（组选择MSB和组选择LSB）的保护在第C章和第P章（第7.4节）之间共享。"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter M (Appendix A.4 of [RFC4695]) also protects the Control Change command. However, the NMP system does not use this chapter, because MPEG 4 Structured Audio [MPEGSA] does not use the controllers protected by this chapter.",
+      "zh-CHS": "第M章（RFC4695的附录A.4）也保护控制变更命令。但是，NMP系统不使用本章，因为MPEG 4结构化音频[MPEGSA]不使用受本章保护的控制器。"
+    },
+    {
+      "indent": 3,
+      "text": "The Chapter C bitfield consists of a list of controller logs. Each log codes the controller number, the tool type, and the state value for the tool.",
+      "zh-CHS": "章节C位字段由控制器日志列表组成。每个日志对控制器编号、刀具类型和刀具状态值进行编码。"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP receiver maintains the jrec_chapterc structure (Figure 10) for each voice channel in jrec_stream to code Control Change state information. The value[] array holds the most recent data values for each controller number. At the start of the stream, value[] is initialized to the default controller data values specified in [MPEGSA].",
+      "zh-CHS": "NMP接收器为jrec_流中的每个语音通道维护jrec_chapterc结构（图10），以编码控制更改状态信息。value[]数组保存每个控制器编号的最新数据值。在流的开头，值[]被初始化为[MPEGSA]中指定的默认控制器数据值。"
+    },
+    {
+      "indent": 3,
+      "text": "The count[] and toggle[] arrays hold the count tool and toggle tool state values. At the start of a stream, these arrays are initialized to zero. Whenever a Control Command executes, the receiver updates the count[] and toggle[] state values, using the algorithms defined in Appendix A.3 of [RFC4695].",
+      "zh-CHS": "计数[]和切换[]数组保存计数工具和切换工具状态值。在流的开头，这些数组被初始化为零。每当执行控制命令时，接收器使用[RFC4695]附录a.3中定义的算法更新计数[]和切换[]状态值。"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of a loss event, the receiver parses the Chapter C controller log list, using the S bit to skip over \"safe\" logs in the single-packet loss case. For each at-risk controller number n, the receiver determines the tool type in use (value, toggle, or count) and compares the data in the log to the associated jrec_chapterc array element (value[n], toggle[n], or count[n]). If the data do not match, one or more Control Change commands have been lost.",
+      "zh-CHS": "在丢失事件结束时，接收器解析Chapter C控制器日志列表，使用S位跳过单个数据包丢失情况下的“安全”日志。对于每个风险控制器编号n，接收者确定正在使用的工具类型（值、切换或计数），并将日志中的数据与相关jrec_chapterc数组元素（值[n]、切换[n]或计数[n]）进行比较。如果数据不匹配，则一个或多个控制更改命令已丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "The method the receiver uses to recover from this loss depends on the tool type and the controller number. For graded controllers protected by the value tool, the receiver executes a Control Change command using the new data value.",
+      "zh-CHS": "接收器用于从该损失中恢复的方法取决于工具类型和控制器编号。对于受值工具保护的分级控制器，接收器使用新数据值执行控制更改命令。"
+    },
+    {
+      "indent": 3,
+      "text": "For the toggle and count tools, the recovery action is more complex. For example, the Damper Pedal (Sustain) controller (number 64) is typically used as a sustain pedal for piano-like sounds and is typically coded using the toggle tool. If Damper Pedal (Sustain)",
+      "zh-CHS": "对于切换和计数工具，恢复操作更为复杂。例如，阻尼踏板（维持）控制器（编号64）通常用作钢琴般声音的维持踏板，并且通常使用切换工具进行编码。如果减振器踏板（保持）"
+    },
+    {
+      "indent": 3,
+      "text": "Control Change commands are lost, the receiver takes different actions depending on the starting and ending state of the lost sequence, to ensure that \"ringing\" piano notes are \"damped\" to silence.",
+      "zh-CHS": "控制更改命令丢失时，接收器根据丢失序列的开始和结束状态采取不同的操作，以确保“响铃”钢琴音符“衰减”至静音。"
+    },
+    {
+      "indent": 3,
+      "text": "After recovering from the loss, the receiver updates the value[], toggle[], and count[] arrays to reflect the Chapter C data and the executed commands.",
+      "zh-CHS": "从丢失中恢复后，接收器更新值[]、切换[]和计数[]数组，以反映C章数据和执行的命令。"
+    },
+    {
+      "indent": 0,
+      "text": "7.4. Chapter P: MIDI Program Change (0xC)",
+      "section_title": true,
+      "zh-CHS": "7.4. 第P章：MIDI程序更改（0xC）"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter P of the recovery journal protects against the loss of MIDI Program Change (0xC) commands.",
+      "zh-CHS": "恢复日志的第P章防止MIDI程序更改（0xC）命令丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "The 7-bit data value of the Program Change command selects one of 128 possible timbres for the channel. To increase the number of possible timbres, Control Change (0xB) commands may be issued prior to the Program Change command to select a \"program bank\". The Bank Select MSB (number 0) and Bank Select LSB (number 32) controllers specify the 14-bit bank number that subsequent Program Change commands reference.",
+      "zh-CHS": "程序更改命令的7位数据值为通道选择128种可能的音色之一。为了增加可能的音色数量，可以在程序更改命令之前发出控制更改（0xB）命令，以选择“程序库”。Bank Select MSB（编号0）和Bank Select LSB（编号32）控制器指定后续程序更改命令引用的14位组编号。"
+    },
+    {
+      "indent": 3,
+      "text": "The NMP receiver maintains the jrec_chapterp structure (Figure 10) for each voice channel in jrec_stream to code Program Change state information.",
+      "zh-CHS": "NMP接收器为jrec_流中的每个语音通道维护jrec_chapterp结构（图10），以编码程序更改状态信息。"
+    },
+    {
+      "indent": 3,
+      "text": "The prognum variable of jrec_chapterp holds the data value for the most recent Program Change command that has arrived on the stream. The bank_msb and bank_lsb variables of jrec_chapterp code the Bank Select MSB and Bank Select LSB controller data values that were in effect when that Program Change command arrived. The prognum_qual, bank_msb_qual, and bank_lsb_qual variables are initialized to 0 and are set to 1 to qualify the associated data values.",
+      "zh-CHS": "jrec_chapterp的prognum变量保存流中最近到达的程序更改命令的数据值。jrec_chapterp的bank_msb和bank_lsb变量对bank Select msb和bank Select lsb控制器数据值进行编码，这些值在程序更改命令到达时生效。prognum_qual、bank_msb_qual和bank_lsb_qual变量初始化为0，并设置为1以限定关联的数据值。"
+    },
+    {
+      "indent": 3,
+      "text": "Chapter P fields code the data value for the most recent Program Change command, and the MSB and LSB bank values in effect for that command.",
+      "zh-CHS": "第P章字段对最近的程序更改命令的数据值以及该命令有效的MSB和LSB bank值进行编码。"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of a loss event, the receiver checks Chapter P to see if the recovery journal fields match the data stored in jrec_chapterp. If these checks fail, one or more Program Change commands have been lost.",
+      "zh-CHS": "在丢失事件结束时，接收方检查第P章，查看恢复日志字段是否与jrec_第P章中存储的数据匹配。如果这些检查失败，则一个或多个程序更改命令已丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "To recover from this loss, the receiver takes the following steps. If the B bit in Chapter P is set (Figure A.2.1 in [RFC4695]), Control Change bank commands have preceded the Program Change command. The receiver compares the bank data coded by Chapter P with the current bank data for the channel (coded in jrec_channelc).",
+      "zh-CHS": "为了从该损失中恢复，接收器采取以下步骤。如果设置了第P章中的B位（参见[RFC4695]中的图A.2.1），则控制更改组命令位于程序更改命令之前。接收器将第P章编码的银行数据与信道的当前银行数据（在jrec_channelc中编码）进行比较。"
+    },
+    {
+      "indent": 3,
+      "text": "If the bank data do not agree, the receiver issues Control Change commands to align the stream with Chapter P. The receiver then updates jrec_channelp and jrec_channelc variables to reflect the executed command(s). Finally, the receiver issues a Program Change command that reflects the data in Chapter P and updates the prognum and qual_prognum fields in jrec_channelp.",
+      "zh-CHS": "如果银行数据不一致，则接收方发出控制更改命令，使流与章节P对齐。然后，接收方更新jrec_channelp和jrec_channelc变量，以反映已执行的命令。最后，接收器发出程序更改命令，该命令反映第P章中的数据，并更新jrec_channelp中的prognum和qual_prognum字段。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this method relies on Chapter P recovery to precede Chapter C recovery during channel journal processing. This ordering ensures that lost Bank Select Control Change commands that occur after a lost Program Change command in a stream are handled correctly.",
+      "zh-CHS": "请注意，在通道日志处理过程中，此方法依赖于第P章恢复先于第C章恢复。此顺序确保正确处理流中丢失程序更改命令后发生的丢失组选择控制更改命令。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations for the RTP MIDI payload format are discussed in the Security Considerations section of [RFC4695].",
+      "zh-CHS": "[RFC4695]的安全注意事项部分讨论了RTP MIDI有效负载格式的安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA considerations for the RTP MIDI payload format are discussed in the IANA Considerations section of [RFC4695].",
+      "zh-CHS": "[RFC4695]的IANA注意事项部分讨论了RTP MIDI有效负载格式的IANA注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "10. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This memo was written in conjunction with [RFC4695], and the Acknowledgements section of [RFC4695] also applies to this memo.",
+      "zh-CHS": "本备忘录与[RFC4695]一起编写，[RFC4695]的确认部分也适用于本备忘录。"
+    },
+    {
+      "indent": 0,
+      "text": "11. References",
+      "section_title": true,
+      "zh-CHS": "11. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "11.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "11.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4695] Lazzaro, J. and J. Wawrzynek, \"RTP Payload Format for MIDI\", RFC 4695, November 2006.",
+      "zh-CHS": "[RFC4695]Lazzaro，J.和J.Wawrzynek，“MIDI的RTP有效载荷格式”，RFC 4695，2006年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3550] Schulzrinne, H., Casner, S., Frederick, R., and V. Jacobson, \"RTP: A Transport Protocol for Real-Time Applications\", STD 64, RFC 3550, July 2003.",
+      "zh-CHS": "[RFC3550]Schulzrinne，H.，Casner，S.，Frederick，R.，和V.Jacobson，“RTP：实时应用的传输协议”，STD 64，RFC 35502003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3551] Schulzrinne, H. and S. Casner, \"RTP Profile for Audio and Video Conferences with Minimal Control\", STD 65, RFC 3551, July 2003.",
+      "zh-CHS": "[RFC3551]Schulzrinne，H.和S.Casner，“具有最小控制的音频和视频会议的RTP配置文件”，STD 65，RFC 3551，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4566] Handley, M., Jacobson, V., and C. Perkins, \"SDP: Session Description Protocol\", RFC 4566, July 2006.",
+      "zh-CHS": "[RFC4566]Handley，M.，Jacobson，V.，和C.Perkins，“SDP：会话描述协议”，RFC4566，2006年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MIDI] MIDI Manufacturers Association. \"The Complete MIDI 1.0 Detailed Specification\", 1996.",
+      "zh-CHS": "[MIDI]MIDI制造商协会。“完整的MIDI 1.0详细规范”，1996年。"
+    },
+    {
+      "indent": 3,
+      "text": "[MPEGSA] International Standards Organization. \"ISO/IEC 14496 MPEG-4\", Part 3 (Audio), Subpart 5 (Structured Audio), 2001.",
+      "zh-CHS": "[MPEGSA]国际标准组织。“ISO/IEC 14496 MPEG-4”，第3部分（音频），第5子部分（结构化音频），2001年。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3556] Casner, S., \"Session Description Protocol (SDP) Bandwidth Modifiers for RTP Control Protocol (RTCP) Bandwidth\", RFC 3556, July 2003.",
+      "zh-CHS": "[RFC3556]Casner，S.，“RTP控制协议（RTCP）带宽的会话描述协议（SDP）带宽修饰符”，RFC 3556，2003年7月。"
+    },
+    {
+      "indent": 0,
+      "text": "11.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "11.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[NMP] Lazzaro, J. and J. Wawrzynek. \"A Case for Network Musical Performance\", 11th International Workshop on Network and Operating Systems Support for Digital Audio and Video (NOSSDAV 2001) June 25-26, 2001, Port Jefferson, New York.",
+      "zh-CHS": "[NMP]Lazzaro，J.和J.Wawrzynek。“网络音乐表演案例”，2001年6月25日至26日在纽约杰斐逊港举行的第11届数字音频和视频网络和操作系统支持国际研讨会（NOSSDAV 2001）。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3261] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M., and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002.",
+      "zh-CHS": "[RFC3261]Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.，和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[GRAME] Fober, D., Orlarey, Y. and S. Letz. \"Real Time Musical Events Streaming over Internet\", Proceedings of the International Conference on WEB Delivering of Music 2001, pages 147-154.",
+      "zh-CHS": "Fober，D.，Orlarey，Y.和S.Letz。“网上实时音乐活动”，2001年国际音乐网络传播会议记录，第147-154页。"
+    },
+    {
+      "indent": 3,
+      "text": "[CCRMA] Chafe C., Wilson S., Leistikow R., Chisholm D., and G. Scavone. \"A simplified approach to high quality music and sound over IP\", COST-G6 Conference on Digital Audio Effects (DAFx-00), Verona, Italy, December 2000.",
+      "zh-CHS": "[CCRMA]Chafe C.，Wilson S.，Leistikow R.，Chisholm D.，和G.Scavone。“通过IP实现高质量音乐和声音的简化方法”，COST-G6数字音频效果会议（DAFx-00），意大利维罗纳，2000年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RTPBOOK] Perkins, C. \"RTP: Audio and Video for the Internet\", Addison-Wesley, ISBN 0-672-32249-8, 2003.",
+      "zh-CHS": "[RTPBOOK]Perkins，C.“RTP：互联网音频和视频”，艾迪生·韦斯利，ISBN 0-672-32249-82003。"
+    },
+    {
+      "indent": 3,
+      "text": "[STEVENS] Stevens, R. W, Fenner, B., and A. Rudoff. \"Unix Network Programming: The Sockets Networking API\", Addison-Wesley, 2003.",
+      "zh-CHS": "史蒂文斯，R.W.芬纳，B.和A.鲁道夫。“Unix网络编程：套接字网络API”，Addison Wesley，2003年。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "John Lazzaro (corresponding author) UC Berkeley CS Division 315 Soda Hall Berkeley CA 94720-1776",
+      "zh-CHS": "约翰·拉扎罗（通讯作者）加州大学伯克利分校计算机科学部315苏打厅加利福尼亚州伯克利94720-1776"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: lazzaro@cs.berkeley.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "John Wawrzynek UC Berkeley CS Division 631 Soda Hall Berkeley CA 94720-1776",
+      "zh-CHS": "约翰·沃兹内克加州大学伯克利分校CS分部631加利福尼亚州伯克利苏打厅94720-1776"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: johnw@cs.berkeley.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST, AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

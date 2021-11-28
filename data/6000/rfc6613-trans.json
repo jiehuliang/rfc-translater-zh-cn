@@ -1,0 +1,773 @@
+{
+  "title": {
+    "text": "RFC 6613: RADIUS over TCP",
+    "zh-CHS": "RFC 6613"
+  },
+  "number": 6613,
+  "created_at": "2021-11-03 19:33:36.666769+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                          A. DeKok\nRequest for Comments: 6613                                    FreeRADIUS\nCategory: Experimental                                          May 2012\nISSN: 2070-1721",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 28,
+      "text": "RADIUS over TCP",
+      "zh-CHS": "TCP上的RADIUS"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Remote Authentication Dial-In User Server (RADIUS) protocol has, until now, required the User Datagram Protocol (UDP) as the underlying transport layer. This document defines RADIUS over the Transmission Control Protocol (RADIUS/TCP), in order to address handling issues related to RADIUS over Transport Layer Security (RADIUS/TLS). It permits TCP to be used as a transport protocol for RADIUS only when a transport layer such as TLS or IPsec provides confidentiality and security.",
+      "zh-CHS": "到目前为止，远程身份验证拨入用户服务器（RADIUS）协议要求用户数据报协议（UDP）作为底层传输层。本文档定义了传输控制协议（RADIUS/TCP）上的RADIUS，以解决与传输层安全（RADIUS/TLS）上的RADIUS相关的处理问题。只有当传输层（如TLS或IPsec）提供机密性和安全性时，才允许将TCP用作RADIUS的传输协议。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for examination, experimental implementation, and evaluation.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为检查、实验实施和评估而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an Experimental Protocol for the Internet community. This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文档为互联网社区定义了一个实验协议。本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6613.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6613."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2012 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2012 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Applicability of Reliable Transport ........................4\n   1.2. Terminology ................................................6\n   1.3. Requirements Language ......................................6\n2. Changes to RADIUS ...............................................6\n   2.1. Packet Format ..............................................7\n   2.2. Assigned Ports for RADIUS/TCP ..............................7\n   2.3. Management Information Base (MIB) ..........................8\n   2.4. Detecting Live Servers .....................................8\n   2.5. Congestion Control Issues ..................................9\n   2.6. TCP Specific Issues ........................................9\n        2.6.1. Duplicates and Retransmissions .....................10\n        2.6.2. Head of Line Blocking ..............................11\n        2.6.3. Shared Secrets .....................................11\n        2.6.4. Malformed Packets and Unknown Clients ..............12\n        2.6.5. Limitations of the ID Field ........................13\n        2.6.6. EAP Sessions .......................................13\n        2.6.7. TCP Applications Are Not UDP Applications ..........14\n3. Diameter Considerations ........................................14\n4. Security Considerations ........................................14\n5. References .....................................................15\n   5.1. Normative References ......................................15\n   5.2. Informative References ....................................15",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The RADIUS protocol is defined in [RFC2865] as using the User Datagram Protocol (UDP) for the underlying transport layer. While there are a number of benefits to using UDP as outlined in [RFC2865], Section 2.4, there are also some limitations:",
+      "zh-CHS": "[RFC2865]将RADIUS协议定义为在底层传输层使用用户数据报协议（UDP）。虽然使用UDP有许多好处，如[RFC2865]第2.4节所述，但也有一些限制："
+    },
+    {
+      "indent": 6,
+      "text": "* Unreliable transport. As a result, systems using RADIUS have to implement application-layer timers and retransmissions, as described in [RFC5080], Section 2.2.1.",
+      "zh-CHS": "* 不可靠的运输。因此，使用RADIUS的系统必须实现应用层定时器和重传，如[RFC5080]第2.2.1节所述。"
+    },
+    {
+      "indent": 6,
+      "text": "* Packet fragmentation. [RFC2865], Section 3, permits RADIUS packets up to 4096 octets in length. These packets are larger than the common Internet MTU (576), resulting in fragmentation of the packets at the IP layer when they are proxied over the Internet. Transport of fragmented UDP packets appears to be a poorly tested code path on network devices. Some devices appear to be incapable of transporting fragmented UDP packets, making it difficult to deploy RADIUS in a network where those devices are deployed.",
+      "zh-CHS": "* 数据包碎片。[RFC2865]第3节允许RADIUS数据包的长度达到4096个八位字节。这些分组比普通因特网MTU（576）大，导致当分组在因特网上被代理时，分组在IP层被分割。在网络设备上，碎片UDP数据包的传输似乎是一个测试不良的代码路径。有些设备似乎无法传输分段的UDP数据包，这使得在部署这些设备的网络中部署RADIUS变得困难。"
+    },
+    {
+      "indent": 6,
+      "text": "* Connectionless transport. Neither clients nor servers receive positive statements that a \"connection\" is down. This information has to be deduced instead from the absence of a reply to a request.",
+      "zh-CHS": "* 无连接传输。客户端和服务器都没有收到“连接”已断开的肯定声明。这一信息必须从没有对请求的答复中推断出来。"
+    },
+    {
+      "indent": 6,
+      "text": "* Lack of congestion control. Clients can send arbitrary amounts of traffic with little or no feedback. This lack of feedback can result in congestive collapse of the network.",
+      "zh-CHS": "* 缺乏拥塞控制。客户端可以发送任意数量的流量，而很少或没有反馈。这种缺乏反馈的情况会导致网络拥塞性崩溃。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS has been widely deployed for well over a decade and continues to be widely deployed. Experience shows that these issues have been minor in some use cases and problematic in others. For use cases such as inter-server proxying, an alternative transport and security model -- RADIUS/TLS, is defined in [RFC6614]. That document describes the transport implications of running RADIUS/TLS.",
+      "zh-CHS": "RADIUS已广泛部署十多年，并将继续广泛部署。经验表明，这些问题在一些用例中是次要的，而在其他用例中是有问题的。对于服务器间代理等用例，[RFC6614]中定义了另一种传输和安全模型——RADIUS/TLS。该文件描述了运行半径/TLS的运输影响。"
+    },
+    {
+      "indent": 3,
+      "text": "The choice of TCP as a transport protocol is largely driven by the desire to improve the security of RADIUS by using RADIUS/TLS. For practical reasons, the transport protocol (TCP) is defined separately from the security mechanism (TLS).",
+      "zh-CHS": "选择TCP作为传输协议在很大程度上是因为希望通过使用RADIUS/TLS提高RADIUS的安全性。出于实际原因，传输协议（TCP）与安全机制（TLS）是分开定义的。"
+    },
+    {
+      "indent": 3,
+      "text": "Since \"bare\" TCP does not provide for confidentiality or enable negotiation of credible ciphersuites, its use is not appropriate for inter-server communications where strong security is required. As a result, \"bare\" TCP transport MUST NOT be used without TLS, IPsec, or another secure upper layer.",
+      "zh-CHS": "由于“裸”TCP不提供机密性，也不支持可信密码套件的协商，因此它不适用于需要强大安全性的服务器间通信。因此，在没有TLS、IPsec或其他安全上层的情况下，不得使用“裸”TCP传输。"
+    },
+    {
+      "indent": 3,
+      "text": "However, \"bare\" TCP transport MAY be used when another method such as IPsec [RFC4301] is used to provide additional confidentiality and security. Should experience show that such deployments are useful, this specification could be moved to the Standards Track.",
+      "zh-CHS": "但是，当使用另一种方法（如IPsec[RFC4301]）来提供额外的机密性和安全性时，可以使用“裸”TCP传输。如果经验表明这种部署是有用的，那么可以将此规范转移到标准轨道上。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Applicability of Reliable Transport",
+      "section_title": true,
+      "zh-CHS": "1.1. 可靠运输的适用性"
+    },
+    {
+      "indent": 3,
+      "text": "The intent of this document is to address transport issues related to RADIUS/TLS [RFC6614] in inter-server communications scenarios, such as inter-domain communication between proxies. These situations benefit from the confidentiality and ciphersuite negotiation that can be provided by TLS. Since TLS is already widely available within the operating systems used by proxies, implementation barriers are low.",
+      "zh-CHS": "本文档旨在解决服务器间通信场景中与RADIUS/TLS[RFC6614]相关的传输问题，例如代理之间的域间通信。这些情况得益于TLS提供的保密性和密码套件协商。由于TLS已经在代理使用的操作系统中广泛可用，因此实现障碍很低。"
+    },
+    {
+      "indent": 3,
+      "text": "In scenarios where RADIUS proxies exchange a large volume of packets, it is likely that there will be sufficient traffic to enable the congestion window to be widened beyond the minimum value on a long-term basis, enabling ACK piggybacking. Through use of an application-layer watchdog as described in [RFC3539], it is possible to address the objections to reliable transport described in [RFC2865], Section 2.4, without substantial watchdog traffic, since regular traffic is expected in both directions.",
+      "zh-CHS": "在RADIUS代理交换大量数据包的情况下，可能会有足够的流量使拥塞窗口在长期基础上扩展到最小值之外，从而实现回载。通过使用[RFC3539]中所述的应用层看门狗，可以解决[RFC2865]第2.4节中所述的对可靠传输的异议，而无需大量看门狗流量，因为预期在两个方向上都会有正常流量。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, use of RADIUS/TLS has been found to improve operational performance when used with multi-round-trip authentication mechanisms such as the Extensible Authentication Protocol (EAP) over RADIUS [RFC3579]. In such exchanges, it is typical for EAP fragmentation to increase the number of round trips required. For example, where EAP-TLS authentication [RFC5216] is attempted and both the EAP peer and server utilize certificate chains of 8 KB, as many as 15 round trips can be required if RADIUS packets are restricted to the common Ethernet MTU (1500 octets) for EAP over LAN (EAPoL) use cases. Fragmentation of RADIUS/UDP packets is generally inadvisable due to lack of fragmentation support within intermediate devices such as filtering routers, firewalls, and NATs. However, since RADIUS/UDP implementations typically do not support MTU discovery, fragmentation can occur even when the maximum RADIUS/UDP packet size is restricted to 1500 octets.",
+      "zh-CHS": "此外，已发现使用RADIUS/TLS与多往返身份验证机制（如RADIUS上的可扩展身份验证协议（EAP））一起使用时，可提高运行性能[RFC3579]。在这种交换中，EAP碎片化通常会增加所需的往返次数。例如，在尝试EAP-TLS身份验证[RFC5216]且EAP对等方和服务器均使用8KB的证书链的情况下，如果RADIUS数据包被限制为LAN上EAP（EAPoL）用例的公共以太网MTU（1500个八位字节），则可能需要多达15个往返。RADIUS/UDP数据包的碎片化通常是不可取的，因为中间设备（如过滤路由器、防火墙和NAT）中缺乏碎片化支持。但是，由于RADIUS/UDP实现通常不支持MTU发现，因此即使最大RADIUS/UDP数据包大小限制为1500个八位字节，也可能出现碎片。"
+    },
+    {
+      "indent": 3,
+      "text": "These problems disappear if a 4096-octet application-layer payload can be used alongside RADIUS/TLS. Since most TCP implementations support MTU discovery, the TCP Maximum Segment Size (MSS) is automatically adjusted to account for the MTU, and the larger congestion window supported by TCP may allow multiple TCP segments to be sent within a single window. Even those few TCP stacks that do not perform Path MTU discovery can already support arbitrary payloads.",
+      "zh-CHS": "如果4096八位组应用层有效载荷可以与RADIUS/TLS一起使用，这些问题就会消失。由于大多数TCP实现都支持MTU发现，因此会自动调整TCP最大段大小（MSS）以考虑MTU，并且TCP支持的更大拥塞窗口可能允许在单个窗口内发送多个TCP段。即使是那些不执行路径MTU发现的少数TCP堆栈也可以支持任意有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "Where the MTU for EAP packets is large, RADIUS/EAP traffic required for an EAP-TLS authentication with 8-KB certificate chains may be reduced to 7 round trips or less, resulting in substantially reduced authentication times.",
+      "zh-CHS": "在EAP分组的MTU较大的情况下，具有8-KB证书链的EAP-TLS认证所需的RADIUS/EAP通信量可以减少到7次往返或更少，从而大大减少认证时间。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, experience indicates that EAP sessions transported over RADIUS/TLS are less likely to abort unsuccessfully. Historically, RADIUS-over-UDP (see Section 1.2) implementations have exhibited poor retransmission behavior. Some implementations retransmit packets, others do not, and others send new packets rather than performing retransmission. Some implementations are incapable of detecting EAP retransmissions, and will instead treat the retransmitted packet as an error. As a result, within RADIUS/UDP implementations, retransmissions have a high likelihood of causing an EAP authentication session to fail. For a system with a million logins a day running EAP-TLS mutual authentication with 15 round trips, and having a packet loss probability of P=0.01%, we expect that 0.3% of connections will experience at least one lost packet. That is, 3,000 user sessions each day will experience authentication failure. This is an unacceptable failure rate for a mass-market network service.",
+      "zh-CHS": "此外，经验表明，通过RADIUS/TLS传输的EAP会话不太可能失败中止。过去，UDP上的RADIUS（见第1.2节）实现表现出较差的重传行为。一些实现重新传输数据包，其他实现不重新传输数据包，其他实现发送新数据包而不是执行重新传输。一些实现无法检测EAP重传，而是将重传的数据包视为错误。因此，在RADIUS/UDP实现中，重传极有可能导致EAP身份验证会话失败。对于一个每天有一百万次登录的系统，运行EAP-TLS相互认证，有15次往返，并且数据包丢失概率P=0.01%，我们预计0.3%的连接将经历至少一次数据包丢失。也就是说，每天3000个用户会话将经历身份验证失败。对于大众市场网络服务来说，这是一个不可接受的故障率。"
+    },
+    {
+      "indent": 3,
+      "text": "Using a reliable transport method such as TCP means that RADIUS implementations can remove all application-layer retransmissions, and instead rely on the Operating System (OS) kernel's well-tested TCP transport to ensure Path MTU discovery and reliable delivery. Modern TCP implementations also implement anti-spoofing provisions, which is more difficult to do in a UDP application.",
+      "zh-CHS": "使用可靠的传输方法（如TCP）意味着RADIUS实现可以删除所有应用程序层重传，而是依赖操作系统（OS）内核经过良好测试的TCP传输来确保路径MTU发现和可靠传递。现代TCP实现还实现了反欺骗规定，这在UDP应用程序中更难做到。"
+    },
+    {
+      "indent": 3,
+      "text": "In contrast, use of TCP as a transport between a Network Access Server (NAS) and a RADIUS server is usually a poor fit. As noted in [RFC3539], Section 2.1, for systems originating low numbers of RADIUS request packets, inter-packet spacing is often larger than the packet Round-Trip Time (RTT), meaning that, the congestion window will typically stay below the minimum value on a long-term basis. The result is an increase in packets due to ACKs as compared to UDP, without a corresponding set of benefits. In addition, the lack of substantial traffic implies the need for additional watchdog traffic to confirm reachability.",
+      "zh-CHS": "相比之下，使用TCP作为网络访问服务器（NAS）和RADIUS服务器之间的传输通常是不合适的。如[RFC3539]第2.1节所述，对于发出少量RADIUS请求数据包的系统，数据包间间隔通常大于数据包往返时间（RTT），这意味着拥塞窗口通常会长期保持在最小值以下。结果是，与UDP相比，由于ACK而导致的数据包数量增加，而没有相应的好处。此外，缺乏大量流量意味着需要额外的看门狗流量来确认可达性。"
+    },
+    {
+      "indent": 3,
+      "text": "As a result, the objections to reliable transport indicated in [RFC2865], Section 2.4, continue to apply to NAS-RADIUS server communications, and UDP SHOULD continue to be used as the transport protocol in this scenario. In addition, it is recommended that implementations of RADIUS Dynamic Authorization Extensions [RFC5176] SHOULD continue to utilize UDP transport, since the volume of dynamic authorization traffic is usually expected to be small.",
+      "zh-CHS": "因此，[RFC2865]第2.4节中指出的对可靠传输的异议继续适用于NAS-RADIUS服务器通信，在这种情况下，UDP应继续用作传输协议。此外，建议RADIUS动态授权扩展[RFC5176]的实现应继续利用UDP传输，因为动态授权通信量通常预计较小。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Terminology",
+      "section_title": true,
+      "zh-CHS": "1.2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the following terms:",
+      "zh-CHS": "本文件使用以下术语："
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS client A device that provides an access service for a user to a network. Also referred to as a Network Access Server, or NAS.",
+      "zh-CHS": "RADIUS客户端为用户提供网络访问服务的设备。也称为网络访问服务器或NAS。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS server A device that provides one or more of authentication, authorization, and/or accounting (AAA) services to a NAS.",
+      "zh-CHS": "RADIUS服务器向NAS提供一个或多个身份验证、授权和/或记帐（AAA）服务的设备。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS proxy A RADIUS proxy acts as a RADIUS server to the NAS, and a RADIUS client to the RADIUS server.",
+      "zh-CHS": "RADIUS代理RADIUS代理充当NAS的RADIUS服务器，以及RADIUS服务器的RADIUS客户端。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS request packet A packet originated by a RADIUS client to a RADIUS server. For example, Access-Request, Accounting-Request, CoA-Request, or Disconnect-Request.",
+      "zh-CHS": "RADIUS请求数据包RADIUS客户端向RADIUS服务器发送的数据包。例如，访问请求、记帐请求、CoA请求或断开连接请求。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS response packet A packet sent by a RADIUS server to a RADIUS client, in response to a RADIUS request packet. For example, Access-Accept, Access-Reject, Access-Challenge, Accounting-Response, or CoA-ACK.",
+      "zh-CHS": "RADIUS响应数据包RADIUS服务器向RADIUS客户端发送的数据包，用于响应RADIUS请求数据包。例如，访问接受、访问拒绝、访问质询、记帐响应或CoA ACK。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS/UDP RADIUS over UDP, as defined in [RFC2865].",
+      "zh-CHS": "[RFC2865]中定义的UDP上的RADIUS/UDP RADIUS。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS/TCP RADIUS over TCP, as defined in this document.",
+      "zh-CHS": "RADIUS/TCP基于TCP的RADIUS，如本文档中所定义。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS/TLS RADIUS over TLS, as defined in [RFC6614].",
+      "zh-CHS": "半径/TLS根据[RFC6614]中的定义，在TLS上的半径。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Requirements Language",
+      "section_title": true,
+      "zh-CHS": "1.3. 需求语言"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Changes to RADIUS",
+      "section_title": true,
+      "zh-CHS": "2. 对半径的更改"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS/TCP involves sending RADIUS application messages over a TCP connection. In the sections that follow, we discuss the implications for the RADIUS packet format (Section 2.1), port usage (Section 2.2), RADIUS MIBs (Section 2.3), and RADIUS proxies (Section 2.5). TCP-specific issues are discussed in Section 2.6.",
+      "zh-CHS": "RADIUS/TCP涉及通过TCP连接发送RADIUS应用程序消息。在接下来的章节中，我们将讨论RADIUS数据包格式（第2.1节）、端口使用（第2.2节）、RADIUS MIB（第2.3节）和RADIUS代理（第2.5节）的含义。TCP特定问题在第2.6节中讨论。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Packet Format",
+      "section_title": true,
+      "zh-CHS": "2.1. 数据包格式"
+    },
+    {
+      "indent": 3,
+      "text": "The RADIUS packet format is unchanged from [RFC2865], [RFC2866], and [RFC5176]. Specifically, all of the following portions of RADIUS MUST be unchanged when using RADIUS/TCP:",
+      "zh-CHS": "RADIUS数据包格式与[RFC2865]、[RFC2866]和[RFC5176]的格式相同。具体而言，使用RADIUS/TCP时，RADIUS的以下所有部分必须保持不变："
+    },
+    {
+      "indent": 6,
+      "text": "* Packet format * Permitted codes * Request Authenticator calculation * Response Authenticator calculation * Minimum packet length * Maximum packet length * Attribute format * Vendor-Specific Attribute (VSA) format * Permitted data types * Calculations of dynamic attributes such as CHAP-Challenge, or Message-Authenticator. * Calculation of \"encrypted\" attributes such as Tunnel-Password.",
+      "zh-CHS": "* 数据包格式*允许的代码*请求验证器计算*响应验证器计算*最小数据包长度*最大数据包长度*属性格式*供应商特定属性（VSA）格式*允许的数据类型*动态属性（如CHAP质询或消息验证器）的计算。*计算“加密”属性，如隧道密码。"
+    },
+    {
+      "indent": 3,
+      "text": "The use of TLS transport does not change the calculation of security-related fields (such as the Response-Authenticator) in RADIUS [RFC2865] or RADIUS Dynamic Authorization [RFC5176]. Calculation of attributes such as User-Password [RFC2865] or Message-Authenticator [RFC3579] also does not change.",
+      "zh-CHS": "TLS传输的使用不会改变RADIUS[RFC2865]或RADIUS动态授权[RFC5176]中安全相关字段（如响应验证器）的计算。用户密码[RFC2865]或消息验证器[RFC3579]等属性的计算也不会更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients and servers MUST be able to store and manage shared secrets based on the key described in Section 2.6, of (IP address, port, transport protocol).",
+      "zh-CHS": "客户端和服务器必须能够根据（IP地址、端口、传输协议）第2.6节中描述的密钥存储和管理共享机密。"
+    },
+    {
+      "indent": 3,
+      "text": "The changes to RADIUS implementations required to implement this specification are largely limited to the portions that send and receive packets on the network.",
+      "zh-CHS": "实现此规范所需的RADIUS实现的更改主要限于在网络上发送和接收数据包的部分。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Assigned Ports for RADIUS/TCP",
+      "section_title": true,
+      "zh-CHS": "2.2. 为RADIUS/TCP分配的端口"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has already assigned TCP ports for RADIUS transport, as outlined below:",
+      "zh-CHS": "IANA已经为RADIUS传输分配了TCP端口，如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "* radius 1812/tcp * radius-acct 1813/tcp * radius-dynauth 3799/tcp",
+      "zh-CHS": "* radius 1812/tcp*radius账户1813/tcp*radius dynauth 3799/tcp"
+    },
+    {
+      "indent": 3,
+      "text": "Since these ports are unused by existing RADIUS implementations, the assigned values MUST be used as the default ports for RADIUS over TCP.",
+      "zh-CHS": "由于现有RADIUS实现未使用这些端口，因此分配的值必须用作TCP上RADIUS的默认端口。"
+    },
+    {
+      "indent": 3,
+      "text": "The early deployment of RADIUS was done using UDP port number 1645, which conflicts with the \"datametrics\" service. Implementations using RADIUS/TCP MUST NOT use TCP ports 1645 or 1646 as the default ports for this specification.",
+      "zh-CHS": "RADIUS的早期部署是使用UDP端口号1645完成的，这与“datametrics”服务冲突。使用RADIUS/TCP的实现不得将TCP端口1645或1646用作此规范的默认端口。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"radsec\" port (2083/tcp) SHOULD be used as the default port for RADIUS/TLS. The \"radius\" port (1812/tcp) SHOULD NOT be used for RADIUS/TLS.",
+      "zh-CHS": "“radsec”端口（2083/tcp）应用作RADIUS/TLS的默认端口。“radius”端口（1812/tcp）不应用于radius/TLS。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Management Information Base (MIB)",
+      "section_title": true,
+      "zh-CHS": "2.3. 管理信息库（MIB）"
+    },
+    {
+      "indent": 3,
+      "text": "The MIB Module definitions in [RFC4668], [RFC4669], [RFC4670], [RFC4671], [RFC4672], and [RFC4673] are intended to be used for RADIUS over UDP. As such, they do not support RADIUS/TCP, and will need to be updated in the future. Implementations of RADIUS/TCP SHOULD NOT reuse these MIB Modules to perform statistics counting for RADIUS/TCP connections.",
+      "zh-CHS": "[RFC4668]、[RFC4669]、[RFC4670]、[RFC4671]、[RFC4672]和[RFC4673]中的MIB模块定义旨在用于UDP上的RADIUS。因此，它们不支持RADIUS/TCP，将来需要更新。RADIUS/TCP的实现不应重用这些MIB模块来执行RADIUS/TCP连接的统计计数。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Detecting Live Servers",
+      "section_title": true,
+      "zh-CHS": "2.4. 检测实时服务器"
+    },
+    {
+      "indent": 3,
+      "text": "As RADIUS is a \"hop-by-hop\" protocol, a RADIUS proxy shields the client from any information about downstream servers. While the client may be able to deduce the operational state of the local server (i.e., proxy), it cannot make any determination about the operational state of the downstream servers.",
+      "zh-CHS": "由于RADIUS是一种“逐跳”协议，RADIUS代理会屏蔽客户机，使其不受有关下游服务器的任何信息的影响。虽然客户端可能能够推断本地服务器（即，代理）的操作状态，但它无法确定下游服务器的操作状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Within RADIUS, as defined in [RFC2865], proxies typically only forward traffic between the NAS and RADIUS server, and they do not generate their own responses. As a result, when a NAS does not receive a response to a request, this could be the result of packet loss between the NAS and proxy, a problem on the proxy, loss between the RADIUS proxy and server, or a problem with the server.",
+      "zh-CHS": "在RADIUS中，如[RFC2865]中所定义，代理通常只在NAS和RADIUS服务器之间转发流量，而不生成自己的响应。因此，当NAS没有收到对请求的响应时，这可能是由于NAS和代理之间的数据包丢失、代理上的问题、RADIUS代理和服务器之间的丢失或服务器上的问题造成的。"
+    },
+    {
+      "indent": 3,
+      "text": "When UDP is used as a transport protocol, the absence of a reply can cause a client to deduce (incorrectly) that the proxy is unavailable. The client could then fail over to another server or conclude that no \"live\" servers are available (OKAY state in [RFC3539], Appendix A). This situation is made even worse when requests are sent through a proxy to multiple destinations. Failures in one destination may result in service outages for other destinations, if the client erroneously believes that the proxy is unresponsive.",
+      "zh-CHS": "当UDP用作传输协议时，缺少应答可能会导致客户端推断（错误地）代理不可用。然后，客户机可能会故障转移到另一台服务器，或者断定没有可用的“活动”服务器（附录A中的[RFC3539]中的OK状态）。当请求通过代理发送到多个目的地时，这种情况会变得更糟。如果客户端错误地认为代理没有响应，则一个目标中的故障可能会导致其他目标的服务中断。"
+    },
+    {
+      "indent": 3,
+      "text": "For RADIUS/TLS, it is RECOMMENDED that implementations utilize the existence of a TCP connection along with the application-layer watchdog defined in [RFC3539], Section 3.4, to determine that the server is \"live\".",
+      "zh-CHS": "对于RADIUS/TLS，建议实施时利用TCP连接的存在以及[RFC3539]第3.4节中定义的应用层看门狗来确定服务器是否处于“活动”状态。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS clients using RADIUS/TCP MUST mark a connection DOWN if the network stack indicates that the connection is no longer active. If the network stack indicates that the connection is still active, clients MUST NOT decide that it is down until the application-layer watchdog algorithm has marked it DOWN ([RFC3539], Appendix A). RADIUS clients using RADIUS/TCP MUST NOT decide that a RADIUS server is unresponsive until all TCP connections to it have been marked DOWN.",
+      "zh-CHS": "如果网络堆栈指示连接不再处于活动状态，则使用RADIUS/TCP的RADIUS客户端必须标记连接。如果网络堆栈指示连接仍处于活动状态，则在应用层看门狗算法将其标记为关闭之前，客户端不得确定连接已关闭（[RFC3539]，附录A）。使用RADIUS/TCP的RADIUS客户端在标记所有与RADIUS服务器的TCP连接之前，不得确定RADIUS服务器无响应。"
+    },
+    {
+      "indent": 3,
+      "text": "The above requirements do not forbid the practice of a client proactively closing connections or marking a server as DOWN due to an administrative decision.",
+      "zh-CHS": "上述要求并不禁止客户端主动关闭连接或由于管理决策而将服务器标记为停机。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Congestion Control Issues",
+      "section_title": true,
+      "zh-CHS": "2.5. 拥塞控制问题"
+    },
+    {
+      "indent": 3,
+      "text": "Additional issues with RADIUS proxies involve transport protocol changes where the proxy receives packets on one transport protocol and forwards them on a different transport protocol. There are several situations in which the law of \"conservation of packets\" could be violated on an end-to-end basis (e.g., where more packets could enter the system than could leave it on a short-term basis):",
+      "zh-CHS": "RADIUS代理的其他问题涉及传输协议更改，其中代理在一个传输协议上接收数据包，并在另一个传输协议上转发数据包。有几种情况下，端到端可能违反“数据包保护”法（例如，进入系统的数据包可能多于短期离开系统的数据包）："
+    },
+    {
+      "indent": 6,
+      "text": "* Where TCP is used between proxies, it is possible that the bandwidth consumed by incoming UDP packets destined to a given upstream server could exceed the sending rate of a single TCP connection to that server, based on the window size/RTT estimate.",
+      "zh-CHS": "* 在代理之间使用TCP的情况下，根据窗口大小/RTT估计，发送到给定上游服务器的传入UDP数据包消耗的带宽可能超过到该服务器的单个TCP连接的发送速率。"
+    },
+    {
+      "indent": 6,
+      "text": "* It is possible for the incoming rate of TCP packets destined to a given realm to exceed the UDP throughput achievable using the transport guidelines established in [RFC5080]. This could happen, for example, where the TCP window between proxies has opened, but packet loss is being experienced on the UDP leg, so that the effective congestion window on the UDP side is 1.",
+      "zh-CHS": "* 发送到给定领域的TCP数据包的传入速率可能超过使用[RFC5080]中建立的传输准则可实现的UDP吞吐量。这可能发生，例如，代理之间的TCP窗口已打开，但UDP分支上正在经历数据包丢失，因此UDP端的有效拥塞窗口为1。"
+    },
+    {
+      "indent": 3,
+      "text": "Intrinsically, proxy systems operate with multiple control loops instead of one end-to-end loop, and so they are less stable. This is true even for TCP-TCP proxies. As discussed in [RFC3539], the only way to achieve stability equivalent to a single TCP connection is to mimic the end-to-end behavior of a single TCP connection. This typically is not achievable with an application-layer RADIUS implementation, regardless of transport.",
+      "zh-CHS": "本质上，代理系统使用多个控制回路，而不是一个端到端回路，因此稳定性较差。即使对于TCP-TCP代理也是如此。如[RFC3539]所述，实现与单个TCP连接等效的稳定性的唯一方法是模拟单个TCP连接的端到端行为。无论传输如何，应用层RADIUS实现通常都无法实现这一点。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. TCP Specific Issues",
+      "section_title": true,
+      "zh-CHS": "2.6. TCP特定问题"
+    },
+    {
+      "indent": 3,
+      "text": "The guidelines defined in [RFC3539] for implementing a AAA protocol over reliable transport are applicable to RADIUS/TLS.",
+      "zh-CHS": "[RFC3539]中定义的通过可靠传输实现AAA协议的指南适用于RADIUS/TLS。"
+    },
+    {
+      "indent": 3,
+      "text": "The application-layer watchdog defined in [RFC3539], Section 3.4, MUST be used. The Status-Server packet [RFC5997] MUST be used as the application-layer watchdog message. Implementations MUST reserve one RADIUS ID per connection for the application-layer watchdog message. This restriction is described further in Section 2.6.4.",
+      "zh-CHS": "必须使用[RFC3539]第3.4节中定义的应用层看门狗。状态服务器数据包[RFC5997]必须用作应用层监视程序消息。实现必须为应用层监视程序消息的每个连接保留一个RADIUS ID。第2.6.4节进一步描述了该限制。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS/TLS implementations MUST support receiving RADIUS packets over both UDP and TCP transports originating from the same endpoint. RADIUS packets received over UDP MUST be replied to over UDP; RADIUS packets received over TCP MUST be replied to over TCP. That is, RADIUS clients and servers MUST be treated as unique based on a key of the three-tuple (IP address, port, transport protocol). Implementations MUST permit different shared secrets to be used for UDP and TCP connections to the same destination IP address and numerical port.",
+      "zh-CHS": "RADIUS/TLS实现必须支持通过UDP和TCP传输接收来自同一端点的RADIUS数据包。通过UDP接收的RADIUS数据包必须通过UDP回复；通过TCP接收的RADIUS数据包必须通过TCP回复。也就是说，RADIUS客户端和服务器必须基于三元组（IP地址、端口、传输协议）的密钥被视为唯一的。实现必须允许将不同的共享机密用于到同一目标IP地址和数字端口的UDP和TCP连接。"
+    },
+    {
+      "indent": 3,
+      "text": "This requirement does not forbid the traditional practice of using primary and secondary servers in a failover relationship. Instead, it requires that two services sharing an IP address and numerical port, but differing in transport protocol, MUST be treated as independent services for the purpose of failover, load-balancing, etc.",
+      "zh-CHS": "此要求并不禁止在故障转移关系中使用主服务器和辅助服务器的传统做法。相反，它要求共享IP地址和数字端口但传输协议不同的两个服务必须被视为独立服务，以实现故障切换、负载平衡等。"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever the underlying network stack permits the use of TCP keepalive socket options, their use is RECOMMENDED.",
+      "zh-CHS": "只要底层网络堆栈允许使用TCP keepalive套接字选项，建议使用它们。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.1. Duplicates and Retransmissions",
+      "section_title": true,
+      "zh-CHS": "2.6.1. 复制和重传"
+    },
+    {
+      "indent": 3,
+      "text": "As TCP is a reliable transport, implementations MUST NOT retransmit RADIUS request packets over a given TCP connection. Similarly, if there is no response to a RADIUS packet over one TCP connection, implementations MUST NOT retransmit that packet over a different TCP connection to the same destination IP address and port, while the first connection is in the OKAY state ([RFC3539], Appendix A).",
+      "zh-CHS": "由于TCP是一种可靠的传输方式，因此实现过程不得通过给定的TCP连接重新传输RADIUS请求数据包。类似地，如果在一个TCP连接上没有对RADIUS数据包的响应，则在第一个连接处于正常状态时，实现不得通过不同的TCP连接将该数据包重新传输到相同的目标IP地址和端口（[RFC3539]，附录a）。"
+    },
+    {
+      "indent": 3,
+      "text": "However, if the TCP connection is broken or closed, retransmissions over new connections are permissible. RADIUS request packets that have not yet received a response MAY be transmitted by a RADIUS client over a new TCP connection. As this procedure involves using a new source port, the ID of the packet MAY change. If the ID changes, any security attributes such as Message-Authenticator MUST be recalculated.",
+      "zh-CHS": "但是，如果TCP连接断开或关闭，则允许通过新连接重新传输。尚未收到响应的RADIUS请求数据包可由RADIUS客户端通过新的TCP连接进行传输。由于此过程涉及使用新的源端口，因此数据包的ID可能会更改。如果ID更改，则必须重新计算任何安全属性，如消息验证器。"
+    },
+    {
+      "indent": 3,
+      "text": "If a TCP connection is broken or closed, any cached RADIUS response packets ([RFC5080], Section 2.2.2) associated with that connection MUST be discarded. A RADIUS server SHOULD stop the processing of any requests associated with that TCP connection. No response to these requests can be sent over the TCP connection, so any further",
+      "zh-CHS": "如果TCP连接断开或关闭，则必须丢弃与该连接关联的任何缓存RADIUS响应数据包（[RFC5080]，第2.2.2节）。RADIUS服务器应停止处理与该TCP连接关联的任何请求。无法通过TCP连接发送对这些请求的响应，因此需要进一步"
+    },
+    {
+      "indent": 3,
+      "text": "processing is pointless. This requirement applies not only to RADIUS servers, but also to proxies. When a client's connection to a proxy server is closed, there may be responses from a home server that were supposed to be sent by the proxy back over that connection to the client. Since the client connection is closed, those responses from the home server to the proxy server SHOULD be silently discarded by the proxy.",
+      "zh-CHS": "处理是毫无意义的。此要求不仅适用于RADIUS服务器，也适用于代理。当客户端与代理服务器的连接关闭时，可能会有来自家庭服务器的响应，这些响应应该由代理通过该连接发送回客户端。由于客户端连接已关闭，因此代理服务器应自动放弃从主服务器到代理服务器的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "Despite the above discussion, RADIUS servers SHOULD still perform duplicate detection on received packets, as described in [RFC5080], Section 2.2.2. This detection can prevent duplicate processing of packets from non-conformant clients.",
+      "zh-CHS": "尽管有上述讨论，RADIUS服务器仍应对接收到的数据包执行重复检测，如[RFC5080]第2.2.2节所述。此检测可以防止重复处理来自不一致客户端的数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "RADIUS packets SHOULD NOT be retransmitted to the same destination IP and numerical port, but over a different transport protocol. There is no guarantee in RADIUS that the two ports are in any way related. This requirement does not, however, forbid the practice of putting multiple servers into a failover or load-balancing pool. In that situation, RADIUS request MAY be retransmitted to another server that is known to be part of the same pool.",
+      "zh-CHS": "RADIUS数据包不应重新传输到相同的目标IP和数字端口，而是通过不同的传输协议。在RADIUS中，无法保证这两个端口以任何方式相关。但是，此要求并不禁止将多台服务器放入故障切换或负载平衡池。在这种情况下，RADIUS请求可能会被重新传输到另一台已知属于同一池的服务器。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.2. Head of Line Blocking",
+      "section_title": true,
+      "zh-CHS": "2.6.2. 线路阻塞头"
+    },
+    {
+      "indent": 3,
+      "text": "When using UDP as a transport for RADIUS, there is no ordering of packets. If a packet sent by a client is lost, that loss has no effect on subsequent packets sent by that client.",
+      "zh-CHS": "使用UDP作为RADIUS的传输时，数据包没有顺序。如果客户端发送的数据包丢失，该丢失对该客户端发送的后续数据包没有影响。"
+    },
+    {
+      "indent": 3,
+      "text": "Unlike UDP, TCP is subject to issues related to Head of Line (HoL) blocking. This occurs when a TCP segment is lost and a subsequent TCP segment arrives out of order. While the RADIUS server can process RADIUS packets out of order, the semantics of TCP makes this impossible. This limitation can lower the maximum packet processing rate of RADIUS/TCP.",
+      "zh-CHS": "与UDP不同，TCP会遇到与线路头（HoL）阻塞相关的问题。当一个TCP段丢失并且后续的TCP段出现故障时，就会发生这种情况。虽然RADIUS服务器可以无序处理RADIUS数据包，但TCP的语义使得这不可能。此限制会降低RADIUS/TCP的最大数据包处理速率。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.3. Shared Secrets",
+      "section_title": true,
+      "zh-CHS": "2.6.3. 共享秘密"
+    },
+    {
+      "indent": 3,
+      "text": "The use of TLS transport does not change the calculation of security-related fields (such as the Response-Authenticator) in RADIUS [RFC2865] or RADIUS Dynamic Authorization [RFC5176]. Calculation of attributes such as User-Password [RFC2865] or Message-Authenticator [RFC3579] also does not change.",
+      "zh-CHS": "TLS传输的使用不会改变RADIUS[RFC2865]或RADIUS动态授权[RFC5176]中安全相关字段（如响应验证器）的计算。用户密码[RFC2865]或消息验证器[RFC3579]等属性的计算也不会更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients and servers MUST be able to store and manage shared secrets based on the key described above, at the start of this section (i.e., IP address, port, transport protocol).",
+      "zh-CHS": "客户机和服务器必须能够根据本节开头所述的密钥（即IP地址、端口、传输协议）存储和管理共享机密。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.4. Malformed Packets and Unknown Clients",
+      "section_title": true,
+      "zh-CHS": "2.6.4. 格式错误的数据包和未知客户端"
+    },
+    {
+      "indent": 3,
+      "text": "The RADIUS specifications ([RFC2865], and many others) say that an implementation should \"silently discard\" a packet in a number of circumstances. This action has no further consequences for UDP transport, as the \"next\" packet is completely independent of the previous one.",
+      "zh-CHS": "RADIUS规范（[RFC2865]和许多其他规范）指出，在许多情况下，实现应该“静默地丢弃”数据包。此操作对UDP传输没有进一步的影响，因为“下一个”数据包完全独立于前一个数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "When TCP is used as a transport, decoding the \"next\" packet on a connection depends on the proper decoding of the previous packet. As a result, the behavior with respect to discarded packets has to change.",
+      "zh-CHS": "当TCP用作传输时，对连接上的“下一个”数据包进行解码取决于对前一个数据包的正确解码。因此，关于丢弃的数据包的行为必须改变。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations of this specification SHOULD treat the \"silently discard\" texts referenced above as \"silently discard and close the connection\". That is, the TCP connection MUST be closed if any of the following circumstances are seen:",
+      "zh-CHS": "本规范的实现应将上述“静默放弃”文本视为“静默放弃并关闭连接”。也就是说，如果出现以下任何情况，必须关闭TCP连接："
+    },
+    {
+      "indent": 6,
+      "text": "* Connection from an unknown client * Packet where the RADIUS \"Length\" field is less than the minimum RADIUS packet length * Packet where the RADIUS \"Length\" field is more than the maximum RADIUS packet length * Packet that has an Attribute \"Length\" field has value of zero or one (0 or 1) * Packet where the attributes do not exactly fill the packet * Packet where the Request Authenticator fails validation (where validation is required) * Packet where the Response Authenticator fails validation (where validation is required) * Packet where the Message-Authenticator attribute fails validation (when it occurs in a packet)",
+      "zh-CHS": "* 来自未知客户端*数据包的连接，其中RADIUS“长度”字段小于最小RADIUS数据包长度*数据包，其中RADIUS“长度”字段大于最大RADIUS数据包长度*具有属性“长度”字段的数据包的值为零或一（0或1）*属性未完全填充数据包的数据包*请求验证器未通过验证的数据包（需要验证的数据包）*响应验证器未通过验证的数据包（需要验证的数据包）*消息验证器属性未通过验证的数据包（在数据包中发生时）"
+    },
+    {
+      "indent": 3,
+      "text": "After applying the above rules, there are still two situations where the previous specifications allow a packet to be \"silently discarded\" upon receipt:",
+      "zh-CHS": "在应用上述规则之后，仍然存在两种情况，其中先前的规范允许在收到数据包时“悄悄地丢弃”："
+    },
+    {
+      "indent": 6,
+      "text": "* Packets with an invalid code field * Response packets that do not match any outstanding request",
+      "zh-CHS": "* 代码字段无效的数据包*与任何未完成请求不匹配的响应数据包"
+    },
+    {
+      "indent": 3,
+      "text": "In these situations, the TCP connections MAY remain open, or they MAY be closed, as an implementation choice. However, the invalid packet MUST be silently discarded.",
+      "zh-CHS": "在这些情况下，作为一种实现选择，TCP连接可以保持打开，也可以关闭。但是，必须悄悄地丢弃无效数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "These requirements reduce the possibility for a misbehaving client or server to wreak havoc on the network.",
+      "zh-CHS": "这些要求降低了行为不端的客户端或服务器对网络造成严重破坏的可能性。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.5. Limitations of the ID Field",
+      "section_title": true,
+      "zh-CHS": "2.6.5. ID字段的限制"
+    },
+    {
+      "indent": 3,
+      "text": "The RADIUS ID field is one octet in size. As a result, any one TCP connection can have only 256 \"in flight\" RADIUS packets at a time. If more than 256 simultaneous \"in flight\" packets are required, additional TCP connections will need to be opened. This limitation is also noted in [RFC3539], Section 2.4.",
+      "zh-CHS": "半径ID字段的大小为一个八位字节。因此，任何一个TCP连接一次只能有256个“飞行中”RADIUS数据包。如果同时需要256个以上的“飞行中”数据包，则需要打开额外的TCP连接。[RFC3539]第2.4节也指出了该限制。"
+    },
+    {
+      "indent": 3,
+      "text": "An additional limit is the requirement to send a Status-Server packet over the same TCP connection as is used for normal requests. As noted in [RFC5997], the response to a Status-Server packet is either an Access-Accept or an Accounting-Response. If all IDs were allocated to normal requests, then there would be no free ID to use for the Status-Server packet, and it could not be sent over the connection.",
+      "zh-CHS": "另一个限制是要求通过与正常请求相同的TCP连接发送状态服务器数据包。如[RFC5997]所述，对状态服务器数据包的响应是访问接受或记帐响应。如果所有ID都分配给普通请求，那么状态服务器数据包将没有可用ID，无法通过连接发送。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations SHOULD reserve ID zero (0) on each TCP connection for Status-Server packets. This value was picked arbitrarily, as there is no reason to choose any one value over another for this use.",
+      "zh-CHS": "实现应该在每个TCP连接上为状态服务器数据包保留ID零（0）。此值是任意选取的，因为没有理由为此用途选择任何一个值而不是另一个值。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementors may be tempted to extend RADIUS to permit more than 256 outstanding packets on one connection. However, doing so is a violation of a fundamental part of the protocol and MUST NOT be done. Making that extension here is outside of the scope of this specification.",
+      "zh-CHS": "实现者可能会试图扩展RADIUS，以便在一个连接上允许超过256个未完成的数据包。然而，这样做违反了《议定书》的一个基本部分，绝不能这样做。在此进行扩展超出了本规范的范围。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.6. EAP Sessions",
+      "section_title": true,
+      "zh-CHS": "2.6.6. EAP会议"
+    },
+    {
+      "indent": 3,
+      "text": "When RADIUS clients send EAP requests using RADIUS/TCP, they SHOULD choose the same TCP connection for all packets related to one EAP session. This practice ensures that EAP packets are transmitted in order, and that problems with any one TCP connection affect the minimum number of EAP sessions.",
+      "zh-CHS": "当RADIUS客户端使用RADIUS/TCP发送EAP请求时，它们应该为与一个EAP会话相关的所有数据包选择相同的TCP连接。这种做法确保EAP数据包按顺序传输，并且任何一个TCP连接的问题都会影响EAP会话的最小数量。"
+    },
+    {
+      "indent": 3,
+      "text": "A simple method that may work in many situations is to hash the contents of the Calling-Station-Id attribute, which normally contains the Media Access Control (MAC) address. The output of that hash can be used to select a particular TCP connection.",
+      "zh-CHS": "在许多情况下，一种简单的方法是散列主叫站Id属性的内容，该属性通常包含媒体访问控制（MAC）地址。该散列的输出可用于选择特定的TCP连接。"
+    },
+    {
+      "indent": 3,
+      "text": "However, EAP packets for one EAP session can still be transported from client to server over multiple paths. Therefore, when a server receives a RADIUS request containing an EAP request, it MUST be processed without considering the transport protocol. For TCP transport, it MUST be processed without considering the source port. The algorithm suggested in [RFC5080], Section 2.1.1 SHOULD be used to track EAP sessions, as it is independent of the source port and transport protocol.",
+      "zh-CHS": "但是，一个EAP会话的EAP数据包仍然可以通过多条路径从客户端传输到服务器。因此，当服务器接收到包含EAP请求的RADIUS请求时，必须在不考虑传输协议的情况下对其进行处理。对于TCP传输，必须在不考虑源端口的情况下对其进行处理。[RFC5080]第2.1.1节中建议的算法应用于跟踪EAP会话，因为它独立于源端口和传输协议。"
+    },
+    {
+      "indent": 3,
+      "text": "The retransmission requirements of Section 2.6.1, above, MUST be applied to RADIUS-encapsulated EAP packets. That is, EAP retransmissions MUST NOT result in retransmissions of RADIUS packets over a particular TCP connection. EAP retransmissions MAY result in retransmission of RADIUS packets over a different TCP connection, but only when the previous TCP connection is marked DOWN.",
+      "zh-CHS": "上述第2.6.1节中的重传要求必须适用于RADIUS封装的EAP数据包。也就是说，EAP重传不得导致RADIUS数据包在特定TCP连接上的重传。EAP重传可能导致RADIUS数据包在不同的TCP连接上重传，但仅当上一个TCP连接被标记时。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.7. TCP Applications Are Not UDP Applications",
+      "section_title": true,
+      "zh-CHS": "2.6.7. TCP应用程序不是UDP应用程序"
+    },
+    {
+      "indent": 3,
+      "text": "Implementors should be aware that programming a robust TCP application can be very different from programming a robust UDP application. It is RECOMMENDED that implementors of this specification familiarize themselves with TCP application programming concepts.",
+      "zh-CHS": "实现者应该知道，编写健壮的TCP应用程序与编写健壮的UDP应用程序可能有很大的不同。建议本规范的实施者熟悉TCP应用程序编程概念。"
+    },
+    {
+      "indent": 3,
+      "text": "Clients and servers SHOULD implement configurable connection limits. Clients and servers SHOULD implement configurable limits on connection lifetime and idle timeouts. Clients and servers SHOULD implement configurable rate limiting on new connections. Allowing an unbounded number or rate of TCP connections may result in resource exhaustion.",
+      "zh-CHS": "客户端和服务器应实现可配置的连接限制。客户端和服务器应该对连接生存期和空闲超时实施可配置的限制。客户端和服务器应在新连接上实施可配置的速率限制。允许无限数量或速率的TCP连接可能会导致资源耗尽。"
+    },
+    {
+      "indent": 3,
+      "text": "Further discussion of implementation issues is outside of the scope of this document.",
+      "zh-CHS": "对实施问题的进一步讨论不在本文件范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Diameter Considerations",
+      "section_title": true,
+      "zh-CHS": "3. 直径考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines TCP as a transport layer for RADIUS. It defines no new RADIUS attributes or codes. The only interaction with Diameter is in a RADIUS-to-Diameter, or in a Diameter-to-RADIUS gateway. The RADIUS side of such a gateway MAY implement RADIUS/TCP, but this change has no effect on Diameter.",
+      "zh-CHS": "本文档将TCP定义为RADIUS的传输层。它不定义新的半径属性或代码。与直径的唯一交互作用是在半径到直径或直径到半径网关中。这种网关的RADIUS端可以实现RADIUS/TCP，但此更改对Diameter没有影响。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "As the RADIUS packet format, signing, and client verification are unchanged from prior specifications, all of the security issues outlined in previous specifications for RADIUS/UDP are also applicable here.",
+      "zh-CHS": "由于RADIUS数据包格式、签名和客户端验证与以前的规范保持不变，因此以前的RADIUS/UDP规范中概述的所有安全问题也适用于此处。"
+    },
+    {
+      "indent": 3,
+      "text": "As noted above, clients and servers SHOULD support configurable connection limits. Allowing an unlimited number of connections may result in resource exhaustion.",
+      "zh-CHS": "如上所述，客户端和服务器应支持可配置的连接限制。允许无限数量的连接可能会导致资源耗尽。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementors should consult [RFC6614] for issues related to the security of RADIUS/TLS, and [RFC5246] for issues related to the security of the TLS protocol.",
+      "zh-CHS": "实施者应就RADIUS/TLS安全相关问题咨询[RFC6614]，就TLS协议安全相关问题咨询[RFC5246]。"
+    },
+    {
+      "indent": 3,
+      "text": "Since \"bare\" TCP does not provide for confidentiality or enable negotiation of credible ciphersuites, its use is not appropriate for inter-server communications where strong security is required. As a result, \"bare\" TCP transport MUST NOT be used without TLS, IPsec, or another secure upper layer.",
+      "zh-CHS": "由于“裸”TCP不提供机密性，也不支持可信密码套件的协商，因此它不适用于需要强大安全性的服务器间通信。因此，在没有TLS、IPsec或其他安全上层的情况下，不得使用“裸”TCP传输。"
+    },
+    {
+      "indent": 3,
+      "text": "There are no (at this time) other known security issues for RADIUS-over-TCP transport.",
+      "zh-CHS": "RADIUS over TCP传输没有（目前）其他已知的安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "5. References",
+      "section_title": true,
+      "zh-CHS": "5. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "5.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2865] Rigney, C., Willens, S., Rubens, A., and W. Simpson, \"Remote Authentication Dial In User Service (RADIUS)\", RFC 2865, June 2000.",
+      "zh-CHS": "[RFC2865]Rigney，C.，Willens，S.，Rubens，A.，和W.Simpson，“远程认证拨入用户服务（RADIUS）”，RFC 28652000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3539] Aboba, B. and J. Wood, \"Authentication, Authorization and Accounting (AAA) Transport Profile\", RFC 3539, June 2003.",
+      "zh-CHS": "[RFC3539]Aboba，B.和J.Wood，“认证、授权和会计（AAA）传输概要”，RFC 3539，2003年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5997] DeKok, A., \"Use of Status-Server Packets in the Remote Authentication Dial In User Service (RADIUS) Protocol\", RFC 5997, August 2010.",
+      "zh-CHS": "[RFC5997]DeKok，A.，“远程身份验证拨入用户服务（RADIUS）协议中状态服务器数据包的使用”，RFC 5997，2010年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6614] Winter, S., McCauley, M., Venaas, S., and K. Wierenga, \"Transport Layer Security (TLS) Encryption for RADIUS\", RFC 6614, May 2012.",
+      "zh-CHS": "[RFC6614]Winter，S.，McCauley，M.，Venaas，S.，和K.Wierenga，“RADIUS的传输层安全（TLS）加密”，RFC 6614，2012年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "5.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2866] Rigney, C., \"RADIUS Accounting\", RFC 2866, June 2000.",
+      "zh-CHS": "[RFC2866]Rigney，C.，“半径会计”，RFC 28662000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3579] Aboba, B. and P. Calhoun, \"RADIUS (Remote Authentication Dial In User Service) Support For Extensible Authentication Protocol (EAP)\", RFC 3579, September 2003.",
+      "zh-CHS": "[RFC3579]Aboba，B.和P.Calhoun，“RADIUS（远程认证拨入用户服务）对可扩展认证协议（EAP）的支持”，RFC 3579，2003年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4301] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[RFC4301]Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4668] Nelson, D., \"RADIUS Authentication Client MIB for IPv6\", RFC 4668, August 2006.",
+      "zh-CHS": "[RFC4668]Nelson，D.，“IPv6的RADIUS身份验证客户端MIB”，RFC 4668，2006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4669] Nelson, D., \"RADIUS Authentication Server MIB for IPv6\", RFC 4669, August 2006.",
+      "zh-CHS": "[RFC4669]Nelson，D.，“IPv6的RADIUS认证服务器MIB”，RFC 4669，2006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4670] Nelson, D., \"RADIUS Accounting Client MIB for IPv6\", RFC 4670, August 2006.",
+      "zh-CHS": "[RFC4670]Nelson，D.，“IPv6的RADIUS计费客户端MIB”，RFC 46702006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4671] Nelson, D., \"RADIUS Accounting Server MIB for IPv6\", RFC 4671, August 2006.",
+      "zh-CHS": "[RFC4671]Nelson，D.，“IPv6的RADIUS计费服务器MIB”，RFC 46712006年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4672] De Cnodder, S., Jonnala, N., and M. Chiba, \"RADIUS Dynamic Authorization Client MIB\", RFC 4672, September 2006.",
+      "zh-CHS": "[RFC4672]De Cnodder，S.，Jonnala，N.和M.Chiba，“RADIUS动态授权客户端MIB”，RFC 4672，2006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4673] De Cnodder, S., Jonnala, N., and M. Chiba, \"RADIUS Dynamic Authorization Server MIB\", RFC 4673, September 2006.",
+      "zh-CHS": "[RFC4673]De Cnodder，S.，Jonnala，N.和M.Chiba，“RADIUS动态授权服务器MIB”，RFC 4673，2006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5080] Nelson, D. and A. DeKok, \"Common Remote Authentication Dial In User Service (RADIUS) Implementation Issues and Suggested Fixes\", RFC 5080, December 2007.",
+      "zh-CHS": "[RFC5080]Nelson，D.和A.DeKok，“通用远程身份验证拨入用户服务（RADIUS）实施问题和建议修复”，RFC 50802007年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5176] Chiba, M., Dommety, G., Eklund, M., Mitton, D., and B. Aboba, \"Dynamic Authorization Extensions to Remote Authentication Dial In User Service (RADIUS)\", RFC 5176, January 2008.",
+      "zh-CHS": "[RFC5176]Chiba，M.，Dommety，G.，Eklund，M.，Mitton，D.，和B.Aboba，“远程认证拨号用户服务（RADIUS）的动态授权扩展”，RFC 51762008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5216] Simon, D., Aboba, B., and R. Hurst, \"The EAP-TLS Authentication Protocol\", RFC 5216, March 2008.",
+      "zh-CHS": "[RFC5216]Simon，D.，Aboba，B.和R.Hurst，“EAP-TLS认证协议”，RFC 5216，2008年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5246] Dierks, T. and E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.2\", RFC 5246, August 2008.",
+      "zh-CHS": "[RFC5246]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.2”，RFC 5246，2008年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Alan DeKok The FreeRADIUS Server Project http://freeradius.org/",
+      "zh-CHS": "Alan DeKok FreeRADIUS服务器项目http://freeradius.org/"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: aland@freeradius.org",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

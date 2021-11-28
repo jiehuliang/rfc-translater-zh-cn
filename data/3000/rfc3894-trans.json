@@ -1,0 +1,333 @@
+{
+  "title": {
+    "text": "RFC 3894:  Sieve Extension: Copying Without Side Effects ",
+    "zh-CHS": "RFC 3894"
+  },
+  "number": 3894,
+  "created_at": "2021-11-18 10:37:02.418209+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         J. Degener\nRequest for Comments: 3894                                Sendmail, Inc.\nCategory: Standards Track                                   October 2004",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Sieve Extension: Copying Without Side Effects",
+      "zh-CHS": "筛网延伸：复制，无副作用"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2004).",
+      "zh-CHS": "版权所有（C）互联网协会（2004年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Sieve scripting language allows users to control handling and disposal of their incoming e-mail. By default, an e-mail message that is processed by a Sieve script is saved in the owner's \"inbox\". Actions such as \"fileinto\" and \"redirect\" cancel this default behavior.",
+      "zh-CHS": "Sieve脚本语言允许用户控制对传入电子邮件的处理和处置。默认情况下，由筛选脚本处理的电子邮件保存在所有者的“收件箱”中。“fileinto”和“redirect”等操作将取消此默认行为。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new keyword parameter, \":copy\", to be used with the Sieve \"fileinto\" and \"redirect\" actions. Adding \":copy\" to an action suppresses cancellation of the default \"inbox\" save. It allows users to add commands to an existing script without changing the meaning of the rest of the script.",
+      "zh-CHS": "本文档定义了一个新的关键字参数“：copy”，用于筛选“fileinto”和“redirect”操作。将“：copy”添加到操作会抑制取消默认的“收件箱”保存。它允许用户向现有脚本添加命令，而无需更改脚本其余部分的含义。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Sieve scripting language [SIEVE] allows users to control handling and disposal of their incoming e-mail. Two frequently used Sieve commands are \"fileinto\" (saving into a local message store, such as an IMAP server) and \"redirect\" (forwarding to another e-mail address). Both of these cancel the Sieve default behavior of saving into the user's \"inbox\".",
+      "zh-CHS": "Sieve脚本语言[Sieve]允许用户控制接收电子邮件的处理和处置。两个常用的Sieve命令是“fileinto”（保存到本地邮件存储中，如IMAP服务器）和“redirect”（转发到另一个电子邮件地址）。这两个选项都取消了保存到用户“收件箱”的默认行为。"
+    },
+    {
+      "indent": 3,
+      "text": "But some users have the notion of forwarding an extra copy of a message for safekeeping to another e-mail address, or of saving a copy in a folder - in addition to the regular message delivery, which shouldn't be affected by the copy.",
+      "zh-CHS": "但是，有些用户有这样的想法：将一封邮件的额外副本转发到另一个电子邮件地址进行安全保管，或者将副本保存在一个文件夹中——除了正常的邮件传递之外，正常的邮件传递不应受到副本的影响。"
+    },
+    {
+      "indent": 3,
+      "text": "If saving an extra copy is all the user wanted to do,",
+      "zh-CHS": "如果用户只想保存一份额外的副本，"
+    },
+    {
+      "indent": 6,
+      "text": "fileinto \"unfiltered\";\nkeep;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "would do the job. The \"keep\" command does explicitly what the cancelled default behavior did. But the explicit \"keep\" is a poor substitute for the implicit \"keep\" when more processing follows:",
+      "zh-CHS": "我会做的。“keep”命令显式执行取消的默认行为所执行的操作。但是，当更多的处理随之而来时，显式的“保留”很难替代隐式的“保留”："
+    },
+    {
+      "indent": 6,
+      "text": "fileinto \"unfiltered\";\nkeep;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "if header \"Subject\" \"MAKE MONEY FAST!!!\"\n{\n        discard;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In this example, the \"discard\" is ineffective against the explicit \"keep\"; the discarded message still ends up in the user's inbox.",
+      "zh-CHS": "在本例中，“discard”对显式的“keep”无效；丢弃的邮件仍然会出现在用户的收件箱中。"
+    },
+    {
+      "indent": 3,
+      "text": "It is possible to generate Sieve code that perfectly expresses a user's wishes, but such code quickly grows unwieldy because it needs to keep track of the state that the implicit \"keep\" would have had without the \"fileinto\" or \"redirect\" command.",
+      "zh-CHS": "生成完美表达用户愿望的筛选代码是可能的，但这样的代码很快就会变得难以处理，因为它需要跟踪隐式“keep”在没有“fileinto”或“redirect”命令的情况下所具有的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "This extension tries to make life easier for user interface designers and script writers by allowing them to express the \"copy\" semantics directly.",
+      "zh-CHS": "这个扩展试图通过允许用户界面设计者和脚本编写者直接表达“复制”语义来简化他们的工作。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions used",
+      "section_title": true,
+      "zh-CHS": "2. 使用的惯例"
+    },
+    {
+      "indent": 3,
+      "text": "Conventions for notations are as in [SIEVE] section 1.1, including use of [KEYWORDS] and \"Syntax:\" label for the definition of action and tagged arguments syntax.",
+      "zh-CHS": "注释惯例如[SIFE]第1.1节所述，包括使用[KEYWORDS]和“Syntax:”标签定义动作和标记参数语法。"
+    },
+    {
+      "indent": 3,
+      "text": "The capability string associated with extension defined in this document is \"copy\".",
+      "zh-CHS": "与本文档中定义的扩展相关联的功能字符串为“copy”。"
+    },
+    {
+      "indent": 0,
+      "text": "3. \":copy\" extension to the \"fileinto\" and \"redirect\" commands",
+      "section_title": true,
+      "zh-CHS": "3. “：copy”扩展到“fileinto”和“redirect”命令"
+    },
+    {
+      "indent": 3,
+      "text": "Syntax:\n     \"fileinto\" [\":copy\"] <folder: string>\n     \"redirect\" [\":copy\"] <address: string>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "If the optional \":copy\" keyword is specified with \"fileinto\" or \"redirect\", the tagged command does not cancel the implicit \"keep\". Instead, it merely files or redirects a copy in addition to whatever else is happening to the message.",
+      "zh-CHS": "如果使用“fileinto”或“redirect”指定了可选的“：copy”关键字，则标记的命令不会取消隐式的“keep”。取而代之的是，除了消息中发生的任何其他事情外，它只会对副本进行归档或重定向。"
+    },
+    {
+      "indent": 3,
+      "text": "Example:",
+      "zh-CHS": "例子："
+    },
+    {
+      "indent": 6,
+      "text": "require [\"copy\", \"fileinto\"];\nfileinto :copy \"incoming\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "# ... more processing follows ...",
+      "zh-CHS": "# ... 更多的处理如下。。。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The \"copy\" extension makes it easier to eavesdrop on a user's message stream without the user noticing. This was technically possible before if an attacker gained read/write access to a user's Sieve scripts, but now an attacker no longer needs to parse a script in order to modify it. Write access to Sieve scripts must be protected as strongly as read/write access to e-mail, for example by using secure directory protocols such as correctly parameterized LDAP over TLS [LDAP].",
+      "zh-CHS": "“复制”扩展使窃听用户的消息流更容易，而用户不会注意到。以前，如果攻击者获得了对用户筛选脚本的读/写访问权限，这在技术上是可能的，但现在攻击者不再需要解析脚本来修改它。对筛选脚本的写访问必须像对电子邮件的读/写访问一样受到严格的保护，例如，通过使用安全目录协议，如正确参数化的TLS上的LDAP[LDAP]。"
+    },
+    {
+      "indent": 3,
+      "text": "Organizations that wish to monitor their users' e-mail traffic must familiarize themselves with local data protection laws before creating stores of old e-mail traffic without control, or perhaps even knowledge, of the sender or intended recipients.",
+      "zh-CHS": "希望监控其用户电子邮件流量的组织在创建旧电子邮件流量存储之前，必须熟悉当地的数据保护法律，而不受发送者或预期接收者的控制，甚至可能不知道。"
+    },
+    {
+      "indent": 3,
+      "text": "Organizations that legally use \"redirect :copy\" to eavesdrop on correspondence (for example, by keeping a log to answer questions about insider trading at a later time) can avoid future problems by setting users' privacy expectations correctly.",
+      "zh-CHS": "合法使用“重定向：复制”窃听通信的组织（例如，保留日志以在以后回答有关内幕交易的问题）可以通过正确设置用户的隐私期望来避免未来的问题。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The following template specifies the IANA registration of the \"copy\" Sieve extension specified in this document.",
+      "zh-CHS": "以下模板指定了本文档中指定的“副本”筛网扩展的IANA注册。"
+    },
+    {
+      "indent": 3,
+      "text": "To: iana@iana.org Subject: Registration of new Sieve extension",
+      "zh-CHS": "致：iana@iana.org主题：新筛网扩展的注册"
+    },
+    {
+      "indent": 3,
+      "text": "Capability name: copy Capability keyword: copy Capability arguments: N/A Standards Track: RFC 3894 Person and email address to contact for further information:",
+      "zh-CHS": "能力名称：复制能力关键字：复制能力参数：不适用标准跟踪：RFC 3894联系人和电子邮件地址以获取更多信息："
+    },
+    {
+      "indent": 6,
+      "text": "Jutta Degener Sendmail, Inc. 6425 Christie Ave, 4th Floor Emeryville, CA 94608",
+      "zh-CHS": "Jutta Degener Sendmail，Inc.地址：加利福尼亚州埃默里维尔克里斯蒂大道6425号4楼，邮编94608"
+    },
+    {
+      "indent": 6,
+      "text": "Email: jutta@sendmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "This information has been added to the list of Sieve extensions given on http://www.iana.org/assignments/sieve-extensions.",
+      "zh-CHS": "此信息已添加到上给出的筛网扩展列表中http://www.iana.org/assignments/sieve-extensions."
+    },
+    {
+      "indent": 0,
+      "text": "6. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "6. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Eric Allman, Ned Freed, Will Lee, Nigel Swinson, and Rand Wacker for corrections and comments.",
+      "zh-CHS": "感谢Eric Allman、Ned Freed、Will Lee、Nigel Swinson和Rand Wacker的更正和评论。"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[KEYWORDS] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[关键词]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SIEVE] Showalter, T., \"Sieve: A Mail Filtering Language\", RFC 3028, January 2001.",
+      "zh-CHS": "[SIEVE]Showalter，T.，“SIEVE:邮件过滤语言”，RFC30281001年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[LDAP] Wahl, M., Alvestrand, H., Hodges, J., and R. Morgan, \"Authentication Methods for LDAP\", RFC 2829, May 2000.",
+      "zh-CHS": "[LDAP]Wahl，M.，Alvestrand，H.，Hodges，J.，和R.Morgan，“LDAP的身份验证方法”，RFC 28292000年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Jutta Degener Sendmail, Inc. 6425 Christie Ave, 4th Floor Emeryville, CA 94608",
+      "zh-CHS": "Jutta Degener Sendmail，Inc.地址：加利福尼亚州埃默里维尔克里斯蒂大道6425号4楼，邮编94608"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: jutta@sendmail.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2004).",
+      "zh-CHS": "版权所有（C）互联网协会（2004年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/S HE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、其代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the IETF's procedures with respect to rights in IETF Documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关IETF文件中权利的IETF程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

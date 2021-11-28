@@ -1,0 +1,935 @@
+{
+  "title": {
+    "text": "RFC 7661: Updating TCP to Support Rate-Limited Traffic",
+    "zh-CHS": "RFC 7661"
+  },
+  "number": 7661,
+  "created_at": "2021-10-31 12:14:44.213598+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                      G. Fairhurst\nRequest for Comments: 7661                               A. Sathiaseelan\nObsoletes: 2861                                                R. Secchi\nCategory: Experimental                            University of Aberdeen\nISSN: 2070-1721                                             October 2015",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Updating TCP to Support Rate-Limited Traffic",
+      "zh-CHS": "更新TCP以支持速率受限的流量"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document provides a mechanism to address issues that arise when TCP is used for traffic that exhibits periods where the sending rate is limited by the application rather than the congestion window. It provides an experimental update to TCP that allows a TCP sender to restart quickly following a rate-limited interval. This method is expected to benefit applications that send rate-limited traffic using TCP while also providing an appropriate response if congestion is experienced.",
+      "zh-CHS": "本文档提供了一种机制，用于解决TCP用于显示发送速率受应用程序而非拥塞窗口限制的时段的流量时出现的问题。它提供了一个对TCP的实验性更新，允许TCP发送方按照速率限制的间隔快速重启。这种方法有望使使用TCP发送速率受限流量的应用程序受益，同时在遇到拥塞时提供适当的响应。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also evaluates the Experimental specification of TCP Congestion Window Validation (CWV) defined in RFC 2861 and concludes that RFC 2861 sought to address important issues but failed to deliver a widely used solution. This document therefore reclassifies the status of RFC 2861 from Experimental to Historic. This document obsoletes RFC 2861.",
+      "zh-CHS": "本文件还评估了RFC 2861中定义的TCP拥塞窗口验证（CWV）实验规范，并得出结论，RFC 2861试图解决重要问题，但未能提供广泛使用的解决方案。因此，本文件将RFC 2861的状态从实验性重新分类为历史性。本文件淘汰了RFC 2861。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for examination, experimental implementation, and evaluation.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为检查、实验实施和评估而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an Experimental Protocol for the Internet community. This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文档为互联网社区定义了一个实验协议。本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7661.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7661."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2015 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2015 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Implementation of New CWV ..................................5\n   1.2. Standards Status of This Document ..........................5\n2. Reviewing Experience with TCP-CWV ...............................5\n3. Terminology .....................................................7\n4. A New Congestion Window Validation Method .......................8\n   4.1. Initialisation .............................................8\n   4.2. Estimating the Validated Capacity Supported by a Path ......8\n   4.3. Preserving cwnd during a Rate-Limited Period ..............10\n   4.4. TCP Congestion Control during the Non-validated Phase .....11\n        4.4.1. Response to Congestion in the Non-validated Phase ..12\n        4.4.2. Sender Burst Control during the\n               Non-validated Phase ................................14\n        4.4.3. Adjustment at the End of the Non-validated\n               Period (NVP) .......................................14\n   4.5. Examples of Implementation ................................15\n        4.5.1. Implementing the pipeACK Measurement ...............15\n        4.5.2. Measurement of the NVP and pipeACK Samples .........16\n        4.5.3. Implementing Detection of the cwnd-Limited\n               Condition ..........................................17\n5. Determining a Safe Period to Preserve cwnd .....................17\n6. Security Considerations ........................................18\n7. References .....................................................18\n   7.1. Normative References ......................................18\n   7.2. Informative References ....................................19\nAcknowledgments ...................................................21\nAuthors' Addresses ................................................21",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "TCP is used for traffic with a range of application behaviours. The TCP congestion window (cwnd) controls the maximum number of unacknowledged packets/bytes that a TCP flow may have in the network at any time, a value known as the FlightSize [RFC5681]. FlightSize is a measure of the volume of data that is unacknowledged at a specific time. A bulk application will always have data available to transmit. The rate at which it sends is therefore limited by the maximum permitted by the receiver advertised window and the sender congestion window (cwnd). The FlightSize of a bulk flow increases with the cwnd and tracks the volume of data acknowledged in the last Round-Trip Time (RTT).",
+      "zh-CHS": "TCP用于具有一系列应用程序行为的流量。TCP拥塞窗口（cwnd）控制TCP流在任何时候在网络中可能具有的最大未确认数据包/字节数，该值称为FlightSize[RFC5681]。FlightSize是在特定时间未确认的数据量的度量。批量应用程序将始终具有可传输的数据。因此，它发送的速率受到接收方播发窗口和发送方拥塞窗口（cwnd）允许的最大值的限制。批量流的FlightSize随cwnd的增加而增加，并跟踪在上一次往返时间（RTT）中确认的数据量。"
+    },
+    {
+      "indent": 3,
+      "text": "In contrast, a rate-limited application will experience periods when the sender is either idle or unable to send at the maximum rate permitted by the cwnd. In this case, the volume of data sent (FlightSize) can change significantly from one RTT to another and can be much less than the cwnd. Hence, it is possible that the FlightSize could significantly exceed the recently used capacity. The update in this document targets the operation of TCP in such rate-limited cases.",
+      "zh-CHS": "相反，速率受限应用程序将经历发送方空闲或无法以cwnd允许的最大速率发送的时间段。在这种情况下，从一个RTT到另一个RTT发送的数据量（FlightSize）可能会发生显著变化，并且可能比cwnd小得多。因此，FlightSize可能会大大超过最近使用的容量。本文档中的更新针对TCP在此类速率受限情况下的操作。"
+    },
+    {
+      "indent": 3,
+      "text": "Standard TCP states that a TCP sender SHOULD set cwnd to no more than the Restart Window (RW) before beginning transmission if the TCP sender has not sent data in an interval exceeding the retransmission timeout, i.e., when an application becomes idle [RFC5681]. [RFC2861] notes that this TCP behaviour was not always observed in current implementations. Experiments confirm this to still be the case (see [Bis08]).",
+      "zh-CHS": "标准TCP规定，如果TCP发送方在超过重传超时的时间间隔内（即应用程序空闲时）未发送数据，则在开始传输之前，TCP发送方应将cwnd设置为不超过重新启动窗口（RW）[RFC5681]。[RFC2861]注意到，在当前的实现中并不总是观察到这种TCP行为。实验证实了这一点（见[Bis08]）。"
+    },
+    {
+      "indent": 3,
+      "text": "Congestion Window Validation (CWV) [RFC2861] introduced the term \"application-limited period\" for the time when the sender sends less than is allowed by the congestion or receiver windows. [RFC2861] described a method that improved support for applications that vary their transmission rate, i.e., applications that either have (short) idle periods between transmissions or change the rate at which they send. These applications are characterised by the TCP FlightSize often being less than the cwnd. Many Internet applications exhibit this behaviour, including web browsing, HTTP-based adaptive streaming, applications that support query/response type protocols, network file sharing, and live video transmission. Many such applications currently avoid using long-lived (persistent) TCP connections (e.g., servers that use HTTP/1.1 [RFC7230] typically support persistent HTTP connections but do not enable this by default). Instead, such applications often either use a succession of short TCP transfers or use UDP.",
+      "zh-CHS": "拥塞窗口验证（CWV）[RFC2861]引入了术语“应用程序限制期”，表示发送方发送的时间少于拥塞窗口或接收方窗口允许的时间。[RFC2861]描述了一种方法，该方法改进了对改变其传输速率的应用程序的支持，即在传输之间具有（短）空闲周期或改变其发送速率的应用程序。这些应用程序的特点是TCP FlightSize通常小于cwnd。许多Internet应用程序都表现出这种行为，包括web浏览、基于HTTP的自适应流、支持查询/响应类型协议的应用程序、网络文件共享和实时视频传输。许多此类应用程序目前避免使用长寿命（持久）TCP连接（例如，使用HTTP/1.1[RFC7230]的服务器通常支持持久HTTP连接，但默认情况下不启用此连接）。相反，此类应用程序通常要么使用一系列短TCP传输，要么使用UDP。"
+    },
+    {
+      "indent": 3,
+      "text": "Standard TCP does not impose additional restrictions on the growth of the congestion window when a TCP sender is unable to send at the maximum rate allowed by the cwnd. In this case, the rate-limited sender may grow a cwnd far beyond that corresponding to the current transmit rate, resulting in a value that does not reflect current information about the state of the network path the flow is using. Use of such an invalid cwnd may result in reduced application performance and/or could significantly contribute to network congestion.",
+      "zh-CHS": "Standard TCP does not impose additional restrictions on the growth of the congestion window when a TCP sender is unable to send at the maximum rate allowed by the cwnd. In this case, the rate-limited sender may grow a cwnd far beyond that corresponding to the current transmit rate, resulting in a value that does not reflect current information about the state of the network path the flow is using. Use of such an invalid cwnd may result in reduced application performance and/or could significantly contribute to network congestion.translate error, please retry"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2861] proposed a solution to these issues in an experimental method known as CWV. CWV was intended to help reduce cases where TCP accumulated an invalid (inappropriately large) cwnd. The use and drawbacks of using the CWV algorithm described in RFC 2861 with an application are discussed in Section 2.",
+      "zh-CHS": "[RFC2861]提出了一种称为CWV的实验方法来解决这些问题。CWV旨在帮助减少TCP累积无效（不适当大）cwnd的情况。第2节讨论了在应用程序中使用RFC 2861中描述的CWV算法的用法和缺点。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 3 defines relevant terminology.",
+      "zh-CHS": "第3节定义了相关术语。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 4 specifies an alternative to CWV that seeks to address the same issues but does so in a way that is expected to mitigate the impact on an application that varies its sending rate. The updated method applies to the rate-limited conditions (including both application-limited and idle senders).",
+      "zh-CHS": "第4节规定了CWV的替代方案，该方案寻求解决相同的问题，但这样做的方式有望减轻对改变其发送速率的应用程序的影响。更新后的方法适用于速率限制条件（包括应用限制和空闲发送器）。"
+    },
+    {
+      "indent": 3,
+      "text": "The goals of this update are:",
+      "zh-CHS": "此更新的目标是："
+    },
+    {
+      "indent": 3,
+      "text": "o To not change the behaviour of a TCP sender that performs bulk transfers that fully use the cwnd.",
+      "zh-CHS": "o 不更改执行完全使用cwnd的批量传输的TCP发送方的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "o To provide a method that co-exists with standard TCP and other flows that use this updated method.",
+      "zh-CHS": "o 提供与标准TCP和使用此更新方法的其他流共存的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "o To reduce transfer latency for applications that change their rate over short intervals of time.",
+      "zh-CHS": "o 减少在短时间间隔内更改速率的应用程序的传输延迟。"
+    },
+    {
+      "indent": 3,
+      "text": "o To avoid a TCP sender growing a large \"non-validated\" cwnd, when it has not recently sent using this cwnd.",
+      "zh-CHS": "o 为了避免TCP发送方最近没有使用此cwnd发送数据时，生成一个大的“未验证”cwnd。"
+    },
+    {
+      "indent": 3,
+      "text": "o To remove the incentive for ad hoc application or network stack methods (such as \"padding\") solely to maintain a large cwnd for future transmission.",
+      "zh-CHS": "o 消除仅为维护大型cwnd以供将来传输而使用的临时应用程序或网络堆栈方法（如“填充”）的激励。"
+    },
+    {
+      "indent": 3,
+      "text": "o To provide an incentive for the use of long-lived connections rather than a succession of short-lived flows, benefiting both the long-lived flows and other flows sharing capacity with these flows when congestion is encountered.",
+      "zh-CHS": "o 鼓励使用长寿命连接，而不是连续的短命流，从而在遇到拥塞时使长寿命流和与这些流共享容量的其他流都受益。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 5 describes the rationale for selecting the safe period to preserve the cwnd.",
+      "zh-CHS": "第5节描述了选择安全期以保护cwnd的基本原理。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Implementation of New CWV",
+      "section_title": true,
+      "zh-CHS": "1.1. 新CWV的实施"
+    },
+    {
+      "indent": 3,
+      "text": "The method specified in Section 4 of this document is a sender-side-only change to the TCP congestion control behaviour of TCP.",
+      "zh-CHS": "本文档第4节中指定的方法仅是对TCP的TCP拥塞控制行为的发送方更改。"
+    },
+    {
+      "indent": 3,
+      "text": "The method creates a new protocol state and requires a sender to determine when the cwnd is validated or non-validated to control the entry and exit from this state (see Section 4.3). It defines how a TCP sender manages the growth of the cwnd using the set of rules defined in Section 4.",
+      "zh-CHS": "该方法创建一个新的协议状态，并要求发送方确定cwnd何时被验证或未验证，以控制该状态的进入和退出（参见第4.3节）。它定义了TCP发送方如何使用第4节中定义的一组规则来管理cwnd的增长。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementation of this specification requires an implementor to define a method to measure the available capacity using a set of pipeACK samples. The details of this measurement are implementation-specific. An example is provided in Section 4.5.1, but other methods are permitted. A sender also needs to provide a method to determine when it becomes cwnd-limited. Implementation of this may require consideration of other TCP methods (see Section 4.5.3).",
+      "zh-CHS": "本规范的实现要求实现者定义一种方法，使用一组pipeACK样本测量可用容量。此度量的细节是特定于实现的。第4.5.1节提供了一个示例，但允许使用其他方法。发送方还需要提供一种方法来确定它何时成为cwnd受限。实现这一点可能需要考虑其他TCP方法（见第4.5.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "A sender is also recommended to provide a method that controls the maximum burst size (see Section 4.4.2). However, implementors are allowed flexibility in how this method is implemented, and the choice of an appropriate method is expected to depend on the way in which the sender stack implements other TCP methods (such as TCP Segment Offload (TSO)).",
+      "zh-CHS": "还建议发送方提供控制最大突发大小的方法（见第4.4.2节）。但是，实现者可以灵活地实现此方法，并且适当方法的选择应取决于发送方堆栈实现其他TCP方法（如TCP段卸载（TSO））的方式。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. Standards Status of This Document",
+      "section_title": true,
+      "zh-CHS": "1.2. 本文件的标准状态"
+    },
+    {
+      "indent": 3,
+      "text": "The document obsoletes the methods described in [RFC2861]. It recommends a set of mechanisms, including the use of pacing during a non-validated period. The updated mechanisms are intended to have a less aggressive congestion impact than would be exhibited by a standard TCP sender.",
+      "zh-CHS": "本文件废除了[RFC2861]中描述的方法。它推荐了一套机制，包括在非有效期内使用起搏。更新的机制旨在产生比标准TCP发送方更少的严重拥塞影响。"
+    },
+    {
+      "indent": 3,
+      "text": "The specification in this document is classified as \"Experimental\" pending experience with deployed implementations of the methods.",
+      "zh-CHS": "本文档中的规范被归类为“实验性”的，有待于方法部署实现的经验。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Reviewing Experience with TCP-CWV",
+      "section_title": true,
+      "zh-CHS": "2. 回顾TCP-CWV的经验"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2861] described a simple modification to the TCP congestion control algorithm that decayed the cwnd after the transition to a \"sufficiently-long\" idle period. This used the slow-start threshold (ssthresh) to save information about the previous value of the congestion window. The approach relaxed the standard TCP behaviour",
+      "zh-CHS": "[RFC2861]描述了对TCP拥塞控制算法的一个简单修改，该算法在过渡到“足够长”的空闲期后衰减cwnd。这使用慢速启动阈值（ssthresh）来保存有关拥塞窗口先前值的信息。该方法放宽了标准TCP行为"
+    },
+    {
+      "indent": 3,
+      "text": "for an idle session [RFC5681], which was intended to improve application performance. CWV also modified the behaviour when a sender transmitted at a rate less than allowed by cwnd.",
+      "zh-CHS": "用于旨在提高应用程序性能的空闲会话[RFC5681]。CWV还修改了发送方以低于cwnd允许的速率传输时的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2861] proposed two sets of responses: one after an \"application-limited period\" and one after an \"idle period\". Although this distinction was argued, in practice, differentiating the two conditions was found problematic in actual networks (see, e.g., [Bis10]). While this offered predictable performance for long on-off periods (>>1 RTT) or slowly varying rate-based traffic, the performance could be unpredictable for variable-rate traffic and depended both upon whether an accurate RTT had been obtained and the pattern of application traffic relative to the measured RTT.",
+      "zh-CHS": "[RFC2861]提出了两组响应：一组在“应用限制期”之后，另一组在“空闲期”之后。尽管有人提出了这一区别，但在实践中，在实际网络中发现区分这两种情况存在问题（例如，参见[Bis10]）。虽然这为长开-关周期（>>1 RTT）或缓慢变化的基于速率的流量提供了可预测的性能，但对于可变速率流量，性能可能是不可预测的，这取决于是否获得了准确的RTT以及相对于测量RTT的应用程序流量模式。"
+    },
+    {
+      "indent": 3,
+      "text": "Many applications can and often do vary their transmission over a wide range of rates. Using [RFC2861], such applications often experienced varying performance, which made it hard for application developers to predict the TCP latency even when using a path with stable network characteristics. We argue that an attempt to classify application behaviour as application-limited or idle is problematic and also inappropriate. This document therefore explicitly avoids trying to differentiate these two cases, instead treating all rate-limited traffic uniformly.",
+      "zh-CHS": "许多应用程序可以而且经常在很大的速率范围内改变其传输。使用[RFC2861]时，此类应用程序通常会经历不同的性能，这使得应用程序开发人员很难预测TCP延迟，即使在使用具有稳定网络特性的路径时也是如此。我们认为，试图将应用程序行为分类为应用程序受限或空闲是有问题的，也是不合适的。因此，本文档明确避免试图区分这两种情况，而是统一处理所有速率受限的流量。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2861] has been implemented in some mainstream operating systems\nas the default behaviour [Bis08].  Analysis (e.g., [Bis10] and\n[Fai12]) has shown that a TCP sender using CWV is able to use\navailable capacity on a shared path after an idle period.  This can\nbenefit variable-rate applications, especially over long delay paths,\nwhen compared to the slow-start restart specified by standard TCP.\nHowever, CWV would only benefit an application if the idle period\nwere less than several Retransmission Timeout (RTO) intervals\n[RFC6298], since the behaviour would otherwise be the same as for\nstandard TCP, which resets the cwnd to the TCP Restart Window after\nthis period.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "To enable better performance for variable-rate applications with TCP, some operating systems have chosen to support non-standard methods, or applications have resorted to \"padding\" streams by sending dummy data to maintain their sending rate when they have no data to transmit. Although transmitting redundant data across a network path provides good evidence that the path can sustain data at the offered rate, padding also consumes network capacity and reduces the opportunity for congestion-free statistical multiplexing. For variable-rate flows, the benefits of statistical multiplexing can be significant, and it is therefore a goal to find a viable alternative to padding streams.",
+      "zh-CHS": "为了使具有TCP的变速率应用程序具有更好的性能，一些操作系统选择支持非标准方法，或者应用程序通过发送虚拟数据来“填充”流，以在没有数据传输时保持其发送速率。尽管通过网络路径传输冗余数据提供了很好的证据，证明该路径可以以提供的速率维持数据，但填充也会消耗网络容量，并减少无拥塞统计复用的机会。对于可变速率流，统计复用的好处是显著的，因此，寻找一种可行的替代填充流的方法是一个目标。"
+    },
+    {
+      "indent": 3,
+      "text": "Experience with [RFC2861] suggests that although the CWV method benefited the network in a rate-limited scenario (reducing the probability of network congestion), the behaviour was too conservative for many common rate-limited applications. This mechanism did not therefore offer the desirable increase in application performance for rate-limited applications, and it is unclear whether applications actually use this mechanism in the general Internet.",
+      "zh-CHS": "[RFC2861]的经验表明，尽管CWV方法在速率受限的情况下有利于网络（降低网络拥塞的概率），但对于许多常见的速率受限应用来说，这种行为过于保守。因此，对于速率受限的应用程序，这种机制并没有提供理想的应用程序性能提升，而且目前还不清楚应用程序是否在一般互联网中实际使用这种机制。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, it was concluded that CWV, as defined in [RFC2861], was often a poor solution for many rate-limited applications. It had the correct motivation but the wrong approach to solving this problem.",
+      "zh-CHS": "因此，可以得出结论，[RFC2861]中定义的CWV对于许多速率受限的应用来说通常是一个糟糕的解决方案。它有正确的动机，但解决这个问题的方法是错误的。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Terminology",
+      "section_title": true,
+      "zh-CHS": "3. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "The document assumes familiarity with the terminology of TCP congestion control [RFC5681].",
+      "zh-CHS": "本文档假定您熟悉TCP拥塞控制的术语[RFC5681]。"
+    },
+    {
+      "indent": 3,
+      "text": "The following additional terminology is introduced in this document:",
+      "zh-CHS": "本文件中引入了以下附加术语："
+    },
+    {
+      "indent": 3,
+      "text": "o cwnd-limited: A TCP flow that has sent the maximum number of segments permitted by the cwnd, where the application utilises the allowed sending rate (see Section 4.5.3).",
+      "zh-CHS": "o cwnd limited：发送cwnd允许的最大段数的TCP流，其中应用程序使用允许的发送速率（见第4.5.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o pipeACK sample: A measure of the volume of data acknowledged by the network within an RTT.",
+      "zh-CHS": "o pipeACK示例：RTT内网络确认的数据量的度量。"
+    },
+    {
+      "indent": 3,
+      "text": "o pipeACK variable: A variable that measures the available capacity using the set of pipeACK samples (see Section 4.2).",
+      "zh-CHS": "o pipeACK变量：使用pipeACK样本集测量可用容量的变量（参见第4.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "o pipeACK Sampling Period: The maximum period that a measured pipeACK sample may influence the pipeACK variable.",
+      "zh-CHS": "o pipeACK采样周期：测量的pipeACK样本可能影响pipeACK变量的最大周期。"
+    },
+    {
+      "indent": 3,
+      "text": "o Non-validated phase: The phase where the cwnd reflects a previous measurement of the available path capacity.",
+      "zh-CHS": "o 未验证阶段：cwnd反映先前可用路径容量测量值的阶段。"
+    },
+    {
+      "indent": 3,
+      "text": "o Non-validated period (NVP): The maximum period for which cwnd is preserved in the non-validated phase.",
+      "zh-CHS": "o 非验证期（NVP）：在非验证阶段中，cwnd保留的最长期限。"
+    },
+    {
+      "indent": 3,
+      "text": "o Rate-limited: A TCP flow that does not consume more than one half of cwnd and hence operates in the non-validated phase. This includes periods when an application is either idle or chooses to send at a rate less than the maximum permitted by the cwnd.",
+      "zh-CHS": "o 速率限制：一种TCP流，它不消耗超过一半的cwnd，因此在未验证阶段运行。这包括应用程序空闲或选择以低于cwnd允许的最大速率发送的时段。"
+    },
+    {
+      "indent": 3,
+      "text": "o Validated phase: The phase where the cwnd reflects a current estimate of the available path capacity.",
+      "zh-CHS": "o 验证阶段：cwnd反映当前可用路径容量估计的阶段。"
+    },
+    {
+      "indent": 0,
+      "text": "4. A New Congestion Window Validation Method",
+      "section_title": true,
+      "zh-CHS": "4. 一种新的拥塞窗口验证方法"
+    },
+    {
+      "indent": 3,
+      "text": "This section proposes an update to the TCP congestion control behaviour during a rate-limited interval. This new method intentionally does not differentiate between times when the sender has become idle or chooses to send at a rate less than the maximum allowed by the cwnd.",
+      "zh-CHS": "本节建议在速率限制间隔期间更新TCP拥塞控制行为。这种新方法有意不区分发送方空闲或选择以低于cwnd允许的最大速率发送的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "In the non-validated phase, the capacity used by an application can be less than that allowed by the TCP cwnd. This update allows an application to preserve a recently used cwnd while in the non-validated phase and then to resume transmission at a previous rate without incurring the delay of slow-start. However, if the TCP sender experiences congestion using the preserved cwnd, it is required to immediately reset the cwnd to an appropriate value specified by the method. If a sender does not take advantage of the preserved cwnd within the non-validated period (NVP), the value of cwnd is reduced, ensuring the value better reflects the capacity that was recently actually used.",
+      "zh-CHS": "在未验证阶段，应用程序使用的容量可能小于TCP cwnd允许的容量。此更新允许应用程序在未验证阶段保留最近使用的cwnd，然后以以前的速率恢复传输，而不会导致慢启动延迟。但是，如果TCP发送方使用保留的cwnd遇到拥塞，则需要立即将cwnd重置为该方法指定的适当值。如果发送方未在非验证期（NVP）内利用保留的cwnd，则cwnd的值将降低，以确保该值更好地反映最近实际使用的容量。"
+    },
+    {
+      "indent": 3,
+      "text": "It is expected that this update will satisfy the requirements of many rate-limited applications and at the same time provide an appropriate method for use in the Internet. New CWV reduces this incentive for an application to send \"padding\" data simply to keep transport congestion state.",
+      "zh-CHS": "预计此更新将满足许多速率受限应用程序的要求，同时提供一种在互联网上使用的适当方法。新的CWV降低了应用程序发送“填充”数据以保持交通拥堵状态的动机。"
+    },
+    {
+      "indent": 3,
+      "text": "The method is specified in the following subsections and is expected to encourage applications and TCP stacks to use standards-based congestion control methods. It may also encourage the use of long-lived connections where this offers benefit (such as persistent HTTP).",
+      "zh-CHS": "该方法在以下小节中指定，预计将鼓励应用程序和TCP堆栈使用基于标准的拥塞控制方法。它还可能鼓励使用长寿命的连接，因为这会带来好处（例如持久HTTP）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Initialisation",
+      "section_title": true,
+      "zh-CHS": "4.1. 初始化"
+    },
+    {
+      "indent": 3,
+      "text": "A sender starts a TCP connection in the validated phase and initialises the pipeACK variable to the \"undefined\" value. This value inhibits use of the value in cwnd calculations.",
+      "zh-CHS": "发送方在验证阶段启动TCP连接，并将pipeACK变量初始化为“未定义”值。此值禁止在cwnd计算中使用该值。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Estimating the Validated Capacity Supported by a Path",
+      "section_title": true,
+      "zh-CHS": "4.2. 估计路径支持的验证容量"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6675] defines \"FlightSize\", a variable that indicates the instantaneous amount of data that has been sent but not cumulatively acknowledged. In this method, a new variable \"pipeACK\" is introduced to measure the acknowledged size of the network pipe. This is used",
+      "zh-CHS": "[RFC6675]定义了“FlightSize”，一个表示已发送但未累计确认的瞬时数据量的变量。在该方法中，引入了一个新变量“pipeACK”来测量网络管道的确认大小。这是用来"
+    },
+    {
+      "indent": 3,
+      "text": "to determine if the sender has validated the cwnd. pipeACK differs from FlightSize in that it is evaluated over a window of acknowledged data, rather than reflecting the amount of data outstanding.",
+      "zh-CHS": "以确定发送方是否已验证cwnd。pipeACK与FlightSize的不同之处在于，它是在已确认的数据窗口上进行评估的，而不是反映未完成的数据量。"
+    },
+    {
+      "indent": 3,
+      "text": "A sender determines a pipeACK sample by measuring the volume of data that was acknowledged by the network over the period of a measured Round-Trip Time (RTT). Using the variables defined in [RFC6675], a value could be measured by caching the value of HighACK and, after one RTT, measuring the difference between the cached HighACK value and the current HighACK value. A sender MAY count TCP DupACKs that acknowledge new data when collecting the pipeACK sample. Other equivalent methods may be used.",
+      "zh-CHS": "发送方通过测量网络在测量的往返时间（RTT）期间确认的数据量来确定pipeACK样本。使用[RFC6675]中定义的变量，可以通过缓存HighACK值以及在一次RTT后测量缓存的HighACK值与当前HighACK值之间的差值来测量值。发送方可以统计在收集pipeACK样本时确认新数据的TCP DUPACK。可使用其他等效方法。"
+    },
+    {
+      "indent": 3,
+      "text": "A sender is not required to continuously update the pipeACK variable after each received ACK but SHOULD perform a pipeACK sample at least once per RTT when it has sent unacknowledged segments.",
+      "zh-CHS": "发送方无需在每次收到确认后持续更新pipeACK变量，但在发送未确认的段时，应在每个RTT至少执行一次pipeACK样本。"
+    },
+    {
+      "indent": 3,
+      "text": "The pipeACK variable MAY consider multiple pipeACK samples over the pipeACK Sampling Period. The value of the pipeACK variable MUST NOT exceed the maximum (highest value) within the pipeACK Sampling Period. This specification defines the pipeACK Sampling Period as Max(3*RTT, 1 second). This period enables a sender to compensate for large fluctuations in the sending rate, where there may be pauses in transmission, and allows the pipeACK variable to reflect the largest recently measured pipeACK sample.",
+      "zh-CHS": "PIPPEACK变量可以考虑在PiPEACK采样周期上的多个PIPEACK样本。pipeACK变量的值在pipeACK采样周期内不得超过最大值（最高值）。本规范将pipeACK采样周期定义为最大（3*RTT，1秒）。该周期使得发送方能够补偿发送速率中的较大波动，其中在传输中可能存在暂停，并且允许pipeACK变量反映最近测量的最大pipeACK样本。"
+    },
+    {
+      "indent": 3,
+      "text": "When no measurements are available (e.g., a sender that has just started transmission or immediately after loss recovery), the pipeACK variable is set to the \"undefined value\". This value is used to inhibit entering the non-validated phase until the first new measurement of a pipeACK sample. (Section 4.5 provides examples of implementation.)",
+      "zh-CHS": "当没有可用的测量值时（例如，刚开始传输的发送方或在丢失恢复后立即发送的发送方），pipeACK变量被设置为“未定义值”。该值用于禁止进入非验证阶段，直到首次对pipeACK样本进行新测量。（第4.5节提供了实施示例。）"
+    },
+    {
+      "indent": 3,
+      "text": "The pipeACK variable MUST NOT be updated during TCP Fast Recovery. That is, the sender stops collecting pipeACK samples during loss recovery. The method RECOMMENDS enabling the TCP SACK option [RFC2018] and RECOMMENDS the method defined in [RFC6675] to recover missing segments. This allows the sender to more accurately determine the number of missing bytes during the loss recovery phase, and using this method will result in a more appropriate cwnd following loss.",
+      "zh-CHS": "TCP快速恢复期间不得更新pipeACK变量。也就是说，发送方在丢失恢复期间停止收集pipeACK样本。该方法建议启用TCP SACK选项[RFC2018]，并建议使用[RFC6675]中定义的方法来恢复丢失的段。这允许发送方在丢失恢复阶段更准确地确定丢失的字节数，使用此方法将在丢失后生成更合适的cwnd。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: The use of pipeACK rather than FlightSize can change the behaviour of a TCP flow when a sender does not always have data available to send. One example arises when there is a pause in transmission after sending a sequence of many packets, and the sender experiences loss at or near the end of its transmission sequence. In this case, the TCP flow may have used a significant amount of",
+      "zh-CHS": "注意：当发送方并不总是有数据可供发送时，使用pipeACK而不是FlightSize可能会改变TCP流的行为。当在发送多个分组的序列之后在传输中存在暂停，并且发送方在其传输序列的结尾处或附近经历丢失时，出现一个示例。在这种情况下，TCP流可能使用了大量的"
+    },
+    {
+      "indent": 3,
+      "text": "capacity just prior to the loss (which would be reflected in the volume of data acknowledged, recorded in the pipeACK variable), but at the actual time of loss, the number of unacknowledged packets in flight (at the end of the sequence) may be small, i.e., there is a small FlightSize. After loss recovery, the sender resets its congestion control state.",
+      "zh-CHS": "丢失前的容量（这将反映在已确认的数据量中，记录在pipeACK变量中），但在实际丢失时，未确认的数据包数量（序列末尾）可能很小，即FlightSize很小。丢失恢复后，发送方重置其拥塞控制状态。"
+    },
+    {
+      "indent": 3,
+      "text": "[Fai12] explored the benefits of different responses to congestion for application-limited streams. If the response is based only on the Loss FlightSize, the sender would assign a small cwnd and ssthresh, based only on the volume of data sent after the loss. When the sender next starts to transmit, it can incur many RTTs of delay in slow-start before it reacquires its previous rate. When the pipeACK value is also used to calculate the cwnd and ssthresh (as specified in Section 4.4.1), the sender can use a value that also reflects the recently used capacity before the loss. This prevents a variable-rate application from being unduly penalised. When the sender resumes, it starts at one-half its previous rate, similar to the behaviour of a bulk TCP flow [Hos15]. To ensure an appropriate reaction to ongoing congestion, this method requires that the pipeACK variable is reset after it is used in this way.",
+      "zh-CHS": "[Fai12]探讨了针对应用受限流的不同拥塞响应的好处。如果响应仅基于丢失的FlightSize，则发送方将仅基于丢失后发送的数据量分配一个小的cwnd和ssthresh。当发送方下一次开始传输时，它可能会在慢启动中产生许多RTT延迟，然后再恢复到以前的速率。当pipeACK值也用于计算cwnd和ssthresh（如第4.4.1节所述）时，发送方可以使用一个值，该值也可以反映丢失前最近使用的容量。这可以防止可变利率应用程序受到不适当的惩罚。当发送方恢复时，它将以其先前速率的一半开始，类似于批量TCP流的行为[Hos15]。为了确保对正在进行的拥塞做出适当的反应，此方法要求以这种方式使用pipeACK变量后重置该变量。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Preserving cwnd during a Rate-Limited Period",
+      "section_title": true,
+      "zh-CHS": "4.3. 在速率限制期间保留cwnd"
+    },
+    {
+      "indent": 3,
+      "text": "The updated method creates a new TCP sender phase that captures whether the cwnd reflects a validated or non-validated value. The phases are defined as:",
+      "zh-CHS": "更新后的方法将创建一个新的TCP发送方阶段，用于捕获cwnd是否反映已验证或未验证的值。各阶段的定义如下："
+    },
+    {
+      "indent": 3,
+      "text": "o Validated phase: pipeACK >=(1/2)*cwnd, or pipeACK is undefined (i.e., at the start or directly after loss recovery). This is the normal phase, where cwnd is expected to be an approximate indication of the capacity currently available along the network path, and the standard methods are used to increase cwnd (currently, the standard methods are described in [RFC5681]).",
+      "zh-CHS": "o 验证阶段：pipeACK>=（1/2）*cwnd，或pipeACK未定义（即，在开始时或直接在损失恢复后）。这是正常阶段，其中cwnd预计是网络路径上当前可用容量的近似指示，标准方法用于增加cwnd（目前，标准方法在[RFC5681]中描述）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Non-validated phase: pipeACK <(1/2)*cwnd. This is the phase where the cwnd has a value based on a previous measurement of the available capacity, and the usage of this capacity has not been validated in the pipeACK Sampling Period, that is, when it is not known whether the cwnd reflects the currently available capacity along the network path. The mechanisms to be used in this phase seek to determine a safe value for cwnd and an appropriate reaction to congestion.",
+      "zh-CHS": "o 非验证阶段：pipeACK<（1/2）*cwnd。这是cwnd具有基于可用容量的先前测量值的值的阶段，并且该容量的使用在pipeACK采样周期中未被验证，也就是说，当不知道cwnd是否沿网络路径反映当前可用容量时。本阶段使用的机制旨在确定cwnd的安全值以及对拥塞的适当反应。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: A threshold is needed to determine whether a sender is in the validated or non-validated phase. A standard TCP sender in slow-start is permitted to double its FlightSize from one RTT to the next. This motivated the choice of a threshold value of 1/2. This",
+      "zh-CHS": "注意：需要一个阈值来确定发送方是否处于已验证或未验证阶段。标准TCP发送器在慢速启动时允许将其FlightSize从一个RTT加倍到下一个RTT。这促使选择1/2的阈值。这"
+    },
+    {
+      "indent": 3,
+      "text": "threshold ensures a sender does not further increase the cwnd as long as the FlightSize is less than (1/2*cwnd). Furthermore, a sender with a FlightSize less than (1/2*cwnd) may, in the next RTT, be permitted by the cwnd to send at a rate that more than doubles the FlightSize; hence, this case needs to be regarded as non-validated, and a sender therefore needs to employ additional mechanisms while in this phase.",
+      "zh-CHS": "阈值确保只要FlightSize小于（1/2*cwnd），发送方就不会进一步增加cwnd。此外，在下一RTT中，具有小于（1/2×cwnd）的FlightSize的发送者可以被cwnd允许以超过FlightSize的两倍的速率发送；因此，这种情况需要被视为未经验证，因此发送方在该阶段需要采用额外的机制。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. TCP Congestion Control during the Non-validated Phase",
+      "section_title": true,
+      "zh-CHS": "4.4. 非验证阶段的TCP拥塞控制"
+    },
+    {
+      "indent": 3,
+      "text": "A TCP sender implementing this specification MUST enter the non-validated phase when the pipeACK is less than (1/2)*cwnd. (The note at the end of Section 4.4.1 describes why pipeACK<=(1/2)*cwnd is expected to be a safe value.)",
+      "zh-CHS": "当pipeACK小于（1/2）*cwnd时，实现此规范的TCP发送方必须进入未验证阶段。（第4.4.1节末尾的注释说明了为什么pipeACK<=（1/2）*cwnd预计为安全值。）"
+    },
+    {
+      "indent": 3,
+      "text": "A TCP sender that enters the non-validated phase preserves the cwnd (i.e., the cwnd only increases after a sender fully uses the cwnd in this phase; otherwise, the cwnd neither grows nor reduces). The phase is concluded when the sender transmits sufficient data so that pipeACK > (1/2)*cwnd (i.e., the sender is no longer rate-limited) or when the sender receives an indication of congestion.",
+      "zh-CHS": "进入非验证阶段的TCP发送方保留cwnd（即，只有在发送方在此阶段完全使用cwnd后，cwnd才会增加；否则，cwnd既不会增加也不会减少）。当发送方发送足够的数据以使pipeACK>（1/2）*cwnd（即，发送方不再受速率限制）或当发送方收到拥塞指示时，该阶段结束。"
+    },
+    {
+      "indent": 3,
+      "text": "After a fixed period of time (the non-validated period (NVP)), the sender adjusts the cwnd (Section 4.4.3). The NVP SHOULD NOT exceed five minutes. Section 5 discusses the rationale for choosing a safe value for this period.",
+      "zh-CHS": "在固定时间段（非有效期（NVP））后，发送方调整cwnd（第4.4.3节）。NVP不得超过五分钟。第5节讨论了在此期间选择安全值的基本原理。"
+    },
+    {
+      "indent": 3,
+      "text": "The behaviour in the non-validated phase is specified as:",
+      "zh-CHS": "未验证阶段的行为规定为："
+    },
+    {
+      "indent": 3,
+      "text": "o A sender determines whether to increase the cwnd based upon whether it is cwnd-limited (see Section 4.5.3):",
+      "zh-CHS": "o 发送方根据cwnd是否受限确定是否增加cwnd（见第4.5.3节）："
+    },
+    {
+      "indent": 6,
+      "text": "* A sender that is cwnd-limited MAY use the standard TCP method to increase cwnd (i.e., the standard method permits a TCP sender that fully utilises the cwnd to increase the cwnd each time it receives an ACK).",
+      "zh-CHS": "* cwnd受限的发送方可使用标准TCP方法增加cwnd（即，标准方法允许TCP发送方在每次接收到ACK时充分利用cwnd增加cwnd）。"
+    },
+    {
+      "indent": 6,
+      "text": "* A sender that is not cwnd-limited MUST NOT increase the cwnd when ACK packets are received in this phase (i.e., needs to avoid growing the cwnd when it has not recently sent using the current size of cwnd).",
+      "zh-CHS": "* 当在该阶段接收到ACK数据包时，不受cwnd限制的发送方不得增加cwnd（即，当其最近未使用cwnd的当前大小发送时，需要避免增加cwnd）。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the sender receives an indication of congestion while in the non-validated phase (i.e., detects loss), the sender MUST exit the non-validated phase (reducing the cwnd as defined in Section 4.4.1).",
+      "zh-CHS": "o 如果发送方在未验证阶段（即检测到丢失）收到拥塞指示，则发送方必须退出未验证阶段（减少第4.4.1节中定义的cwnd）。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the Retransmission Timeout (RTO) expires while in the non-validated phase, the sender MUST exit the non-validated phase. It then resumes using the standard TCP RTO mechanism [RFC5681].",
+      "zh-CHS": "o 如果在未验证阶段重传超时（RTO）过期，则发送方必须退出未验证阶段。然后使用标准TCP RTO机制[RFC5681]恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "o A sender with a pipeACK variable greater than (1/2)*cwnd SHOULD enter the validated phase. (A rate-limited sender will not normally be impacted by whether it is in a validated or non-validated phase, since it will normally not increase FlightSize to use the entire cwnd. However, a change to the validated phase will release the sender from constraints on the growth of cwnd and result in using the standard congestion response.)",
+      "zh-CHS": "o pipeACK变量大于（1/2）*cwnd的发送方应进入验证阶段。（速率受限发送方通常不会受到验证或未验证阶段的影响，因为它通常不会增加FlightSize以使用整个cwnd。但是，更改验证阶段将使发送方摆脱cwnd增长的限制，并导致使用标准拥塞响应。）"
+    },
+    {
+      "indent": 3,
+      "text": "The cwnd-limited behaviour may be triggered during a transient condition that occurs when a sender is in the non-validated phase and receives an ACK that acknowledges received data, the cwnd was fully utilised, and more data is awaiting transmission than may be sent with the current cwnd. The sender MAY then use the standard method to increase the cwnd. (Note that if the sender succeeds in sending these new segments, the updated cwnd and pipeACK variables will eventually result in a transition to the validated phase.)",
+      "zh-CHS": "当发送方处于未验证阶段并接收到确认接收到的数据的ACK、cwnd已被充分利用且等待传输的数据多于当前cwnd发送的数据时，可能会在瞬态条件下触发cwnd限制行为。然后，发送方可以使用标准方法增加cwnd。（请注意，如果发送方成功发送这些新段，更新的cwnd和pipeACK变量最终将导致转换到验证阶段。）"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.1. Response to Congestion in the Non-validated Phase",
+      "section_title": true,
+      "zh-CHS": "4.4.1. 在未验证阶段对拥塞的响应"
+    },
+    {
+      "indent": 3,
+      "text": "Reception of congestion feedback while in the non-validated phase is interpreted as an indication that it was inappropriate for the sender to use the preserved cwnd. The sender is therefore required to quickly reduce the rate to avoid further congestion. Since the cwnd does not have a validated value, a new cwnd value needs to be selected based on the utilised rate.",
+      "zh-CHS": "在未验证阶段接收拥塞反馈被解释为表明发送方不适合使用保留的cwnd。因此，发送方需要快速降低速率以避免进一步的拥塞。由于cwnd没有经过验证的值，因此需要根据使用的费率选择新的cwnd值。"
+    },
+    {
+      "indent": 3,
+      "text": "A sender that detects a packet drop MUST record the current FlightSize in the variable LossFlightSize and MUST calculate a safe cwnd for loss recovery using the method below:",
+      "zh-CHS": "检测到数据包丢失的发送方必须在变量LossFlightSize中记录当前FlightSize，并且必须使用以下方法计算用于丢失恢复的安全cwnd："
+    },
+    {
+      "indent": 11,
+      "text": "cwnd = (Max(pipeACK,LossFlightSize))/2.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The pipeACK value is not updated during loss recovery (see Section 4.2). If there is a valid pipeACK value, the new cwnd is adjusted to reflect that a non-validated cwnd may be larger than the actual FlightSize or recently used FlightSize (recorded in pipeACK). The updated cwnd therefore prevents overshoot by a sender, significantly increasing its transmission rate during the recovery period.",
+      "zh-CHS": "pipeACK值在损失恢复期间不会更新（见第4.2节）。如果存在有效的pipeACK值，则会调整新的cwnd，以反映未验证的cwnd可能大于实际的FlightSize或最近使用的FlightSize（记录在pipeACK中）。因此，更新后的cwnd可防止发送方的超调，从而在恢复期间显著提高其传输速率。"
+    },
+    {
+      "indent": 3,
+      "text": "At the end of the recovery phase, the TCP sender MUST reset the cwnd using the method below:",
+      "zh-CHS": "在恢复阶段结束时，TCP发送方必须使用以下方法重置cwnd："
+    },
+    {
+      "indent": 11,
+      "text": "cwnd = (Max(pipeACK,LossFlightSize) - R)/2.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Where R is the volume of data that was successfully retransmitted during the recovery phase. This corresponds to segments retransmitted and considered lost by the pipe estimation algorithm at the end of recovery. It does not include the additional cost of multiple retransmission of the same data. The loss of segments indicates that the path capacity was exceeded by at least R; hence, the calculated cwnd is reduced by at least R before the window is halved.",
+      "zh-CHS": "其中R是在恢复阶段成功重新传输的数据量。这对应于在恢复结束时重新传输并被管道估计算法视为丢失的段。它不包括同一数据多次重传的额外费用。段丢失表明路径容量至少超过了R；因此，计算的cwnd在窗口减半之前至少减少R。"
+    },
+    {
+      "indent": 3,
+      "text": "The calculated cwnd value MUST NOT be reduced below 1 TCP Maximum Segment Size (MSS).",
+      "zh-CHS": "计算出的cwnd值不得小于1 TCP最大段大小（MSS）。"
+    },
+    {
+      "indent": 3,
+      "text": "After completing the loss recovery phase, the sender MUST re-initialise the pipeACK variable to the \"undefined\" value. This ensures that standard TCP methods are used immediately after completing loss recovery until a new pipeACK value can be determined.",
+      "zh-CHS": "完成丢失恢复阶段后，发送方必须将pipeACK变量重新初始化为“未定义”值。这确保在完成丢失恢复后立即使用标准TCP方法，直到可以确定新的pipeACK值。"
+    },
+    {
+      "indent": 3,
+      "text": "The ssthresh is adjusted using the standard TCP method (Step 6 in Section 3.2 of RFC 5681 assigns the ssthresh a value equal to cwnd at the end of the loss recovery).",
+      "zh-CHS": "使用标准TCP方法调整ssthresh（RFC 5681第3.2节中的步骤6在损耗恢复结束时为ssthresh分配一个等于cwnd的值）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: The adjustment by reducing cwnd by the volume of data not sent (R) follows the method proposed for Jump Start [Liu07]. The inclusion of the term R makes the adjustment more conservative than standard TCP. This is required, since a sender in the non-validated phase is allowed a rate higher than a standard TCP sender would have achieved in the last RTT (i.e., to have more than doubled the number of segments in flight relative to what was sent in the previous RTT). The additional reduction after congestion is beneficial when the LossFlightSize has significantly overshot the available path capacity, incurring significant loss (e.g., following a change of path characteristics or when additional traffic has taken a larger share of the network bottleneck during a period when the sender transmits less).",
+      "zh-CHS": "注：通过将cwnd减少未发送数据量（R）进行的调整遵循为跳转启动提出的方法[Liu07]。加入术语R使调整比标准TCP更保守。这是必需的，因为非验证阶段的发送方允许的速率高于标准TCP发送方在上一次RTT中可能达到的速率（即，相对于上一次RTT中发送的速率，飞行中的段数增加一倍以上）。拥塞后的额外减少在LossFlightSize显著超过可用路径容量时是有益的，导致了显著的损失（例如，在路径特征发生变化之后，或者在发送方传输较少的时段内，额外的流量占据了网络瓶颈的更大份额）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: The pipeACK value is only valid during a non-validated phase; therefore, this does not exceed cwnd/2. If LossFlightSize and R were small, then this can result in the final cwnd after loss recovery being at most one-quarter of the cwnd on detection of congestion. This reduction is conservative, and pipeACK is then reset to undefined; hence, cwnd updates after a congestion event do not depend upon the pipeACK history before congestion was detected.",
+      "zh-CHS": "注意：pipeACK值仅在非验证阶段有效；因此，这不超过cwnd/2。如果LossFlaghtSize和R很小，则这可能导致丢失恢复后的最终cwnd最多为检测到拥塞时cwnd的四分之一。此减少是保守的，然后将pipeACK重置为未定义；因此，拥塞事件之后的cwnd更新不依赖于检测到拥塞之前的pipeACK历史记录。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.2. Sender Burst Control during the Non-validated Phase",
+      "section_title": true,
+      "zh-CHS": "4.4.2. 未验证阶段期间的发送方突发控制"
+    },
+    {
+      "indent": 3,
+      "text": "TCP congestion control allows a sender to accumulate a cwnd that would allow it to send a burst of segments with a total size up to the difference between the FlightSize and cwnd. Such bursts can impact other flows that share a network bottleneck and/or may induce congestion when buffering is limited.",
+      "zh-CHS": "TCP拥塞控制允许发送方累积一个cwnd，该cwnd允许发送方发送一组总大小不超过FlightSize和cwnd之差的段。这种突发会影响共享网络瓶颈的其他流和/或在缓冲受到限制时可能导致拥塞。"
+    },
+    {
+      "indent": 3,
+      "text": "Various methods have been proposed to control the sender burstiness [Hug01] [All05]. For example, TCP can limit the number of new segments it sends per received ACK. This is effective when a flow of ACKs is received but cannot be used to control a sender that has not sent appreciable data in the previous RTT [All05].",
+      "zh-CHS": "已经提出了各种方法来控制发送方突发性[Hug01][All05]。例如，TCP可以限制每个接收到的ACK发送的新段数。这在接收到ACK流时有效，但不能用于控制在先前RTT中未发送可观数据的发送方[All05]。"
+    },
+    {
+      "indent": 3,
+      "text": "This document recommends using a method to avoid line-rate bursts after an idle or rate-limited interval when there is less reliable information about the capacity of the network path. A TCP sender in the non-validated phase SHOULD control the maximum burst size, e.g., using a rate-based pacing algorithm in which a sender paces out the cwnd over its estimate of the RTT, or some other method, to prevent many segments being transmitted contiguously at line-rate. The most appropriate method(s) to implement pacing depend on the design of the TCP/IP stack, speed of interface, and whether hardware support (such as TSO) is used. This document does not recommend any specific method.",
+      "zh-CHS": "本文档建议使用一种方法，以避免在空闲或速率限制间隔后，当网络路径容量的可靠信息较少时，线路速率突发。处于未验证阶段的TCP发送方应控制最大突发大小，例如，使用基于速率的调整算法，其中发送方将cwnd调整到其RTT估计值之外，或使用其他方法，以防止许多段以线速率连续传输。实现起搏的最合适方法取决于TCP/IP堆栈的设计、接口速度以及是否使用硬件支持（如TSO）。本文件不推荐任何具体方法。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.3. Adjustment at the End of the Non-validated Period (NVP)",
+      "section_title": true,
+      "zh-CHS": "4.4.3. 非有效期结束时的调整（NVP）"
+    },
+    {
+      "indent": 3,
+      "text": "An application that remains in the non-validated phase for a period greater than the NVP is required to adjust its congestion control state. If the sender exits the non-validated phase after this period, it MUST update the ssthresh:",
+      "zh-CHS": "如果应用程序处于未验证阶段的时间超过NVP，则需要调整其拥塞控制状态。如果发送方在此期间之后退出未验证阶段，则必须更新ssthresh："
+    },
+    {
+      "indent": 9,
+      "text": "ssthresh = max(ssthresh, 3*cwnd/4).",
+      "zh-CHS": "ssthresh=最大值（ssthresh，3*cwnd/4）。"
+    },
+    {
+      "indent": 3,
+      "text": "(This adjustment of ssthresh ensures that the sender records that it has safely sustained the present rate. The change is beneficial to rate-limited flows that encounter occasional congestion and could otherwise suffer an unwanted additional delay in recovering the sending rate.)",
+      "zh-CHS": "（此ssthresh调整可确保发送方记录其已安全维持当前速率。此更改有利于偶尔遇到拥塞的速率受限流，否则在恢复发送速率时可能会遭受不必要的额外延迟。）"
+    },
+    {
+      "indent": 3,
+      "text": "The sender MUST then update cwnd to be not greater than:",
+      "zh-CHS": "然后，发件人必须将cwnd更新为不大于："
+    },
+    {
+      "indent": 12,
+      "text": "cwnd = max((1/2)*cwnd, IW).",
+      "zh-CHS": "cwnd=最大值（（1/2）*cwnd，IW）。"
+    },
+    {
+      "indent": 3,
+      "text": "Where IW is the appropriate TCP initial window used by the TCP sender (see, e.g., [RFC5681]).",
+      "zh-CHS": "其中，IW是TCP发送方使用的适当TCP初始窗口（例如，请参见[RFC5681]）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: These cwnd and ssthresh adjustments cause the sender to enter slow-start (since ssthresh > cwnd). This adjustment ensures that the sender responds conservatively after remaining in the non-validated phase for more than the non-validated period. In this case, it reduces the cwnd by a factor of two from the preserved value. This adjustment is helpful when flows accumulate but do not use a large cwnd; this adjustment seeks to mitigate the impact when these flows later resume transmission. This could, for instance, mitigate the impact if multiple high-rate application flows were to become idle over an extended period of time and then were simultaneously awakened by an external event.",
+      "zh-CHS": "注意：这些cwnd和ssthresh调整会导致发送器进入慢速启动（因为ssthresh>cwnd）。此调整确保发送方在非验证阶段停留超过非验证期后保守响应。在这种情况下，它会将cwnd从保留值减少两倍。当流量累积但不使用较大的cwnd时，此调整很有帮助；该调整旨在减轻这些流量稍后恢复传输时的影响。例如，如果多个高速应用程序流在一段较长的时间内变为空闲，然后同时被外部事件唤醒，那么这可以减轻影响。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Examples of Implementation",
+      "section_title": true,
+      "zh-CHS": "4.5. 实施实例"
+    },
+    {
+      "indent": 3,
+      "text": "This section provides informative examples of implementation methods. Implementations may choose to use other methods that comply with the normative requirements.",
+      "zh-CHS": "本节提供了实施方法的信息示例。实施可以选择使用符合规范性要求的其他方法。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.1. Implementing the pipeACK Measurement",
+      "section_title": true,
+      "zh-CHS": "4.5.1. 实现pipeACK测量"
+    },
+    {
+      "indent": 3,
+      "text": "A pipeACK sample may be measured once each RTT. This reduces the sender processing burden for calculating after each acknowledgment and also reduces storage requirements at the sender.",
+      "zh-CHS": "每次RTT可测量一次pipeACK样品。这减少了发送方在每次确认后进行计算的处理负担，还减少了发送方的存储需求。"
+    },
+    {
+      "indent": 3,
+      "text": "Since application behaviour can be bursty using CWV, it may be desirable to implement a maximum filter to accumulate the measured values so that the pipeACK variable records the largest pipeACK sample within the pipeACK Sampling Period. One simple way to implement this is to divide the pipeACK Sampling Period into several (e.g., five) equal-length measurement periods. The sender then records the start time for each measurement period and the highest measured pipeACK sample. At the end of the measurement period, any measurement(s) that is older than the pipeACK Sampling Period is discarded. The pipeACK variable is then assigned the largest of the set of the highest measured values.",
+      "zh-CHS": "由于使用CWV应用程序行为可能会突发，因此可能需要实现最大过滤器来累积测量值，以便pipeACK变量在pipeACK采样周期内记录最大的pipeACK样本。实现这一点的一种简单方法是将pipeACK采样周期划分为几个（例如，五个）等长测量周期。然后，发送方记录每个测量周期的开始时间和最高测量的pipeACK样本。在测量周期结束时，任何早于pipeACK采样周期的测量都将被丢弃。然后为pipeACK变量指定一组最高测量值中的最大值。"
+    },
+    {
+      "indent": 3,
+      "text": "pipeACK sample (Bytes)\n^\n|   +----------+----------+           +----------+---......\n|   | Sample A | Sample B | No        | Sample C | Sample D\n|   |          |          | Sample    |          |\n|   | |\\ 5     |          |           |          |\n|   | | |      |          |           |  /\\ 4    |\n|   | | |      |  |\\ 3    |           |  | \\     |\n|   | | \\      | |  \\---  |           |  /  \\    |   /| 2\n|   |/   \\------|       - |           | /    \\------/ \\...\n+//-+----------+---------\\+----/ /----+/---------+-------------> Time",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "<------------------------------------------------|\n                    Sampling Period          Current Time",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "Figure 1: Example of Measuring pipeACK Samples",
+      "zh-CHS": "图1：测量pipeACK样本的示例"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 1 shows an example of how measurement samples may be collected. At the time represented by the figure, new samples are being accumulated into sample D. Three previous samples also fall within the pipeACK Sampling Period: A, B, and C. There was also a period of inactivity between samples B and C during which no measurements were taken (because no new data segments were acknowledged). The current value of the pipeACK variable will be 5, the maximum across all samples. During this period, the pipeACK samples may be regarded as zero and hence do not contribute to the calculated pipeACK value.",
+      "zh-CHS": "图1显示了如何收集测量样本的示例。在图中所示的时间，新样本正在累积到样本D中。之前的三个样本也属于Pipeck采样周期：A、B和C。样本B和C之间也有一段不活动的时间，在此期间没有进行测量（因为没有确认新的数据段）。pipeACK变量的当前值为5，是所有样本的最大值。在此期间，pipeACK样本可能被视为零，因此不会对计算的pipeACK值产生影响。"
+    },
+    {
+      "indent": 3,
+      "text": "After one further measurement period, Sample A will be discarded, since it then is older than the pipeACK Sampling Period, and the pipeACK variable will be recalculated. Its value will be the larger of Sample C or the final value accumulated in Sample D.",
+      "zh-CHS": "再经过一个测量周期后，样本A将被丢弃，因为它比pipeACK采样周期早，并且将重新计算pipeACK变量。其值应为样本C中的较大值或样本D中累积的最终值。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.2. Measurement of the NVP and pipeACK Samples",
+      "section_title": true,
+      "zh-CHS": "4.5.2. NVP和pipeACK样品的测量"
+    },
+    {
+      "indent": 3,
+      "text": "The mechanism requires a number of measurements of time. These measurements could be implemented using protocol timers but do not necessarily require a new timer to be implemented. Avoiding the use of dedicated timers can save operating system resources, especially when there may be large numbers of TCP flows.",
+      "zh-CHS": "该机制需要大量的时间测量。这些测量可以使用协议定时器实现，但不一定需要实现新的定时器。避免使用专用计时器可以节省操作系统资源，特别是在可能存在大量TCP流的情况下。"
+    },
+    {
+      "indent": 3,
+      "text": "The NVP could be measured by recording a timestamp when the sender enters the non-validated phase. Each time a sender transmits a new segment, this timestamp can be used to determine if the NVP has expired. If the measured period exceeds the NVP, the sender can then take into account how many units of the NVP have passed and make one reduction (defined in Section 4.4.3) for each NVP.",
+      "zh-CHS": "当发送方进入未验证阶段时，可以通过记录时间戳来测量NVP。每次发送方发送新段时，该时间戳可用于确定NVP是否已过期。如果测量的周期超过NVP，发送方可以考虑已通过的NVP单位数量，并对每个NVP进行一次缩减（定义见第4.4.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, the time measurements for collecting pipeACK samples and determining the pipeACK Sampling Period could be derived by using a timestamp to record when each sample was measured and using this to calculate how much time has passed when each new ACK is received.",
+      "zh-CHS": "类似地，用于收集pipeACK样本和确定pipeACK采样周期的时间测量可以通过使用时间戳来记录测量每个样本的时间，并使用该时间戳来计算接收每个新ACK时经过的时间。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.3. Implementing Detection of the cwnd-Limited Condition",
+      "section_title": true,
+      "zh-CHS": "4.5.3. 实现cwnd限制条件的检测"
+    },
+    {
+      "indent": 3,
+      "text": "A sender needs to implement a method that detects the cwnd-limited condition (see Section 4.4). This detects a condition where a sender in the non-validated phase receives an ACK, but the size of cwnd prevents sending more new data.",
+      "zh-CHS": "发送方需要实现一种检测cwnd限制条件的方法（参见第4.4节）。这会检测处于未验证阶段的发送方接收到ACK，但cwnd的大小阻止发送更多新数据的情况。"
+    },
+    {
+      "indent": 3,
+      "text": "In simple terms, this condition is true only when the FlightSize of a TCP sender is equal to or larger than the current cwnd. However, an implementation also needs to consider constraints on the way in which the cwnd variable can be used; for instance, implementations need to support other TCP methods such as the Nagle Algorithm and TCP Segment Offload (TSO) that also use cwnd to control transmission. These other methods can result in a sender becoming cwnd-limited when the cwnd is nearly, rather than completely, equal to the FlightSize.",
+      "zh-CHS": "简单来说，只有当TCP发送方的FlightSize等于或大于当前cwnd时，此条件才成立。然而，实现还需要考虑CWND变量可以使用的方式上的约束；例如，实现需要支持其他TCP方法，如Nagle算法和TCP段卸载（TSO），它们也使用cwnd来控制传输。当cwnd几乎（而不是完全）等于FlightSize时，这些其他方法可能会导致发送方受到cwnd限制。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Determining a Safe Period to Preserve cwnd",
+      "section_title": true,
+      "zh-CHS": "5. 确定保护cwnd的安全期"
+    },
+    {
+      "indent": 3,
+      "text": "This section documents the rationale for selecting the maximum period that cwnd may be preserved, known as the NVP.",
+      "zh-CHS": "本节记录了选择cwnd可保留的最长期限（称为NVP）的基本原理。"
+    },
+    {
+      "indent": 3,
+      "text": "Limiting the period that cwnd may be preserved avoids undesirable side effects that would result if the cwnd were to be kept unnecessarily high for an arbitrarily long period, which was a part of the problem that CWV originally attempted to address. The period a sender may safely preserve the cwnd is a function of the period that a network path is expected to sustain the capacity reflected by cwnd. There is no ideal choice for this time.",
+      "zh-CHS": "限制cwnd可能被保留的时间可以避免如果cwnd在任意长的时间内被不必要地保持在高水平会产生的不良副作用，这是CWV最初试图解决的问题的一部分。发送方可以安全保留cwnd的周期是网络路径预期维持cwnd反映的容量的周期的函数。这次没有理想的选择。"
+    },
+    {
+      "indent": 3,
+      "text": "A period of five minutes was chosen for this NVP. This is a compromise that was larger than the idle intervals of common applications but not sufficiently larger than the period for which the capacity of an Internet path may commonly be regarded as stable. The capacity of wired networks is usually relatively stable for periods of several minutes, and that load stability increases with the capacity. This suggests that cwnd may be preserved for at least a few minutes.",
+      "zh-CHS": "为此NVP选择了五分钟的时间段。这是一种折衷方案，它大于普通应用程序的空闲间隔，但不足以大于通常认为因特网路径的容量稳定的时间段。有线网络的容量通常在几分钟内相对稳定，负载稳定性随着容量的增加而增加。这表明cwnd至少可以保存几分钟。"
+    },
+    {
+      "indent": 3,
+      "text": "There are cases where the TCP throughput exhibits significant variability over a time less than five minutes. Examples could include wireless topologies, where TCP rate variations may fluctuate on the order of a few seconds as a consequence of medium access protocol instabilities. Mobility changes may also impact TCP",
+      "zh-CHS": "在某些情况下，TCP吞吐量在不到五分钟的时间内表现出显著的变化。示例可能包括无线拓扑，其中TCP速率变化可能由于介质访问协议的不稳定性而在几秒钟内波动。移动性变化也可能影响TCP"
+    },
+    {
+      "indent": 3,
+      "text": "performance over short time scales. Senders that observe such rapid changes in the path characteristic may also experience increased congestion with the new method; however, such variation would likely also impact TCP's behaviour when supporting interactive and bulk applications.",
+      "zh-CHS": "短时间内的性能。观察到路径特性如此快速变化的发送者也可能会使用新方法遇到更大的拥塞；然而，当支持交互式和批量应用程序时，这种变化也可能会影响TCP的行为。"
+    },
+    {
+      "indent": 3,
+      "text": "Routing algorithms may change the network path that is used by a transport. Although a change of path can in turn disrupt the RTT measurement and may result in a change of the capacity available to a TCP connection, we assume these path changes do not usually occur frequently (compared to a time frame of a few minutes).",
+      "zh-CHS": "路由算法可能会更改传输所使用的网络路径。虽然路径的更改反过来会中断RTT测量，并可能导致TCP连接可用容量的更改，但我们假设这些路径更改通常不会频繁发生（与几分钟的时间范围相比）。"
+    },
+    {
+      "indent": 3,
+      "text": "The value of five minutes is therefore expected to be sufficient for most current applications. Simulation studies (e.g., [Bis11]) also suggest that for many practical applications, the performance using this value will not be significantly different from that observed using a non-standard method that does not reset the cwnd after idle.",
+      "zh-CHS": "因此，对于大多数当前应用而言，五分钟的值预计已足够。模拟研究（例如，[Bis11]）还表明，对于许多实际应用，使用该值的性能与使用非标准方法观察到的性能没有显著差异，该方法在闲置后不会重置cwnd。"
+    },
+    {
+      "indent": 3,
+      "text": "Finally, other TCP sender mechanisms have used a five-minute timer, and there could be simplifications in some implementations by reusing the same interval. TCP defines a default user timeout of five minutes [RFC793], which is how long transmitted data may remain unacknowledged before a connection is forcefully closed.",
+      "zh-CHS": "最后，其他TCP发送方机制使用了5分钟的计时器，在某些实现中可以通过重用相同的时间间隔来简化。TCP定义了五分钟的默认用户超时[RFC793]，即在强制关闭连接之前，传输的数据可能保持未确认的时间。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "General security considerations concerning TCP congestion control are discussed in [RFC5681]. This document describes an algorithm that updates one aspect of the congestion control procedures, so the considerations described in [RFC5681] also apply to this algorithm.",
+      "zh-CHS": "[RFC5681]中讨论了有关TCP拥塞控制的一般安全注意事项。本文件描述了更新拥塞控制程序一个方面的算法，因此[RFC5681]中描述的注意事项也适用于该算法。"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, DOI 10.17487/RFC0793, September 1981, <http://www.rfc-editor.org/info/rfc793>.",
+      "zh-CHS": "[RFC793]Postel，J.，“传输控制协议”，标准7，RFC 793，DOI 10.17487/RFC0793，1981年9月<http://www.rfc-editor.org/info/rfc793>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2018] Mathis, M., Mahdavi, J., Floyd, S., and A. Romanow, \"TCP Selective Acknowledgment Options\", RFC 2018, DOI 10.17487/RFC2018, October 1996, <http://www.rfc-editor.org/info/rfc2018>.",
+      "zh-CHS": "[RFC2018]Mathis，M.，Mahdavi，J.，Floyd，S.，和A.Romanow，“TCP选择性确认选项”，RFC 2018，DOI 10.17487/RFC2018，1996年10月<http://www.rfc-editor.org/info/rfc2018>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2861] Handley, M., Padhye, J., and S. Floyd, \"TCP Congestion Window Validation\", RFC 2861, DOI 10.17487/RFC2861, June 2000, <http://www.rfc-editor.org/info/rfc2861>.",
+      "zh-CHS": "[RFC2861]Handley，M.，Padhye，J.和S.Floyd，“TCP拥塞窗口验证”，RFC 2861，DOI 10.17487/RFC2861，2000年6月<http://www.rfc-editor.org/info/rfc2861>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5681] Allman, M., Paxson, V., and E. Blanton, \"TCP Congestion Control\", RFC 5681, DOI 10.17487/RFC5681, September 2009, <http://www.rfc-editor.org/info/rfc5681>.",
+      "zh-CHS": "[RFC5681]Allman，M.，Paxson，V.和E.Blanton，“TCP拥塞控制”，RFC 5681，DOI 10.17487/RFC56812009年9月<http://www.rfc-editor.org/info/rfc5681>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6298] Paxson, V., Allman, M., Chu, J., and M. Sargent, \"Computing TCP's Retransmission Timer\", RFC 6298, DOI 10.17487/RFC6298, June 2011, <http://www.rfc-editor.org/info/rfc6298>.",
+      "zh-CHS": "[RFC6298]Paxson，V.，Allman，M.，Chu，J.，和M.Sargent，“计算TCP的重传计时器”，RFC 6298，DOI 10.17487/RFC62982011年6月<http://www.rfc-editor.org/info/rfc6298>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6675] Blanton, E., Allman, M., Wang, L., Jarvinen, I., Kojo, M., and Y. Nishida, \"A Conservative Loss Recovery Algorithm Based on Selective Acknowledgment (SACK) for TCP\", RFC 6675, DOI 10.17487/RFC6675, August 2012, <http://www.rfc-editor.org/info/rfc6675>.",
+      "zh-CHS": "[RFC6675]Blanton，E.，Allman，M.，Wang，L.，Jarvinen，I.，Kojo，M.，和Y.Nishida，“基于TCP选择性确认（SACK）的保守损失恢复算法”，RFC 6675，DOI 10.17487/RFC6675，2012年8月<http://www.rfc-editor.org/info/rfc6675>."
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[All05] Allman, M. and E. Blanton, \"Notes on Burst Mitigation for Transport Protocols\", ACM SIGCOMM Computer Communication Review, Volume 35, Issue 2, DOI 10.1145/1064413.1064419, April 2005.",
+      "zh-CHS": "[All05]Allman，M.和E.Blanton，“传输协议的突发缓解注释”，ACM SIGCOMM计算机通信评论，第35卷，第2期，DOI 10.1145/1064413.1064419，2005年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Bis08] Biswas, I. and G. Fairhurst, \"A Practical Evaluation of Congestion Window Validation Behaviour\", 9th Annual Postgraduate Symposium in the Convergence of Telecommunications, Networking and Broadcasting (PGNet), Liverpool, UK, 2008.",
+      "zh-CHS": "[Bis08]Biswas，I.和G.Fairhurst，“拥塞窗口验证行为的实际评估”，第九届电信、网络和广播（PGNet）融合研究生年度研讨会，英国利物浦，2008年。"
+    },
+    {
+      "indent": 3,
+      "text": "[Bis10] Biswas, I., Sathiaseelan, A., Secchi, R., and G. Fairhurst, \"Analysing TCP for Bursty Traffic\", Int'l J. of Communications, Network and System Sciences, DOI 10.4236/ijcns.2010.37078, July 2010.",
+      "zh-CHS": "[Bis10]Biswas，I.，Sathiaseelan，A.，Secchi，R.，和G.Fairhurst，“分析突发流量的TCP”，国际通信、网络和系统科学杂志，DOI 10.4236/ijcns.2010.37078，2010年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Bis11] Biswas, I., \"Internet Congestion Control for Variable-Rate TCP Traffic\", PhD Thesis, School of Engineering, University of Aberdeen, 2011.",
+      "zh-CHS": "[BIS11] BISWAS，I，“可变速率TCP流量的Internet拥塞控制”，博士论文，阿伯丁大学工程学院，2011。"
+    },
+    {
+      "indent": 3,
+      "text": "[Fai12] Sathiaseelan, A., Secchi, R., Fairhurst, G., and I. Biswas, \"Enhancing TCP Performance to support Variable-Rate Traffic\", 2nd Capacity Sharing Workshop, ACM CoNEXT, Nice, France, December 2012.",
+      "zh-CHS": "[Fai12]Sathiaseelan，A.，Secchi，R.，Fairhurst，G.，和I.Biswas，“增强TCP性能以支持可变速率流量”，第二届容量共享研讨会，ACM CoNEXT，法国尼斯，2012年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Hos15] Hossain, Z., \"A Study of Mechanisms to Support Variable-Rate Internet Applications over a Multi-service Satellite Platform\", PhD Thesis, School of Engineering, University of Aberdeen, January 2015.",
+      "zh-CHS": "[HOS15]侯赛因，Z.，“在多服务卫星平台上支持可变速率互联网应用的机制研究”，阿伯丁大学博士论文，阿伯丁大学工程学院，2015年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Hug01] Hughes, A., Touch, J., and J. Heidemann, \"Issues in TCP Slow-Start Restart After Idle\", Work in Progress, draft-hughes-restart-00, December 2001.",
+      "zh-CHS": "[Hugh01]Hughes，A.，Touch，J.，和J.Heidemann，“空闲后TCP慢启动重启的问题”，正在进行的工作，draft-Hughes-Restart-00，2001年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Liu07] Liu, D., Allman, M., Jin, S., and L. Wang, \"Congestion Control without a Startup Phase\", 5th International Workshop on Protocols for Fast Long-Distance Networks (PFLDnet), Los Angeles, California, February 2007.",
+      "zh-CHS": "[Liu07]Liu，D.，Allman，M.，Jin，S.，和L.Wang，“无启动阶段的拥塞控制”，第五届快速长途网络协议国际研讨会（PFLDnet），加利福尼亚州洛杉矶，2007年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7230] Fielding, R., Ed. and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing\", RFC 7230, DOI 10.17487/RFC7230, June 2014, <http://www.rfc-editor.org/info/rfc7230>.",
+      "zh-CHS": "[RFC7230]Fielding，R.，Ed.和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：消息语法和路由”，RFC 7230，DOI 10.17487/RFC7230，2014年6月<http://www.rfc-editor.org/info/rfc7230>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This document was produced by the TCP Maintenance and Minor Extensions (tcpm) working group.",
+      "zh-CHS": "本文件由TCP维护和小型扩展（tcpm）工作组编制。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors acknowledge the contributions of Dr. I. Biswas and Dr. Ziaul Hossain in supporting the evaluation of CWV and for their help in developing the mechanisms proposed in this document. We also acknowledge comments received from the Internet Congestion Control Research Group, in particular Yuchung Cheng, Mirja Kuehlewind, Joe Touch, and Mark Allman. This work was partly funded by the European Community under its Seventh Framework Programme through the Reducing Internet Transport Latency (RITE) project (ICT-317700).",
+      "zh-CHS": "作者感谢I.Biswas博士和Ziaul Hossain博士在支持CWV评估方面的贡献，以及他们在开发本文件中提出的机制方面的帮助。我们还感谢从互联网拥塞控制研究小组收到的评论，特别是郑宇忠、Mirja Kuehlewind、Joe Touch和Mark Allman。这项工作部分由欧洲共同体第七个框架方案通过减少互联网传输延迟（RITE）项目（ICT-317700）提供资金。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Godred Fairhurst University of Aberdeen School of Engineering Fraser Noble Building Aberdeen, Scotland AB24 3UE United Kingdom",
+      "zh-CHS": "GoRead FelHurt阿伯丁大学工程学院弗雷泽贵族建筑苏格兰阿伯丁英国AB24 3UE英国"
+    },
+    {
+      "indent": 3,
+      "text": "Email: gorry@erg.abdn.ac.uk\nURI:   http://www.erg.abdn.ac.uk",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Arjuna Sathiaseelan University of Aberdeen School of Engineering Fraser Noble Building Aberdeen, Scotland AB24 3UE United Kingdom",
+      "zh-CHS": "阿朱那萨西亚莱兰阿伯丁大学工程学院弗雷泽贵族建筑苏格兰阿伯丁英国AB24 3UE英国"
+    },
+    {
+      "indent": 3,
+      "text": "Email: arjuna@erg.abdn.ac.uk\nURI:   http://www.erg.abdn.ac.uk",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Raffaello Secchi University of Aberdeen School of Engineering Fraser Noble Building Aberdeen, Scotland AB24 3UE United Kingdom",
+      "zh-CHS": "拉斐罗-塞奇阿伯丁大学工程学院弗雷泽贵族建筑苏格兰阿伯丁英国AB24 3UE英国"
+    },
+    {
+      "indent": 3,
+      "text": "Email: raffaello@erg.abdn.ac.uk\nURI:   http://www.erg.abdn.ac.uk",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

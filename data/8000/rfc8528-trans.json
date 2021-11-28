@@ -1,0 +1,1251 @@
+{
+  "title": {
+    "text": "RFC 8528: YANG Schema Mount",
+    "zh-CHS": "RFC 8528"
+  },
+  "number": 8528,
+  "created_at": "2021-10-27 16:08:53.671253+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                      M. Bjorklund\nRequest for Comments: 8528                                Tail-f Systems\nCategory: Standards Track                                      L. Lhotka\nISSN: 2070-1721                                                   CZ.NIC\n                                                              March 2019",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 27,
+      "text": "YANG Schema Mount",
+      "zh-CHS": "阳山"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a mechanism that adds the schema trees defined by a set of YANG modules onto a mount point defined in the schema tree in another YANG module.",
+      "zh-CHS": "本文档定义了一种机制，该机制将一组YANG模块定义的模式树添加到另一个YANG模块的模式树中定义的装入点上。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at https://www.rfc-editor.org/info/rfc8528.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问https://www.rfc-editor.org/info/rfc8528."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2019 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权（c）2019 IETF信托基金和被确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(https://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Terminology and Notation ........................................6\n   2.1. Tree Diagrams ..............................................7\n   2.2. Namespace Prefixes .........................................7\n3. Schema Mount ....................................................8\n   3.1. Mount Point Definition .....................................8\n   3.2. Data Model .................................................9\n   3.3. Specification of the Mounted Schema ........................9\n   3.4. Multiple Levels of Schema Mount ...........................10\n4. Referring to Data Nodes in the Parent Schema ...................10\n5. RPC Operations and Notifications ...............................11\n6. NMDA Considerations ............................................12\n7. Interaction with NACM ..........................................12\n8. Implementation Notes ...........................................13\n9. Schema Mount YANG Module .......................................13\n10. IANA Considerations ...........................................18\n11. Security Considerations .......................................18\n12. References ....................................................19\n   12.1. Normative References .....................................19\n   12.2. Informative References ...................................21\nAppendix A.  Example: Device Model with LNEs and NIs ..............22\n  A.1.  Physical Device ...........................................22\n  A.2.  Logical Network Elements ..................................24\n  A.3.  Network Instances .........................................27\n  A.4.  Invoking an RPC Operation .................................28\nContributors ......................................................28\nAuthors' Addresses ................................................28",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Modularity and extensibility are among the leading design principles of the YANG data modeling language. As a result, the same YANG module can be combined with various sets of other modules to form a data model that is tailored to meet the requirements of a specific use case. Server implementors are only required to specify all YANG modules comprising the data model (together with their revisions and other optional choices) in the YANG library data ([RFC7895], [RFC8525], and Section 5.6.4 of [RFC7950]) implemented by the server. Such YANG modules appear in the data model \"side by side\", i.e., top-level data nodes of each module (if there are any) are also top-level nodes of the overall data model.",
+      "zh-CHS": "模块化和可扩展性是YANG数据建模语言的主要设计原则。因此，同一个模块可以与其他模块的不同集合相结合，以形成一个数据模型，该模型可以定制为满足特定用例的需求。服务器实现者只需在服务器实现的YANG库数据（[RFC7895]、[RFC8525]和[RFC7950]第5.6.4节）中指定包含数据模型的所有YANG模块（及其修订版和其他可选选项）。这些模块“并排”出现在数据模型中，即每个模块的顶级数据节点（如果有）也是整个数据模型的顶级节点。"
+    },
+    {
+      "indent": 3,
+      "text": "YANG has two mechanisms for contributing a schema hierarchy defined elsewhere to the contents of an internal node of the schema tree. These mechanisms are realized through the following YANG statements:",
+      "zh-CHS": "YANG有两种机制用于将别处定义的模式层次结构贡献给模式树的内部节点的内容。这些机制通过以下语句实现："
+    },
+    {
+      "indent": 3,
+      "text": "o The \"uses\" statement explicitly incorporates the contents of a grouping defined in the same or another module. See Section 4.2.6 of [RFC7950] for more details.",
+      "zh-CHS": "o “uses”语句显式地包含在同一模块或另一模块中定义的分组的内容。详见[RFC7950]第4.2.6节。"
+    },
+    {
+      "indent": 3,
+      "text": "o The \"augment\" statement explicitly adds contents to a target node defined in the same or another module. See Section 4.2.8 of [RFC7950] for more details.",
+      "zh-CHS": "o “augment”语句显式地将内容添加到同一模块或另一模块中定义的目标节点。详见[RFC7950]第4.2.8节。"
+    },
+    {
+      "indent": 3,
+      "text": "With both mechanisms, the YANG module with the \"uses\" or \"augment\" statement explicitly defines the exact location in the schema tree where the new nodes are placed.",
+      "zh-CHS": "对于这两种机制，带有“uses”或“augment”语句的YANG模块在模式树中明确定义了放置新节点的确切位置。"
+    },
+    {
+      "indent": 3,
+      "text": "In some cases, these mechanisms are not sufficient; it is sometimes necessary for an existing module (or a set of modules) to be added to the data model starting at locations other than the root. For example, YANG modules such as \"ietf-interfaces\" [RFC8343] are defined so as to be used in a data model of a physical device. Now suppose we want to model a device that supports multiple logical devices [RFC8530], each of which has its own instantiation of \"ietf-interfaces\", and possibly other modules; at the same time, we want to be able to manage all these logical devices from the master device. Hence, we would like to have a schema tree like this:",
+      "zh-CHS": "在某些情况下，这些机制是不够的；有时需要将现有模块（或一组模块）添加到数据模型中，从根以外的位置开始。例如，诸如“ietf接口”[RFC8343]之类的模块被定义为在物理设备的数据模型中使用。现在假设我们要对一个支持多个逻辑设备的设备建模[RFC8530]，每个逻辑设备都有自己的“ietf接口”实例，可能还有其他模块；同时，我们希望能够从主设备管理所有这些逻辑设备。因此，我们希望有这样一个模式树："
+    },
+    {
+      "indent": 5,
+      "text": "+--rw interfaces\n|  +--rw interface* [name]\n|     ...\n+--rw logical-network-element* [name]\n   +--rw name\n   |   ...\n   +--rw interfaces\n     +--rw interface* [name]\n        ...",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "With the \"uses\" approach, the complete schema tree of \"ietf-interfaces\" would have to be wrapped in a grouping, and then this grouping would have to be used at the top level (for the master device) and then also in the \"logical-network-element\" list (for the logical devices). This approach has several disadvantages:",
+      "zh-CHS": "使用“使用”方法时，“ietf接口”的完整模式树必须包装在一个分组中，然后该分组必须在顶层（对于主设备）使用，然后在“逻辑网元”列表（对于逻辑设备）中使用。这种方法有几个缺点："
+    },
+    {
+      "indent": 3,
+      "text": "o It is not scalable because every time there is a new YANG module that needs to be added to the logical device model, we have to update the model for logical devices with another \"uses\" statement pulling in contents of the new module.",
+      "zh-CHS": "o 它是不可伸缩的，因为每次有一个新的模块需要添加到逻辑设备模型中时，我们都必须使用另一个“uses”语句来更新逻辑设备的模型，该语句将引入新模块的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "o Absolute references to nodes defined inside a grouping may break if the grouping is used in different locations.",
+      "zh-CHS": "o 如果在不同位置使用分组，则对分组中定义的节点的绝对引用可能会中断。"
+    },
+    {
+      "indent": 3,
+      "text": "o Nodes defined inside a grouping belong to the namespace of the module where it is used, which makes references to such nodes from other modules difficult or even impossible.",
+      "zh-CHS": "o 在分组中定义的节点属于使用它的模块的名称空间，这使得从其他模块引用此类节点变得困难甚至不可能。"
+    },
+    {
+      "indent": 3,
+      "text": "o It would be difficult for vendors to add proprietary modules when the \"uses\" statements are defined in a standard module.",
+      "zh-CHS": "o 当在标准模块中定义“使用”语句时，供应商很难添加专有模块。"
+    },
+    {
+      "indent": 3,
+      "text": "With the \"augment\" approach, \"ietf-interfaces\" would have to augment the \"logical-network-element\" list with all its nodes and, at the same time, define all its nodes at the top level. The same hierarchy of nodes would thus have to be defined twice, which is clearly not scalable either.",
+      "zh-CHS": "使用“扩充”方法，“ietf接口”必须用其所有节点扩充“逻辑网元”列表，同时在顶层定义其所有节点。因此，相同的节点层次结构必须定义两次，这显然也是不可伸缩的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document introduces a new mechanism, denoted as \"schema mount\", that allows for mounting one data model consisting of any number of YANG modules at a specified location of another (parent) schema. Unlike the \"uses\" and \"augment\" approaches discussed above, the mounted modules needn't be specially prepared for mounting; consequently, existing modules such as \"ietf-interfaces\" can be mounted without any modifications.",
+      "zh-CHS": "本文介绍了一种新的机制，称为“模式挂载”，它允许在另一个（父）模式的指定位置挂载一个由任意数量的模块组成的数据模型。与上面讨论的“使用”和“增强”方法不同，安装的模块不需要专门准备安装；因此，诸如“ietf接口”等现有模块无需任何修改即可安装。"
+    },
+    {
+      "indent": 3,
+      "text": "The basic idea of schema mount is to label a data node in the parent schema as the mount point and then define a complete data model to be attached to the mount point so that the labeled data node effectively becomes the root node of the mounted data model.",
+      "zh-CHS": "模式装载的基本思想是将父模式中的数据节点标记为装载点，然后定义要附加到装载点的完整数据模型，以便标记的数据节点有效地成为装载数据模型的根节点。"
+    },
+    {
+      "indent": 3,
+      "text": "In principle, the mounted schema can be specified at three different phases of the data model life cycle:",
+      "zh-CHS": "原则上，可以在数据模型生命周期的三个不同阶段指定装载的模式："
+    },
+    {
+      "indent": 3,
+      "text": "1. Design time: The mounted schema is defined along with the mount point in the parent YANG module. In this case, the mounted schema has to be the same for every implementation of the parent module.",
+      "zh-CHS": "1. 设计时：挂载模式与父模块中的挂载点一起定义。在这种情况下，装载的模式对于父模块的每个实现都必须相同。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Implementation time: The mounted schema is defined by a server implementor and is as stable as the YANG library information of the server.",
+      "zh-CHS": "2. 实现时间：装载的模式由服务器实现者定义，并且与服务器的库信息一样稳定。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Run time: The mounted schema is defined by instance data that is part of the mounted data model. If there are multiple instances of the same mount point (e.g., in multiple entries of a list), the mounted data model may be different for each instance.",
+      "zh-CHS": "3. 运行时：装载的架构由作为装载数据模型一部分的实例数据定义。如果同一装载点有多个实例（例如，在列表的多个条目中），则每个实例装载的数据模型可能不同。"
+    },
+    {
+      "indent": 3,
+      "text": "The schema mount mechanism defined in this document provides support only for the latter two cases. Design-time mounts are outside the scope of this document and could be possibly dealt with in a future revision of the YANG data modeling language.",
+      "zh-CHS": "本文中定义的模式装载机制仅支持后两种情况。设计时安装不在本文档的范围内，可能会在数据建模语言的未来版本中处理。"
+    },
+    {
+      "indent": 3,
+      "text": "Schema mount applies to the data model and specifically does not assume anything about the source of instance data for the mounted schemas. It may be implemented using the same instrumentation as the rest of the system, or it may be implemented by querying some other system. Future specifications may define mechanisms to control or monitor the implementation of specific mount points.",
+      "zh-CHS": "模式挂载应用于数据模型，并且具体地说，不假定挂载模式的实例数据源的任何内容。它可以使用与系统其余部分相同的工具来实现，也可以通过查询其他一些系统来实现。未来的规范可能会定义控制或监控特定装载点实现的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "How and when specific mount points are instantiated by the server is out of scope for this document. Such mechanisms may be defined in future specifications.",
+      "zh-CHS": "服务器实例化特定装载点的方式和时间超出了本文档的范围。此类机制可在未来规范中定义。"
+    },
+    {
+      "indent": 3,
+      "text": "This document allows mounting of complete data models only. Other specifications may extend this model by defining additional mechanisms such as mounting sub-hierarchies of a module.",
+      "zh-CHS": "本文档仅允许安装完整的数据模型。其他规范可以通过定义附加机制（如安装模块的子层次结构）来扩展此模型。"
+    },
+    {
+      "indent": 3,
+      "text": "The YANG modules in this document conform to the Network Management Datastore Architecture (NMDA) [RFC8342].",
+      "zh-CHS": "本文件中的模块符合网络管理数据存储体系结构（NMDA）[RFC8342]。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology and Notation",
+      "section_title": true,
+      "zh-CHS": "2. 术语和符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14[RFC2119][RFC8174]所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "The following terms are defined in [RFC7950] and are not redefined here:",
+      "zh-CHS": "[RFC7950]中定义了以下术语，此处未重新定义："
+    },
+    {
+      "indent": 3,
+      "text": "o action",
+      "zh-CHS": "o 行动"
+    },
+    {
+      "indent": 3,
+      "text": "o container",
+      "zh-CHS": "o 容器"
+    },
+    {
+      "indent": 3,
+      "text": "o data node",
+      "zh-CHS": "o 数据节点"
+    },
+    {
+      "indent": 3,
+      "text": "o list",
+      "zh-CHS": "o 列表"
+    },
+    {
+      "indent": 3,
+      "text": "o RPC operation",
+      "zh-CHS": "o RPC操作"
+    },
+    {
+      "indent": 3,
+      "text": "o schema node",
+      "zh-CHS": "o 模式节点"
+    },
+    {
+      "indent": 3,
+      "text": "o schema tree",
+      "zh-CHS": "o 模式树"
+    },
+    {
+      "indent": 3,
+      "text": "The following terms are defined in [RFC8342] and are not redefined here:",
+      "zh-CHS": "[RFC8342]中定义了以下术语，此处未重新定义："
+    },
+    {
+      "indent": 3,
+      "text": "o client",
+      "zh-CHS": "o 客户"
+    },
+    {
+      "indent": 3,
+      "text": "o notification",
+      "zh-CHS": "o 通知"
+    },
+    {
+      "indent": 3,
+      "text": "o operational state",
+      "zh-CHS": "o 运行状态"
+    },
+    {
+      "indent": 3,
+      "text": "o server",
+      "zh-CHS": "o 服务器"
+    },
+    {
+      "indent": 3,
+      "text": "The following term is defined in [RFC8343] and is not redefined here:",
+      "zh-CHS": "[RFC8343]中定义了以下术语，此处未重新定义："
+    },
+    {
+      "indent": 3,
+      "text": "o system-controlled interface",
+      "zh-CHS": "o 系统控制接口"
+    },
+    {
+      "indent": 3,
+      "text": "The following term is defined in [RFC8525] and is not redefined here:",
+      "zh-CHS": "[RFC8525]中定义了以下术语，此处未重新定义："
+    },
+    {
+      "indent": 3,
+      "text": "o YANG library content identifier",
+      "zh-CHS": "o 杨氏图书馆内容标识符"
+    },
+    {
+      "indent": 3,
+      "text": "The following additional terms are used in this document:",
+      "zh-CHS": "本文件中使用了以下附加术语："
+    },
+    {
+      "indent": 3,
+      "text": "o mount point: A container or a list node whose definition contains the \"mount-point\" extension statement. The argument of the \"mount-point\" extension statement defines a label for the mount point.",
+      "zh-CHS": "o 装入点：其定义包含“装入点”扩展语句的容器或列表节点。“装入点”扩展语句的参数定义装入点的标签。"
+    },
+    {
+      "indent": 3,
+      "text": "o schema: A collection of schema trees with a common root.",
+      "zh-CHS": "o 模式：具有公共根的模式树的集合。"
+    },
+    {
+      "indent": 3,
+      "text": "o top-level schema: A schema rooted at the root node.",
+      "zh-CHS": "o 顶级架构：根节点上的架构。"
+    },
+    {
+      "indent": 3,
+      "text": "o mounted schema: A schema rooted at a mount point.",
+      "zh-CHS": "o 挂载架构：以挂载点为根的架构。"
+    },
+    {
+      "indent": 3,
+      "text": "o parent schema (of a mounted schema): A schema containing the mount point.",
+      "zh-CHS": "o 父架构（挂载架构的）：包含挂载点的架构。"
+    },
+    {
+      "indent": 3,
+      "text": "o schema mount: The mechanism to combine data models defined in this document.",
+      "zh-CHS": "o 模式装载：组合本文档中定义的数据模型的机制。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Tree Diagrams",
+      "section_title": true,
+      "zh-CHS": "2.1. 树形图"
+    },
+    {
+      "indent": 3,
+      "text": "Tree diagrams used in this document follow the notation defined in [RFC8340].",
+      "zh-CHS": "本文档中使用的树形图遵循[RFC8340]中定义的符号。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Namespace Prefixes",
+      "section_title": true,
+      "zh-CHS": "2.2. 名称空间前缀"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, names of data nodes, YANG extensions, actions, and other data model objects are often used without a prefix when the YANG module in which they are defined is clear from the context. Otherwise, names are prefixed using the standard prefix associated with the corresponding YANG module, as shown in Table 1.",
+      "zh-CHS": "在本文档中，当定义数据节点、YANG扩展、操作和其他数据模型对象的YANG模块从上下文中清除时，这些对象的名称通常不带前缀。否则，名称将使用与相应模块关联的标准前缀作为前缀，如表1所示。"
+    },
+    {
+      "indent": 8,
+      "text": "+---------+------------------------+----------------------+\n| Prefix  | YANG module            | Reference            |\n+---------+------------------------+----------------------+\n| yangmnt | ietf-yang-schema-mount | Section 9            |\n| inet    | ietf-inet-types        | [RFC6991]            |\n| yang    | ietf-yang-types        | [RFC6991]            |\n| yanglib | ietf-yang-library      | [RFC7895], [RFC8525] |\n+---------+------------------------+----------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "Table 1: Namespace Prefixes",
+      "zh-CHS": "表1：名称空间前缀"
+    },
+    {
+      "indent": 0,
+      "text": "3. Schema Mount",
+      "section_title": true,
+      "zh-CHS": "3. 模式装载"
+    },
+    {
+      "indent": 3,
+      "text": "The schema mount mechanism defined in this document provides a new extensibility mechanism for use with YANG 1.1 [RFC7950]. In contrast to the existing mechanisms described in Section 1, schema mount defines the relationship between the source and target YANG modules outside these modules.",
+      "zh-CHS": "本文档中定义的模式装载机制为YANG 1.1[RFC7950]提供了一种新的扩展机制。与第1节中描述的现有机制不同，模式装载定义了这些模块之外的源模块和目标模块之间的关系。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Mount Point Definition",
+      "section_title": true,
+      "zh-CHS": "3.1. 装载点定义"
+    },
+    {
+      "indent": 3,
+      "text": "A container or list node becomes a mount point if the \"mount-point\" extension statement (defined in the \"ietf-yang-schema-mount\" module) is used in its definition. This extension can appear only as a substatement of \"container\" and \"list\" statements.",
+      "zh-CHS": "如果在容器或列表节点的定义中使用了“mount point”扩展语句（在“ietf模式装载”模块中定义），则容器或列表节点将成为装载点。此扩展只能作为“container”和“list”语句的子语句出现。"
+    },
+    {
+      "indent": 3,
+      "text": "The argument of the \"mount-point\" extension statement is a YANG identifier that defines a label for the mount point. A module MAY contain multiple \"mount-point\" extension statements having the same argument.",
+      "zh-CHS": "“mountpoint”扩展语句的参数是一个标识符，它定义了装载点的标签。一个模块可能包含多个具有相同参数的“装入点”扩展语句。"
+    },
+    {
+      "indent": 3,
+      "text": "It is therefore up to the designer of the parent schema to decide about the placement of mount points. A mount point can also be made conditional by placing \"if-feature\" and/or \"when\" as substatements of the \"container\" or \"list\" statement that represents the mount point.",
+      "zh-CHS": "因此，由父模式的设计者决定装载点的位置。也可以通过将“if feature”和/或“when”作为表示装载点的“container”或“list”语句的子语句来设置装载点的条件。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"mount-point\" extension statement MUST NOT be used in a YANG version 1 module [RFC6020]. If used in a YANG version 1 module, it would not be possible to invoke mounted RPC operations and receive mounted notifications. See Section 5 for details. Note, however, that modules written in any YANG version, including version 1, can be mounted under a mount point.",
+      "zh-CHS": "“mount point”扩展语句不得用于第1版模块[RFC6020]。如果在第1版模块中使用，则无法调用已装入的RPC操作并接收已装入的通知。详见第5节。但是，请注意，以任何版本（包括版本1）编写的模块都可以安装在安装点下。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the \"mount-point\" extension statement does not define a new data node.",
+      "zh-CHS": "请注意，“mountpoint”扩展语句没有定义新的数据节点。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Data Model",
+      "section_title": true,
+      "zh-CHS": "3.2. 数据模型"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the YANG 1.1 module [RFC7950] \"ietf-yang-schema-mount\", which has the following structure:",
+      "zh-CHS": "本文件定义了YANG 1.1模块[RFC7950]“ietf YANG schema mount”，其结构如下："
+    },
+    {
+      "indent": 3,
+      "text": "module: ietf-yang-schema-mount\n  +--ro schema-mounts\n     +--ro namespace* [prefix]\n     |  +--ro prefix    yang:yang-identifier\n     |  +--ro uri?      inet:uri\n     +--ro mount-point* [module label]\n        +--ro module                 yang:yang-identifier\n        +--ro label                  yang:yang-identifier\n        +--ro config?                boolean\n        +--ro (schema-ref)\n           +--:(inline)\n           |  +--ro inline!\n           +--:(shared-schema)\n              +--ro shared-schema!\n                 +--ro parent-reference*   yang:xpath1.0",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Specification of the Mounted Schema",
+      "section_title": true,
+      "zh-CHS": "3.3. 挂载模式的规范"
+    },
+    {
+      "indent": 3,
+      "text": "Mounted schemas for all mount points in the parent schema are determined from state data in the \"/schema-mounts\" container.",
+      "zh-CHS": "父模式中所有装载点的装载模式都是根据“/schema mounts”容器中的状态数据确定的。"
+    },
+    {
+      "indent": 3,
+      "text": "Generally, the modules that are mounted under a mount point have no relation to the modules in the parent schema; specifically, if a module is mounted, it may or may not be present in the parent schema; if present, its data will generally have no relationship to the data of the parent. Exceptions are possible and need to be defined in the model itself. For example, [RFC8530] defines a mechanism to bind interfaces to mounted logical network elements.",
+      "zh-CHS": "通常，安装在安装点下的模块与父模式中的模块没有关系；具体地说，如果安装了模块，那么它可能在父模式中存在，也可能不存在；如果存在，其数据通常与父级数据没有关系。异常是可能的，需要在模型本身中定义。例如，[RFC8530]定义了一种将接口绑定到挂载的逻辑网络元素的机制。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"/schema-mounts\" container has the \"mount-point\" list as one of its children. Every entry of this list refers (through its key) to a mount point and specifies the mounted schema.",
+      "zh-CHS": "“/schema mounts”容器将“mount point”列表作为其子容器之一。此列表的每个条目（通过其键）都引用一个装入点并指定装入的架构。"
+    },
+    {
+      "indent": 3,
+      "text": "If a mount point is defined in the parent schema but does not have an entry in the \"mount-point\" list, then the mounted schema is void, i.e., instances of that mount point MUST NOT contain any data except those that are defined in the parent schema.",
+      "zh-CHS": "如果装载点在父架构中定义，但在“装载点”列表中没有条目，则装载的架构无效，即，该装载点的实例不得包含除父架构中定义的数据以外的任何数据。"
+    },
+    {
+      "indent": 3,
+      "text": "If multiple mount points with the same name are defined in the same module -- either directly or because the mount point is defined in a grouping and the grouping is used multiple times -- then the corresponding \"mount-point\" entry applies equally to all such mount points.",
+      "zh-CHS": "如果在同一模块中定义了多个具有相同名称的装入点（直接或因为装入点在分组中定义且分组被多次使用），则相应的“装入点”条目将平等地应用于所有此类装入点。"
+    },
+    {
+      "indent": 3,
+      "text": "The \"config\" property of mounted schema nodes is overridden and all nodes in the mounted schema are read-only (\"config false\") if at least one of the following conditions is satisfied for a mount point:",
+      "zh-CHS": "如果装载点至少满足以下条件之一，则将覆盖装载的架构节点的“config”属性，并且装载的架构中的所有节点都是只读的（“config false”）："
+    },
+    {
+      "indent": 3,
+      "text": "o The mount point is itself defined as \"config false\".",
+      "zh-CHS": "o 装载点本身定义为“config false”。"
+    },
+    {
+      "indent": 3,
+      "text": "o The \"config\" leaf in the corresponding entry of the \"mount-point\" list is set to \"false\".",
+      "zh-CHS": "o “装入点”列表相应条目中的“配置”叶被设置为“false”。"
+    },
+    {
+      "indent": 3,
+      "text": "An entry of the \"mount-point\" list can specify the mounted schema in two different ways: \"inline\" or \"shared-schema\".",
+      "zh-CHS": "“装入点”列表的条目可以用两种不同的方式指定装入的模式：“内联”或“共享模式”。"
+    },
+    {
+      "indent": 3,
+      "text": "The mounted schema is determined at run time: every instance of the mount point that exists in the operational state MUST contain a copy of YANG library data that defines the mounted schema in exactly the same way as a top-level schema. A client is expected to retrieve this data from the instance tree. In the \"inline\" case, instances of the same mount point MAY use different mounted schemas, whereas in the \"shared-schema\" case, all instances MUST use the same mounted schema. This means that in the \"shared-schema\" case, all instances of the same mount point MUST have the same YANG library content identifier. In the \"inline\" case, if two instances have the same YANG library content identifier, it is not guaranteed that the YANG library contents are equal for these instances.",
+      "zh-CHS": "挂载模式是在运行时确定的：运行状态下存在的挂载点的每个实例都必须包含一个库数据副本，该库数据以与顶级模式完全相同的方式定义挂载模式。客户端需要从实例树中检索此数据。在“内联”情况下，相同装载点的实例可能使用不同的装载模式，而在“共享模式”情况下，所有实例都必须使用相同的装载模式。这意味着在“共享模式”的情况下，相同装载点的所有实例必须具有相同的库内容标识符。在“内联”情况下，如果两个实例具有相同的YANG library内容标识符，则不能保证这些实例的YANG library内容相等。"
+    },
+    {
+      "indent": 3,
+      "text": "Examples of \"inline\" and \"shared-schema\" can be found in Appendix A.2 and Appendix A.3, respectively.",
+      "zh-CHS": "“内联”和“共享模式”的示例分别见附录A.2和附录A.3。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Multiple Levels of Schema Mount",
+      "section_title": true,
+      "zh-CHS": "3.4. 架构装载的多个级别"
+    },
+    {
+      "indent": 3,
+      "text": "YANG modules in a mounted schema MAY again contain mount points under which other schemas can be mounted. Consequently, it is possible to construct data models with an arbitrary number of mounted schemas. A schema for a mount point contained in a mounted module can be specified by implementing the \"ietf-yang-library\" and \"ietf-yang-schema-mount\" modules in the mounted schema and specifying the schemas in exactly the same way as the top-level schema.",
+      "zh-CHS": "挂载模式中的模块可能再次包含挂载点，在该挂载点下可以挂载其他模式。因此，可以使用任意数量的挂载模式构建数据模型。装载模块中包含的装载点的模式可以通过在装载模式中实现“ietf yang library”和“ietf yang schema mount”模块并以与顶级模式完全相同的方式指定模式来指定。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Referring to Data Nodes in the Parent Schema",
+      "section_title": true,
+      "zh-CHS": "4. 引用父架构中的数据节点"
+    },
+    {
+      "indent": 3,
+      "text": "A fundamental design principle of schema mount is that the mounted schema works exactly as a top-level schema, i.e., it is confined to the \"mount jail\". This means that all paths in the mounted schema (in leafrefs, instance-identifiers, XPath [XPATH] expressions, and target nodes of \"augment\" statements) are interpreted with the mount point as the root node. YANG modules of the mounted schema as well as corresponding instance data thus cannot refer to schema nodes or instance data outside the \"mount jail\".",
+      "zh-CHS": "模式挂载的一个基本设计原则是，挂载的模式与顶级模式完全相同，即它仅限于“挂载监狱”。这意味着挂载模式中的所有路径（在leafrefs、实例标识符、XPath[XPath]表达式和“augment”语句的目标节点中）都将以挂载点作为根节点进行解释。因此，挂载模式的模块以及相应的实例数据不能引用“挂载监狱”之外的模式节点或实例数据。"
+    },
+    {
+      "indent": 3,
+      "text": "However, this restriction is sometimes too severe. A typical example is network instances (NIs) [RFC8529] in which each NI has its own routing engine but the list of interfaces is global and shared by all NIs. If we want to model this organization with the NI schema mounted using schema mount, the overall schema tree would look schematically as follows:",
+      "zh-CHS": "然而，这种限制有时过于严格。一个典型的例子是网络实例（NIs）[RFC8529]，其中每个NI都有自己的路由引擎，但接口列表是全局的，由所有NIs共享。如果我们想使用模式挂载的NI模式对该组织进行建模，那么整个模式树的示意图如下所示："
+    },
+    {
+      "indent": 5,
+      "text": "+--rw interfaces\n|  +--rw interface* [name]\n|     ...\n+--rw network-instances\n   +--rw network-instance* [name]\n      +--rw name\n      +--mp root\n         +--rw routing\n            ...",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Here, the \"root\" container is the mount point for the NI schema. Routing configuration inside an NI often needs to refer to interfaces (at least those that are assigned to the NI), which is impossible unless such a reference can point to a node in the parent schema (interface name).",
+      "zh-CHS": "这里，“根”容器是NI模式的装载点。NI内的路由配置通常需要引用接口（至少是那些分配给NI的接口），这是不可能的，除非此类引用可以指向父模式（接口名称）中的节点。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, schema mount also allows for such references. For every mount point in the \"shared-schema\" case, it is possible to specify a leaf-list named \"parent-reference\" that contains zero or more XPath 1.0 expressions. Each expression is evaluated with the node in the parent data tree where the mount point is defined as the context node. The result of this evaluation MUST be a node-set (see the description of the \"parent-reference\" node for a complete definition of the evaluation context). For the purposes of evaluating XPath expressions within the mounted data tree, the union of all such node-sets is added to the accessible data tree.",
+      "zh-CHS": "因此，模式装载也允许这样的引用。对于“共享模式”案例中的每个装载点，可以指定一个名为“父引用”的叶列表，其中包含零个或多个XPath 1.0表达式。使用父数据树中的节点计算每个表达式，其中装入点定义为上下文节点。此评估的结果必须是一个节点集（有关评估上下文的完整定义，请参阅“父引用”节点的描述）。为了在装载的数据树中计算XPath表达式，所有此类节点集的并集被添加到可访问的数据树中。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth emphasizing that the nodes specified in the \"parent-reference\" leaf-list are available in the mounted schema only for XPath evaluations. In particular, they cannot be accessed in the mounted schema via network management protocols such as NETCONF [RFC6241] or RESTCONF [RFC8040].",
+      "zh-CHS": "值得强调的是，“父引用”叶列表中指定的节点在挂载模式中仅可用于XPath计算。特别是，不能通过网络管理协议（如NETCONF[RFC6241]或restcconf[RFC8040]）在装载的模式中访问它们。"
+    },
+    {
+      "indent": 0,
+      "text": "5. RPC Operations and Notifications",
+      "section_title": true,
+      "zh-CHS": "5. RPC操作和通知"
+    },
+    {
+      "indent": 3,
+      "text": "If a mounted YANG module defines an RPC operation, clients can invoke this operation as if it were defined as an action for the corresponding mount point; see Section 7.15 of [RFC7950]. An example of this is given in Appendix A.4.",
+      "zh-CHS": "如果已装入的模块定义了RPC操作，则客户端可以调用此操作，就像它被定义为对应装入点的操作一样；见[RFC7950]第7.15节。附录A.4中给出了一个示例。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, if the server emits a notification defined at the top level of any mounted module, it MUST be represented as if the notification was connected to the mount point; see Section 7.16 of [RFC7950].",
+      "zh-CHS": "类似地，如果服务器发出在任何已装入模块的顶层定义的通知，则必须将其表示为通知已连接到装入点；见[RFC7950]第7.16节。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that inline actions and notifications will not work when they are contained within a list node without a \"key\" statement (see Sections 7.15 and 7.16 of [RFC7950]). Therefore, to be useful, mount points that contain modules with RPCs, actions, and notifications SHOULD NOT have any ancestor node that is a list node without a \"key\" statement. This requirement applies to the definition of modules using the \"mount-point\" extension statement.",
+      "zh-CHS": "请注意，如果内联操作和通知包含在没有“key”语句的列表节点中（请参阅[RFC7950]第7.15和7.16节），则它们将不起作用。因此，为了有用，包含带有RPC、操作和通知的模块的装载点不应该有任何祖先节点，而该节点是没有“key”语句的列表节点。此要求适用于使用“装入点”扩展语句的模块定义。"
+    },
+    {
+      "indent": 0,
+      "text": "6. NMDA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. NMDA考虑因素"
+    },
+    {
+      "indent": 3,
+      "text": "The schema mount solution presented in this document is designed to work with both servers that implement the NMDA [RFC8342] and old servers that don't implement the NMDA.",
+      "zh-CHS": "本文档中介绍的模式装载解决方案旨在与实现NMDA[RFC8342]的服务器和未实现NMDA的旧服务器一起使用。"
+    },
+    {
+      "indent": 3,
+      "text": "Specifically, a server that doesn't support the NMDA MAY implement revision 2016-06-21 of \"ietf-yang-library\" [RFC7895] under a mount point. A server that supports the NMDA MUST implement at least revision 2019-01-04 of \"ietf-yang-library\" [RFC8525] under a mount point.",
+      "zh-CHS": "具体而言，不支持NMDA的服务器可在装载点下实施“ietf yang library”[RFC7895]的2016-06-21版。支持NMDA的服务器必须在装载点下实施至少2019-01-04版的“ietf yang library”[RFC8525]。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Interaction with NACM",
+      "section_title": true,
+      "zh-CHS": "7. 与NACM的相互作用"
+    },
+    {
+      "indent": 3,
+      "text": "If the Network Configuration Access Control Model (NACM) [RFC8341] is implemented on a server, it is used to control access to nodes defined by the mounted schema in the same way as for nodes defined by the top-level schema.",
+      "zh-CHS": "如果网络配置访问控制模型（NACM）[RFC8341]是在服务器上实现的，那么它将用于控制对装载模式定义的节点的访问，方式与对顶级模式定义的节点的访问相同。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, suppose the module \"ietf-interfaces\" is mounted in the \"root\" container in the \"logical-network-element\" list defined in [RFC8530]. Then, the following NACM path can be used to control access to the \"interfaces\" container (where the character '\\' is used where a line break has been inserted for formatting reasons):",
+      "zh-CHS": "例如，假设模块“ietf接口”安装在[RFC8530]中定义的“逻辑网元”列表中的“根”容器中。然后，可以使用以下NACM路径来控制对“interfaces”容器的访问（在出于格式原因插入换行符时使用字符“\\”）："
+    },
+    {
+      "indent": 5,
+      "text": "<path xmlns:lne=\n        \"urn:ietf:params:xml:ns:yang:ietf-logical-network-element\"\n      xmlns:if=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\">\n  /lne:logical-network-elements\\\n    /lne:logical-network-element/lne:root/if:interfaces\n</path>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "8. Implementation Notes",
+      "section_title": true,
+      "zh-CHS": "8. 实施说明"
+    },
+    {
+      "indent": 3,
+      "text": "Network management of devices that use a data model with schema mount can be implemented in different ways. However, the following implementation options are envisioned as typical:",
+      "zh-CHS": "使用带有模式装载的数据模型的设备的网络管理可以以不同的方式实现。但是，以下实施方案被视为典型："
+    },
+    {
+      "indent": 3,
+      "text": "o shared management: Instance data of both parent and mounted schemas are accessible within the same management session.",
+      "zh-CHS": "o 共享管理：在同一管理会话中，可以访问父架构和装载架构的实例数据。"
+    },
+    {
+      "indent": 3,
+      "text": "o split management: One (master) management session has access to instance data of both parent and mounted schemas; in addition, an extra session that has access only to the mounted data tree exists for every instance of the mount point.",
+      "zh-CHS": "o 拆分管理：一个（主）管理会话可以访问父模式和装载模式的实例数据；此外，对于装载点的每个实例，都存在一个只能访问装载数据树的额外会话。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Schema Mount YANG Module",
+      "section_title": true,
+      "zh-CHS": "9. 杨山模式"
+    },
+    {
+      "indent": 3,
+      "text": "This module references [RFC6991] and [RFC7950].",
+      "zh-CHS": "本模块参考[RFC6991]和[RFC7950]。"
+    },
+    {
+      "indent": 3,
+      "text": "<CODE BEGINS> file \"ietf-yang-schema-mount@2019-01-14.yang\"",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "module ietf-yang-schema-mount {\n  yang-version 1.1;\n  namespace \"urn:ietf:params:xml:ns:yang:ietf-yang-schema-mount\";\n  prefix yangmnt;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "import ietf-inet-types {\n  prefix inet;\n  reference\n    \"RFC 6991: Common YANG Data Types\";\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "import ietf-yang-types {\n  prefix yang;\n  reference\n    \"RFC 6991: Common YANG Data Types\";\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "organization \"IETF NETMOD (NETCONF Data Modeling Language) Working Group\";",
+      "zh-CHS": "组织“IETF NETMOD（NETCONF数据建模语言）工作组”；"
+    },
+    {
+      "indent": 5,
+      "text": "contact\n  \"WG Web:   <https://datatracker.ietf.org/wg/netmod/>\n   WG List:  <mailto:netmod@ietf.org>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Editor:   Martin Bjorklund\n          <mailto:mbj@tail-f.com>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Editor:   Ladislav Lhotka\n          <mailto:lhotka@nic.cz>\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "description \"This module defines a YANG extension statement that can be used to incorporate data models defined in other YANG modules in a module. It also defines operational state data that specify the overall structure of the data model.",
+      "zh-CHS": "description“此模块定义了一个YANG扩展语句，可用于将其他YANG模块中定义的数据模型合并到一个模块中。它还定义了指定数据模型总体结构的操作状态数据。"
+    },
+    {
+      "indent": 8,
+      "text": "The key words 'MUST', 'MUST NOT', 'REQUIRED', 'SHALL', 'SHALL NOT', 'SHOULD', 'SHOULD NOT', 'RECOMMENDED', 'NOT RECOMMENDED', 'MAY', and 'OPTIONAL' in this document are to be interpreted as described in BCP 14 (RFC 2119) (RFC 8174) when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可能”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14（RFC 2119）（RFC 8174）所述进行解释。"
+    },
+    {
+      "indent": 8,
+      "text": "Copyright (c) 2019 IETF Trust and the persons identified as authors of the code. All rights reserved.",
+      "zh-CHS": "版权（c）2019 IETF信托基金和被认定为代码作者的人员。版权所有。"
+    },
+    {
+      "indent": 8,
+      "text": "Redistribution and use in source and binary forms, with or without modification, is permitted pursuant to, and subject to the license terms contained in, the Simplified BSD License set forth in Section 4.c of the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info).",
+      "zh-CHS": "根据IETF信托有关IETF文件的法律规定第4.c节规定的简化BSD许可证中包含的许可条款，允许以源代码和二进制格式重新分发和使用，无论是否修改(https://trustee.ietf.org/license-info)."
+    },
+    {
+      "indent": 8,
+      "text": "This version of this YANG module is part of RFC 8528;\nsee the RFC itself for full legal notices.\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "revision 2019-01-14 {\n  description\n    \"Initial revision.\";\n  reference\n    \"RFC 8528: YANG Schema Mount\";\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/*\n * Extensions\n */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "extension mount-point {\n  argument label;\n  description\n    \"The argument 'label' is a YANG identifier, i.e., it is of the\n     type 'yang:yang-identifier'.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "The 'mount-point' statement MUST NOT be used in a YANG version 1 module, neither explicitly nor via a 'uses' statement.",
+      "zh-CHS": "“mount point”语句不得在第1版模块中使用，既不能显式使用，也不能通过“uses”语句使用。"
+    },
+    {
+      "indent": 10,
+      "text": "The 'mount-point' statement MAY be present as a substatement of 'container' and 'list' and MUST NOT be present elsewhere. There MUST NOT be more than one 'mount-point' statement in a given 'container' or 'list' statement.",
+      "zh-CHS": "“mount point”语句可以作为“container”和“list”的子语句出现，不能出现在其他地方。给定的“容器”或“列表”语句中不能有多个“装入点”语句。"
+    },
+    {
+      "indent": 10,
+      "text": "If a mount point is defined within a grouping, its label is bound to the module where the grouping is used.",
+      "zh-CHS": "如果在分组中定义了装入点，则其标签将绑定到使用分组的模块。"
+    },
+    {
+      "indent": 10,
+      "text": "A mount point defines a place in the node hierarchy where other data models may be attached. A server that implements a module with a mount point populates the '/schema-mounts/mount-point' list with detailed information on which data models are mounted at each mount point.",
+      "zh-CHS": "装入点在节点层次结构中定义了一个可以附着其他数据模型的位置。实现具有装入点的模块的服务器将在“/schema mounts/mount point”列表中填充关于在每个装入点装入哪些数据模型的详细信息。"
+    },
+    {
+      "indent": 5,
+      "text": "     Note that the 'mount-point' statement does not define a new\n     data node.\";\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "/*\n * State data nodes\n */",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "container schema-mounts {\n  config false;\n  description\n    \"Contains information about the structure of the overall\n     mounted data model implemented in the server.\";\n  list namespace {\n    key \"prefix\";\n    description\n      \"This list provides a mapping of namespace prefixes that are\n       used in XPath expressions of 'parent-reference' leafs to the\n       corresponding namespace URI references.\";\n    leaf prefix {\n      type yang:yang-identifier;\n      description\n        \"Namespace prefix.\";\n    }\n    leaf uri {\n      type inet:uri;\n      description\n        \"Namespace URI reference.\";\n    }\n  }\n  list mount-point {\n    key \"module label\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "description \"Each entry of this list specifies a schema for a particular mount point.",
+      "zh-CHS": "description“此列表的每个条目都指定特定装载点的架构。"
+    },
+    {
+      "indent": 9,
+      "text": "   Each mount point MUST be defined using the 'mount-point'\n   extension in one of the modules listed in the server's\n   YANG library instance with conformance type 'implement'.\";\nleaf module {\n  type yang:yang-identifier;\n  description\n    \"Name of a module containing the mount point.\";\n}\nleaf label {\n  type yang:yang-identifier;\n  description\n    \"Label of the mount point defined using the 'mount-point'\n     extension.\";\n}\nleaf config {\n  type boolean;\n  default \"true\";\n  description\n    \"If this leaf is set to 'false', then all data nodes in the\n     mounted schema are read-only ('config false'), regardless\n     of their 'config' property.\";\n}\nchoice schema-ref {\n  mandatory true;\n  description\n    \"Alternatives for specifying the schema.\";\n  container inline {\n    presence\n      \"A complete self-contained schema is mounted at the\n       mount point.\";\n    description\n      \"This node indicates that the server has mounted at least\n       the module 'ietf-yang-library' at the mount point, and\n       its instantiation provides the information about the\n       mounted schema.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "     Different instances of the mount point may have\n     different schemas mounted.\";\n}\ncontainer shared-schema {\n  presence\n    \"The mounted schema together with the 'parent-reference'\n     make up the schema for this mount point.\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "description \"This node indicates that the server has mounted at least the module 'ietf-yang-library' at the mount point, and its instantiation provides the information about the mounted schema. When XPath expressions in the mounted schema are evaluated, the 'parent-reference' leaf-list is taken into account.",
+      "zh-CHS": "description“此节点表示服务器在装入点至少装入了模块‘ietf-yang library’，其实例化提供了有关装入模式的信息。计算装入模式中的XPath表达式时，会考虑‘父引用’叶列表。"
+    },
+    {
+      "indent": 13,
+      "text": "   Different instances of the mount point MUST have the\n   same schema mounted.\";\nleaf-list parent-reference {\n  type yang:xpath1.0;\n  description\n    \"Entries of this leaf-list are XPath 1.0 expressions\n     that are evaluated in the following context:",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "- The context node is the node in the parent data tree where the mount-point is defined.",
+      "zh-CHS": "- 上下文节点是父数据树中定义装入点的节点。"
+    },
+    {
+      "indent": 18,
+      "text": "- The accessible tree is the parent data tree *without* any nodes defined in modules that are mounted inside the parent schema.",
+      "zh-CHS": "- 可访问树是父数据树*，没有*在安装在父模式内的模块中定义的任何节点。"
+    },
+    {
+      "indent": 18,
+      "text": "- The context position and context size are both equal to 1.",
+      "zh-CHS": "- 上下文位置和上下文大小都等于1。"
+    },
+    {
+      "indent": 18,
+      "text": "- The set of variable bindings is empty.",
+      "zh-CHS": "- 变量绑定集为空。"
+    },
+    {
+      "indent": 18,
+      "text": "- The function library is the core function library defined in the W3C XPath 1.0 document (http://www.w3.org/TR/1999/REC-xpath-19991116) and the functions defined in Section 10 of RFC 7950.",
+      "zh-CHS": "- 函数库是W3C XPath 1.0文档中定义的核心函数库(http://www.w3.org/TR/1999/REC-xpath-19991116)以及RFC 7950第10节中定义的功能。"
+    },
+    {
+      "indent": 18,
+      "text": "- The set of namespace declarations is defined by the 'namespace' list under 'schema-mounts'.",
+      "zh-CHS": "- 名称空间声明集由“架构装载”下的“名称空间”列表定义。"
+    },
+    {
+      "indent": 18,
+      "text": "Each XPath expression MUST evaluate to a node-set (possibly empty). For the purposes of evaluating XPath expressions whose context nodes are defined in the mounted schema, the union of all these node-sets together with ancestor nodes are added to the accessible data tree.",
+      "zh-CHS": "每个XPath表达式必须计算为一个节点集（可能为空）。为了计算在挂载模式中定义了上下文节点的XPath表达式，将所有这些节点集与祖先节点的并集添加到可访问数据树中。"
+    },
+    {
+      "indent": 18,
+      "text": "Note that in the case 'ietf-yang-schema-mount' is itself mounted, a 'parent-reference' in the mounted module may refer to nodes that were brought into the accessible tree through a 'parent-reference' in the parent schema.\";",
+      "zh-CHS": "注意，在“ietf模式挂载”本身已挂载的情况下，挂载模块中的“父引用”可能指的是通过父模式中的“父引用”带入可访问树的节点。“；"
+    },
+    {
+      "indent": 3,
+      "text": "          }\n        }\n      }\n    }\n  }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "<CODE ENDS>",
+      "zh-CHS": "<代码结束>"
+    },
+    {
+      "indent": 0,
+      "text": "10. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "10. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a URI in the \"IETF XML Registry\" [RFC3688].",
+      "zh-CHS": "本文档在“IETF XML注册表”[RFC3688]中注册URI。"
+    },
+    {
+      "indent": 8,
+      "text": "URI: urn:ietf:params:xml:ns:yang:ietf-yang-schema-mount Registrant Contact: The IESG. XML: N/A, the requested URI is an XML namespace.",
+      "zh-CHS": "URI:urn:ietf:params:xml:ns:yang:ietf-yang模式挂载注册人联系人：IESG。XML:N/A，请求的URI是一个XML名称空间。"
+    },
+    {
+      "indent": 3,
+      "text": "This document registers a YANG module in the \"YANG Module Names\" registry [RFC6020].",
+      "zh-CHS": "本文件在“阳模块名称”注册表[RFC6020]中注册阳模块。"
+    },
+    {
+      "indent": 5,
+      "text": "name:        ietf-yang-schema-mount\nnamespace:   urn:ietf:params:xml:ns:yang:ietf-yang-schema-mount\nprefix:      yangmnt\nreference:   RFC 8528",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "11. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "11. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The YANG module specified in this document defines a schema for data that is designed to be accessed via network management protocols such as NETCONF [RFC6241] or RESTCONF [RFC8040]. The lowest NETCONF layer is the secure transport layer, and the mandatory-to-implement secure transport is Secure Shell (SSH) [RFC6242]. The lowest RESTCONF layer is HTTPS, and the mandatory-to-implement secure transport is TLS [RFC8446].",
+      "zh-CHS": "本文档中指定的模块为数据定义了一个模式，该模式旨在通过网络管理协议（如NETCONF[RFC6241]或restcconf[RFC8040]）进行访问。最低的NETCONF层是安全传输层，实现安全传输的强制要求是安全Shell（SSH）[RFC6242]。最低的RESTCONF层是HTTPS，实现安全传输的强制层是TLS[RFC8446]。"
+    },
+    {
+      "indent": 3,
+      "text": "The Network Configuration Access Control Model (NACM) [RFC8341] provides the means to restrict access for particular NETCONF or RESTCONF users to a preconfigured subset of all available NETCONF or RESTCONF protocol operations and content.",
+      "zh-CHS": "网络配置访问控制模型（NACM）[RFC8341]提供了将特定NETCONF或RESTCONF用户的访问限制为所有可用NETCONF或RESTCONF协议操作和内容的预配置子集的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Some of the readable data nodes in this YANG module may be considered sensitive or vulnerable in some network environments. It is thus important to control read access (e.g., via get, get-config, or notification) to these data nodes. These are the subtrees and data nodes and their sensitivity/vulnerability:",
+      "zh-CHS": "在某些网络环境中，此模块中的某些可读数据节点可能被视为敏感或易受攻击。因此，控制对这些数据节点的读取访问（例如，通过get、get config或通知）非常重要。这些是子树和数据节点及其敏感性/漏洞："
+    },
+    {
+      "indent": 3,
+      "text": "o /schema-mounts: The schema defined by this state data provides detailed information about a server implementation that may help an attacker identify the server capabilities and server implementations with known bugs. Server vulnerabilities may be specific to particular modules included in the schema, module revisions, module features, or even module deviations. For example, if a particular operation on a particular data node is known to cause a server to crash or significantly degrade device performance, then the schema information will help an attacker identify server implementations with such a defect, in order to launch a denial-of-service attack on the device.",
+      "zh-CHS": "o /模式装载：此状态数据定义的模式提供有关服务器实现的详细信息，可帮助攻击者识别具有已知错误的服务器功能和服务器实现。服务器漏洞可能特定于架构中包含的特定模块、模块修订、模块功能，甚至模块偏差。例如，如果已知特定数据节点上的特定操作会导致服务器崩溃或显著降低设备性能，则模式信息将帮助攻击者识别具有此类缺陷的服务器实现，以便在设备上发起拒绝服务攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "It is important to take into account the security considerations for all nodes in the mounted schemas and to control access to these nodes by using the mechanism described in Section 7.",
+      "zh-CHS": "重要的是要考虑挂载模式中所有节点的安全注意事项，并使用第7节中描述的机制控制对这些节点的访问。"
+    },
+    {
+      "indent": 3,
+      "text": "Care must be taken when the \"parent-reference\" XPath expressions are constructed, since the result of the evaluation of these expressions is added to the accessible tree for any XPath expression found in the mounted schema.",
+      "zh-CHS": "构造“父引用”XPath表达式时必须小心，因为这些表达式的计算结果将添加到装载模式中找到的任何XPath表达式的可访问树中。"
+    },
+    {
+      "indent": 0,
+      "text": "12. References",
+      "section_title": true,
+      "zh-CHS": "12. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "12.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "12.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <https://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<https://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3688] Mealling, M., \"The IETF XML Registry\", BCP 81, RFC 3688, DOI 10.17487/RFC3688, January 2004, <https://www.rfc-editor.org/info/rfc3688>.",
+      "zh-CHS": "[RFC3688]Mealling，M.，“IETF XML注册表”，BCP 81，RFC 3688，DOI 10.17487/RFC3688，2004年1月<https://www.rfc-editor.org/info/rfc3688>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6020] Bjorklund, M., Ed., \"YANG - A Data Modeling Language for the Network Configuration Protocol (NETCONF)\", RFC 6020, DOI 10.17487/RFC6020, October 2010, <https://www.rfc-editor.org/info/rfc6020>.",
+      "zh-CHS": "[RFC6020]Bjorklund，M.，Ed.“YANG-网络配置协议的数据建模语言（NETCONF）”，RFC 6020，DOI 10.17487/RFC6020，2010年10月<https://www.rfc-editor.org/info/rfc6020>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6241] Enns, R., Ed., Bjorklund, M., Ed., Schoenwaelder, J., Ed., and A. Bierman, Ed., \"Network Configuration Protocol (NETCONF)\", RFC 6241, DOI 10.17487/RFC6241, June 2011, <https://www.rfc-editor.org/info/rfc6241>.",
+      "zh-CHS": "[RFC6241]Enns，R.，Ed.，Bjorklund，M.，Ed.，Schoenwaeld，J.，Ed.，和A.Bierman，Ed.，“网络配置协议（NETCONF）”，RFC 6241，DOI 10.17487/RFC6241，2011年6月<https://www.rfc-editor.org/info/rfc6241>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6242] Wasserman, M., \"Using the NETCONF Protocol over Secure Shell (SSH)\", RFC 6242, DOI 10.17487/RFC6242, June 2011, <https://www.rfc-editor.org/info/rfc6242>.",
+      "zh-CHS": "[RFC6242]Wasserman，M.“在安全外壳上使用NETCONF协议（SSH）”，RFC 6242，DOI 10.17487/RFC6242，2011年6月<https://www.rfc-editor.org/info/rfc6242>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6991] Schoenwaelder, J., Ed., \"Common YANG Data Types\", RFC 6991, DOI 10.17487/RFC6991, July 2013, <https://www.rfc-editor.org/info/rfc6991>.",
+      "zh-CHS": "[RFC6991]Schoenwaeld，J.，Ed.，“常见杨数据类型”，RFC 6991，DOI 10.17487/RFC69911913年7月<https://www.rfc-editor.org/info/rfc6991>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7895] Bierman, A., Bjorklund, M., and K. Watsen, \"YANG Module Library\", RFC 7895, DOI 10.17487/RFC7895, June 2016, <https://www.rfc-editor.org/info/rfc7895>.",
+      "zh-CHS": "[RFC7895]Bierman，A.，Bjorklund，M.，和K.Watsen，“阳模块库”，RFC 7895，DOI 10.17487/RFC78952016年6月<https://www.rfc-editor.org/info/rfc7895>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7950] Bjorklund, M., Ed., \"The YANG 1.1 Data Modeling Language\", RFC 7950, DOI 10.17487/RFC7950, August 2016, <https://www.rfc-editor.org/info/rfc7950>.",
+      "zh-CHS": "[RFC7950]Bjorklund，M.，Ed.“YANG 1.1数据建模语言”，RFC 7950，DOI 10.17487/RFC7950，2016年8月<https://www.rfc-editor.org/info/rfc7950>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8040] Bierman, A., Bjorklund, M., and K. Watsen, \"RESTCONF Protocol\", RFC 8040, DOI 10.17487/RFC8040, January 2017, <https://www.rfc-editor.org/info/rfc8040>.",
+      "zh-CHS": "[RFC8040]Bierman，A.，Bjorklund，M.，和K.Watsen，“RESTCONF协议”，RFC 8040，DOI 10.17487/RFC8040，2017年1月<https://www.rfc-editor.org/info/rfc8040>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8174] Leiba, B., \"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words\", BCP 14, RFC 8174, DOI 10.17487/RFC8174, May 2017, <https://www.rfc-editor.org/info/rfc8174>.",
+      "zh-CHS": "[RFC8174]Leiba，B.，“RFC 2119关键词中大写与小写的歧义”，BCP 14，RFC 8174，DOI 10.17487/RFC8174，2017年5月<https://www.rfc-editor.org/info/rfc8174>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8341] Bierman, A. and M. Bjorklund, \"Network Configuration Access Control Model\", STD 91, RFC 8341, DOI 10.17487/RFC8341, March 2018, <https://www.rfc-editor.org/info/rfc8341>.",
+      "zh-CHS": "[RFC8341]Bierman，A.和M.Bjorklund，“网络配置访问控制模型”，STD 91，RFC 8341，DOI 10.17487/RFC8341，2018年3月<https://www.rfc-editor.org/info/rfc8341>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8342] Bjorklund, M., Schoenwaelder, J., Shafer, P., Watsen, K., and R. Wilton, \"Network Management Datastore Architecture (NMDA)\", RFC 8342, DOI 10.17487/RFC8342, March 2018, <https://www.rfc-editor.org/info/rfc8342>.",
+      "zh-CHS": "[RFC8342]Bjorklund，M.，Schoenwaeld，J.，Shafer，P.，Watsen，K.，和R.Wilton，“网络管理数据存储体系结构（NMDA）”，RFC 8342，DOI 10.17487/RFC8342，2018年3月<https://www.rfc-editor.org/info/rfc8342>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8446] Rescorla, E., \"The Transport Layer Security (TLS) Protocol Version 1.3\", RFC 8446, DOI 10.17487/RFC8446, August 2018, <https://www.rfc-editor.org/info/rfc8446>.",
+      "zh-CHS": "[RFC8446]Rescorla，E.“传输层安全（TLS）协议版本1.3”，RFC 8446，DOI 10.17487/RFC8446，2018年8月<https://www.rfc-editor.org/info/rfc8446>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8525] Bierman, A., Bjorklund, M., Schoenwaelder, J., Watsen, K., and R. Wilton, \"YANG Library\", RFC 8525, DOI 10.17487/RFC8525, March 2019, <https://www.rfc-editor.org/info/rfc8525>.",
+      "zh-CHS": "[RFC8525]Bierman，A.，Bjorklund，M.，Schoenwaeld，J.，Watsen，K.，和R.Wilton，“杨图书馆”，RFC 8525，DOI 10.17487/RFC85252019年3月<https://www.rfc-editor.org/info/rfc8525>."
+    },
+    {
+      "indent": 3,
+      "text": "[XPATH] Clark, J. and S. DeRose, \"XML Path Language (XPath) Version 1.0\", World Wide Web Consortium Recommendation REC-xpath-19991116, November 1999, <http://www.w3.org/TR/1999/REC-xpath-19991116>.",
+      "zh-CHS": "[XPATH]Clark，J.和S.DeRose，“XML路径语言（XPATH）1.0版”，万维网联盟建议REC-XPATH-19991116，1999年11月<http://www.w3.org/TR/1999/REC-xpath-19991116>."
+    },
+    {
+      "indent": 0,
+      "text": "12.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "12.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[DEVICE-YANG] Lindem, A., Ed., Berger, L., Ed., Bogdanovic, D., and C. Hopps, \"Network Device YANG Logical Organization\", Work in Progress, draft-ietf-rtgwg-device-model-02, March 2017.",
+      "zh-CHS": "[DEVICE-YANG]Lindem，A.，Ed.，Berger，L.，Ed.，Bogdanovic，D.，和C.Hopps，“网络设备YANG逻辑组织”，正在进行的工作，草稿-ietf-rtgwg-DEVICE-model-02，2017年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IS-IS-YANG] Litkowski, S., Yeung, D., Lindem, A., Zhang, J., and L. Lhotka, \"YANG Data Model for IS-IS protocol\", Work in Progress, draft-ietf-isis-yang-isis-cfg-34, January 2019.",
+      "zh-CHS": "[IS-IS-YANG]Litkowski，S.，Yeung，D.，Lindem，A.，Zhang，J.，和L.Lhotka，“IS-IS协议的YANG数据模型”，正在进行的工作，草案-ietf-isis-YANG-isis-cfg-342019年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8340] Bjorklund, M. and L. Berger, Ed., \"YANG Tree Diagrams\", BCP 215, RFC 8340, DOI 10.17487/RFC8340, March 2018, <https://www.rfc-editor.org/info/rfc8340>.",
+      "zh-CHS": "[RFC8340]Bjorklund，M.和L.Berger，编辑，“杨树图”，BCP 215，RFC 8340，DOI 10.17487/RFC8340，2018年3月<https://www.rfc-editor.org/info/rfc8340>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8343] Bjorklund, M., \"A YANG Data Model for Interface Management\", RFC 8343, DOI 10.17487/RFC8343, March 2018, <https://www.rfc-editor.org/info/rfc8343>.",
+      "zh-CHS": "[RFC8343]Bjorklund，M.，“用于接口管理的YANG数据模型”，RFC 8343，DOI 10.17487/RFC8343，2018年3月<https://www.rfc-editor.org/info/rfc8343>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8529] Berger, L., Hopps, C., Lindem, A., Bogdanovic, D., and X. Liu, \"YANG Data Model for Network Instances\", RFC 8529, DOI 10.17487/RFC8529, March 2019, <https://www.rfc-editor.org/info/rfc8529>.",
+      "zh-CHS": "[RFC8529]Berger，L.，Hopps，C.，Lindem，A.，Bogdanovic，D.，和X.Liu，“网络实例的杨数据模型”，RFC 8529，DOI 10.17487/RFC85292019年3月<https://www.rfc-editor.org/info/rfc8529>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8530] Berger, L., Hopps, C., Lindem, A., Bogdanovic, D., and X. Liu, \"YANG Model for Logical Network Elements\", RFC 8530, DOI 10.17487/RFC8530, March 2019, <https://www.rfc-editor.org/info/rfc8530>.",
+      "zh-CHS": "[RFC8530]Berger，L.，Hopps，C.，Lindem，A.，Bogdanovic，D.，和X.Liu，“逻辑网络元素的杨模型”，RFC 8530，DOI 10.17487/RFC8530，2019年3月<https://www.rfc-editor.org/info/rfc8530>."
+    },
+    {
+      "indent": 3,
+      "text": "[YANG-MOUNT] Clemm, A., Voit, E., and J. Medved, \"Mounting YANG-Defined Information from Remote Datastores\", Work in Progress, draft-clemm-netmod-mount-06, March 2017.",
+      "zh-CHS": "[YANG-MOUNT]Clemm，A.，Voit，E.，和J.Medved，“从远程数据存储装载YANG定义的信息”，正在进行的工作，草稿-Clemm-netmod-MOUNT-062017年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Example: Device Model with LNEs and NIs",
+      "zh-CHS": "附录A.示例：带LNE和NIs的设备型号"
+    },
+    {
+      "indent": 3,
+      "text": "This non-normative example demonstrates an implementation of the device model as specified in Section 2 of [DEVICE-YANG], using both logical network elements (LNEs) and network instances (NIs).",
+      "zh-CHS": "此非规范性示例演示了使用逻辑网元（LNE）和网络实例（NIs）实现[device-YANG]第2节中规定的设备模型。"
+    },
+    {
+      "indent": 3,
+      "text": "In these examples, the character '\\' is used where a line break has been inserted for formatting reasons.",
+      "zh-CHS": "在这些示例中，字符“\\”用于因格式原因插入换行符的位置。"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. Physical Device",
+      "section_title": true,
+      "zh-CHS": "A.1. 物理设备"
+    },
+    {
+      "indent": 3,
+      "text": "The data model for the physical device may be described by this YANG library content, assuming the server supports the NMDA:",
+      "zh-CHS": "假设服务器支持NMDA，则物理设备的数据模型可由以下库内容描述："
+    },
+    {
+      "indent": 3,
+      "text": "{\n   \"ietf-yang-library:yang-library\": {\n     \"content-id\": \"14e2ab5dc325f6d86f743e8d3ade233f1a61a899\",\n     \"module-set\": [\n       {\n         \"name\": \"physical-device-modules\",\n         \"module\": [\n           {\n             \"name\": \"ietf-datastores\",\n             \"revision\": \"2018-02-14\",\n             \"namespace\":\n               \"urn:ietf:params:xml:ns:yang:ietf-datastores\"\n           },\n           {\n             \"name\": \"iana-if-type\",\n             \"revision\": \"2015-06-12\",\n             \"namespace\": \"urn:ietf:params:xml:ns:yang:iana-if-type\"\n           },\n           {\n             \"name\": \"ietf-interfaces\",\n             \"revision\": \"2018-02-20\",\n             \"feature\": [\"arbitrary-names\", \"pre-provisioning\" ],\n             \"namespace\":\n               \"urn:ietf:params:xml:ns:yang:ietf-interfaces\"\n           },\n           {\n             \"name\": \"ietf-ip\",\n             \"revision\": \"2018-02-22\",\n             \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-ip\"\n           },\n           {\n             \"name\": \"ietf-logical-network-element\",\n             \"revision\": \"2018-03-20\",\n             \"feature\": [ \"bind-lne-name\" ],",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:\\\n          ietf-logical-network-element\"\n      },\n      {\n        \"name\": \"ietf-yang-library\",\n        \"revision\": \"2019-01-04\",\n        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:ietf-yang-library\"\n      },\n      {\n        \"name\": \"ietf-yang-schema-mount\",\n        \"revision\": \"2019-01-14\",\n        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:ietf-yang-schema-mount\"\n      }\n    ],\n    \"import-only-module\": [\n      {\n        \"name\": \"ietf-inet-types\",\n        \"revision\": \"2013-07-15\",\n        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:ietf-inet-types\"\n      },\n      {\n        \"name\": \"ietf-yang-types\",\n        \"revision\": \"2013-07-15\",\n        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:ietf-yang-types\"\n      }\n    ]\n  }\n],\n\"schema\": [\n  {\n    \"name\": \"physical-device-schema\",\n    \"module-set\": [ \"physical-device-modules\" ]\n  }\n],\n\"datastore\": [\n  {\n    \"name\": \"ietf-datastores:running\",\n    \"schema\": \"physical-device-schema\"\n  },\n  {\n    \"name\": \"ietf-datastores:operational\",\n    \"schema\": \"physical-device-schema\"\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "     ]\n   }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "A.2. Logical Network Elements",
+      "section_title": true,
+      "zh-CHS": "A.2. 逻辑网络元件"
+    },
+    {
+      "indent": 3,
+      "text": "Each LNE can have a specific data model that is determined at run time, so it is appropriate to mount it using the \"inline\" method. Hence, the following \"schema-mounts\" data is used:",
+      "zh-CHS": "每个LNE可以有一个在运行时确定的特定数据模型，因此使用“inline”方法装载它是合适的。因此，使用了以下“架构装载”数据："
+    },
+    {
+      "indent": 3,
+      "text": "{\n  \"ietf-yang-schema-mount:schema-mounts\": {\n    \"mount-point\": [\n      {\n        \"module\": \"ietf-logical-network-element\",\n        \"label\": \"root\",\n        \"inline\": {}\n      }\n    ]\n  }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "An administrator of the host device has to configure an entry for each LNE instance, for example:",
+      "zh-CHS": "主机设备的管理员必须为每个LNE实例配置一个条目，例如："
+    },
+    {
+      "indent": 3,
+      "text": "{\n  \"ietf-interfaces:interfaces\": {\n    \"interface\": [\n      {\n        \"name\": \"eth0\",\n        \"type\": \"iana-if-type:ethernetCsmacd\",\n        \"enabled\": true,\n        \"ietf-logical-network-element:bind-lne-name\": \"eth0\"\n      }\n    ]\n  },\n  \"ietf-logical-network-element:logical-network-elements\": {\n    \"logical-network-element\": [\n      {\n        \"name\": \"lne-1\",\n        \"managed\": true,\n        \"description\": \"LNE with NIs\",\n        \"root\": {\n          ...\n        }\n      }\n      ...\n    ]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "  }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "and then also place necessary state data as the contents of the \"root\" instance, which should include at least:",
+      "zh-CHS": "然后还将必要的状态数据作为“根”实例的内容，其中至少应包括："
+    },
+    {
+      "indent": 3,
+      "text": "o YANG library data specifying the LNE's data model, for example, assuming the server does not implement the NMDA:",
+      "zh-CHS": "o 指定LNE数据模型的库数据，例如，假设服务器未实现NMDA："
+    },
+    {
+      "indent": 3,
+      "text": "{\n  \"ietf-yang-library:modules-state\": {\n    \"module-set-id\": \"9358e11874068c8be06562089e94a89e0a392019\",\n    \"module\": [\n      {\n        \"name\": \"iana-if-type\",\n        \"revision\": \"2014-05-08\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:iana-if-type\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-inet-types\",\n        \"revision\": \"2013-07-15\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-inet-types\",\n        \"conformance-type\": \"import\"\n      },\n      {\n        \"name\": \"ietf-interfaces\",\n        \"revision\": \"2014-05-08\",\n        \"feature\": [\n          \"arbitrary-names\",\n          \"pre-provisioning\"\n        ],\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-interfaces\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-ip\",\n        \"revision\": \"2014-06-16\",\n        \"feature\": [\n          \"ipv6-privacy-autoconf\"\n        ],\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-ip\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-network-instance\",\n        \"revision\": \"2018-03-20\",\n        \"feature\": [",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "          \"bind-network-instance-name\"\n        ],\n        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:ietf-network-instance\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-yang-library\",\n        \"revision\": \"2016-06-21\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-yang-library\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-yang-schema-mount\",\n        \"revision\": \"2019-01-14\",\n        \"namespace\":\n          \"urn:ietf:params:xml:ns:yang:ietf-yang-schema-mount\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-yang-types\",\n        \"revision\": \"2013-07-15\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-yang-types\",\n        \"conformance-type\": \"import\"\n      }\n    ]\n  }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "o state data for interfaces assigned to the LNE instance (that effectively become system-controlled interfaces for the LNE), for example:",
+      "zh-CHS": "o 分配给LNE实例的接口的状态数据（实际上成为LNE的系统控制接口），例如："
+    },
+    {
+      "indent": 3,
+      "text": "{\n  \"ietf-interfaces:interfaces\": {\n    \"interface\": [\n      {\n        \"name\": \"eth0\",\n        \"type\": \"iana-if-type:ethernetCsmacd\",\n        \"oper-status\": \"up\",\n        \"statistics\": {\n          \"discontinuity-time\": \"2016-12-16T17:11:27+02:00\"\n        },\n        \"ietf-ip:ipv6\": {\n          \"address\": [\n            {\n              \"ip\": \"fe80::42a8:f0ff:fea8:24fe\",\n              \"origin\": \"link-layer\",",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "              \"prefix-length\": 64\n            }\n          ]\n        }\n      }\n    ]\n  }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "A.3. Network Instances",
+      "section_title": true,
+      "zh-CHS": "A.3. 网络实例"
+    },
+    {
+      "indent": 3,
+      "text": "Assuming that network instances share the same data model, it can be mounted using the \"shared-schema\" method as follows:",
+      "zh-CHS": "假设网络实例共享相同的数据模型，则可以使用“共享架构”方法装入它，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "{\n  \"ietf-yang-schema-mount:schema-mounts\": {\n    \"namespace\": [\n      {\n          \"prefix\": \"if\",\n          \"uri\": \"urn:ietf:params:xml:ns:yang:ietf-interfaces\"\n      },\n      {\n          \"prefix\": \"ni\",\n          \"uri\": \"urn:ietf:params:xml:ns:yang:ietf-network-instance\"\n      }\n    ],\n    \"mount-point\": [\n      {\n        \"module\": \"ietf-network-instance\",\n        \"label\": \"root\",\n          \"shared-schema\": {\n            \"parent-reference\": [\n              \"/if:interfaces/if:interface[\\\n              ni:bind-network-instance-name = current()/../ni:name]\"\n            ]\n          }\n      }\n    ]\n  }\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Note also that the \"ietf-interfaces\" module appears in the \"parent-reference\" leaf-list for the mounted NI schema. This means that references to LNE interfaces, such as \"outgoing-interface\" in static routes, are valid despite the fact that \"ietf-interfaces\" isn't part of the NI schema.",
+      "zh-CHS": "还要注意，“ietf接口”模块出现在挂载NI模式的“父参考”叶列表中。这意味着，尽管“ietf接口”不是NI模式的一部分，但对LNE接口的引用（如静态路由中的“传出接口”）仍然有效。"
+    },
+    {
+      "indent": 0,
+      "text": "A.4. Invoking an RPC Operation",
+      "section_title": true,
+      "zh-CHS": "A.4. 调用RPC操作"
+    },
+    {
+      "indent": 3,
+      "text": "Assume that the mounted NI data model also implements the \"ietf-isis\" module [IS-IS-YANG]. An RPC operation defined in this module, such as \"clear-adjacency\", can be invoked by a client session of an LNE's RESTCONF server as an action tied to the mount point of a particular network instance using a request URI like this (all on one line):",
+      "zh-CHS": "假设安装的NI数据模型也实现了“ietf isis”模块[IS-IS-YANG]。此模块中定义的RPC操作（如“清除邻接”）可以由LNE的RESTCONF服务器的客户端会话调用，作为与特定网络实例的装入点绑定的操作，使用如下请求URI（全部在一行上）："
+    },
+    {
+      "indent": 5,
+      "text": "POST /restconf/data/ietf-network-instance:network-instances/\n    network-instance=rtrA/root/ietf-isis:clear-adjacency HTTP/1.1",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Contributors",
+      "zh-CHS": "贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "The idea of having some way to combine schemas from different YANG modules into one has been proposed independently by others:",
+      "zh-CHS": "其他人已经独立地提出了将不同模块的模式组合为一个模式的想法："
+    },
+    {
+      "indent": 3,
+      "text": "o Authors of [YANG-MOUNT]:",
+      "zh-CHS": "o 《阳山》的作者："
+    },
+    {
+      "indent": 6,
+      "text": "* Lou Berger, LabN Consulting, L.L.C., <lberger@labn.net>",
+      "zh-CHS": "* Lou Berger，LabN咨询公司，L.L.C<lberger@labn.net>"
+    },
+    {
+      "indent": 6,
+      "text": "* Alexander Clemm, Huawei, <alexander.clemm@huawei.com>",
+      "zh-CHS": "* 亚历山大·克莱姆，华为，<Alexander。clemm@huawei.com>"
+    },
+    {
+      "indent": 6,
+      "text": "* Christian Hopps, Deutsche Telekom, <chopps@chopps.org>",
+      "zh-CHS": "* Christian Hopps，德国电信<chopps@chopps.org>"
+    },
+    {
+      "indent": 3,
+      "text": "o Jan Medved, Cisco, <jmedved@cisco.com>",
+      "zh-CHS": "o 简·梅德维德，思科<jmedved@cisco.com>"
+    },
+    {
+      "indent": 3,
+      "text": "o Eric Voit, Cisco, <evoit@cisco.com>",
+      "zh-CHS": "o 埃里克·沃伊特，思科<evoit@cisco.com>"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Martin Bjorklund Tail-f Systems",
+      "zh-CHS": "Martin Bjorklund Tail-f系统"
+    },
+    {
+      "indent": 3,
+      "text": "Email: mbj@tail-f.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Ladislav Lhotka CZ.NIC",
+      "zh-CHS": "拉迪斯拉夫·洛特卡CZ.NIC"
+    },
+    {
+      "indent": 3,
+      "text": "Email: lhotka@nic.cz",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

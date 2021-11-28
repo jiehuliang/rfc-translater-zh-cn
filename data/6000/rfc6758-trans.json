@@ -1,0 +1,533 @@
+{
+  "title": {
+    "text": "RFC 6758: Tunneling of SMTP Message Transfer Priorities",
+    "zh-CHS": "RFC 6758"
+  },
+  "number": 6758,
+  "created_at": "2021-11-04 06:32:13.247097+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                       A. Melnikov\nRequest for Comments: 6758                                     Isode Ltd\nCategory: Informational                                      K. Carlberg\nISSN: 2070-1721                                                      G11\n                                                            October 2012",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Tunneling of SMTP Message Transfer Priorities",
+      "zh-CHS": "SMTP邮件传输优先级的隧道"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines a mechanism for tunneling of SMTP (Simple Mail Transfer Protocol) Message Transfer Priority values through MTAs (Message Transfer Agents) that don't support the MT-PRIORITY SMTP extension.",
+      "zh-CHS": "此备忘录定义了通过不支持MT-Priority SMTP扩展的MTA（邮件传输代理）对SMTP（简单邮件传输协议）邮件传输优先级值进行隧道传输的机制。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc6758.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc6758."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2012 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2012 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Conventions Used in This Document ...............................3\n3. Handling of Messages Received via SMTP ..........................4\n   3.1. Handling of the MT-PRIORITY Parameter by the\n        Receiving SMTP Server ......................................4\n   3.2. Relay of Messages to Other Conforming SMTP/LMTP Servers ....4\n   3.3. Relay of Messages to Non-Conforming SMTP/LMTP Servers ......5\n   3.4. Mailing Lists and Aliases ..................................5\n   3.5. Gatewaying a Message into a Foreign Environment ............5\n   3.6. Interaction with the DSN SMTP Extension ....................5\n4. Header Field: MT-Priority .......................................5\n5. Example .........................................................6\n6. IANA Considerations .............................................7\n7. Security Considerations .........................................7\n   7.1. Modification of the MT-Priority Header Field and DKIM ......9\n8. References ......................................................9\n   8.1. Normative References .......................................9\n   8.2. Informative References ....................................10\nAppendix A. Acknowledgements ......................................11",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The SMTP Message Transfer Priorities extension [RFC6710] specifies a mechanism to allow messages to be given a label to indicate preferential handling, to enable mail handling nodes to take this into account for onward processing. However, as with all SMTP extensions, all SMTP Message Transfer Agents (MTAs) between the source and the destination must support the extension in order for it to be successfully used. This document describes an application-layer tunneling of message priority, to convey the priority of the messages through MTAs that do not support the Message Transfer Priorities extension. The tunneling is done by adding a new message header field to the Internet Message Format specified in [RFC5322].",
+      "zh-CHS": "SMTP邮件传输优先级扩展[RFC6710]指定了一种机制，允许为邮件指定一个标签以指示优先处理，从而使邮件处理节点能够将此考虑在内，以便进行后续处理。但是，与所有SMTP扩展一样，源和目标之间的所有SMTP邮件传输代理（MTA）必须支持该扩展才能成功使用。本文档描述了消息优先级的应用层隧道，以通过不支持消息传输优先级扩展的MTA传递消息的优先级。隧道通过向[RFC5322]中指定的Internet消息格式添加新消息头字段来完成。"
+    },
+    {
+      "indent": 3,
+      "text": "A number of other header fields are already in use, mostly in Message User Agents (MUAs), to convey meanings related to importance or priority of messages. Examples of such header fields are Importance [RFC2156], Priority [RFC2156], and X-Priority (undocumented). Considering sometimes subtle and sometimes significant differences in the meaning of these header fields and widely different syntax, this document defines a new header field.",
+      "zh-CHS": "许多其他标头字段已经在使用，主要是在消息用户代理（MUA）中，用于传达与消息的重要性或优先级相关的含义。此类标头字段的示例包括重要性[RFC2156]、优先级[RFC2156]和X优先级（未记录）。考虑到这些标题字段的含义有时细微，有时显著，语法也大不相同，本文档定义了一个新的标题字段。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is motivated by 2 main deployment scenarios: (1) an MUA talking to a non-MT-PRIORITY-aware Message Submission Agent (MSA), and (2) the use of an unextended MUA to talk to an MT-PRIORITY-aware MSA. These 2 use cases are discussed in more detail below.",
+      "zh-CHS": "本文档由两种主要部署场景驱动：（1）MUA与非MT优先级感知的消息提交代理（MSA）对话，（2）使用未扩展的MUA与MT优先级感知的MSA对话。下面将更详细地讨论这两个用例。"
+    },
+    {
+      "indent": 3,
+      "text": "Use case (1) is about an MT-PRIORITY-capable MUA talking to a non-MT-PRIORITY-capable MSA [RFC6409], which in turn is talking to an MT-PRIORITY-capable MTA [RFC5321]. Both the MSA and MTA are within the same ADministrative Management Domain (ADMD) and are on a fast network; however, some recipients are accessible via the MTA that is talking over a slow link to the next MTA. Communications over that slow link can benefit from the use of the MT-PRIORITY SMTP extension.",
+      "zh-CHS": "用例（1）是关于支持MT优先级的MUA与不支持MT优先级的MSA[RFC6409]对话，后者又与支持MT优先级的MTA[RFC5321]对话。MSA和MTA都位于同一个管理域（ADMD）内，并且位于快速网络上；但是，某些收件人可以通过MTA访问，该MTA通过慢速链接与下一个MTA对话。使用MT-PRIORITY SMTP扩展可以使慢速链路上的通信受益。"
+    },
+    {
+      "indent": 3,
+      "text": "In use case (2), a widely deployed client (such as a desktop client) is talking to an MT-PRIORITY-capable MSA. The client might be extendable via a plug-in API provided by the client developers; however, existing APIs frequently allow easy manipulation of email header fields, while not allowing for addition of SMTP protocol features. In such a case, installing a plug-in on the client that can set the MT-Priority header field could provide easier and earlier deployment of the MT-PRIORITY SMTP extension in an organization without requiring changes to desktop clients.",
+      "zh-CHS": "在用例（2）中，广泛部署的客户机（例如桌面客户机）正在与支持MT优先级的MSA对话。客户机可以通过客户机开发人员提供的插件API进行扩展；但是，现有的API通常允许轻松操作电子邮件头字段，而不允许添加SMTP协议功能。在这种情况下，在客户机上安装可设置MT优先级标头字段的插件可以在组织中更轻松、更早地部署MT优先级SMTP扩展，而无需更改桌面客户机。"
+    },
+    {
+      "indent": 3,
+      "text": "We note that the above use cases are not exhaustive and that other use cases -- variations of the above -- may exist. The purpose of this document is not to consider every scenario, but rather examples that reinforce the need to consider a tunneling mechanism that can deal with SMTP-capable devices that do not support [RFC6710].",
+      "zh-CHS": "我们注意到上面的用例并不是详尽无遗的，其他用例——上面的变体——可能存在。本文档的目的不是考虑每个场景，而是增强需要考虑隧道机制的示例，该隧道机制可以处理不支持[RCFC610]的SMTP有能力的设备。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "2. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119] when they appear in ALL CAPS. These words also appear in this document in lower case as plain English words, absent their normative meanings.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不得”、“应”、“不应”、“建议”、“可”和“可选”在所有大写字母中出现时，应按照[RFC2119]中的说明进行解释。这些词在本文件中也以小写形式出现，为普通英语单词，没有其规范意义。"
+    },
+    {
+      "indent": 3,
+      "text": "The formal syntax uses the Augmented Backus-Naur Form (ABNF) [RFC5234] notation, including the core rules defined in Appendix B of RFC 5234 [RFC5234].",
+      "zh-CHS": "形式语法使用增广的巴科斯诺尔形式（ABNF）[RFC5234]表示法，包括RFC 5234[RFC5234]附录B中定义的核心规则。"
+    },
+    {
+      "indent": 3,
+      "text": "In examples, \"C:\" and \"S:\" indicate lines sent by the client and server, respectively. Line breaks that do not start with a new \"C:\" or \"S:\" exist for editorial reasons and are not a part of the protocol.",
+      "zh-CHS": "在示例中，“C:”和“S:”分别表示客户端和服务器发送的行。不以新“C:”或“S:”开头的换行符出于编辑原因而存在，不属于协议的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the term \"priority\" specifically in relation to the internal treatment of a message by the server. Messages with higher priorities may be given expedited handling, and those with lower priorities may be handled only as resources become available.",
+      "zh-CHS": "本文档使用术语“优先级”专门用于服务器对邮件的内部处理。优先级较高的邮件可能会得到快速处理，而优先级较低的邮件只能在资源可用时处理。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Handling of Messages Received via SMTP",
+      "section_title": true,
+      "zh-CHS": "3. 处理通过SMTP接收的邮件"
+    },
+    {
+      "indent": 3,
+      "text": "The subsections of this section update the corresponding subsections of Section 4 of [RFC6710].",
+      "zh-CHS": "本节各小节更新了[RFC6710]第4节的相应小节。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Handling of the MT-PRIORITY Parameter by the Receiving SMTP Server",
+      "section_title": true,
+      "zh-CHS": "3.1. 接收SMTP服务器对MT-PRIORITY参数的处理"
+    },
+    {
+      "indent": 3,
+      "text": "This specification inserts the following between steps 4 and 5 in Section 4.1 of [RFC6710]:",
+      "zh-CHS": "本规范在[RFC6710]第4.1节的步骤4和步骤5之间插入以下内容："
+    },
+    {
+      "indent": 3,
+      "text": "4a. If the sending SMTP client hasn't specified the MT-PRIORITY parameter to the MAIL FROM command, but the message has a single syntactically valid MT-Priority header field (see Section 4), then the value of this header field is the message priority.",
+      "zh-CHS": "4a。如果发送SMTP客户端尚未为MAIL FROM命令指定MT-PRIORITY参数，但邮件具有一个语法有效的MT PRIORITY头字段（请参见第4节），则此头字段的值为邮件优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "4b. In the absence of both the MT-PRIORITY MAIL FROM parameter and the MT-Priority header field, other message header fields, such as Priority [RFC2156] and X-Priority, MAY be used for determining the priority under this \"Priority Message Handling\" SMTP extension. Note, however, that the Importance [RFC2156] header field MUST NOT be used for determining the priority under this \"Priority Message Handling\" SMTP extension, as it has different semantics: the Importance header field is aimed at the user recipient and not at the nodes responsible for transferring the message.",
+      "zh-CHS": "4b。在没有MT-PRIORITY MAIL FROM参数和MT PRIORITY header字段的情况下，其他消息头字段，如PRIORITY[RFC2156]和X-PRIORITY，可用于确定此“优先级消息处理”SMTP扩展下的优先级。但是，请注意，重要性[RFC2156]标头字段不得用于确定此“优先级邮件处理”SMTP扩展下的优先级，因为它具有不同的语义：重要性标头字段针对的是用户收件人，而不是负责传输邮件的节点。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Relay of Messages to Other Conforming SMTP/LMTP Servers",
+      "section_title": true,
+      "zh-CHS": "3.2. 将邮件中继到其他符合标准的SMTP/LMTP服务器"
+    },
+    {
+      "indent": 3,
+      "text": "This specification inserts the following between steps 1 and 2 in Section 4.2 of [RFC6710].",
+      "zh-CHS": "本规范在[RFC6710]第4.2节的步骤1和2之间插入以下内容。"
+    },
+    {
+      "indent": 3,
+      "text": "1a. Note that rule 1 also applies to messages that didn't have any priority explicitly specified using the MT-PRIORITY MAIL FROM parameter or the MT-Priority header field.",
+      "zh-CHS": "1a。请注意，规则1也适用于没有使用MT-priority MAIL FROM参数或MT priority header字段明确指定任何优先级的邮件。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Relay of Messages to Non-Conforming SMTP/LMTP Servers",
+      "section_title": true,
+      "zh-CHS": "3.3. 将邮件中继到不一致的SMTP/LMTP服务器"
+    },
+    {
+      "indent": 3,
+      "text": "This specification appends the following after step 1 in Section 4.3 of [RFC6710]:",
+      "zh-CHS": "本规范在[RFC6710]第4.3节第1步之后附加以下内容："
+    },
+    {
+      "indent": 3,
+      "text": "2. The relaying MTA MUST first remove any and all existing MT-Priority header fields from the message. (Please see Section 7 for additional considerations related to removal of the MT-Priority header field.)",
+      "zh-CHS": "2. 中继MTA必须首先从邮件中删除任何和所有现有的MT优先级标头字段。（有关删除MT优先级标题字段的其他注意事项，请参见第7节。）"
+    },
+    {
+      "indent": 3,
+      "text": "3. If the incoming message had an MT-PRIORITY parameter specified in the MAIL FROM command *or* there was an MT-Priority header field removed in step 2 above, then the relaying MTA MUST add its own MT-Priority header field with the value determined by the procedure in Section 3.1. The syntax of the MT-Priority header field is specified in Section 4.",
+      "zh-CHS": "3. 如果传入消息在“来自邮件”命令*中指定了MT-PRIORITY参数，或者*在上述步骤2中删除了MT PRIORITY标头字段，则中继MTA必须添加其自己的MT PRIORITY标头字段，其值由第3.1节中的过程确定。第4节规定了MT优先级标头字段的语法。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Mailing Lists and Aliases",
+      "section_title": true,
+      "zh-CHS": "3.4. 邮件列表和别名"
+    },
+    {
+      "indent": 3,
+      "text": "This specification makes no changes to Section 4.4 of [RFC6710].",
+      "zh-CHS": "本规范未对[RFC6710]第4.4节进行任何更改。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Gatewaying a Message into a Foreign Environment",
+      "section_title": true,
+      "zh-CHS": "3.5. 将消息网关化到外部环境"
+    },
+    {
+      "indent": 3,
+      "text": "This specification inserts the following between steps 1 and 2 in Section 4.5 of [RFC6710].",
+      "zh-CHS": "本规范在[RFC6710]第4.5节的步骤1和2之间插入以下内容。"
+    },
+    {
+      "indent": 3,
+      "text": "1a. Note that if the destination environment doesn't support the transport of an arbitrary header field, the requirement in Section 3.3 to add an MT-Priority header field doesn't apply.",
+      "zh-CHS": "1a。请注意，如果目标环境不支持传输任意标头字段，则第3.3节中添加MT优先级标头字段的要求不适用。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Interaction with the DSN SMTP Extension",
+      "section_title": true,
+      "zh-CHS": "3.6. 与DSN SMTP扩展的交互"
+    },
+    {
+      "indent": 3,
+      "text": "This specification makes no changes to Section 4.6 of [RFC6710].",
+      "zh-CHS": "本规范不对[RFC6710]第4.6节进行任何更改。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Header Field: MT-Priority",
+      "section_title": true,
+      "zh-CHS": "4. 标题字段：MT优先级"
+    },
+    {
+      "indent": 3,
+      "text": "Applicable protocol: mail [RFC5322]\nStatus: standard\nAuthor/change controller: Alexey Melnikov / IESG (iesg@ietf.org)\n   on behalf of the IETF\nSpecification document(s): RFC 6758",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The MT-Priority header field conveys message transfer priority when relaying a message through MTAs that don't support the MT-PRIORITY SMTP extension.",
+      "zh-CHS": "通过不支持MT-Priority SMTP扩展的MTA中继邮件时，MT Priority header字段传递邮件传输优先级。"
+    },
+    {
+      "indent": 3,
+      "text": "The ABNF for this header field is defined as follows:",
+      "zh-CHS": "此标头字段的ABNF定义如下："
+    },
+    {
+      "indent": 6,
+      "text": "priority-header-field = \"MT-Priority:\" [CFWS] priority-value [CFWS] CRLF",
+      "zh-CHS": "优先级头字段=“MT优先级：”[CFWS]优先级值[CFWS]CRLF"
+    },
+    {
+      "indent": 3,
+      "text": "where \"priority-value\" is defined in [RFC6710].",
+      "zh-CHS": "其中，[RFC6710]中定义了“优先级值”。"
+    },
+    {
+      "indent": 3,
+      "text": "Example: MT-Priority: -3",
+      "zh-CHS": "示例：MT优先级：-3"
+    },
+    {
+      "indent": 3,
+      "text": "Example: MT-Priority: 4 (ultra)",
+      "zh-CHS": "示例：MT优先级：4（超）"
+    },
+    {
+      "indent": 0,
+      "text": "5. Example",
+      "section_title": true,
+      "zh-CHS": "5. 实例"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the following example of an SMTP transaction with 2 recipients is also making use of the STARTTLS [RFC3207] and Delivery Status Notification (DSN) [RFC3461] SMTP extensions, even though there is no requirement that these other extensions are to be supported when the MT-PRIORITY SMTP extension is implemented.",
+      "zh-CHS": "请注意，以下两个收件人的SMTP事务示例还使用了STARTTLS[RFC3207]和传递状态通知（DSN）[RFC3461]SMTP扩展，即使在实现MT-PRIORITY SMTP扩展时不要求支持这些其他扩展。"
+    },
+    {
+      "indent": 8,
+      "text": "S: 220 example.net SMTP server here\nC: EHLO example.com\nS: 250-example.net\nS: 250-DSN\nS: 250-STARTTLS\nS: 250 MT-PRIORITY STANAG4406\nC: STARTTLS\n[...TLS negotiation...]\nC: MAIL FROM:<eljefe@example.com> ENVID=QQ314159\n    MT-PRIORITY=3\nS: 250 <eljefe@example.com> sender ok\nC: RCPT TO:<topbanana@example.net>\nS: 250 <topbanana@example.net> recipient ok\nC: RCPT TO:<Dana@Ivory.example.net> NOTIFY=SUCCESS,FAILURE\n    ORCPT=rfc822;Dana@Ivory.example.net\nS: 250 <Dana@Ivory.example.net> recipient ok\nC: DATA\nS: 354 okay, send message\nC:  (message goes here)\nC: .\nS: 250 message accepted\nC: QUIT\nS: 221 goodbye",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Here, the receiving SMTP server supports the \"STANAG4406\" Priority Assignment Policy [RFC6710] with 6 priority levels, so it will use the priority value 4 internally (the next supported priority higher",
+      "zh-CHS": "这里，接收SMTP服务器支持具有6个优先级的“STANAG4406”优先级分配策略[RFC6710]，因此它将在内部使用优先级值4（下一个支持的优先级更高）"
+    },
+    {
+      "indent": 3,
+      "text": "or equal to 3) and will communicate the priority value 3 when relaying it to the next hop (if necessary). When relaying the message to the next hop that doesn't support the MT-PRIORITY SMTP extension, the transaction might look like this:",
+      "zh-CHS": "或等于3），并在将优先级值3中继到下一个跃点（如有必要）时进行通信。将消息中继到不支持MT优先级SMTP扩展的下一个跃点时，事务可能如下所示："
+    },
+    {
+      "indent": 8,
+      "text": "S: 220 example.org SMTP server here\nC: EHLO example.net\nS: 250-example.org\nS: 250-DSN\nS: 250-STARTTLS\nS: 250 SIZE\nC: STARTTLS\n[...TLS negotiation...]\nC: MAIL FROM:<eljefe@example.com> ENVID=QQ314159\nS: 250 <eljefe@example.com> sender ok\nC: RCPT TO:<topbanana@example.net>\nS: 250 <topbanana@example.net> recipient ok\nC: RCPT TO:<Dana@Ivory.example.net> NOTIFY=SUCCESS,FAILURE\n    ORCPT=rfc822;Dana@Ivory.example.net\nS: 250 <Dana@Ivory.example.net> recipient ok\nC: DATA\nS: 354 okay, send message\nC: MT-Priority: 3\nC:  (the rest of the message goes here)\nC: .\nS: 250 message accepted\nC: QUIT\nS: 221 goodbye",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has added the following list of header field names to the \"Permanent Message Header Field Names\" registry (in <http://www.iana.org/assignments/message-headers/perm-headers.html>):",
+      "zh-CHS": "IANA已将以下标题字段名称列表添加到“永久邮件标题字段名称”注册表（中<http://www.iana.org/assignments/message-headers/perm-headers.html>):"
+    },
+    {
+      "indent": 3,
+      "text": "Header field: MT-Priority\nApplicable protocol: mail\nStatus: standard\nAuthor/change controller: Alexey Melnikov / IESG (iesg@ietf.org)\n   on behalf of the IETF\nSpecification document(s): RFC 6758",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document allows a message priority to be tunneled through MTAs that don't support the MT-PRIORITY SMTP extension by specifying how it can be represented in the message itself (using the MT-Priority header field). Thus, it is important to ensure that an MTA receiving",
+      "zh-CHS": "此文档通过指定如何在邮件本身中表示邮件优先级（使用MT优先级标头字段），允许通过不支持MT-priority SMTP扩展的MTA对邮件优先级进行隧道传输。因此，确保MTA接收"
+    },
+    {
+      "indent": 3,
+      "text": "a message containing the MT-Priority header field can trust that it was set by an authorized agent. The use of technologies such as DomainKeys Identified Mail (DKIM) [RFC6376] or S/MIME to sign the MT-Priority header field value can enable a recipient to verify whether the specified priority value was generated by a trusted agent. In particular, DKIM signing allows a recipient to verify that the specified priority value was present when the message was signed, and to verify who signed the message. Note, however, that the DKIM signer might not be the same agent that generated the MT-Priority header field.",
+      "zh-CHS": "包含MT Priority header字段的消息可以相信它是由授权代理设置的。使用DomainKeys Identified Mail（DKIM）[RFC6376]或S/MIME等技术对MT优先级标头字段值进行签名，可使收件人验证指定的优先级值是否由受信任的代理生成。特别是，DKIM签名允许收件人验证在对邮件进行签名时是否存在指定的优先级值，以及验证谁对邮件进行了签名。但是，请注意，DKIM签名者可能不是生成MT优先级标头字段的同一个代理。"
+    },
+    {
+      "indent": 3,
+      "text": "MSAs ought to only accept message transfer priorities (whether by using the MT-PRIORITY parameter to the MAIL FROM command or the MT-Priority header field in the message itself) from users (or only certain groups of such users) who are authenticated and authorized in some way that's acceptable to the MSA. As part of this policy, they can also restrict maximum priority values that different groups of users can request and can override the priority values specified by MUAs. When relaying to non-MT-PRIORITY-capable SMTP/LMTP (Local Mail Transfer Protocol) servers, such MSAs are required to replace any MT-Priority header field values that don't satisfy this policy. See Section 7.1 for more details on what the consequences of such changes might be.",
+      "zh-CHS": "MSA应仅接受来自用户（或仅某些此类用户组）的消息传输优先级（无论是通过将MT-PRIORITY参数用于MAIL FROM命令还是消息本身中的MT PRIORITY header字段），这些用户通过MSA可接受的某种方式进行身份验证和授权。作为此策略的一部分，它们还可以限制不同用户组可以请求的最大优先级值，并可以覆盖MUA指定的优先级值。当中继到不支持MT优先级的SMTP/LMTP（本地邮件传输协议）服务器时，此类MSA需要替换不满足此策略的任何MT优先级标头字段值。有关此类变更可能产生的后果的更多详情，请参见第7.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, MTAs ought to only accept message transfer priorities (whether by using the MT-PRIORITY parameter to the MAIL FROM command or the MT-Priority header field in the message itself) from senders (or only certain groups of such senders) who are authenticated and authorized in some way that's acceptable to the MTA. As part of this policy, they can also restrict maximum priority values that different groups of senders can request and can override the priority values specified by them. When relaying to non-MT-PRIORITY-capable SMTP/ LMTP servers, such MTAs are required to replace any MT-Priority header field values that don't satisfy this policy. See Section 7.1 for more details on what the consequences of such changes might be.",
+      "zh-CHS": "类似地，MTA应该只接受发件人（或仅接受此类发件人的某些组）的邮件传输优先级（无论是通过将MT-PRIORITY参数用于MAIL FROM命令还是邮件本身中的MT PRIORITY header字段），这些发件人以MTA可接受的方式进行了身份验证和授权。作为此策略的一部分，它们还可以限制不同发件人组可以请求的最大优先级值，并可以覆盖它们指定的优先级值。当中继到不支持MT优先级的SMTP/LMTP服务器时，需要此类MTA替换不满足此策略的任何MT优先级标头字段值。有关此类变更可能产生的后果的更多详情，请参见第7.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "In the absence of the policy enforcement mentioned above, an SMTP server (whether an MSA or an MTA) implementing the MT-PRIORITY SMTP extension might be susceptible to a denial-of-service attack. For example, malicious clients (MUAs/MSAs/MTAs) can try to abuse this feature by always requesting priority 9.",
+      "zh-CHS": "在没有上述策略实施的情况下，实现MT优先级SMTP扩展的SMTP服务器（无论是MSA还是MTA）可能会受到拒绝服务攻击。例如，恶意客户端（MUA/MSAs/MTA）可以尝试通过始终请求优先级9来滥用此功能。"
+    },
+    {
+      "indent": 3,
+      "text": "To protect the MT-Priority header field from modification or insertion, MUAs, MSAs, and MTAs inserting it into messages SHOULD use a message header protection mechanism such as DKIM [RFC6376]; however, see Section 7.1 for more information.",
+      "zh-CHS": "为防止修改或插入MT优先级头字段，将其插入消息的MUA、MSA和MTA应使用消息头保护机制，如DKIM[RFC6376]；但是，更多信息请参见第7.1节。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Modification of the MT-Priority Header Field and DKIM",
+      "section_title": true,
+      "zh-CHS": "7.1. 修改MT优先级报头字段和DKIM"
+    },
+    {
+      "indent": 3,
+      "text": "An MSA/MTA that receives a message with an MT-Priority header field protected by DKIM and that wants to change the message priority due to its policy is forced to choose between",
+      "zh-CHS": "如果MSA/MTA接收的邮件具有受DKIM保护的MT优先级标头字段，并且由于其策略而希望更改邮件优先级，则必须在两者之间进行选择"
+    },
+    {
+      "indent": 3,
+      "text": "a. breaking DKIM signatures (by replacing the MT-Priority header value),",
+      "zh-CHS": "a. 断开DKIM签名（通过替换MT优先级标头值），"
+    },
+    {
+      "indent": 3,
+      "text": "b. leaving the message as is (and using the MT-PRIORITY MAIL FROM parameter), relying on the fact that all downstream MTAs are compliant with this specification, and",
+      "zh-CHS": "b. 保持邮件原样（并使用MT-PRIORITY MAIL FROM参数），依赖于所有下游MTA都符合此规范的事实，以及"
+    },
+    {
+      "indent": 3,
+      "text": "c. rejecting the message.",
+      "zh-CHS": "c. 拒绝该消息。"
+    },
+    {
+      "indent": 3,
+      "text": "None of these choices are perfect. They work in a particular situation, so these choices should be carefully considered during implementation and deployment.",
+      "zh-CHS": "这些选择都不是完美的。它们在特定情况下工作，因此在实现和部署期间应仔细考虑这些选择。"
+    },
+    {
+      "indent": 3,
+      "text": "If the MSA/MTA decides to alter the message, it SHOULD re-sign the message with DKIM.",
+      "zh-CHS": "如果MSA/MTA决定更改邮件，则应使用DKIM对邮件重新签名。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3461] Moore, K., \"Simple Mail Transfer Protocol (SMTP) Service Extension for Delivery Status Notifications (DSNs)\", RFC 3461, January 2003.",
+      "zh-CHS": "[RFC3461]Moore，K.，“用于传递状态通知（DSN）的简单邮件传输协议（SMTP）服务扩展”，RFC 3461，2003年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5234] Crocker, D. and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", STD 68, RFC 5234, January 2008.",
+      "zh-CHS": "[RFC5234]Crocker，D.和P.Overell，“语法规范的扩充BNF:ABNF”，STD 68，RFC 5234，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5321] Klensin, J., \"Simple Mail Transfer Protocol\", RFC 5321, October 2008.",
+      "zh-CHS": "[RFC5321]Klensin，J.，“简单邮件传输协议”，RFC 53212008年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5322] Resnick, P., Ed., \"Internet Message Format\", RFC 5322, October 2008.",
+      "zh-CHS": "[RFC5322]Resnick，P.，Ed.“互联网信息格式”，RFC5222008年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6409] Gellens, R. and J. Klensin, \"Message Submission for Mail\", STD 72, RFC 6409, November 2011.",
+      "zh-CHS": "[RFC6409]Gellens，R.和J.Klensin，“邮件信息提交”，STD 72，RFC 6409，2011年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6710] Melnikov, A. and K. Carlberg, \"Simple Mail Transfer Protocol Extension for Message Transfer Priorities\", RFC 6710, August 2012.",
+      "zh-CHS": "[RFC6710]Melnikov，A.和K.Carlberg，“消息传输优先级的简单邮件传输协议扩展”，RFC 67102012年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2156] Kille, S., \"MIXER (Mime Internet X.400 Enhanced Relay): Mapping between X.400 and RFC 822/MIME\", RFC 2156, January 1998.",
+      "zh-CHS": "[RFC2156]Kille，S.，“混音器（Mime互联网X.400增强中继）：X.400和RFC 822/Mime之间的映射”，RFC 2156，1998年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3207] Hoffman, P., \"SMTP Service Extension for Secure SMTP over Transport Layer Security\", RFC 3207, February 2002.",
+      "zh-CHS": "[RFC3207]Hoffman，P.，“传输层安全SMTP的SMTP服务扩展”，RFC3207，2002年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6376] Crocker, D., Hansen, T., and M. Kucherawy, \"DomainKeys Identified Mail (DKIM) Signatures\", RFC 6376, September 2011.",
+      "zh-CHS": "[RFC6376]Crocker，D.，Hansen，T.，和M.Kucherawy，“域密钥识别邮件（DKIM）签名”，RFC 63762011年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SMTP-PRI-OLD] Schmeing, M., Brendecke, J., and K. Carlberg, \"SMTP Service Extension for Priority Message Handling\", Work in Progress, August 2006.",
+      "zh-CHS": "[SMTP-PRI-OLD]Schmeing，M.，Brendecke，J.，和K.Carlberg，“优先邮件处理的SMTP服务扩展”，正在进行的工作，2006年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "This document copies lots of text from \"SMTP Service Extension for Priority Message Handling\" [SMTP-PRI-OLD]. Therefore, the authors of this document would like to acknowledge contributions made by the authors of that document: Michael Schmeing and Jan-Wilhelm Brendecke.",
+      "zh-CHS": "本文档从“优先邮件处理SMTP服务扩展”[SMTP-PRI-OLD]复制大量文本。因此，本文件的作者要感谢该文件的作者：Michael Schmeing和Jan Wilhelm Brendeck所作的贡献。"
+    },
+    {
+      "indent": 3,
+      "text": "Many thanks for input provided by Steve Kille, David Wilson, John Klensin, Dave Crocker, Graeme Lunt, Alessandro Vesely, Barry Leiba, Bill McQuillan, Murray Kucherawy, SM, Glenn Parsons, Pete Resnick, Chris Newman, Ned Freed, Claudio Allocchio, Martin Thomson, and Joseph Yee.",
+      "zh-CHS": "非常感谢Steve Kille、David Wilson、John Klensin、Dave Crocker、Graeme Lunt、Alessandro Vesely、Barry Leiba、Bill McQuillan、Murray Kucherawy、SM、Glenn Parsons、Pete Resnick、Chris Newman、Ned Freed、Claudio Allocchio、Martin Thomson和Joseph Yee提供的意见。"
+    },
+    {
+      "indent": 3,
+      "text": "Special thanks to Barry Leiba for agreeing to shepherd this document.",
+      "zh-CHS": "特别感谢Barry Leiba同意本文件。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Alexey Melnikov Isode Ltd 5 Castle Business Village 36 Station Road Hampton, Middlesex TW12 2BX UK",
+      "zh-CHS": "英国米德尔塞克斯郡汉普顿车站路36号城堡商业村5号Alexey Melnikov Isode有限公司TW12 2BX"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Alexey.Melnikov@isode.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Ken Carlberg G11 1601 Clarendon Blvd, #203 Arlington, VA 22209 USA",
+      "zh-CHS": "Ken Carlberg G11 1601美国弗吉尼亚州阿灵顿市克莱伦登大道203号，邮编22209"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: carlberg@g11.org.uk",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

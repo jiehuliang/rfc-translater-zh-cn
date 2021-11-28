@@ -1,0 +1,1432 @@
+{
+  "title": {
+    "text": "RFC 5140: A Telephony Gateway REgistration Protocol (TGREP)",
+    "zh-CHS": "RFC 5140"
+  },
+  "number": 5140,
+  "created_at": "2021-11-10 07:13:53.579082+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       M. Bangalore\nRequest for Comments: 5140                                      R. Kumar\nCategory: Standards Track                                   J. Rosenberg\n                                                                   Cisco\n                                                               H. Salama\n                                                          Citex Software\n                                                               D.N. Shah\n                                                             Moowee Inc.\n                                                              March 2008",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "A Telephony Gateway REgistration Protocol (TGREP)",
+      "zh-CHS": "电话网关注册协议（TGREP）"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes the Telephony Gateway Registration Protocol (TGREP) for registration of telephony prefixes supported by telephony gateways and soft switches. The registration mechanism can also be used to export resource information. The prefix and resource information can then be passed on to a Telephony Routing over IP (TRIP) Location Server, which in turn can propagate that routing information within and between Internet Telephony Administrative Domains (ITADs). TGREP shares a lot of similarities with the TRIP protocol. It has similar procedures and finite state machine for session establishment. It also shares the same format for messages and a subset of attributes with TRIP.",
+      "zh-CHS": "本文档描述了用于注册电话网关和软交换机支持的电话前缀的电话网关注册协议（TGREP）。注册机制还可用于导出资源信息。然后，前缀和资源信息可以传递到IP电话路由（TRIP）位置服务器，该服务器反过来可以在Internet电话管理域（ITAD）内和之间传播该路由信息。TGREP与TRIP协议有很多相似之处。它具有类似的过程和用于会话建立的有限状态机。它还与TRIP共享相同的消息格式和属性子集。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Terminology and Definitions .....................................5\n3. TGREP: Overview of Operation ....................................6\n4. TGREP Attributes ................................................7\n   4.1. TotalCircuitCapacity Attribute .............................8\n   4.2. AvailableCircuits Attribute ................................9\n   4.3. CallSuccess Attribute .....................................10\n   4.4. Prefix Attributes .........................................12\n   4.5. TrunkGroup Attribute ......................................13\n   4.6. Carrier Attribute .........................................15\n5. TrunkGroup and Carrier Address Families ........................16\n   5.1. Address Family Syntax .....................................17\n6. Gateway Operation ..............................................18\n   6.1. Session Establishment .....................................18\n   6.2. UPDATE Messages ...........................................19\n   6.3. KEEPALIVE Messages ........................................19\n   6.4. Error Handling and NOTIFICATION Messages ..................19\n   6.5. TGREP Finite State Machine ................................19\n   6.6. Call Routing Databases ....................................19\n   6.7. Multiple Address Families .................................20\n   6.8. Route Selection and Aggregation ...........................20\n7. LS/Proxy Behavior ..............................................20\n   7.1. Route Consolidation .......................................22\n   7.2. Aggregation ...............................................23\n   7.3. Consolidation versus Aggregation ..........................23\n8. Security Considerations ........................................23\n9. IANA Considerations ............................................24\n   9.1. Attribute Codes ...........................................24\n   9.2. Address Family Codes ......................................24\n10. Acknowledgments ...............................................25\n11. References ....................................................25\n   11.1. Normative References .....................................25\n   11.2. Informative References ...................................26",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "It is assumed that the reader of this document is familiar with TRIP [2, 12]. In typical Voice over IP (VoIP) networks, Internet Telephony Administrative Domains (ITADs) will deploy numerous gateways for the purposes of geographical diversity, capacity, and redundancy. When a call arrives at the domain, it must be routed to one of those gateways. Frequently, an ITAD will break its network into geographic Points of Presence (POPs), with each POP containing some number of gateways, and a proxy server element that fronts those gateways. The proxy element is a SIP proxy [11] or H.323 gatekeeper. The proxy server is responsible for managing the access to the POP, and also for determining which of the gateways will receive any given call that arrives at the POP. In conjunction with the proxy server that routes the call signaling, there are two components, the \"Ingress LS\" (aka \"TGREP receiver\") and the \"Egress LS\". The TGREP receiver component maintains TGREP peering relationship with one or more gateways. The routing information received from the gateways is further injected into the Egress LS, which in turn disseminates into the rest of the network on TRIP. For convenience, gateway and GW are used interchangeably.",
+      "zh-CHS": "假设本文件的读者熟悉TRIP[2,12]。在典型的IP语音（VoIP）网络中，Internet电话管理域（ITAD）将部署许多网关，以实现地理多样性、容量和冗余。当呼叫到达域时，必须将其路由到这些网关之一。通常，ITAD会将其网络划分为地理存在点（POP），每个POP包含一定数量的网关，以及面向这些网关的代理服务器元素。代理元素是SIP代理[11]或H.323网守。代理服务器负责管理对POP的访问，还负责确定哪个网关将接收到达POP的任何给定呼叫。与路由呼叫信令的代理服务器一起，有两个组件，“入口LS”（也称为“TGREP接收器”）和“出口LS”。TGREP接收器组件与一个或多个网关保持TGREP对等关系。从网关接收到的路由信息进一步注入出口LS，出口LS又在旅途中传播到网络的其余部分。为方便起见，网关和GW可互换使用。"
+    },
+    {
+      "indent": 3,
+      "text": "This configuration is depicted graphically in Figure 1.",
+      "zh-CHS": "该配置如图1所示。"
+    },
+    {
+      "indent": 19,
+      "text": "  Signaling                 TGREP\n------------->          <----------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "                                              +---------+\n                                              |         |\n                                              |   GW    |\n                                           >  +---------+\n                                         //\n                                       //\n SIP                                 //       +---------+\n<---->                             //         |         |\n   +-------------------------+   //           |   GW    |\n   |                         | //             +---------+\n   |    +-------------+      |/\n   |    |             |      |\n   |    |  Routing    |      |                +---------+   TO PSTN\n   |    |   Proxy     |      |                |         |\n--->    |             |      |----------->    |   GW    | ----->\n   |+---+-----+ +-----+----+ |                +---------+\n   ||         | |          | |\n   ||        <+-+          | |--\n   ||Egress LS| |Ingress LS| |  ---           +---------+\n   ||         | |          | |     --         |         |\n   |+---------+ +----------+ |       --       |   GW    |\n   |                         |         --     +---------+\n   |                         |           -->\n   +-------------------------+\n TRIP                                         +---------+\n<---->                                        |         |\n                                              |   GW    |\n                                              +---------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Figure 1: Gateway and LS Configuration",
+      "zh-CHS": "图1：网关和LS配置"
+    },
+    {
+      "indent": 3,
+      "text": "The decision about which gateway to use depends on many factors, including their availability, remaining call capacity, and call success statistics to a particular Public Switched Telephone Network (PSTN) destination (see [14]). For the proxy to do this adequately, it needs to have access to this information in real-time, as it changes. This means there must be some kind of communications between the proxy and the gateways to convey this information.",
+      "zh-CHS": "关于使用哪个网关的决定取决于许多因素，包括它们的可用性、剩余呼叫容量以及到特定公共交换电话网（PSTN）目的地的呼叫成功统计数据（参见[14]）。为了让代理充分做到这一点，它需要在信息发生变化时实时访问这些信息。这意味着代理和网关之间必须有某种通信来传递此信息。"
+    },
+    {
+      "indent": 3,
+      "text": "The TRIP protocol [2] is defined for carrying telephony routing information between providers, for the purposes of getting a call routed to the right provider for termination to the PSTN. However, there is no mechanism defined in TRIP that defines how routes get injected into the TRIP protocol from within the network. Nor does it",
+      "zh-CHS": "TRIP协议[2]定义用于在提供商之间承载电话路由信息，以便将呼叫路由到正确的提供商，以终止到PSTN。然而，TRIP中没有定义机制来定义如何从网络内部将路由注入TRIP协议。也不是"
+    },
+    {
+      "indent": 3,
+      "text": "define mechanisms that would allow the provider to select the specific gateway for terminating a call when it arrives. Those gaps are filled by TGREP.",
+      "zh-CHS": "定义允许提供商选择特定网关以在呼叫到达时终止呼叫的机制。TGREP填补了这些空白。"
+    },
+    {
+      "indent": 3,
+      "text": "TGREP allows PSTN gateways or soft switches to inform a signaling server, such as a SIP proxy server or H.323 gatekeeper, of routes it has to the PSTN. These advertisements include fairly dynamic information, such as the remaining capacity in a particular trunk, which is essential for selecting the right gateway.",
+      "zh-CHS": "TGREP允许PSTN网关或软交换机向信令服务器（如SIP代理服务器或H.323网守）通知其到PSTN的路由。这些广告包含相当动态的信息，例如特定中继中的剩余容量，这对于选择正确的网关至关重要。"
+    },
+    {
+      "indent": 3,
+      "text": "TGREP is identical in syntax and overall operation to TRIP. However, it differs in the route processing rules followed by the TGREP receiver, allowing for a route processing function called \"consolidation\". Consolidation combines multiple routes for the same route destination with different attributes to a single route to prevent loss of routing information. TGREP also defines a set of new attributes, usable by TGREP or TRIP. Finally, TGREP only utilizes a subset of overall TRIP capabilities. Specifically, certain attributes are not utilized (as described below), and the TGREP entities (the sender and receiver) operate in an asymmetric relationship, whereas TRIP allows symmetric and asymmetric.",
+      "zh-CHS": "TGREP在语法和TRIP的整体操作上是相同的。但是，TGREP接收器遵循的路由处理规则不同，允许使用名为“合并”的路由处理功能。整合将同一路由目的地的多条具有不同属性的路由合并到一条路由，以防止路由信息丢失。TGREP还定义了一组新属性，可供TGREP或TRIP使用。最后，TGREP仅利用总体出行能力的一个子集。具体而言，某些属性未被利用（如下所述），TGREP实体（发送方和接收方）以非对称关系运行，而TRIP允许对称和非对称。"
+    },
+    {
+      "indent": 3,
+      "text": "As a general rule, because of a lot of similarities between TRIP and TGREP, frequent reference will be made to the terminologies and formats defined in TRIP [2]. It is suggested that the reader be familiar with the concepts of TRIP like attributes, flags, route types, address families, etc.",
+      "zh-CHS": "作为一般规则，由于TRIP和TGREP之间有许多相似之处，因此将经常参考TRIP[2]中定义的术语和格式。建议读者熟悉出行类属性、标志、路线类型、地址族等概念。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology and Definitions",
+      "section_title": true,
+      "zh-CHS": "2. 术语和定义"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119 [1].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[1]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Some other useful definitions are:",
+      "zh-CHS": "其他一些有用的定义包括："
+    },
+    {
+      "indent": 3,
+      "text": "Circuit: A circuit is a discrete (specific) path between two or more points along which signals can be carried. In this context, a circuit is a physical path, consisting of one or more wires and possibly intermediate switching points.",
+      "zh-CHS": "电路：电路是两个或多个点之间的离散（特定）路径，信号可以沿着该路径传输。在此上下文中，电路是一条物理路径，由一条或多条导线和可能的中间开关点组成。"
+    },
+    {
+      "indent": 3,
+      "text": "Trunk: In a network, a trunk is a communication path connecting two switching systems used in the establishment of an end-to-end connection. In selected applications, it may have both its terminations in the same switching system.",
+      "zh-CHS": "中继线：在网络中，中继线是连接两个交换系统的通信路径，用于建立端到端连接。在选定的应用中，它可能在同一个交换系统中有两个终端。"
+    },
+    {
+      "indent": 3,
+      "text": "TrunkGroup: A trunkgroup is a set of trunks, traffic engineered as a unit, for the establishment of connections within or between switching systems in which all of the paths are interchangeable except where subgrouped.",
+      "zh-CHS": "中继组：中继组是一组中继，流量作为一个单元进行设计，用于在交换系统内或交换系统之间建立连接，其中除分组外，所有路径都是可互换的。"
+    },
+    {
+      "indent": 3,
+      "text": "Carrier: A carrier is a company offering telephone and data communications between points (end-users and/or exchanges).",
+      "zh-CHS": "运营商：运营商是一家提供点（最终用户和/或交换机）之间电话和数据通信的公司。"
+    },
+    {
+      "indent": 0,
+      "text": "3. TGREP: Overview of Operation",
+      "section_title": true,
+      "zh-CHS": "3. TGREP：操作概述"
+    },
+    {
+      "indent": 3,
+      "text": "TGREP is a route registration protocol for telephony destinations on a gateway. These telephony destinations could be prefixes, trunkgroups, or carriers. The TGREP sender resides on the GW and gathers all the information from the GW to relay to the TRIP Location Server. A TGREP Receiver is defined, which receives this information and optionally performs operations like consolidation and aggregation (see Section 7.3), and hands over the reachability information to a TRIP Location Server. The routing proxy also uses the information to select the gateway for incoming calls.",
+      "zh-CHS": "TGREP是网关上电话目的地的路由注册协议。这些电话目的地可以是前缀、中继组或载波。TGREP发送器驻留在GW上，并收集来自GW的所有信息，以中继至跳闸位置服务器。定义了一个TGREP接收器，该接收器接收该信息并可选地执行合并和聚合等操作（参见第7.3节），并将可达性信息移交给行程位置服务器。路由代理还使用该信息为传入呼叫选择网关。"
+    },
+    {
+      "indent": 3,
+      "text": "The TGREP sender establishes a session to the TGREP receiver using a procedure similar to session establishment in TRIP. After the session establishment, the TGREP sender sends the reachability information in the UPDATE messages. The UPDATE messages have the same format as in TRIP. However, certain TRIP attributes are not relevant in TGREP; a TGREP receiver MAY ignore them if they are present in a TGREP message. The following TRIP attributes do not apply to TGREP:",
+      "zh-CHS": "TGREP发送方使用与TRIP中的会话建立类似的过程建立到TGREP接收方的会话。会话建立后，TGREP发送方在更新消息中发送可达性信息。更新消息的格式与TRIP中的相同。但是，某些行程属性在TGREP中不相关；如果它们出现在TGREP消息中，TGREP接收方可能会忽略它们。以下行程属性不适用于TGREP："
+    },
+    {
+      "indent": 6,
+      "text": "1. AdvertisementPath 2. RoutedPath 3. AtomicAggregate 4. LocalPreference 5. MultiExitDisc 6. ITADTopology 7. ConvertedRoute",
+      "zh-CHS": "1. 广告路径2。路由路径3。原子聚合4。本地偏好5。多出口6。ITADTopology 7。转换路线"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, TGREP defines the following new attributes in this document that can be carried in a TGREP UPDATE message.",
+      "zh-CHS": "此外，TGREP在本文档中定义了可以在TGREP更新消息中携带的以下新属性。"
+    },
+    {
+      "indent": 6,
+      "text": "- TotalCircuitCapacity: This attribute identifies the total number of PSTN circuits that are available on a route to complete calls.",
+      "zh-CHS": "- TotalCircuitCapacity：此属性标识路由上可用于完成呼叫的PSTN电路总数。"
+    },
+    {
+      "indent": 6,
+      "text": "- AvailableCircuits: This attribute identifies the number of PSTN circuits that are currently available on a route to complete calls.",
+      "zh-CHS": "- AvailableCircuits：此属性标识当前可用于完成呼叫的路由上的PSTN电路数。"
+    },
+    {
+      "indent": 6,
+      "text": "- CallSuccess: This attribute represents information about the number of normally terminated calls out of a total number of attempted calls.",
+      "zh-CHS": "- CallSuccess：此属性表示尝试呼叫总数中正常终止呼叫数的相关信息。"
+    },
+    {
+      "indent": 6,
+      "text": "- Prefix (E164): This attribute is used to represent the list of E164 prefixes to which the respective route can complete calls.",
+      "zh-CHS": "- 前缀（E164）：此属性用于表示各个路由可以完成呼叫的E164前缀列表。"
+    },
+    {
+      "indent": 6,
+      "text": "- Prefix (Decimal Routing Number): This attribute is used to represent the list of Decimal prefixes to which the respective route can complete calls.",
+      "zh-CHS": "- 前缀（十进制路由号码）：此属性用于表示各个路由可以完成呼叫的十进制前缀列表。"
+    },
+    {
+      "indent": 6,
+      "text": "- Prefix (Hexadecimal Routing Number): This attribute is used to represent the list of Hexadecimal prefixes to which the respective route can complete calls.",
+      "zh-CHS": "- 前缀（十六进制路由号码）：此属性用于表示各个路由可以完成呼叫的十六进制前缀列表。"
+    },
+    {
+      "indent": 6,
+      "text": "- TrunkGroup: This attribute enables providers to route calls to destinations through preferred trunks.",
+      "zh-CHS": "- TrunkGroup：此属性使提供商能够通过首选中继将呼叫路由到目的地。"
+    },
+    {
+      "indent": 6,
+      "text": "- Carrier: This attribute enables providers to route calls to destinations through preferred carriers.",
+      "zh-CHS": "- 运营商：此属性允许提供商通过首选运营商将呼叫路由到目的地。"
+    },
+    {
+      "indent": 3,
+      "text": "In the rest of the document, we specify attributes and address families used in TGREP. The new attributes and address families introduced are also applicable for general usage in TRIP except where noted (AvailableCircuits attribute, for example).",
+      "zh-CHS": "在文档的其余部分中，我们指定了TGREP中使用的属性和地址族。引入的新属性和地址族也适用于TRIP中的一般用途，除非另有说明（例如，AvailableCircuits属性）。"
+    },
+    {
+      "indent": 0,
+      "text": "4. TGREP Attributes",
+      "section_title": true,
+      "zh-CHS": "4. TGREP属性"
+    },
+    {
+      "indent": 3,
+      "text": "Due to its usage within a service provider network, TGREP makes use of a subset of the attributes defined for TRIP, in addition to defining several new ones. In particular, the following attributes from TRIP are applicable to TGREP:",
+      "zh-CHS": "由于它在服务提供商网络中的使用，TGREP除了定义几个新的属性外，还使用了为TRIP定义的属性子集。特别是，TRIP的以下属性适用于TGREP："
+    },
+    {
+      "indent": 6,
+      "text": "1. WithdrawnRoutes 2. ReachableRoutes 3. NexthopServer 4. Prefix 5. Communities",
+      "zh-CHS": "1. 撤回路线2。可到达路线3。下一个是服务器4。前缀5。社区"
+    },
+    {
+      "indent": 3,
+      "text": "TGREP also defines several new attributes, described in this section. These are TotalCircuitCapacity, AvailableCircuits, CallSuccess, TrunkGroup, and Carrier. As mentioned above, these new attributes are usable by TRIP unless noted otherwise.",
+      "zh-CHS": "TGREP还定义了几个新属性，如本节所述。这些是总电路容量、可用电路、CallSuccess、TrunkGroup和Carrier。如上所述，除非另有说明，否则TRIP可以使用这些新属性。"
+    },
+    {
+      "indent": 3,
+      "text": "A TGREP UPDATE supports the following attributes:",
+      "zh-CHS": "TGREP更新支持以下属性："
+    },
+    {
+      "indent": 6,
+      "text": "1. TotalCircuitCapacity 2. AvailableCircuits 3. CallSuccess 4. Prefix (E.164, Pentadecimal routing number, Decimal routing number) 5. TrunkGroup 6. Carrier",
+      "zh-CHS": "1. 总容量2。可用的电路3。呼叫成功4。前缀（E.164，五进制路由编号，十进制路由编号）5。第六组。载体"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. TotalCircuitCapacity Attribute",
+      "section_title": true,
+      "zh-CHS": "4.1. 总电路容量属性"
+    },
+    {
+      "indent": 3,
+      "text": "Mandatory: False. Required Flags: Not well-known. Potential Flags: None. TRIP Type Code: 13.",
+      "zh-CHS": "强制性：错误。所需标志：不知名。潜在标志：无。行程类型代码：13。"
+    },
+    {
+      "indent": 3,
+      "text": "The TotalCircuitCapacity attribute identifies the total number of PSTN circuits that are available on a route to complete calls. It is used in conjunction with the AvailableCircuits attribute in gateway selection by the LS. The total number of calls sent to the specified route on the gateway cannot exceed this total circuit capacity under steady state conditions.",
+      "zh-CHS": "TotalCircuitCapacity属性标识路由上可用于完成呼叫的PSTN电路总数。它与LS在网关选择中的AvailableCircuits属性一起使用。在稳态条件下，发送到网关上指定路由的呼叫总数不能超过此电路总容量。"
+    },
+    {
+      "indent": 3,
+      "text": "The TotalCircuitCapacity attribute is used to reflect the administratively provisioned capacity as opposed to the availability at a given point in time as provided by the AvailableCircuits attribute. Because of its relatively static nature, this attribute MAY be propagated beyond the LS that receives it.",
+      "zh-CHS": "TotalCircuitCapacity属性用于反映管理配置的容量，而不是AvailableCircuits属性提供的给定时间点的可用性。由于其相对静态的性质，此属性可能会传播到接收它的LS之外。"
+    },
+    {
+      "indent": 3,
+      "text": "TotalCircuitCapacity represents the total number of possible calls at any instant. This is not expected to change frequently. This can change, for instance, when certain telephony trunks on the gateway are taken out of service for maintenance purposes.",
+      "zh-CHS": "TotalCircuitCapacity表示任何时刻可能调用的总数。这一点预计不会经常改变。例如，当网关上的某些电话中继因维护目的而停止服务时，这种情况可能会发生变化。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. TotalCircuitCapacity Syntax",
+      "section_title": true,
+      "zh-CHS": "4.1.1. 总电路容量语法"
+    },
+    {
+      "indent": 3,
+      "text": "The TotalCircuitCapacity attribute is a 4-octet unsigned integer. It represents the total number of circuits available for terminating calls through this advertised route. This attribute represents a potentially achievable upper bound on the number of calls that can be terminated on this route in total.",
+      "zh-CHS": "TotalCircuitCapacity属性是一个4-octet无符号整数。它表示通过此播发路由可用于终止呼叫的电路总数。此属性表示此路由上可终止的呼叫总数的可能达到的上限。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Route Origination and TotalCircuitCapacity",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 线路起始和总线路容量"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MAY be originated containing the TotalCircuitCapacity attribute.",
+      "zh-CHS": "路由可能包含TotalCircuitCapacity属性。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.3. Route Selection and TotalCircuitCapacity",
+      "section_title": true,
+      "zh-CHS": "4.1.3. 路线选择和总通行能力"
+    },
+    {
+      "indent": 3,
+      "text": "The TotalCircuitCapacity attribute MAY be used for route selection. Since one of its primary applications is load balancing, an LS will wish to choose a potentially different route (amongst a set of routes for the same destination), on a call-by-call basis. This can be modeled as re-running the decision process on the arrival of each call. The aggregation and dissemination rules for routes with this attribute ensure that re-running this selection process never results in propagation of a new route to other peers.",
+      "zh-CHS": "TotalCircuitCapacity属性可用于路线选择。由于负载平衡是LS的主要应用之一，LS希望在逐个呼叫的基础上选择可能不同的路由（在同一目的地的一组路由中）。这可以建模为在每次呼叫到达时重新运行决策过程。具有此属性的路由的聚合和分发规则确保重新运行此选择过程不会导致新路由传播到其他对等方。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.4. Aggregation and TotalCircuitCapacity",
+      "section_title": true,
+      "zh-CHS": "4.1.4. 聚合和总容量"
+    },
+    {
+      "indent": 3,
+      "text": "An LS MAY aggregate routes to the same prefix that contains a TotalCircuitCapacity attribute. It SHOULD add the values of the individual routes to determine the value for the aggregated route in the same ITAD.",
+      "zh-CHS": "LS可以将路由聚合到包含TotalCircuitCapacity属性的相同前缀。它应该添加各个路由的值，以确定相同ITAD中聚合路由的值。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.5. Route Dissemination and TotalCircuitCapacity",
+      "section_title": true,
+      "zh-CHS": "4.1.5. 线路传播和总容量"
+    },
+    {
+      "indent": 3,
+      "text": "Since this attribute reflects the static capacity of the gateway's circuit resources, it is not expected to change frequently. Hence, the LS receiving this attribute MAY disseminate it to other peers, both internal and external to the ITAD.",
+      "zh-CHS": "由于此属性反映网关电路资源的静态容量，因此预计不会频繁更改。因此，接收该属性的LS可以将其传播给其他对等方，包括ITAD的内部和外部。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. AvailableCircuits Attribute",
+      "section_title": true,
+      "zh-CHS": "4.2. AvailableCircuits属性"
+    },
+    {
+      "indent": 3,
+      "text": "Mandatory: False. Required Flags: Not well-known. Potential Flags: None. TRIP Type Code: 14.",
+      "zh-CHS": "强制性：错误。所需标志：不知名。潜在标志：无。行程类型代码：14。"
+    },
+    {
+      "indent": 3,
+      "text": "The AvailableCircuits attribute identifies the number of PSTN circuits that are currently available on a route to complete calls. The number of additional calls sent to that gateway for that route cannot exceed the circuit capacity. If it does, the signaling protocol will likely generate errors, and calls will be rejected.",
+      "zh-CHS": "AvailableCircuits属性标识当前可用于完成呼叫的路由上的PSTN电路数。为该路由发送到该网关的附加呼叫数不能超过电路容量。如果这样做，信令协议可能会产生错误，呼叫将被拒绝。"
+    },
+    {
+      "indent": 3,
+      "text": "The AvailableCircuits attribute is used ONLY between a gateway and its peer LS responsible for managing that gateway. If it is received in a route, it is not propagated.",
+      "zh-CHS": "AvailableCircuits属性仅在网关及其负责管理该网关的对等LS之间使用。如果在路由中接收，则不会传播。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.1. AvailableCircuits Syntax",
+      "section_title": true,
+      "zh-CHS": "4.2.1. AvailableCircuit及其语法"
+    },
+    {
+      "indent": 3,
+      "text": "The AvailableCircuits attribute is a 4-octet unsigned integer. It represents the number of circuits remaining for terminating calls to this route.",
+      "zh-CHS": "AvailableCircuits属性是一个4-octet无符号整数。它表示用于终止此路由呼叫的剩余电路数。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.2. Route Origination and AvailableCircuits",
+      "section_title": true,
+      "zh-CHS": "4.2.2. 路由起始和可用路由"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MAY be originated containing the AvailableCircuits attribute. Since this attribute is highly dynamic, changing with every call, updates MAY be sent as it changes. However, it is RECOMMENDED that measures be taken to help reduce the messaging load from route origination. It is further RECOMMENDED that a sufficiently large window of time be used to provide a useful aggregated statistic.",
+      "zh-CHS": "路由可能包含AvailableCircuits属性。由于此属性是高度动态的，每次调用都会发生变化，因此可能会在其变化时发送更新。但是，建议采取措施帮助减少路由发起的消息传递负载。进一步建议使用足够大的时间窗口来提供有用的聚合统计数据。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.3. Route Selection and AvailableCircuits",
+      "section_title": true,
+      "zh-CHS": "4.2.3. 路径选择和可用路径"
+    },
+    {
+      "indent": 3,
+      "text": "The AvailableCircuits attribute MAY be used for route selection. Since one of its primary applications is load balancing, an LS will wish to choose a potentially different route (amongst a set of routes for the same prefix) on a call-by-call basis. This can be modeled as re-running the decision process on the arrival of each call. The aggregation and dissemination rules for routes with this attribute ensure that re-running this selection process never results in propagation of a new route to other peers.",
+      "zh-CHS": "AvailableCircuits属性可用于路线选择。由于负载平衡是LS的主要应用之一，因此LS希望在逐个呼叫的基础上选择可能不同的路由（在相同前缀的一组路由中）。这可以建模为在每次呼叫到达时重新运行决策过程。具有此属性的路由的聚合和分发规则确保重新运行此选择过程不会导致新路由传播到其他对等方。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.4. Aggregation and AvailableCircuits",
+      "section_title": true,
+      "zh-CHS": "4.2.4. 聚合和可用循环"
+    },
+    {
+      "indent": 3,
+      "text": "Not applicable.",
+      "zh-CHS": "不适用。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2.5. Route Dissemination and AvailableCircuits",
+      "section_title": true,
+      "zh-CHS": "4.2.5. 路由传播与有效路由"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MUST NOT be disseminated with the AvailableCircuits attribute. The attribute is meant to reflect capacity at the originating gateway only. Its highly dynamic nature makes it inappropriate to disseminate in most cases.",
+      "zh-CHS": "不得使用AvailableCircuits属性传播路由。该属性仅用于反映发起网关的容量。它的高度动态性使得它在大多数情况下不适合传播。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. CallSuccess Attribute",
+      "section_title": true,
+      "zh-CHS": "4.3. CallSuccess属性"
+    },
+    {
+      "indent": 3,
+      "text": "Mandatory: False. Required Flags: Not well-known. Potential Flags: None. TRIP Type Code: 15.",
+      "zh-CHS": "强制性：错误。所需标志：不知名。潜在标志：无。行程类型代码：15。"
+    },
+    {
+      "indent": 3,
+      "text": "The CallSuccess attribute is an attribute used ONLY between a gateway and its peer LS responsible for managing that gateway. If it is received in a route, it is not propagated.",
+      "zh-CHS": "CallSuccess属性是仅在网关与其负责管理该网关的对等LS之间使用的属性。如果在路由中接收，则不会传播。"
+    },
+    {
+      "indent": 3,
+      "text": "The CallSuccess attribute provides information about the number of normally terminated calls out of a total number of attempted calls.",
+      "zh-CHS": "CallSuccess属性提供有关尝试呼叫总数中正常终止呼叫数的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "CallSuccess is to be determined by the gateway based on the Disconnect cause code at call termination. For example, a call that reaches the Alerting stage but does not get connected due to the",
+      "zh-CHS": "CallSuccess由网关根据呼叫终止时的断开原因代码确定。例如，到达警报阶段但由于故障而无法连接的呼叫"
+    },
+    {
+      "indent": 3,
+      "text": "unavailability of the called party, or the called party being busy, is conventionally considered a successful call. On the other hand, a call that gets disconnected because of a circuit or resource being unavailable is conventionally considered a failed call. The exact mapping of disconnect causes to CallSuccess is at the discretion of the gateway reporting the attribute.",
+      "zh-CHS": "被叫方不可用，或被叫方正忙，通常被认为是成功呼叫。另一方面，由于电路或资源不可用而断开连接的呼叫通常被视为失败呼叫。断开连接原因到CallSuccess的精确映射由报告该属性的网关自行决定。"
+    },
+    {
+      "indent": 3,
+      "text": "The CallSuccess attribute is used by the LS to keep track of failures in reaching certain telephony destinations through a gateway(s) and to use that information in the gateway selection process to enhance the probability of successful call termination.",
+      "zh-CHS": "LS使用CallSuccess属性来跟踪通过网关到达某些电话目的地的故障，并在网关选择过程中使用该信息来提高呼叫成功终止的概率。"
+    },
+    {
+      "indent": 3,
+      "text": "This information can be used by the LS to consider alternative gateways to terminate calls to those destinations with a better likelihood of success.",
+      "zh-CHS": "这些信息可以被LS用来考虑替代网关终止对那些目的地的呼叫，并有更好的成功可能性。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.1. CallSuccess Syntax",
+      "section_title": true,
+      "zh-CHS": "4.3.1. CallSuccess语法"
+    },
+    {
+      "indent": 3,
+      "text": "The CallSuccess attribute is composed of two component fields -- each represented as a 4-octet unsigned integer. The first component field represents the total number of calls terminated successfully for the advertised destination on a given address family over a given window of time. The second component field represents the total number of attempted calls for the advertised destination within the same window of time.",
+      "zh-CHS": "CallSuccess属性由两个组件字段组成——每个字段表示为4个八位无符号整数。第一个组件字段表示在给定的时间窗口内，给定地址系列上的播发目的地成功终止的呼叫总数。第二个component字段表示在同一时间窗口内为播发的目的地尝试呼叫的总数。"
+    },
+    {
+      "indent": 3,
+      "text": "When the value for the total number of attempted calls wraps around, the counter value for the number of successful calls is reset to keep it aligned with the other component over a given window of time. The TGREP receiver using this information should obtain this information frequently enough to prevent loss of significance.",
+      "zh-CHS": "当尝试调用总数的值结束时，将重置成功调用数的计数器值，以使其在给定的时间窗口内与其他组件保持一致。使用此信息的TGREP接收器应经常获取此信息，以防止失去意义。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.2. Route Origination and CallSuccess",
+      "section_title": true,
+      "zh-CHS": "4.3.2. 路由发起与呼叫成功"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MAY be originated containing the CallSuccess attribute. This attribute is expected to get statistically significant with passage of time as more calls are attempted. It is RECOMMENDED that sufficiently large windows be used to provide a useful aggregated statistic.",
+      "zh-CHS": "路由可能包含CallSuccess属性。随着时间的推移，随着尝试拨打更多电话，该属性预计会变得具有统计意义。建议使用足够大的窗口来提供有用的聚合统计数据。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.3. Route Selection and CallSuccess",
+      "section_title": true,
+      "zh-CHS": "4.3.3. 路由选择与呼叫成功"
+    },
+    {
+      "indent": 3,
+      "text": "The CallSuccess attribute MAY be used for route selection. This attribute represents a measure of success of terminating calls to the advertised destination(s). This information MAY be used to select from amongst a set of alternative routes to increase the probability of successful call termination.",
+      "zh-CHS": "CallSuccess属性可用于路由选择。此属性表示终止对播发目的地的呼叫的成功程度。该信息可用于从一组备选路由中进行选择，以增加呼叫成功终止的概率。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.4. Aggregation and CallSuccess",
+      "section_title": true,
+      "zh-CHS": "4.3.4. 聚合与呼叫成功"
+    },
+    {
+      "indent": 3,
+      "text": "Not applicable.",
+      "zh-CHS": "不适用。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3.5. Route Dissemination and CallSuccess",
+      "section_title": true,
+      "zh-CHS": "4.3.5. 路线传播与呼叫成功"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MUST NOT be disseminated with the CallSuccess attribute. Its potential to change dynamically does not make it suitable to disseminate.",
+      "zh-CHS": "不得使用CallSuccess属性传播路由。其动态变化的潜力不适合传播。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Prefix Attributes",
+      "section_title": true,
+      "zh-CHS": "4.4. 前缀属性"
+    },
+    {
+      "indent": 3,
+      "text": "Mandatory: False. Required Flags: Not well-known. Potential Flags: None. TRIP Type Codes: 16 for E164 Prefix, 17 for Pentadecimal Routing Number Prefix, and 18 for Decimal Routing Number Prefix.",
+      "zh-CHS": "强制性：错误。所需标志：不知名。潜在标志：无。行程类型代码：16表示E164前缀，17表示五进制路由编号前缀，18表示十进制路由编号前缀。"
+    },
+    {
+      "indent": 3,
+      "text": "The Prefix attribute is used to represent the list of prefixes to which the respective route can complete calls. This attribute is intended to be used with the Carrier or TrunkGroup address family (discussed in Section 5).",
+      "zh-CHS": "Prefix属性用于表示各个路由可以完成呼叫的前缀列表。此属性用于载波或中继组地址系列（在第5节中讨论）。"
+    },
+    {
+      "indent": 3,
+      "text": "Though it is possible that all prefix ranges may be reachable through a given carrier, administrative issues could make certain ranges preferable to others.",
+      "zh-CHS": "虽然所有前缀范围都有可能通过给定的载波到达，但管理问题可能使某些范围比其他范围更可取。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.1. Prefix Attribute Syntax",
+      "section_title": true,
+      "zh-CHS": "4.4.1. 前缀属性语法"
+    },
+    {
+      "indent": 3,
+      "text": "The Prefix attribute could be E.164, Decimal, or Pentadecimal (refer to TRIP [2]), each of them having its own type code. The Prefix attribute is encoded as a sequence of prefix values in the attribute Value field. The prefixes are listed sequentially with no padding as shown in Figure 2. Each prefix includes a 2-octet Length field that represents the length of the Address field in octets. The order of prefixes in the attribute is not significant.",
+      "zh-CHS": "Prefix属性可以是E.164、Decimal或Pentadecimal（请参阅TRIP[2]），每个属性都有自己的类型代码。前缀属性在属性值字段中编码为前缀值序列。前缀按顺序列出，没有填充，如图2所示。每个前缀包括一个2个八位字节的长度字段，该字段以八位字节表示地址字段的长度。属性中前缀的顺序不重要。"
+    },
+    {
+      "indent": 3,
+      "text": "The presence of the Prefix Attribute with the Length field of the attribute as 0 signifies that the TGREP GW can terminate ALL prefixes of that prefix type (E.164, Decimal, or Pentadecimal) for the given Reachable route(s). This is not equivalent to excluding the Prefix attribute in the TGREP update.",
+      "zh-CHS": "前缀属性的长度字段为0表示TGREP GW可以终止给定可到达路由的该前缀类型（例如164、十进制或五进制）的所有前缀。这并不等同于在TGREP更新中排除Prefix属性。"
+    },
+    {
+      "indent": 4,
+      "text": "< 2 octets > < Length1 octets > < 2 octets > < Length2 octets >",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "+------------+--------------//--+------------+--------------//--+-\n|   Length1  |    Prefix1       |   Length2  |   Prefix2        | ...\n+------------+--------------//--+------------+--------------//--+-",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "Figure 2: Prefix Format",
+      "zh-CHS": "图2：前缀格式"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.2. Route Origination and Prefix",
+      "section_title": true,
+      "zh-CHS": "4.4.2. 路由起始和前缀"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MAY be originated containing the Prefix attribute.",
+      "zh-CHS": "路由可能起源于包含前缀属性的路由。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.3. Route Selection and Prefix",
+      "section_title": true,
+      "zh-CHS": "4.4.3. 路由选择和前缀"
+    },
+    {
+      "indent": 3,
+      "text": "The Prefix attribute MAY be used for route selection.",
+      "zh-CHS": "前缀属性可用于路由选择。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.4. Aggregation and Prefix",
+      "section_title": true,
+      "zh-CHS": "4.4.4. 聚合和前缀"
+    },
+    {
+      "indent": 3,
+      "text": "Routes with differing Prefix attributes MUST NOT be aggregated. Routes with the same value in the Prefix attribute MAY be aggregated and the same Prefix attribute attached to the aggregated object.",
+      "zh-CHS": "不得聚合具有不同前缀属性的路由。可以聚合前缀属性中具有相同值的路由，并将相同前缀属性附加到聚合对象。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4.5. Route Dissemination and Prefix",
+      "section_title": true,
+      "zh-CHS": "4.4.5. 路由分发和前缀"
+    },
+    {
+      "indent": 3,
+      "text": "The LS receiving this attribute should disseminate to other peers, both internal and external to the ITAD.",
+      "zh-CHS": "接收此属性的LS应传播给ITAD内部和外部的其他对等方。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. TrunkGroup Attribute",
+      "section_title": true,
+      "zh-CHS": "4.5. 中继组属性"
+    },
+    {
+      "indent": 3,
+      "text": "Mandatory: False. Required Flags: Not well-known. Potential Flags: None. TRIP Type Code: 19.",
+      "zh-CHS": "强制性：错误。所需标志：不知名。潜在标志：无。行程类型代码：19。"
+    },
+    {
+      "indent": 3,
+      "text": "The TrunkGroup attribute is used to represent the list of trunkgroups on the gateway used to complete calls. It enables providers to route calls to destinations through preferred trunks. This attribute is relatively static.",
+      "zh-CHS": "TrunkGroup属性用于表示网关上用于完成呼叫的中继组列表。它使提供商能够通过首选中继将呼叫路由到目的地。此属性是相对静态的。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.1. TrunkGroup Syntax",
+      "section_title": true,
+      "zh-CHS": "4.5.1. 中继组语法"
+    },
+    {
+      "indent": 3,
+      "text": "The TrunkGroup attribute is a variable-length attribute that is composed of a sequence of trunkgroup identifiers. It indicates that the gateway can complete the call through any trunkgroup identifier indicated in the sequence.",
+      "zh-CHS": "TrunkGroup属性是一个可变长度属性，由一系列TrunkGroup标识符组成。它表示网关可以通过序列中指示的任何中继组标识符完成呼叫。"
+    },
+    {
+      "indent": 3,
+      "text": "Each trunkgroup identifier is encoded as a Length-Value field (shown in Figure 3 below). The Length field is a 1-octet unsigned numeric",
+      "zh-CHS": "每个中继组标识符编码为一个长度值字段（如下图3所示）。长度字段是一个1-octet无符号数字"
+    },
+    {
+      "indent": 3,
+      "text": "value. The Value field is a variable-length field consisting of two subfields, a trunkgroup label followed by a trunk context, the two subfields separated by the delimiter \";\" (semicolon). Both the trunkgroup label and the trunk context subfields are of variable length. The Length field represents the total size of the Value field including the delimiter.",
+      "zh-CHS": "价值值字段是一个可变长度字段，由两个子字段组成，一个中继组标签后跟一个中继上下文，两个子字段之间用分隔符“；”（分号）分隔。中继组标签和中继上下文子字段的长度都是可变的。长度字段表示值字段（包括分隔符）的总大小。"
+    },
+    {
+      "indent": 3,
+      "text": "The permissible character set for the trunk group label and the trunkgroup context subfields and the associated ABNF [8] is per rules outlined in [4].",
+      "zh-CHS": "中继组标签和中继组上下文子字段以及相关ABNF[8]的允许字符集符合[4]中概述的规则。"
+    },
+    {
+      "indent": 3,
+      "text": "The presence of the TrunkGroup attribute with the Length field of the attribute as 0 signifies that the TGREP GW can terminate ALL trunkgroups for the given Reachable route(s).",
+      "zh-CHS": "TrunkGroup属性的长度字段为0表示TGREP GW可以终止给定可到达路由的所有TrunkGroup。"
+    },
+    {
+      "indent": 4,
+      "text": "< 1 octet > < Length1 octets > < 1 octet > < Length2 octets >",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "+-----------+--------------//--+-----------+--------------//--+-\n|  Length1  |  TrunkGroup 1    |  Length2  |  TrunkGroup 2    | ...\n+-----------+--------------//--+-----------+--------------//--+-",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 24,
+      "text": "Figure 3: TrunkGroup Syntax",
+      "zh-CHS": "图3：集群组语法"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.2. Route Origination and TrunkGroup",
+      "section_title": true,
+      "zh-CHS": "4.5.2. 路由起始和中继组"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MAY be originated containing the TrunkGroup attribute.",
+      "zh-CHS": "路由可能起源于包含TrunkGroup属性的路由。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.3. Route Selection and TrunkGroup",
+      "section_title": true,
+      "zh-CHS": "4.5.3. 路由选择和中继组"
+    },
+    {
+      "indent": 3,
+      "text": "The TrunkGroup attribute MAY be used for route selection. Certain trunkgroups MAY be preferred over others based on provider policy.",
+      "zh-CHS": "TrunkGroup属性可用于路由选择。根据提供商策略，某些集群组可能比其他集群组更受欢迎。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.4. Aggregation and TrunkGroup",
+      "section_title": true,
+      "zh-CHS": "4.5.4. 聚合与集群"
+    },
+    {
+      "indent": 3,
+      "text": "Routes with differing TrunkGroup attributes MUST NOT be aggregated. Routes with the same value in the TrunkGroup attribute MAY be aggregated and the same TrunkGroup attribute attached to the aggregated object.",
+      "zh-CHS": "不得聚合具有不同中继组属性的路由。可以聚合TrunkGroup属性中具有相同值的路由，并将相同TrunkGroup属性附加到聚合对象。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5.5. Route Dissemination and TrunkGroup",
+      "section_title": true,
+      "zh-CHS": "4.5.5. 路线传播及分组"
+    },
+    {
+      "indent": 3,
+      "text": "This attribute is not expected to change frequently. Hence, the LS receiving this attribute MAY disseminate it to other peers, internal to ITAD. Routes SHOULD not be disseminated external to the ITAD, with TrunkGroup attribute.",
+      "zh-CHS": "此属性预计不会经常更改。因此，接收该属性的LS可以将其传播给ITAD内部的其他对等方。不应在ITAD外部传播具有TrunkGroup属性的路由。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6. Carrier Attribute",
+      "section_title": true,
+      "zh-CHS": "4.6. 载体属性"
+    },
+    {
+      "indent": 3,
+      "text": "Mandatory: False. Required Flags: Not well-known. Potential Flags: None. TRIP Type Code: 20.",
+      "zh-CHS": "强制性：错误。所需标志：不知名。潜在标志：无。行程类型代码：20。"
+    },
+    {
+      "indent": 3,
+      "text": "The Carrier attribute is used to represent the list of carriers that the gateway uses to complete calls. It enables providers to route calls to destinations through preferred carriers. This attribute is relatively static.",
+      "zh-CHS": "Carrier属性用于表示网关用于完成呼叫的载波列表。它使提供商能够通过首选运营商将呼叫路由到目的地。此属性是相对静态的。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6.1. Carrier Syntax",
+      "section_title": true,
+      "zh-CHS": "4.6.1. 载波语法"
+    },
+    {
+      "indent": 3,
+      "text": "The Carrier attribute is a variable-length attribute that is composed of a sequence of carrier identifiers. It indicates that the route can complete the call to any of the carriers represented in the sequence of carrier identifiers [13].",
+      "zh-CHS": "载波属性是由载波标识符序列组成的可变长度属性。它表示路由可以完成对载波标识符序列中表示的任何载波的呼叫[13]。"
+    },
+    {
+      "indent": 3,
+      "text": "Each carrier identifier is encoded as a Length-Value field (shown in Figure 4 below). The Length field is a 1-octet unsigned numeric value. The Value field is a variable-length field.",
+      "zh-CHS": "每个载波标识符编码为一个长度值字段（如下图4所示）。长度字段是一个1-octet无符号数值。值字段是可变长度字段。"
+    },
+    {
+      "indent": 3,
+      "text": "The permissible character set for the Value field and the associated ABNF [8] is per rules outlined in [5]. Specifically, it carries \"global-cic\" or \"local-cic\" [5]. In case of \"local-cic\", the \"phonedigit-hex\" part and the \"cic-context\" part would be separated by the delimiter \";\". Hence, absence or presence of the delimiter can be used to determine if the value is a \"global-cic\" or a \"local-cic\". The Length field represents the total size of the Value field including the delimiter.",
+      "zh-CHS": "值字段和相关ABNF[8]的允许字符集符合[5]中概述的规则。具体而言，它包含“全球cic”或“本地cic”[5]。如果是“本地cic”，则“phonedigit十六进制”部分和“cic上下文”部分将由分隔符“；”分隔。因此，可以使用分隔符的缺失或存在来确定该值是“全局cic”还是“本地cic”。长度字段表示值字段（包括分隔符）的总大小。"
+    },
+    {
+      "indent": 3,
+      "text": "The presence of the Carrier attribute with the Length field of the attribute as 0 signifies that the TGREP GW can terminate ALL Carriers for the given Reachable route(s).",
+      "zh-CHS": "载波属性的长度字段为0表示TGREP GW可以终止给定可到达路由的所有载波。"
+    },
+    {
+      "indent": 4,
+      "text": "< 1 octet > < Length1 octets > < 1 octet > < Length2 octets >",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "+-----------+--------------//--+-----------+--------------//--+-\n|  Length1  |  Carrier 1       |  Length2  |  Carrier 2       | ...\n+-----------+--------------//--+-----------+--------------//--+-",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 25,
+      "text": "Figure 4: Carrier Syntax",
+      "zh-CHS": "图4：载波语法"
+    },
+    {
+      "indent": 0,
+      "text": "4.6.2. Route Origination and Carrier",
+      "section_title": true,
+      "zh-CHS": "4.6.2. 航线始发与承运人"
+    },
+    {
+      "indent": 3,
+      "text": "Routes MAY be originated containing the Carrier attribute.",
+      "zh-CHS": "可以发起包含载波属性的路由。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6.3. Route Selection and Carrier",
+      "section_title": true,
+      "zh-CHS": "4.6.3. 航线选择与承运人"
+    },
+    {
+      "indent": 3,
+      "text": "The Carrier attribute MAY be used for route selection. Certain carriers MAY be preferred over others based on provider policy.",
+      "zh-CHS": "载波属性可用于路由选择。根据提供商政策，某些运营商可能会优先于其他运营商。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6.4. Aggregation and Carrier",
+      "section_title": true,
+      "zh-CHS": "4.6.4. 聚合和载体"
+    },
+    {
+      "indent": 3,
+      "text": "Routes with differing Carrier attributes MUST NOT be aggregated. Routes with the same value in the Carrier attribute MAY be aggregated and the same Carrier attribute attached to the aggregated object.",
+      "zh-CHS": "不得聚合具有不同运营商属性的路由。可以聚合载体属性中具有相同值的路由，并且将相同载体属性附加到聚合对象。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6.5. Route Dissemination and Carrier",
+      "section_title": true,
+      "zh-CHS": "4.6.5. 路线传播与载体"
+    },
+    {
+      "indent": 3,
+      "text": "This attribute is not expected to change frequently. Hence, the LS receiving this attribute MAY disseminate it to other peers, both internal and external to the ITAD.",
+      "zh-CHS": "此属性预计不会经常更改。因此，接收该属性的LS可以将其传播给其他对等方，包括ITAD的内部和外部。"
+    },
+    {
+      "indent": 0,
+      "text": "5. TrunkGroup and Carrier Address Families",
+      "section_title": true,
+      "zh-CHS": "5. 中继组和载波地址族"
+    },
+    {
+      "indent": 3,
+      "text": "As described in TRIP [2], the Address Family field gives the type of address for the route. Two new address families and their codes are defined in this section:",
+      "zh-CHS": "如TRIP[2]中所述，Address Family字段给出路线的地址类型。本节定义了两个新地址族及其代码："
+    },
+    {
+      "indent": 15,
+      "text": "Code Address Family 4 TrunkGroup 5 Carrier",
+      "zh-CHS": "代码地址系列4中继组5载波"
+    },
+    {
+      "indent": 3,
+      "text": "When a set of GWs is to be managed at the granularity of carriers or trunkgroups, then it may be more appropriate for a GW to advertise routes using the Carrier address family or TrunkGroup address family, respectively. Also, in a TGREP association between the gateway and the LS responsible for managing that gateway, there are some attributes that more naturally fit in as advertised properties of trunkgroups or carriers rather than that of advertised prefixes, for example, the AvailableCircuit information on a particular trunkgroup or a particular carrier. To express this relationship, the existing TRIP address families are inadequate. We need separate address families that can associate certain properties like AvailableCircuits information to trunkgroups or carriers.",
+      "zh-CHS": "当以运营商或中继组的粒度管理一组GWs时，GW可能更适合分别使用运营商地址族或中继组地址族来公布路由。此外，在网关和负责管理该网关的LS之间的TGREP关联中，有一些属性更自然地适合作为中继组或载波的播发属性，而不是播发前缀的播发属性，例如，特定中继组或特定载波上的可用环路信息。为了表达这种关系，现有的旅行地址家庭是不够的。我们需要单独的地址族，这些地址族可以将某些属性（如AvailableCircuits信息）关联到中继组或运营商。"
+    },
+    {
+      "indent": 3,
+      "text": "The primary benefits of this model are as follows:",
+      "zh-CHS": "这种模式的主要好处如下："
+    },
+    {
+      "indent": 3,
+      "text": "- It allows a service provider to route calls based strictly on the trunkgroups or carriers.",
+      "zh-CHS": "- 它允许服务提供商严格根据中继组或运营商来路由呼叫。"
+    },
+    {
+      "indent": 3,
+      "text": "- It facilitates more accurate reporting of attributes of a dynamic nature like AvailableCircuits by providing the ability to manage resources at the granularity of a trunkgroup or a carrier.",
+      "zh-CHS": "- 通过提供以中继组或运营商的粒度管理资源的能力，它有助于更准确地报告动态属性（如AvailableCircuits）。"
+    },
+    {
+      "indent": 3,
+      "text": "- It enables scalability as gateways can get really large with the ability to provision hundreds or a few thousand circuits, and this can increase the potential for traffic that reports dynamic resource information between the gateway and the LS. The model introduced can potentially alleviate this UPDATE traffic, hence increasing efficiency and providing a scalable gateway registration model.",
+      "zh-CHS": "- 它实现了可伸缩性，因为网关可以变得非常大，能够提供数百或数千个电路，这可能会增加报告网关和LS之间动态资源信息的流量的可能性。引入的模型可以潜在地缓解此更新流量，从而提高效率并提供可扩展的网关注册模型。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Address Family Syntax",
+      "section_title": true,
+      "zh-CHS": "5.1. 地址族语法"
+    },
+    {
+      "indent": 3,
+      "text": "Consider the generic TRIP route format from TRIP [2] shown below.",
+      "zh-CHS": "考虑下面所示的TRIP（2）的通用旅行路线格式。"
+    },
+    {
+      "indent": 6,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+---------------+---------------+---------------+---------------+\n|       Address Family          |      Application Protocol     |\n+---------------+---------------+---------------+---------------+\n|            Length             |       Address (variable)     ...\n+---------------+---------------+---------------+---------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 20,
+      "text": "Figure 5: Generic TRIP Route Format",
+      "zh-CHS": "图5：通用出行路线格式"
+    },
+    {
+      "indent": 3,
+      "text": "The Address Family field will be used to represent the type of the address associated for this family, which is based on the TrunkGroup or Carrier. The codes for the new address families have been allocated by IANA.",
+      "zh-CHS": "Address Family（地址族）字段将用于表示与此族关联的地址类型，该类型基于中继组或载波。IANA已分配新地址系列的代码。"
+    },
+    {
+      "indent": 3,
+      "text": "The code for the TrunkGroup address family is 4, and the code for the Carrier address family is 5.",
+      "zh-CHS": "TrunkGroup地址系列的代码为4，而Carrier地址系列的代码为5。"
+    },
+    {
+      "indent": 3,
+      "text": "The Application Protocol field is the same as the one for the Decimal, Pentadecimal, and E.164 address families defined in TRIP [2]. The Length field represents the total size of the Address field in bytes.",
+      "zh-CHS": "应用协议字段与TRIP[2]中定义的十进制、五进制和E.164地址族的字段相同。长度字段表示地址字段的总大小（字节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The value in the Address field represents either the TrunkGroup or Carrier address family, and the syntax is as follows:",
+      "zh-CHS": "地址字段中的值表示中继组或载波地址系列，语法如下："
+    },
+    {
+      "indent": 3,
+      "text": "For the TrunkGroup address family, the Address field represents a TrunkGroup value that is defined as specified in Section 4.5.1, \"TrunkGroup Syntax\".",
+      "zh-CHS": "对于中继组地址系列，地址字段表示第4.5.1节“中继组语法”中规定的中继组值。"
+    },
+    {
+      "indent": 3,
+      "text": "For the Carrier address family, the Address field represents a Carrier value. This is the same as the Value field specified in an earlier Section 4.6.1, \"Carrier Syntax\".",
+      "zh-CHS": "对于载波地址系列，地址字段表示载波值。这与前面第4.6.1节“承运人语法”中规定的值字段相同。"
+    },
+    {
+      "indent": 3,
+      "text": "The above mentioned address families are not hierarchical, but flat. If a gateway supports any of these address families, it should include that address family as one of the Route types supported in the OPEN message capability negotiation phase.",
+      "zh-CHS": "上述地址族不是分层的，而是扁平的。如果网关支持这些地址族中的任何一个，那么它应该将该地址族作为开放消息功能协商阶段支持的路由类型之一包括在内。"
+    },
+    {
+      "indent": 3,
+      "text": "The following attributes are currently defined to be used with all the address families including the TrunkGroup and Carrier address families.",
+      "zh-CHS": "以下属性当前定义用于所有地址族，包括中继组和载波地址族。"
+    },
+    {
+      "indent": 5,
+      "text": "- AvailableCircuits attribute - TotalCircuitCapacity attribute - CallSuccess attribute",
+      "zh-CHS": "- AvailableCircuits属性-TotalCircuitCapacity属性-CallSuccess属性"
+    },
+    {
+      "indent": 3,
+      "text": "It is recommended that the above three attributes be used by the gateway with the TrunkGroup or Carrier address family, if possible. This will potentially offer a more efficient resource reporting framework, and a scalable model for gateway provisioning.",
+      "zh-CHS": "如果可能，建议网关与中继组或运营商地址系列一起使用上述三个属性。这将潜在地提供一个更高效的资源报告框架和一个可扩展的网关资源调配模型。"
+    },
+    {
+      "indent": 3,
+      "text": "However, when the gateway is not using the TrunkGroup or Carrier address family, it MAY use the above attributes with the Decimal, Pentadecimal, and E.164 address families.",
+      "zh-CHS": "但是，当网关不使用中继组或载波地址系列时，它可以将上述属性与十进制、五进制和E.164地址系列一起使用。"
+    },
+    {
+      "indent": 3,
+      "text": "The Prefix attribute cannot be used when the address family is E164 numbers, Pentadecimal routing numbers, or Decimal routing numbers.",
+      "zh-CHS": "当地址族为E164编号、五进制路由编号或十进制路由编号时，不能使用Prefix属性。"
+    },
+    {
+      "indent": 3,
+      "text": "The Carrier attribute cannot be used if the address family type is Carrier.",
+      "zh-CHS": "如果地址族类型为Carrier，则无法使用Carrier属性。"
+    },
+    {
+      "indent": 3,
+      "text": "The TrunkGroup attribute cannot be used if the address family type is TrunkGroup.",
+      "zh-CHS": "如果地址族类型为TrunkGroup，则不能使用TrunkGroup属性。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Gateway Operation",
+      "section_title": true,
+      "zh-CHS": "6. 网关操作"
+    },
+    {
+      "indent": 3,
+      "text": "A gateway uses TGREP to advertise its reachability to its domain's Location Server(s) (LS, which are closely coupled with proxies). The gateway operates in TRIP Send Only mode since it is only interested in advertising its reachability, but is not interested in learning about the reachability of other gateways and other domains. Also, the gateway will not create its own call routing database. In this section, we describe the operation of TGREP on a gateway.",
+      "zh-CHS": "网关使用TGREP向其域的位置服务器（LS，与代理紧密耦合）公布其可达性。由于网关只对宣传其可达性感兴趣，而对了解其他网关和其他域的可达性不感兴趣，因此网关在仅发送TRIP模式下运行。此外，网关不会创建自己的呼叫路由数据库。在本节中，我们将描述TGREP在网关上的操作。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Session Establishment",
+      "section_title": true,
+      "zh-CHS": "6.1. 会议设立"
+    },
+    {
+      "indent": 3,
+      "text": "When opening a peering session with a TGREP receiver, a TGREP gateway follows exactly the same procedures as any other TRIP entity. The TGREP gateway sends an OPEN message that includes a Send Receive Capability in the Optional Parameters. The Send Receive Capability",
+      "zh-CHS": "当使用TGREP接收器打开对等会话时，TGREP网关遵循与任何其他TRIP实体完全相同的过程。TGREP网关发送一条打开的消息，该消息在可选参数中包含发送接收功能。收发能力"
+    },
+    {
+      "indent": 3,
+      "text": "is set by the gateway to Send Only. The OPEN message also contains the address families supported by the gateway. The remainder of the peer session establishment is identical to TRIP.",
+      "zh-CHS": "由网关设置为仅发送。“打开”消息还包含网关支持的地址族。对等会话建立的其余部分与TRIP相同。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. UPDATE Messages",
+      "section_title": true,
+      "zh-CHS": "6.2. 更新消息"
+    },
+    {
+      "indent": 3,
+      "text": "Once the peer session has been established, the gateway sends UPDATE messages to the TRIP LS with the gateway's entire reachability. The gateway also sends any attributes associated with the routes.",
+      "zh-CHS": "一旦建立了对等会话，网关将向TRIP LS发送更新消息，其中包含网关的全部可达性。网关还发送与路由关联的任何属性。"
+    },
+    {
+      "indent": 3,
+      "text": "TGREP processing of the UPDATE message at the gateway is identical to UPDATE processing in TRIP [2]. A TGREP sender MUST support all mandatory TRIP attributes.",
+      "zh-CHS": "网关上更新消息的TGREP处理与TRIP[2]中的更新处理相同。TGREP发送方必须支持所有必需的行程属性。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. KEEPALIVE Messages",
+      "section_title": true,
+      "zh-CHS": "6.3. 保留消息"
+    },
+    {
+      "indent": 3,
+      "text": "KEEPALIVE messages are periodically exchanged over the peering session between the TGREP gateway and the TRIP LS as specified in Section 4.4 of TRIP [2].",
+      "zh-CHS": "按照TRIP[2]第4.4节的规定，在TGREP网关和TRIP LS之间的对等会话上定期交换KEEPALIVE消息。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4. Error Handling and NOTIFICATION Messages",
+      "section_title": true,
+      "zh-CHS": "6.4. 错误处理和通知消息"
+    },
+    {
+      "indent": 3,
+      "text": "The same procedures used with TRIP are used with TGREP for error handling and generating NOTIFICATION messages. The only difference is that a TGREP gateway will never generate a NOTIFICATION message in response to an UPDATE message, irrespective of the contents of the UPDATE message. Any UPDATE message is silently discarded.",
+      "zh-CHS": "TGREP使用与TRIP相同的过程来处理错误和生成通知消息。唯一的区别是TGREP网关永远不会生成通知消息来响应更新消息，而与更新消息的内容无关。任何更新消息都会被自动丢弃。"
+    },
+    {
+      "indent": 0,
+      "text": "6.5. TGREP Finite State Machine",
+      "section_title": true,
+      "zh-CHS": "6.5. 有限状态机"
+    },
+    {
+      "indent": 3,
+      "text": "When the TGREP finite state machine is in the Established state and an UPDATE message is received, the UPDATE message is silently discarded and the TGREP gateway remains in the Established state. Other than that, the TRIP finite state machine and the TGREP finite state machine are identical.",
+      "zh-CHS": "当TGREP有限状态机处于已建立状态且收到更新消息时，更新消息将被静默丢弃，TGREP网关保持在已建立状态。除此之外，TRIP有限状态机和TGREP有限状态机是相同的。"
+    },
+    {
+      "indent": 0,
+      "text": "6.6. Call Routing Databases",
+      "section_title": true,
+      "zh-CHS": "6.6. 呼叫路由数据库"
+    },
+    {
+      "indent": 3,
+      "text": "A TGREP gateway may maintain simultaneous sessions with more than one TRIP LS. A TGREP gateway maintains one call routing database per peer TRIP LS. These databases are equivalent to TRIP's Adj-TRIBs-Out, and hence we will call them Adj-TRIBs-GW-Out. An Adj-TRIB-GW-Out contains the gateway's reachability information advertised to its peer TRIP LS. How an Adj-TRIB-GW-Out database gets populated is outside the scope of this document (possibly by manual configuration).",
+      "zh-CHS": "TGREP网关可与多个行程LS同时维持会话。TGREP网关为每个对等旅行LS维护一个呼叫路由数据库。这些数据库相当于TRIP的Adj TRIBs Out，因此我们将它们称为Adj TRIBs GW Out。Adj TRIB GW Out包含向其对等TRIP LS公布的网关可达性信息。Adj TRIB GW Out数据库的填充方式超出了本文档的范围（可能是通过手动配置）。"
+    },
+    {
+      "indent": 3,
+      "text": "The TGREP gateway does not have databases equivalent to TRIP's Adj-TRIBs-In and Loc-TRIB, because the TGREP gateway does not learn routes from its peer TRIP LSs, and hence it does not run call route selection.",
+      "zh-CHS": "TGREP网关没有与TRIP的Adj TRIB In和Loc TRIB等效的数据库，因为TGREP网关不从其对等TRIP LSs学习路由，因此不运行呼叫路由选择。"
+    },
+    {
+      "indent": 0,
+      "text": "6.7. Multiple Address Families",
+      "section_title": true,
+      "zh-CHS": "6.7. 多地址族"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned above, TGREP supports various address families in order to convey the reachability of telephony destinations. A TGREP session MUST NOT send UPDATEs of more than one of the following categories (a) Prefix address families (E164, Pentadecimal, and Decimal), (b) TrunkGroup address family, or (c) Carrier address family for a given established session. TGREP should specify its choice address family through the route-type capability in the OPEN message. And route-type specification in the OPEN message violating the above rule should be rejected with a NOTIFICATION message.",
+      "zh-CHS": "如上所述，TGREP支持各种地址族，以便传递电话目的地的可达性。对于给定的已建立会话，TGREP会话不得发送以下类别之一以上的更新：（A）前缀地址族（E164、五进制和十进制），（b）中继组地址族，或（c）载波地址族。TGREP应通过开放消息中的路由类型功能指定其选择地址系列。并且，违反上述规则的开放消息中的路由类型规范应通过通知消息被拒绝。"
+    },
+    {
+      "indent": 0,
+      "text": "6.8. Route Selection and Aggregation",
+      "section_title": true,
+      "zh-CHS": "6.8. 路由选择和聚合"
+    },
+    {
+      "indent": 3,
+      "text": "TRIP's route selection and aggregation operations MUST NOT be implemented by TGREP gateways.",
+      "zh-CHS": "TRIP的路由选择和聚合操作不得由TGREP网关实现。"
+    },
+    {
+      "indent": 0,
+      "text": "7. LS/Proxy Behavior",
+      "section_title": true,
+      "zh-CHS": "7. LS/代理行为"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned earlier, TGREP can be considered as a protocol complimentary to TRIP in providing reachability information, which can then be further fed into the Location Server. The architecture of an LS/Proxy system is as follows: There exists a TRIP LS application that functions as a speaker in the I-TRIP/E-TRIP network as documented in TRIP [2]. This component is termed as \"Egress LS\" for the purposes of this discussion. Then, there is a signaling server fronting a set of gateways. In conjunction with this signaling server is also a second component operating in receive mode, which peers with one or more gateways, each of them using TGREP to advertise routing information. This component on the receiving end of one or more TGREP sessions is termed as the \"Ingress LS\" or \"TGREP receiver\" for the purposes of this discussion. Also, the entity (typically, a gateway) advertising the routes on the TGREP session is termed as the \"TGREP sender\". The TGREP receiver receiving the TRIP messages takes the resulting routing information from each gateway, and \"exports\" it to another process we define below, that performs consolidation and aggregation, in that order. These operations would take as input the collective set of routes from all the gateways. Subsequently, the resulting TRIB is passed as input into the LS-Egress process as shown below, that can then disseminate these via TRIP. The interface between the TGREP receiver (aka Ingress LS) peering with the GW(s) and the TRIP LS (Egress LS) is entirely a local matter.",
+      "zh-CHS": "如前所述，在提供可达性信息方面，TGREP可以被视为TRIP的补充协议，然后可以进一步将可达性信息反馈到位置服务器。LS/代理系统的体系结构如下：存在一个TRIP LS应用程序，该应用程序在I-TRIP/E-TRIP网络中充当扬声器，如TRIP[2]中所述。在本讨论中，该部件被称为“出口LS”。然后，有一个面向一组网关的信令服务器。与此信令服务器结合使用的还有在接收模式下运行的第二个组件，该组件与一个或多个网关对等，每个网关使用TGREP公布路由信息。在本讨论中，一个或多个TGREP会话的接收端上的该组件称为“入口LS”或“TGREP接收器”。此外，在TGREP会话上公布路由的实体（通常是网关）被称为“TGREP发送方”。接收TRIP消息的TGREP接收器从每个网关获取生成的路由信息，并将其“导出”到下面定义的另一个进程，该进程按顺序执行合并和聚合。这些操作将把来自所有网关的路由集合作为输入。随后，产生的TRIB作为输入传递到LS出口过程，如下所示，该过程随后可以通过TRIP传播这些信息。TGREP接收器（又名入口LS）与GW（s）和跳闸LS（出口LS）之间的接口完全是本地问题。"
+    },
+    {
+      "indent": 3,
+      "text": "The nature of the consolidation and aggregation operations and the accompanying motivation are described in the subsections below. The order in which the operations are listed represents an implicit logical sequence in which they are applied. The architecture for an LS/Proxy entity is shown in Figure 6 below.",
+      "zh-CHS": "合并和聚合操作的性质以及伴随的动机在下面的小节中描述。操作的列出顺序表示应用它们的隐式逻辑序列。LS/代理实体的体系结构如下图6所示。"
+    },
+    {
+      "indent": 4,
+      "text": "+-------------------------------------------------------+\n|                    +-------------------------------+  |\n|                    |     +-+  +-+                  |  | TGREP\n|                    |     |A|  |C|                  |  |    +-----+\n|                    |     |g|  |o|                  |  |    |     |\n|   +-------------+  |     |g|  |n|  +-------------+ |  |  --| GW  |\n|   |             |  |     |r|  |s|  |             | |  |    +-----+\n|   |    TRIP     |  |     |e|  |o|  |             | |  +---\n|   |     LS    <----------|g<--|l<---    TGREP    |-++-|    +-----+\n|   |             |  |     |a|  |i|  |   Session   | |  |    |     |\n|   |  (I-TRIP/   |  |     |t|  |d|  |  Management |-++-+----| GW  |\n|   |   E-TRIP)   |  |     |i|  |a|  |             | |  |    +-----+\n|   | (Egress LS) |  |     |o|  |t|  |             |-+  +---\n|   +-----------/-+  |     |n|  |i|  +-------------+ |  |    +-----+\n|              /     |     | |  |o|                  |  |  --|     |\n|             /      |     | |  |n|    (Ingress LS)  |  |    | GW  |\n|            /       |     +-+  +-+                  |  |    +-----+\n|           /        |              TGREP Receiver   |  |\n|          /         +-------------------------------+  |\n|         /                                             |\n|        /                                              |\n+-------/-----------------------------------------------+\n       /                            LS/Proxy\n      /\n     /\n    /\n   /\n  /\n+/----------------+\n|                 |\n|                 |\n|                 |\n|       LS        |\n|                 |\n|                 |\n|                 |\n|                 |\n|                 |\n+-----------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Figure 6: LS Architecture for TRIP-GW",
+      "zh-CHS": "图6:TRIP-GW的LS架构"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Route Consolidation",
+      "section_title": true,
+      "zh-CHS": "7.1. 路线整合"
+    },
+    {
+      "indent": 3,
+      "text": "The TGREP receiver (Ingress LS) may receive routing information from one or more gateways. It is possible that multiple routes are available for the same destination. These different alternative routes may be received from the same gateway or from multiple gateways. It is RECOMMENDED that the set of gateway routes for each destination be consolidated, before presenting a candidate route, to the Egress LS entity. The motivation for this operation should be to define a route that can maximally represent the collective routing capabilities of the set of gateways, managed by this TGREP receiver. Let us take an example scenario in order to bring out the motivation for this operation. Let us say, the TGREP receiver maintains peering sessions with gateways A and B.",
+      "zh-CHS": "TGREP接收器（入口LS）可以从一个或多个网关接收路由信息。同一目的地可能有多条路线。这些不同的备选路由可以从同一网关或多个网关接收。建议在向出口LS实体呈现候选路由之前，合并每个目的地的网关路由集。此操作的动机应该是定义一个路由，该路由可以最大限度地表示由该TGREP接收器管理的网关集的集体路由能力。让我们举一个例子来说明这项行动的动机。比如说，TGREP接收器与网关A和B保持对等会话。"
+    },
+    {
+      "indent": 5,
+      "text": "- Gateway A advertises a route for destination \"SIP 408\" on the E.164 address family with the Carrier attribute value C1.",
+      "zh-CHS": "- 网关A使用载波属性值C1播发E.164地址族上的目的地“SIP 408”的路由。"
+    },
+    {
+      "indent": 5,
+      "text": "- Gateway B advertises a route for destination \"SIP 408\" on the E.164 address family with Carrier attribute value C2.",
+      "zh-CHS": "- 网关B使用载波属性值C2播发E.164地址族上的目的地“SIP 408”的路由。"
+    },
+    {
+      "indent": 3,
+      "text": "The TGREP receiver that receives these routes can consolidate these constituent routes into a single route for destination \"SIP 408\" with its Carrier attribute being a union of the Carrier attribute values of the individual routes, namely, \"C1 C2\". This operation is referred to as consolidation. In the above example, it is possible that a route to the destination \"SIP 408\" through one or more carriers may have been lost if the individual routes were not consolidated.",
+      "zh-CHS": "接收这些路由的TGREP接收机可以将这些组成路由合并为目的地“SIP 408”的单个路由，其载波属性是各个路由的载波属性值的联合，即“C1-C2”。此操作称为合并。在上述示例中，如果未合并各个路由，则通过一个或多个载波到目的地“SIP 408”的路由可能已经丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "Another example is to consolidate the Prefix attribute from multiple Carrier or TrunkGroup updates received from different gateways for the same destination. Let us say, there are Carrier address family (AF) updates from two gateways for Carrier destination X, and the prefix attribute values are {408, 650} from one update and {919, 973} from the other. The prefix values from these two updates can be consolidated into a single Carrier AF route advertisement with prefix value {408, 650, 919, 973}.",
+      "zh-CHS": "另一个示例是合并从同一目的地的不同网关接收的多个载波或中继组更新的前缀属性。让我们假设，对于载波目的地X，存在来自两个网关的载波地址族（AF）更新，并且前缀属性值是来自一个更新的{408，650}和来自另一个更新的{919，973}。来自这两个更新的前缀值可以合并为前缀值为{408、650、919、973}的单载波AF路由广告。"
+    },
+    {
+      "indent": 3,
+      "text": "In general, there is a potential for loss of gateway routing information when TGREP routes from a set of gateways are not consolidated when a candidate route is presented to the TRIP LS. The specifics of applying the consolidation operation to different attributes and routes from different address families is left to the individual TGREP receiver implementations.",
+      "zh-CHS": "一般来说，当候选路由呈现给行程LS时，如果来自一组网关的TGREP路由未合并，则可能会丢失网关路由信息。将合并操作应用于不同地址族的不同属性和路由的细节留给各个TGREP接收器实现。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Aggregation",
+      "section_title": true,
+      "zh-CHS": "7.2. 聚集"
+    },
+    {
+      "indent": 3,
+      "text": "The set of gateway routes, which are in a consolidated form or otherwise, may be aggregated before importing it to the LS instance that is responsible for I-TRIP/E-TRIP processing (Egress LS). This operation follows the standard aggregation procedures described in TRIP [2], while adhering to the aggregation rules for each route attribute.",
+      "zh-CHS": "在将网关路由集导入负责I-TRIP/E-TRIP处理（出口LS）的LS实例之前，可以聚合以合并形式或其他形式存在的网关路由集。此操作遵循TRIP[2]中描述的标准聚合过程，同时遵守每个路由属性的聚合规则。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Consolidation versus Aggregation",
+      "section_title": true,
+      "zh-CHS": "7.3. 合并与聚合"
+    },
+    {
+      "indent": 3,
+      "text": "To highlight the difference between the two operations discussed above, \"consolidation\" combines multiple routes for the same route destination, whereas \"aggregation\" combines routes for different route destinations that qualify as candidates to be summarized resulting in route information reduction.",
+      "zh-CHS": "为了突出上述两种操作之间的差异，“合并”将同一路由目的地的多条路由组合在一起，而“聚合”将符合汇总候选条件的不同路由目的地的路由组合在一起，从而减少路由信息。"
+    },
+    {
+      "indent": 3,
+      "text": "To take an example, if there are multiple gateways offering routes to an E.164 destination \"408\" but with possibly different attributes (e.g., Carrier), the LS/Proxy can combine these to form one route for \"408\" but representing the attribute information collectively. This process is consolidation.",
+      "zh-CHS": "举例来说，如果有多个网关提供到E.164目的地“408”的路由，但可能具有不同的属性（例如，载波），则LS/代理可以组合这些网关以形成用于“408”的一个路由，但共同表示属性信息。这个过程就是整合。"
+    },
+    {
+      "indent": 3,
+      "text": "If, for example, the LS/Proxy receives routes for 4080, 4081, 4082, ... 4089 from amongst a set of gateways, it could aggregate these different candidate routes to have a summarized route destination \"408\" with each of the attributes computed using the aggregation procedures defined in TRIP.",
+      "zh-CHS": "例如，如果LS/代理接收到4080、4081、4082的路由。。。4089从一组网关中，它可以聚合这些不同的候选路由，以具有使用TRIP中定义的聚合过程计算的每个属性的汇总路由目的地“408”。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The security considerations for TGREP are identical to that identified in TRIP [2] and are just restated here for the purposes of clarity.",
+      "zh-CHS": "TGREP的安全注意事项与TRIP[2]中确定的安全注意事项相同，为了清楚起见，此处仅对其进行重述。"
+    },
+    {
+      "indent": 3,
+      "text": "The security mechanism for the peering session between TGREP GW and a TRIP LS, in an IP network, is IPsec [3]. IPsec uses two protocols to provide traffic security: Authentication Header (AH) [6] and Encapsulating Security Payload (ESP) [7].",
+      "zh-CHS": "IP网络中TGREP GW和TRIP LS之间的对等会话的安全机制是IPsec[3]。IPsec使用两种协议来提供流量安全性：身份验证头（AH）[6]和封装安全负载（ESP）[7]。"
+    },
+    {
+      "indent": 3,
+      "text": "The AH header affords data origin authentication, connectionless integrity, and optional anti-replay protection of messages passed between the peer LSs. The ESP header provides origin authentication, connectionless integrity, anti-replay protection, and confidentiality of messages.",
+      "zh-CHS": "AH报头为对等LSs之间传递的消息提供数据源身份验证、无连接完整性和可选的防重放保护。ESP报头提供源身份验证、无连接完整性、防重放保护和消息机密性。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations of the protocol defined in this document employing the ESP header SHALL comply with Section 3.1.1 of [10], which defines a minimum set of algorithms for integrity checking and encryption. Similarly, implementations employing the AH header SHALL comply with Section 3.2 of [10], which defines a minimum set of algorithms for integrity checking.",
+      "zh-CHS": "采用ESP报头的本文件中定义的协议实施应符合[10]第3.1.1节的规定，该节规定了完整性检查和加密的最小算法集。同样，采用AH报头的实现应符合[10]第3.2节的规定，该节定义了完整性检查的最小算法集。"
+    },
+    {
+      "indent": 3,
+      "text": "Implementations SHOULD use the Internet Key Exchange Protocol (IKEv2) [9] to permit more robust keying options. Implementations employing IKEv2 SHOULD support 3DES-CBC for confidentiality and HMAC-SHA1 for integrity.",
+      "zh-CHS": "实现应该使用Internet密钥交换协议（IKEv2）[9]来允许更健壮的密钥选择。采用IKEv2的实现应支持3DES-CBC的保密性和HMAC-SHA1的完整性。"
+    },
+    {
+      "indent": 3,
+      "text": "A Security Association (SA) [3] is a simplex \"connection\" that affords security services to the traffic carried by it. Security services are afforded to an SA by the use of AH or ESP, but not both. Two types of SAs are defined: transport mode and tunnel mode. A transport mode SA is a security association between two hosts, and is appropriate for protecting the TRIP session between two peer LSs.",
+      "zh-CHS": "安全关联（SA）[3]是一个单一的“连接”，为其承载的流量提供安全服务。通过使用AH或ESP向SA提供安全服务，但不能同时使用两者。定义了两种类型的SA：传输模式和隧道模式。传输模式SA是两台主机之间的安全关联，适用于保护两个对等LSs之间的TRIP会话。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Both TRIP [2] and TGREP share the same IANA registry for Capabilities, Attributes, Address Families, and Application Protocols. IANA has added the following attribute codes and address family codes to the TRIP [2] registries.",
+      "zh-CHS": "TRIP[2]和TGREP在功能、属性、地址系列和应用程序协议方面共享相同的IANA注册表。IANA已将以下属性代码和地址系列代码添加到TRIP[2]注册表中。"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Attribute Codes",
+      "section_title": true,
+      "zh-CHS": "9.1. 属性代码"
+    },
+    {
+      "indent": 3,
+      "text": "The Attribute Type Codes assigned for the new attributes defined in this document are listed below:",
+      "zh-CHS": "为本文档中定义的新属性指定的属性类型代码如下所示："
+    },
+    {
+      "indent": 6,
+      "text": "Code      Attribute                        Reference\n----      ---------                        ---------\n13     TotalCircuitCapacity                [RFC5140]\n14     AvailableCircuits                   [RFC5140]\n15     CallSuccess                         [RFC5140]\n16     E.164 Prefix                        [RFC5140]\n17     Pentadecimal Routing Number Prefix  [RFC5140]\n18     Decimal Routing Number Prefix       [RFC5140]\n19     TrunkGroup                          [RFC5140]\n20     Carrier                             [RFC5140]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Address Family Codes",
+      "section_title": true,
+      "zh-CHS": "9.2. 地址家庭代码"
+    },
+    {
+      "indent": 3,
+      "text": "The following subsections show the codes that have been assigned for the two new address families introduced in this document.",
+      "zh-CHS": "以下小节显示了为本文档中介绍的两个新地址族分配的代码。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2.1. TrunkGroup Address Family",
+      "section_title": true,
+      "zh-CHS": "9.2.1. 中继组地址族"
+    },
+    {
+      "indent": 6,
+      "text": "Code      Address Family                   Reference\n----      --------------                   ---------\n 4          TrunkGroup                     [RFC5140]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "9.2.2. Carrier Address Family",
+      "section_title": true,
+      "zh-CHS": "9.2.2. 载波地址族"
+    },
+    {
+      "indent": 6,
+      "text": "Code      Address Family                   Reference\n----      --------------                   ---------\n 5          Carrier                        [RFC5140]",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "10. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "10. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "We wish to thank Vijay Gurbani, Li Li, Kevin McDermott, David Oran, Bob Penfield, Jon Peterson, Anirudh Sahoo, and James Yu for their insightful comments and suggestions.",
+      "zh-CHS": "我们要感谢Vijay Gurbani、Li Li、Kevin McDermott、David Oran、Bob Penfield、Jon Peterson、Anirudh Sahoo和James Yu提出的富有洞察力的评论和建议。"
+    },
+    {
+      "indent": 0,
+      "text": "11. References",
+      "section_title": true,
+      "zh-CHS": "11. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "11.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "11.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[1] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Rosenberg, J., Salama, H., and M. Squire, \"Telephony Routing over IP (TRIP)\", RFC 3219, January 2002.",
+      "zh-CHS": "[2] Rosenberg，J.，Salama，H.，和M.Squire，“IP电话路由（TRIP）”，RFC 3219，2002年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[3] Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Gurbani, V. and C. Jennings, \"Representing Trunk Groups in tel/sip Uniform Resource Identifiers (URIs)\", RFC 4904, June 2007.",
+      "zh-CHS": "[4] Gurbani，V.和C.Jennings，“在tel/sip统一资源标识符（URI）中代表中继组”，RFC 49042007年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] Yu, J., \"Number Portability Parameters for the \"tel\" URI\", RFC 4694, October 2006.",
+      "zh-CHS": "[5] Yu，J.，“电话”URI的号码可移植性参数”，RFC4694，2006年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Kent, S., \"IP Authentication Header\", RFC 4302, December 2005.",
+      "zh-CHS": "[6] Kent，S.，“IP认证头”，RFC 4302，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Kent, S., \"IP Encapsulating Security Payload (ESP)\", RFC 4303, December 2005.",
+      "zh-CHS": "[7] Kent，S.，“IP封装安全有效载荷（ESP）”，RFC 4303，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] Crocker, D., Ed., and P. Overell, \"Augmented BNF for Syntax Specifications: ABNF\", STD 68, RFC 5234, January 2008.",
+      "zh-CHS": "[8] Crocker，D.，Ed.，和P.Overell，“语法规范的扩充BNF:ABNF”，STD 68，RFC 5234，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] Kaufman, C., Ed., \"Internet Key Exchange (IKEv2) Protocol\", RFC 4306, December 2005.",
+      "zh-CHS": "[9] Kaufman，C.，编辑，“因特网密钥交换（IKEv2）协议”，RFC 4306，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] Manral, V., \"Cryptographic Algorithm Implementation Requirements for Encapsulating Security Payload (ESP) and Authentication Header (AH)\", RFC 4835, April 2007.",
+      "zh-CHS": "[10] Manral，V.，“封装安全有效载荷（ESP）和认证头（AH）的密码算法实现要求”，RFC 4835，2007年4月。"
+    },
+    {
+      "indent": 0,
+      "text": "11.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "11.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M., and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002.",
+      "zh-CHS": "[11] Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.，和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Rosenberg, J. and H. Schulzrinne, \"A Framework for Telephony Routing over IP\", RFC 2871, June 2000.",
+      "zh-CHS": "[12] Rosenberg，J.和H.Schulzrinne，“IP电话路由框架”，RFC 28712000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] ITU-T List of ITU Carrier Codes (published periodically in the ITU-T Operational Bulletin).",
+      "zh-CHS": "[13] ITU-T ITU载波代码列表（定期发布在ITU-T运营公告中）。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Rosenberg, J., \"Requirements for Gateway Registration\", Work in Progress, November 2001.",
+      "zh-CHS": "[14] Rosenberg，J.，“网关注册要求”，正在进行的工作，2001年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Manjunath S. Bangalore Cisco Mail Stop SJC-14/2/1 3625 Cisco Way San Jose, CA 95134 Phone: +1-408-525-7555 EMail: manjax@cisco.com",
+      "zh-CHS": "Manjunath S.Bangalore Cisco邮件站SJC-14/2/1 3625 Cisco Way San Jose，CA 95134电话：+1-408-525-7555电子邮件：manjax@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Rajneesh Kumar Cisco Mail Stop SJC-14/4/2 3625 Cisco Way San Jose, CA 95134 Phone: +1-408-527-6148 EMail: rajneesh@cisco.com",
+      "zh-CHS": "Rajneesh Kumar Cisco邮件站SJC-14/4/2 3625 Cisco Way San Jose，CA 95134电话：+1-408-527-6148电子邮件：rajneesh@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Jonathan Rosenberg Cisco Edison, NJ 08837 EMail: jdrosen@cisco.com",
+      "zh-CHS": "Jonathan Rosenberg Cisco Edison，NJ 08837电子邮件：jdrosen@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Hussein F. Salama Citex Software Giza, Egypt EMail: hsalama@citexsoftware.com",
+      "zh-CHS": "Hussein F.Salama Citex Software Giza，埃及电子邮件：hsalama@citexsoftware.com"
+    },
+    {
+      "indent": 3,
+      "text": "Dhaval Niranjan Shah Moowee Inc. 4920 El Camino Real Los Altos, CA 94022 Phone: +1-408-307-7455 EMail: dhaval@moowee.tv",
+      "zh-CHS": "Dhaval Niranjan Shah Moowee Inc.4920 El Camino Real Los Altos，CA 94022电话：+1-408-307-7455电子邮件：dhaval@moowee.tv"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2008).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2008年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

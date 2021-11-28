@@ -1,0 +1,830 @@
+{
+  "title": {
+    "text": "RFC 4518: Lightweight Directory Access Protocol (LDAP): Internationalized String Preparation",
+    "zh-CHS": "RFC 4518"
+  },
+  "number": 4518,
+  "created_at": "2021-11-14 04:35:04.603067+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        K. Zeilenga\nRequest for Comments: 4518                           OpenLDAP Foundation\nCategory: Standards Track                                      June 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Lightweight Directory Access Protocol (LDAP): Internationalized String Preparation",
+      "zh-CHS": "轻量级目录访问协议（LDAP）：国际化字符串准备"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The previous Lightweight Directory Access Protocol (LDAP) technical specifications did not precisely define how character string matching is to be performed. This led to a number of usability and interoperability problems. This document defines string preparation algorithms for character-based matching rules defined for use in LDAP.",
+      "zh-CHS": "以前的轻量级目录访问协议（LDAP）技术规范没有精确定义如何执行字符串匹配。这导致了许多可用性和互操作性问题。本文档为LDAP中使用的基于字符的匹配规则定义字符串准备算法。"
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Background",
+      "section_title": true,
+      "zh-CHS": "1.1. 出身背景"
+    },
+    {
+      "indent": 3,
+      "text": "A Lightweight Directory Access Protocol (LDAP) [RFC4510] matching rule [RFC4517] defines an algorithm for determining whether a presented value matches an attribute value in accordance with the criteria defined for the rule. The proposition may be evaluated to True, False, or Undefined.",
+      "zh-CHS": "轻量级目录访问协议（LDAP）[RFC4510]匹配规则[RFC4517]定义了一种算法，用于根据为该规则定义的标准确定呈现值是否与属性值匹配。命题可以评估为真、假或未定义。"
+    },
+    {
+      "indent": 6,
+      "text": "True - the attribute contains a matching value,",
+      "zh-CHS": "True-该属性包含匹配值，"
+    },
+    {
+      "indent": 6,
+      "text": "False - the attribute contains no matching value,",
+      "zh-CHS": "False-该属性不包含匹配值，"
+    },
+    {
+      "indent": 6,
+      "text": "Undefined - it cannot be determined whether the attribute contains a matching value.",
+      "zh-CHS": "未定义-无法确定属性是否包含匹配值。"
+    },
+    {
+      "indent": 3,
+      "text": "For instance, the caseIgnoreMatch matching rule may be used to compare whether the commonName attribute contains a particular value without regard for case and insignificant spaces.",
+      "zh-CHS": "例如，caseIgnoreMatch匹配规则可用于比较commonName属性是否包含特定值，而不考虑大小写和不重要的空格。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. X.500 String Matching Rules",
+      "section_title": true,
+      "zh-CHS": "1.2. X.500字符串匹配规则"
+    },
+    {
+      "indent": 3,
+      "text": "\"X.520: Selected attribute types\" [X.520] provides (among other things) value syntaxes and matching rules for comparing values commonly used in the directory [X.500]. These specifications are inadequate for strings composed of Unicode [Unicode] characters.",
+      "zh-CHS": "“X.520:所选属性类型”[X.520]提供（除其他外）值语法和匹配规则，用于比较目录[X.500]中常用的值。这些规范不适用于由Unicode[Unicode]字符组成的字符串。"
+    },
+    {
+      "indent": 3,
+      "text": "The caseIgnoreMatch matching rule [X.520], for example, is simply defined as being a case-insensitive comparison where insignificant spaces are ignored. For printableString, there is only one space character and case mapping is bijective, hence this definition is sufficient. However, for Unicode string types such as universalString, this is not sufficient. For example, a case-insensitive matching implementation that folded lowercase characters to uppercase would yield different results than an implementation that used uppercase to lowercase folding. Or one implementation may view space as referring to only SPACE (U+0020), a second implementation may view any character with the space separator (Zs) property as a space, and another implementation may view any character with the whitespace (WS) category as a space.",
+      "zh-CHS": "例如，caseIgnoreMatch匹配规则[X.520]被简单定义为不区分大小写的比较，忽略不重要的空格。对于printableString，只有一个空格字符，大小写映射是双射的，因此这个定义就足够了。但是，对于Unicode字符串类型（如universalString），这是不够的。例如，将小写字符折叠为大写的不区分大小写的匹配实现将产生与使用大写到小写折叠的实现不同的结果。或者，一个实现可以将空格视为仅引用空格（U+0020），第二个实现可以将具有空格分隔符（Zs）属性的任何字符视为空格，而另一个实现可以将具有空白（WS）类别的任何字符视为空格。"
+    },
+    {
+      "indent": 3,
+      "text": "The lack of precise specification for character string matching has led to significant interoperability problems. When used in certificate chain validation, security vulnerabilities can arise. To address these problems, this document defines precise algorithms for preparing character strings for matching.",
+      "zh-CHS": "缺少精确的字符串匹配规范导致了严重的互操作性问题。在证书链验证中使用时，可能会出现安全漏洞。为了解决这些问题，本文档定义了用于准备匹配字符串的精确算法。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3. Relationship to \"stringprep\"",
+      "section_title": true,
+      "zh-CHS": "1.3. 与“stringprep”的关系"
+    },
+    {
+      "indent": 3,
+      "text": "The character string preparation algorithms described in this document are based upon the \"stringprep\" approach [RFC3454]. In \"stringprep\", presented and stored values are first prepared for comparison so that a character-by-character comparison yields the \"correct\" result.",
+      "zh-CHS": "本文档中描述的字符串准备算法基于“stringprep”方法[RFC3454]。在“stringprep”中，首先为比较准备呈现值和存储值，以便逐个字符的比较产生“正确”的结果。"
+    },
+    {
+      "indent": 3,
+      "text": "The approach used here is a refinement of the \"stringprep\" [RFC3454] approach. Each algorithm involves two additional preparation steps.",
+      "zh-CHS": "这里使用的方法是对“stringprep”[RFC3454]方法的改进。每个算法涉及两个额外的准备步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "a) Prior to applying the Unicode string preparation steps outlined in \"stringprep\", the string is transcoded to Unicode.",
+      "zh-CHS": "a) 在应用“stringprep”中概述的Unicode字符串准备步骤之前，将字符串转换为Unicode。"
+    },
+    {
+      "indent": 3,
+      "text": "b) After applying the Unicode string preparation steps outlined in \"stringprep\", the string is modified to appropriately handle characters insignificant to the matching rule.",
+      "zh-CHS": "b) 应用“stringprep”中概述的Unicode字符串准备步骤后，将修改字符串以适当地处理与匹配规则无关的字符。"
+    },
+    {
+      "indent": 3,
+      "text": "Hence, preparation of character strings for X.500 [X.500] matching [X.501] involves the following steps:",
+      "zh-CHS": "因此，为X.500[X.500]匹配[X.501]准备字符串涉及以下步骤："
+    },
+    {
+      "indent": 6,
+      "text": "1) Transcode 2) Map 3) Normalize 4) Prohibit 5) Check Bidi (Bidirectional) 6) Insignificant Character Handling",
+      "zh-CHS": "1) 转码2）映射3）规范化4）禁止5）检查Bidi（双向）6）不重要字符处理"
+    },
+    {
+      "indent": 3,
+      "text": "These steps are described in Section 2.",
+      "zh-CHS": "第2节介绍了这些步骤。"
+    },
+    {
+      "indent": 3,
+      "text": "It is noted that while various tables of Unicode characters included or referenced by this specification are derived from Unicode [Unicode] data, these tables are to be considered definitive for the purpose of implementing this specification.",
+      "zh-CHS": "需要注意的是，虽然本规范中包含或引用的各种Unicode字符表都是从Unicode[Unicode]数据中派生出来的，但为了实现本规范，这些表被认为是确定的。"
+    },
+    {
+      "indent": 0,
+      "text": "1.4. Relationship to the LDAP Technical Specification",
+      "section_title": true,
+      "zh-CHS": "1.4. 与LDAP技术规范的关系"
+    },
+    {
+      "indent": 3,
+      "text": "This document is an integral part of the LDAP technical specification [RFC4510], which obsoletes the previously defined LDAP technical specification [RFC3377] in its entirety.",
+      "zh-CHS": "本文件是LDAP技术规范[RFC4510]不可分割的一部分，该规范完全废除了先前定义的LDAP技术规范[RFC3377]。"
+    },
+    {
+      "indent": 3,
+      "text": "This document details new LDAP internationalized character string preparation algorithms used by [RFC4517] and possible other technical specifications defining LDAP syntaxes and/or matching rules.",
+      "zh-CHS": "本文档详细介绍了[RFC4517]使用的新LDAP国际化字符串准备算法，以及定义LDAP语法和/或匹配规则的可能的其他技术规范。"
+    },
+    {
+      "indent": 0,
+      "text": "1.5. Relationship to X.500",
+      "section_title": true,
+      "zh-CHS": "1.5. 与X.500的关系"
+    },
+    {
+      "indent": 3,
+      "text": "LDAP is defined [RFC4510] in X.500 terms as an X.500 access mechanism. As such, there is a strong desire for alignment between LDAP and X.500 syntax and semantics. The character string preparation algorithms described in this document are based upon \"Internationalized String Matching Rules for X.500\" [XMATCH] proposal to ITU/ISO Joint Study Group 2.",
+      "zh-CHS": "LDAP在X.500术语中定义为[RFC4510]X.500访问机制。因此，人们强烈希望LDAP和X.500语法和语义保持一致。本文件中描述的字符串准备算法基于向ITU/ISO联合研究小组2提交的“X.500的国际化字符串匹配规则”[XMATCH]提案。"
+    },
+    {
+      "indent": 0,
+      "text": "1.6. Conventions and Terms",
+      "section_title": true,
+      "zh-CHS": "1.6. 公约和条款"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照BCP 14[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Character names in this document use the notation for code points and\nnames from the Unicode Standard [Unicode].  For example, the letter\n\"a\" may be represented as either <U+0061> or <LATIN SMALL LETTER A>.\nIn the lists of mappings and the prohibited characters, the \"U+\" is",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "left off to make the lists easier to read. The comments for character ranges are shown in square brackets (such as \"[CONTROL CHARACTERS]\") and do not come from the standard.",
+      "zh-CHS": "为了使列表更容易阅读，请将其删除。字符范围的注释显示在方括号中（如“[控制字符]”），并非来自标准。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: a glossary of terms used in Unicode can be found in [Glossary]. Information on the Unicode character encoding model can be found in [CharModel].",
+      "zh-CHS": "注：Unicode中使用的术语表可在[glossary]中找到。有关Unicode字符编码模型的信息可在[CharModel]中找到。"
+    },
+    {
+      "indent": 3,
+      "text": "The term \"combining mark\", as used in this specification, refers to any Unicode [Unicode] code point that has a mark property (Mn, Mc, Me). Appendix A provides a definitive list of combining marks.",
+      "zh-CHS": "本规范中使用的术语“组合标记”是指具有标记属性（Mn、Mc、Me）的任何Unicode[Unicode]代码点。附录A提供了组合标记的最终列表。"
+    },
+    {
+      "indent": 0,
+      "text": "2. String Preparation",
+      "section_title": true,
+      "zh-CHS": "2. 串制备"
+    },
+    {
+      "indent": 3,
+      "text": "The following six-step process SHALL be applied to each presented and attribute value in preparation for character string matching rule evaluation.",
+      "zh-CHS": "应将以下六个步骤应用于每个呈现值和属性值，以准备字符串匹配规则评估。"
+    },
+    {
+      "indent": 6,
+      "text": "1) Transcode 2) Map 3) Normalize 4) Prohibit 5) Check bidi 6) Insignificant Character Handling",
+      "zh-CHS": "1) 转码2）映射3）规范化4）禁止5）检查bidi 6）不重要的字符处理"
+    },
+    {
+      "indent": 3,
+      "text": "Failure in any step causes the assertion to evaluate to Undefined.",
+      "zh-CHS": "任何步骤中的失败都会导致断言计算为未定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The character repertoire of this process is Unicode 3.2 [Unicode].",
+      "zh-CHS": "这个过程的字符库是Unicode 3.2[Unicode]。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that this six-step process specification is intended to describe expected matching behavior. Implementations are free to use alternative processes so long as the matching rule evaluation behavior provided is consistent with the behavior described by this specification.",
+      "zh-CHS": "请注意，此六步流程规范旨在描述预期的匹配行为。只要提供的匹配规则评估行为与本规范描述的行为一致，实现就可以自由使用替代流程。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Transcode",
+      "section_title": true,
+      "zh-CHS": "2.1. 转码"
+    },
+    {
+      "indent": 3,
+      "text": "Each non-Unicode string value is transcoded to Unicode.",
+      "zh-CHS": "每个非Unicode字符串值都被转换为Unicode。"
+    },
+    {
+      "indent": 3,
+      "text": "PrintableString [X.680] values are transcoded directly to Unicode.",
+      "zh-CHS": "可打印字符串[X.680]值直接转换为Unicode。"
+    },
+    {
+      "indent": 3,
+      "text": "UniversalString, UTF8String, and bmpString [X.680] values need not be transcoded as they are Unicode-based strings (in the case of bmpString, a subset of Unicode).",
+      "zh-CHS": "UniversalString、UTF8String和bmpString[X.680]值不需要进行转码，因为它们是基于Unicode的字符串（对于bmpString，是Unicode的子集）。"
+    },
+    {
+      "indent": 3,
+      "text": "TeletexString [X.680] values are transcoded to Unicode. As there is no standard for mapping TeletexString values to Unicode, the mapping is left a local matter.",
+      "zh-CHS": "电传字符串[X.680]值被转码为Unicode。由于没有将TeletextString值映射到Unicode的标准，映射是本地事务。"
+    },
+    {
+      "indent": 3,
+      "text": "For these and other reasons, use of TeletexString is NOT RECOMMENDED.",
+      "zh-CHS": "由于这些和其他原因，不建议使用电传字符串。"
+    },
+    {
+      "indent": 3,
+      "text": "The output is the transcoded string.",
+      "zh-CHS": "输出是转码字符串。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Map",
+      "section_title": true,
+      "zh-CHS": "2.2. 地图"
+    },
+    {
+      "indent": 3,
+      "text": "SOFT HYPHEN (U+00AD) and MONGOLIAN TODO SOFT HYPHEN (U+1806) code points are mapped to nothing. COMBINING GRAPHEME JOINER (U+034F) and VARIATION SELECTORs (U+180B-180D, FF00-FE0F) code points are also mapped to nothing. The OBJECT REPLACEMENT CHARACTER (U+FFFC) is mapped to nothing.",
+      "zh-CHS": "软连字符（U+00AD）和蒙古语TODO软连字符（U+1806）代码点映射为空。组合字形接合器（U+034F）和变体选择器（U+180B-180D，FF00-FE0F）代码点也映射为空。对象替换字符（U+FFFC）映射为空。"
+    },
+    {
+      "indent": 3,
+      "text": "CHARACTER TABULATION (U+0009), LINE FEED (LF) (U+000A), LINE TABULATION (U+000B), FORM FEED (FF) (U+000C), CARRIAGE RETURN (CR) (U+000D), and NEXT LINE (NEL) (U+0085) are mapped to SPACE (U+0020).",
+      "zh-CHS": "字符制表（U+0009）、换行（LF）（U+000A）、换行（U+000B）、换行（FF）（U+000C）、回车（CR）（U+000D）和下一行（NEL）（U+0085）映射到空间（U+0020）。"
+    },
+    {
+      "indent": 3,
+      "text": "All other control code (e.g., Cc) points or code points with a control function (e.g., Cf) are mapped to nothing. The following is a complete list of these code points: U+0000-0008, 000E-001F, 007F-0084, 0086-009F, 06DD, 070F, 180E, 200C-200F, 202A-202E, 2060-2063, 206A-206F, FEFF, FFF9-FFFB, 1D173-1D17A, E0001, E0020-E007F.",
+      "zh-CHS": "所有其他控制代码（例如Cc）点或具有控制功能（例如Cf）的代码点均映射为空。以下是这些代码点的完整列表：U+0000-0008、000E-001F、007F-0084、0086-009F、06DD、070F、180E、200C-200F、202A-202E、2060-2063、206A-206F、FEFF、FFF9-FFFB、1D173-1D17A、E0001、E0020-E007F。"
+    },
+    {
+      "indent": 3,
+      "text": "ZERO WIDTH SPACE (U+200B) is mapped to nothing. All other code points with Separator (space, line, or paragraph) property (e.g., Zs, Zl, or Zp) are mapped to SPACE (U+0020). The following is a complete list of these code points: U+0020, 00A0, 1680, 2000-200A, 2028-2029, 202F, 205F, 3000.",
+      "zh-CHS": "零宽度空间（U+200B）映射为零。所有其他具有分隔符（空格、直线或段落）属性（例如Zs、Zl或Zp）的代码点都映射到空格（U+0020）。以下是这些代码点的完整列表：U+00200A016802000-200A、2028-2029、202F、205F、3000。"
+    },
+    {
+      "indent": 3,
+      "text": "For case ignore, numeric, and stored prefix string matching rules, characters are case folded per B.2 of [RFC3454].",
+      "zh-CHS": "对于大小写忽略、数字和存储的前缀字符串匹配规则，字符按照[RFC3454]的B.2进行大小写折叠。"
+    },
+    {
+      "indent": 3,
+      "text": "The output is the mapped string.",
+      "zh-CHS": "输出是映射的字符串。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Normalize",
+      "section_title": true,
+      "zh-CHS": "2.3. 规范化"
+    },
+    {
+      "indent": 3,
+      "text": "The input string is to be normalized to Unicode Form KC (compatibility composed) as described in [UAX15]. The output is the normalized string.",
+      "zh-CHS": "输入字符串将标准化为Unicode格式KC（兼容组合），如[UAX15]所述。输出为规范化字符串。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Prohibit",
+      "section_title": true,
+      "zh-CHS": "2.4. 禁止"
+    },
+    {
+      "indent": 3,
+      "text": "All Unassigned code points are prohibited. Unassigned code points are listed in Table A.1 of [RFC3454].",
+      "zh-CHS": "禁止所有未指定的代码点。[RFC3454]的表A.1中列出了未分配的代码点。"
+    },
+    {
+      "indent": 3,
+      "text": "Characters that, per Section 5.8 of [RFC3454], change display properties or are deprecated are prohibited. These characters are listed in Table C.8 of [RFC3454].",
+      "zh-CHS": "根据[RFC3454]第5.8节，禁止更改显示属性或不推荐使用的字符。这些字符列在[RFC3454]的表C.8中。"
+    },
+    {
+      "indent": 3,
+      "text": "Private Use code points are prohibited. These characters are listed in Table C.3 of [RFC3454].",
+      "zh-CHS": "禁止私人使用代码点。这些字符列在[RFC3454]的表C.3中。"
+    },
+    {
+      "indent": 3,
+      "text": "All non-character code points are prohibited. These code points are listed in Table C.4 of [RFC3454].",
+      "zh-CHS": "禁止使用所有非字符代码点。[RFC3454]的表C.4中列出了这些代码点。"
+    },
+    {
+      "indent": 3,
+      "text": "Surrogate codes are prohibited. These characters are listed in Table C.5 of [RFC3454].",
+      "zh-CHS": "禁止使用代理代码。这些字符列在[RFC3454]的表C.5中。"
+    },
+    {
+      "indent": 3,
+      "text": "The REPLACEMENT CHARACTER (U+FFFD) code point is prohibited.",
+      "zh-CHS": "禁止使用替换字符（U+FFFD）代码点。"
+    },
+    {
+      "indent": 3,
+      "text": "The step fails if the input string contains any prohibited code point. Otherwise, the output is the input string.",
+      "zh-CHS": "如果输入字符串包含任何禁止的代码点，则该步骤失败。否则，输出为输入字符串。"
+    },
+    {
+      "indent": 0,
+      "text": "2.5. Check bidi",
+      "section_title": true,
+      "zh-CHS": "2.5. 比迪支票"
+    },
+    {
+      "indent": 3,
+      "text": "Bidirectional characters are ignored.",
+      "zh-CHS": "双向字符被忽略。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6. Insignificant Character Handling",
+      "section_title": true,
+      "zh-CHS": "2.6. 不重要的字符处理"
+    },
+    {
+      "indent": 3,
+      "text": "In this step, the string is modified to ensure proper handling of characters insignificant to the matching rule. This modification differs from matching rule to matching rule.",
+      "zh-CHS": "在此步骤中，将修改字符串以确保正确处理与匹配规则无关的字符。此修改因匹配规则而异。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 2.6.1 applies to case ignore and exact string matching. Section 2.6.2 applies to numericString matching. Section 2.6.3 applies to telephoneNumber matching.",
+      "zh-CHS": "第2.6.1节适用于大小写忽略和精确字符串匹配。第2.6.2节适用于数值字符串匹配。第2.6.3节适用于电话号码匹配。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.1. Insignificant Space Handling",
+      "section_title": true,
+      "zh-CHS": "2.6.1. 不重要的空间处理"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of this section, a space is defined to be the SPACE (U+0020) code point followed by no combining marks.",
+      "zh-CHS": "在本节中，空格定义为后跟无组合标记的空格（U+0020）代码点。"
+    },
+    {
+      "indent": 7,
+      "text": "NOTE - The previous steps ensure that the string cannot contain any code points in the separator class, other than SPACE (U+0020).",
+      "zh-CHS": "注意-前面的步骤确保字符串不能包含分隔符类中除空格（U+0020）以外的任何代码点。"
+    },
+    {
+      "indent": 3,
+      "text": "For input strings that are attribute values or non-substring assertion values: If the input string contains no non-space character, then the output is exactly two SPACEs. Otherwise (the input string contains at least one non-space character), the string is modified such that the string starts with exactly one space character, ends with exactly one SPACE character, and any inner (non-empty) sequence of space characters is replaced with exactly two SPACE characters. For instance, the input strings \"foo<SPACE>bar<SPACE><SPACE>\", result in the output \"<SPACE>foo<SPACE><SPACE>bar<SPACE>\".",
+      "zh-CHS": "对于属性值或非子字符串断言值的输入字符串：如果输入字符串不包含非空格字符，则输出正好是两个空格。否则（输入字符串至少包含一个非空格字符），将修改该字符串，使该字符串以一个空格字符开头，以一个空格字符结尾，并且任何内部（非空）空格字符序列都将替换为两个空格字符。例如，输入字符串“foo<SPACE>bar<SPACE><SPACE>”会导致输出“<SPACE>foo<SPACE><SPACE>bar<SPACE>”。"
+    },
+    {
+      "indent": 3,
+      "text": "For input strings that are substring assertion values: If the string being prepared contains no non-space characters, then the output string is exactly one SPACE. Otherwise, the following steps are taken:",
+      "zh-CHS": "对于作为子字符串断言值的输入字符串：如果准备的字符串不包含非空格字符，则输出字符串正好是一个空格。否则，将采取以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "- If the input string is an initial substring, it is modified to start with exactly one SPACE character;",
+      "zh-CHS": "- 如果输入字符串是初始子字符串，则修改为仅以一个空格字符开头；"
+    },
+    {
+      "indent": 3,
+      "text": "- If the input string is an initial or an any substring that ends in one or more space characters, it is modified to end with exactly one SPACE character;",
+      "zh-CHS": "- 如果输入字符串是以一个或多个空格字符结尾的初始字符串或任何子字符串，则将其修改为仅以一个空格字符结尾；"
+    },
+    {
+      "indent": 3,
+      "text": "- If the input string is an any or a final substring that starts in one or more space characters, it is modified to start with exactly one SPACE character; and",
+      "zh-CHS": "- 如果输入字符串是以一个或多个空格字符开头的任意子字符串或最终子字符串，则将其修改为仅以一个空格字符开头；和"
+    },
+    {
+      "indent": 3,
+      "text": "- If the input string is a final substring, it is modified to end with exactly one SPACE character.",
+      "zh-CHS": "- 如果输入字符串是最后一个子字符串，则会将其修改为仅以一个空格字符结尾。"
+    },
+    {
+      "indent": 3,
+      "text": "For instance, for the input string \"foo<SPACE>bar<SPACE><SPACE>\" as an initial substring, the output would be \"<SPACE>foo<SPACE><SPACE>bar<SPACE>\". As an any or final substring, the same input would result in \"foo<SPACE>bar<SPACE>\".",
+      "zh-CHS": "例如，对于作为初始子字符串的输入字符串“foo<SPACE>bar<SPACE><SPACE>”，输出将是“<SPACE>foo<SPACE><SPACE>bar<SPACE>”。作为any或final子字符串，相同的输入将导致“foo<SPACE>bar<SPACE>”。"
+    },
+    {
+      "indent": 3,
+      "text": "Appendix B discusses the rationale for the behavior.",
+      "zh-CHS": "附录B讨论了该行为的基本原理。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.2. numericString Insignificant Character Handling",
+      "section_title": true,
+      "zh-CHS": "2.6.2. numericString不重要的字符处理"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of this section, a space is defined to be the SPACE (U+0020) code point followed by no combining marks.",
+      "zh-CHS": "在本节中，空格定义为后跟无组合标记的空格（U+0020）代码点。"
+    },
+    {
+      "indent": 3,
+      "text": "All spaces are regarded as insignificant and are to be removed.",
+      "zh-CHS": "所有空间均视为无关紧要，应予以删除。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, removal of spaces from the Form KC string: \"<SPACE><SPACE>123<SPACE><SPACE>456<SPACE><SPACE>\" would result in the output string: \"123456\" and the Form KC string: \"<SPACE><SPACE><SPACE>\" would result in the output string: \"\" (an empty string).",
+      "zh-CHS": "例如，从表单KC字符串中删除空格：“<SPACE><SPACE>123<SPACE><SPACE>456<SPACE><SPACE>”将导致输出字符串：“123456”，而表单KC字符串：“<SPACE><SPACE><SPACE>”将导致输出字符串:”（空字符串）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.6.3. telephoneNumber Insignificant Character Handling",
+      "section_title": true,
+      "zh-CHS": "2.6.3. 电话号码无关字符处理"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of this section, a hyphen is defined to be a\nHYPHEN-MINUS (U+002D), ARMENIAN HYPHEN (U+058A), HYPHEN (U+2010),\nNON-BREAKING HYPHEN (U+2011), MINUS SIGN (U+2212), SMALL HYPHEN-MINUS\n(U+FE63), or FULLWIDTH HYPHEN-MINUS (U+FF0D) code point followed by",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "no combining marks and a space is defined to be the SPACE (U+0020) code point followed by no combining marks.",
+      "zh-CHS": "无组合标记，空格定义为后跟无组合标记的空格（U+0020）代码点。"
+    },
+    {
+      "indent": 3,
+      "text": "All hyphens and spaces are considered insignificant and are to be removed.",
+      "zh-CHS": "所有连字符和空格都被视为无关紧要，将被删除。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, removal of hyphens and spaces from the Form KC string: \"<SPACE><HYPHEN>123<SPACE><SPACE>456<SPACE><HYPHEN>\" would result in the output string: \"123456\" and the Form KC string: \"<HYPHEN><HYPHEN><HYPHEN>\" would result in the (empty) output string: \"\".",
+      "zh-CHS": "例如，从表单KC字符串中删除连字符和空格：“<SPACE><HYPHEN>123<SPACE><SPACE>456<SPACE><HYPHEN>”将导致输出字符串：“123456”，而表单KC字符串：“<HYPHEN><HYPHEN><HYPHEN>”将导致（空）输出字符串：”。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "3. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "\"Preparation of Internationalized Strings (\"stringprep\")\" [RFC3454] security considerations generally apply to the algorithms described here.",
+      "zh-CHS": "“准备国际化字符串（“stringprep”）”[RFC3454]安全注意事项通常适用于此处描述的算法。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "4. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The approach used in this document is based upon design principles and algorithms described in \"Preparation of Internationalized Strings ('stringprep')\" [RFC3454] by Paul Hoffman and Marc Blanchet. Some additional guidance was drawn from Unicode Technical Standards, Technical Reports, and Notes.",
+      "zh-CHS": "本文件中使用的方法基于Paul Hoffman和Marc Blanchet在“准备国际化字符串（'stringprep'）”[RFC3454]中描述的设计原则和算法。从Unicode技术标准、技术报告和注释中获得了一些额外的指导。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the IETF LDAP Revision (LDAPBIS) Working Group.",
+      "zh-CHS": "本文件是IETF LDAP修订（LDAPBIS）工作组的产品。"
+    },
+    {
+      "indent": 0,
+      "text": "5. References",
+      "section_title": true,
+      "zh-CHS": "5. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "5.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3454] Hoffman, P. and M. Blanchet, \"Preparation of Internationalized Strings (\"stringprep\")\", RFC 3454, December 2002.",
+      "zh-CHS": "[RFC3454]Hoffman，P.和M.Blanchet，“国际化弦的准备（“stringprep”）”，RFC 3454，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4510] Zeilenga, K., \"Lightweight Directory Access Protocol (LDAP): Technical Specification Road Map\", RFC 4510, June 2006.",
+      "zh-CHS": "[RFC4510]Zeilenga，K.，“轻量级目录访问协议（LDAP）：技术规范路线图”，RFC45102006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4517] Legg, S., Ed., \"Lightweight Directory Access Protocol (LDAP): Syntaxes and Matching Rules\", RFC 4517, June 2006.",
+      "zh-CHS": "[RFC4517]Legg，S.，Ed.，“轻量级目录访问协议（LDAP）：语法和匹配规则”，RFC4517，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Unicode] The Unicode Consortium, \"The Unicode Standard, Version 3.2.0\" is defined by \"The Unicode Standard, Version 3.0\" (Reading, MA, Addison-Wesley, 2000. ISBN 0-201- 61633-5), as amended by the \"Unicode Standard Annex #27: Unicode 3.1\" (http://www.unicode.org/reports/tr27/) and by the \"Unicode Standard Annex #28: Unicode 3.2\" (http://www.unicode.org/reports/tr28/).",
+      "zh-CHS": "[Unicode]Unicode联盟“Unicode标准，版本3.2.0”由“Unicode标准，版本3.0”（雷丁，马萨诸塞州，Addison-Wesley，2000.ISBN 0-201-61633-5）定义，并由“Unicode标准附录27:Unicode 3.1”修订(http://www.unicode.org/reports/tr27/)根据“Unicode标准附录28:Unicode 3.2”(http://www.unicode.org/reports/tr28/)."
+    },
+    {
+      "indent": 3,
+      "text": "[UAX15] Davis, M. and M. Duerst, \"Unicode Standard Annex #15: Unicode Normalization Forms, Version 3.2.0\". <http://www.unicode.org/unicode/reports/tr15/tr15- 22.html>, March 2002.",
+      "zh-CHS": "[UAX15]Davis，M.和M.Duerst，“Unicode标准附录#15：Unicode规范化表单，版本3.2.0”<http://www.unicode.org/unicode/reports/tr15/tr15- 22.html>，2002年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[X.680] International Telecommunication Union - Telecommunication Standardization Sector, \"Abstract Syntax Notation One (ASN.1) - Specification of Basic Notation\", X.680(2002) (also ISO/IEC 8824-1:2002).",
+      "zh-CHS": "[X.680]国际电信联盟-电信标准化部门，“抽象语法符号1（ASN.1）-基本符号规范”，X.680（2002）（也称ISO/IEC 8824-1:2002）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "5.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[X.500] International Telecommunication Union - Telecommunication Standardization Sector, \"The Directory -- Overview of concepts, models and services,\" X.500(1993) (also ISO/IEC 9594-1:1994).",
+      "zh-CHS": "[X.500]国际电信联盟-电信标准化部门，“目录——概念、模型和服务概述”，X.500（1993）（也指ISO/IEC 9594-1:1994）。"
+    },
+    {
+      "indent": 3,
+      "text": "[X.501] International Telecommunication Union - Telecommunication Standardization Sector, \"The Directory -- Models,\" X.501(1993) (also ISO/IEC 9594- 2:1994).",
+      "zh-CHS": "[X.501]国际电信联盟-电信标准化部门，“目录——模型”，X.501（1993）（也指ISO/IEC 9594-2:1994）。"
+    },
+    {
+      "indent": 3,
+      "text": "[X.520] International Telecommunication Union - Telecommunication Standardization Sector, \"The Directory: Selected Attribute Types\", X.520(1993) (also ISO/IEC 9594-6:1994).",
+      "zh-CHS": "[X.520]国际电信联盟-电信标准化部门，“目录：选定的属性类型”，X.520（1993）（也是ISO/IEC 9594-6:1994）。"
+    },
+    {
+      "indent": 3,
+      "text": "[Glossary] The Unicode Consortium, \"Unicode Glossary\", <http://www.unicode.org/glossary/>.",
+      "zh-CHS": "[词汇表]Unicode联盟，“Unicode词汇表”<http://www.unicode.org/glossary/>."
+    },
+    {
+      "indent": 3,
+      "text": "[CharModel] Whistler, K. and M. Davis, \"Unicode Technical Report #17, Character Encoding Model\", UTR17, <http://www.unicode.org/unicode/reports/tr17/>, August 2000.",
+      "zh-CHS": "[CharModel]Whistler，K.和M.Davis，“Unicode技术报告#17，字符编码模型”，UTR17<http://www.unicode.org/unicode/reports/tr17/>，2000年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3377] Hodges, J. and R. Morgan, \"Lightweight Directory Access Protocol (v3): Technical Specification\", RFC 3377, September 2002.",
+      "zh-CHS": "[RFC3377]Hodges，J.和R.Morgan，“轻量级目录访问协议（v3）：技术规范”，RFC 3377，2002年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4515] Smith, M., Ed. and T. Howes, \"Lightweight Directory Access Protocol (LDAP): String Representation of Search Filters\", RFC 4515, June 2006.",
+      "zh-CHS": "[RFC4515]Smith，M.，Ed.和T.Howes，“轻量级目录访问协议（LDAP）：搜索过滤器的字符串表示”，RFC45152006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[XMATCH] Zeilenga, K., \"Internationalized String Matching Rules for X.500\", Work in Progress.",
+      "zh-CHS": "[XMATCH]Zeilenga，K.，“X.500的国际化字符串匹配规则”，正在进行中。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Combining Marks",
+      "section_title": true,
+      "zh-CHS": "附录A.合并标记"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix is normative.",
+      "zh-CHS": "本附录为规范性附录。"
+    },
+    {
+      "indent": 3,
+      "text": "This table was derived from Unicode [Unicode] data files; it lists all code points with the Mn, Mc, or Me properties. This table is to be considered definitive for the purposes of implementation of this specification.",
+      "zh-CHS": "此表源自Unicode[Unicode]数据文件；它列出了具有Mn、Mc或Me属性的所有代码点。为了实施本规范，本表被视为最终表。"
+    },
+    {
+      "indent": 9,
+      "text": "0300-034F 0360-036F 0483-0486 0488-0489 0591-05A1 05A3-05B9 05BB-05BC 05BF 05C1-05C2 05C4 064B-0655 0670 06D6-06DC 06DE-06E4 06E7-06E8 06EA-06ED 0711 0730-074A 07A6-07B0 0901-0903 093C 093E-094F 0951-0954 0962-0963 0981-0983 09BC 09BE-09C4 09C7-09C8 09CB-09CD 09D7 09E2-09E3 0A02 0A3C 0A3E-0A42 0A47-0A48 0A4B-0A4D 0A70-0A71 0A81-0A83 0ABC 0ABE-0AC5 0AC7-0AC9 0ACB-0ACD 0B01-0B03 0B3C 0B3E-0B43 0B47-0B48 0B4B-0B4D 0B56-0B57 0B82 0BBE-0BC2 0BC6-0BC8 0BCA-0BCD 0BD7 0C01-0C03 0C3E-0C44 0C46-0C48 0C4A-0C4D 0C55-0C56 0C82-0C83 0CBE-0CC4 0CC6-0CC8 0CCA-0CCD 0CD5-0CD6 0D02-0D03 0D3E-0D43 0D46-0D48 0D4A-0D4D 0D57 0D82-0D83 0DCA 0DCF-0DD4 0DD6 0DD8-0DDF 0DF2-0DF3 0E31 0E34-0E3A 0E47-0E4E 0EB1 0EB4-0EB9 0EBB-0EBC 0EC8-0ECD 0F18-0F19 0F35 0F37 0F39 0F3E-0F3F 0F71-0F84 0F86-0F87 0F90-0F97 0F99-0FBC 0FC6 102C-1032 1036-1039 1056-1059 1712-1714 1732-1734 1752-1753 1772-1773 17B4-17D3 180B-180D 18A9 20D0-20EA 302A-302F 3099-309A FB1E FE00-FE0F FE20-FE23 1D165-1D169 1D16D-1D172 1D17B-1D182 1D185-1D18B 1D1AA-1D1AD",
+      "zh-CHS": "0-0-0-0-0-0 0-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6 6 6 6 6 6 6 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 A83 0ABC 0ABE-0AC50 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 B4 7 0 0 BB4 4 4 0 0 0 B4 4 4 4 0 0 0 B4 4 4 4 4 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0DDF 0DF2-0DF3 0E31 0E34-0E3A 0E47-0E4E 0EB1 0EB4-0EB90EBB-0EBC 0EC8-0ECD 0F18-0F19 0F35 0F37 0F39 0F3E-0F3F 0F71-0F84 0F86-0F87 0F90-0F97 0F99-0FBC 0FC6 102C-1032 1036-1039 1056-1059 1712-1714 1732-1753 1772-1773 17B4-17D3 180B-180D 18A9 20D0-20EA 302A-302A-302F 309A FB1E FE00-FE0F 169-1059-1059 1712-FE1D23-1D182-1DB-1DB-1DB-18D"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Substrings Matching",
+      "section_title": true,
+      "zh-CHS": "附录B.子字符串匹配"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix is non-normative.",
+      "zh-CHS": "本附录为非规范性附录。"
+    },
+    {
+      "indent": 3,
+      "text": "In the absence of substrings matching, the insignificant space handling for case ignore/exact matching could be simplified. Specifically, the handling could be to require that all sequences of one or more spaces be replaced with one space and, if the string contains non-space characters, removal of all leading spaces and trailing spaces.",
+      "zh-CHS": "在没有子串匹配的情况下，可以简化大小写忽略/精确匹配的不重要空间处理。具体来说，处理可能是要求将一个或多个空格的所有序列替换为一个空格，如果字符串包含非空格字符，则删除所有前导空格和尾随空格。"
+    },
+    {
+      "indent": 3,
+      "text": "In the presence of substrings matching, this simplified space handling would lead to unexpected and undesirable matching behavior. For instance:",
+      "zh-CHS": "在存在子字符串匹配的情况下，这种简化的空间处理将导致意外和不希望的匹配行为。例如："
+    },
+    {
+      "indent": 3,
+      "text": "1) (CN=foo\\20*\\20bar) would match the CN value \"foobar\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "2) (CN=*\\20foobar\\20*) would match \"foobar\", but (CN=*\\20*foobar*\\20*) would not.",
+      "zh-CHS": "2) （CN=*\\20foobar\\20*）将匹配“foobar”，但（CN=*\\20*foobar*\\20*）将不匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "Note to readers not familiar with LDAP substrings matching: the LDAP filter [RFC4515] assertion (CN=A*B*C) says to \"match any value (of the attribute CN) that begins with A, contains B after A, ends with C where C is also after B.\"",
+      "zh-CHS": "对于不熟悉LDAP子字符串匹配的读者，请注意：LDAP筛选器[RFC4515]断言（CN=A*B*C）表示“匹配（属性CN）中以A开头、在A之后包含B、以C结尾的任何值，其中C也在B之后。”"
+    },
+    {
+      "indent": 3,
+      "text": "The first case illustrates that this simplified space handling would cause leading and trailing spaces in substrings of the string to be regarded as insignificant. However, only leading and trailing (as well as multiple consecutive spaces) of the string (as a whole) are insignificant.",
+      "zh-CHS": "第一种情况说明，这种简化的空间处理将导致字符串子字符串中的前导空格和尾随空格被视为无关紧要。但是，字符串（作为一个整体）只有前导和尾随（以及多个连续空格）是不重要的。"
+    },
+    {
+      "indent": 3,
+      "text": "The second case illustrates that this simplified space handling would cause sub-partitioning failures. That is, if a prepared any substring matches a partition of the attribute value, then an assertion constructed by subdividing that substring into multiple substrings should also match.",
+      "zh-CHS": "第二种情况说明，这种简化的空间处理将导致子分区失败。也就是说，如果准备好的任意子字符串与属性值的分区匹配，则通过将该子字符串细分为多个子字符串而构造的断言也应该匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "In designing an appropriate approach for space handling for substrings matching, one must study key aspects of X.500 case exact/ignore matching. X.520 [X.520] says:",
+      "zh-CHS": "在为子字符串匹配设计合适的空间处理方法时，必须研究X.500大小写精确/忽略匹配的关键方面。X.520[X.520]说："
+    },
+    {
+      "indent": 6,
+      "text": "The [substrings] rule returns TRUE if there is a partitioning of the attribute value (into portions) such that:",
+      "zh-CHS": "如果对属性值（分成多个部分）进行了分区，则[substrings]规则返回TRUE："
+    },
+    {
+      "indent": 9,
+      "text": "- the specified substrings (initial, any, final) match different portions of the value in the order of the strings sequence;",
+      "zh-CHS": "- 指定的子字符串（初始、任意、最终）按照字符串序列的顺序匹配值的不同部分；"
+    },
+    {
+      "indent": 9,
+      "text": "- initial, if present, matches the first portion of the value;",
+      "zh-CHS": "- 初始值（如果存在）与值的第一部分匹配；"
+    },
+    {
+      "indent": 9,
+      "text": "- final, if present, matches the last portion of the value;",
+      "zh-CHS": "- 最终值（如果存在）与值的最后部分匹配；"
+    },
+    {
+      "indent": 9,
+      "text": "- any, if present, matches some arbitrary portion of the value.",
+      "zh-CHS": "- any（如果存在）匹配值的任意部分。"
+    },
+    {
+      "indent": 3,
+      "text": "That is, the substrings assertion (CN=foo\\20*\\20bar) matches the attribute value \"foo<SPACE><SPACE>bar\" as the value can be partitioned into the portions \"foo<SPACE>\" and \"<SPACE>bar\" meeting the above requirements.",
+      "zh-CHS": "也就是说，子字符串断言（CN=foo\\20*\\20bar）与属性值“foo<SPACE><SPACE>bar”匹配，因为该值可以划分为满足上述要求的部分“foo<SPACE>”和“<SPACE>bar”。"
+    },
+    {
+      "indent": 3,
+      "text": "X.520 also says:",
+      "zh-CHS": "X.520还说："
+    },
+    {
+      "indent": 6,
+      "text": "[T]he following spaces are regarded as not significant:",
+      "zh-CHS": "[T] 以下空格被视为不重要："
+    },
+    {
+      "indent": 9,
+      "text": "- leading spaces (i.e., those preceding the first character that is not a space);",
+      "zh-CHS": "- 前导空格（即，非空格的第一个字符前面的空格）；"
+    },
+    {
+      "indent": 9,
+      "text": "- trailing spaces (i.e., those following the last character that is not a space);",
+      "zh-CHS": "- 尾随空格（即最后一个非空格字符后面的空格）；"
+    },
+    {
+      "indent": 9,
+      "text": "- multiple consecutive spaces (these are taken as equivalent to a single space character).",
+      "zh-CHS": "- 多个连续空格（这些空格等同于单个空格字符）。"
+    },
+    {
+      "indent": 3,
+      "text": "This statement applies to the assertion values and attribute values as whole strings, and not individually to substrings of an assertion value. In particular, the statements should be taken to mean that if an assertion value and attribute value match without any consideration to insignificant characters, then that assertion value should also match any attribute value that differs only by inclusion nor removal of insignificant characters.",
+      "zh-CHS": "此语句作为整个字符串应用于断言值和属性值，而不是单独应用于断言值的子字符串。特别是，这些语句应被视为意味着，如果断言值和属性值匹配而不考虑不重要的字符，那么该断言值还应匹配仅通过包含或删除不重要的字符而不同的任何属性值。"
+    },
+    {
+      "indent": 3,
+      "text": "Hence the assertion (CN=foo\\20*\\20bar) matches \"foo<SPACE><SPACE><SPACE>bar\" and \"foo<SPACE>bar\" as these values only differ from \"foo<SPACE><SPACE>bar\" by the inclusion or removal of insignificant spaces.",
+      "zh-CHS": "因此，断言（CN=foo\\20*\\20bar）匹配“foo<SPACE><SPACE><SPACE>bar”和“foo<SPACE>bar”，因为这些值与“foo<SPACE><SPACE>bar”的不同之处在于包含或删除了不重要的空格。"
+    },
+    {
+      "indent": 3,
+      "text": "Astute readers of this text will also note that there are special cases where the specified space handling does not ignore spaces that could be considered insignificant. For instance, the assertion (CN=\\20*\\20*\\20) does not match \"<SPACE><SPACE><SPACE>\" (insignificant spaces present in value) or \" \" (insignificant spaces not present in value). However, as these cases have no practical application that cannot be met by simple assertions, e.g., (cn=\\20), and this minor anomaly can only be fully addressed by a preparation algorithm to be used in conjunction with character-by-character partitioning and matching, the anomaly is considered acceptable.",
+      "zh-CHS": "本文的精明读者还将注意到，在某些特殊情况下，指定的空间处理不会忽略可能被视为无关紧要的空间。例如，断言（CN=\\20*\\20*\\20）不匹配“<SPACE><SPACE><SPACE>”（值中存在的不重要空格）或“”（值中不存在的不重要空格）。然而，由于这些情况没有通过简单断言（例如，（cn=\\20）无法满足的实际应用，并且这种小异常只能通过准备算法完全解决，该算法将与逐字符分区和匹配结合使用，因此该异常被认为是可接受的。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Kurt D. Zeilenga OpenLDAP Foundation",
+      "zh-CHS": "库尔特D.Zeeliga OpenLDAP基金会"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Kurt@OpenLDAP.org",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

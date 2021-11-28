@@ -1,0 +1,691 @@
+{
+  "title": {
+    "text": "RFC 4077: A Negative Acknowledgement Mechanism for Signaling Compression",
+    "zh-CHS": "RFC 4077"
+  },
+  "number": 4077,
+  "created_at": "2021-11-12 17:59:40.709778+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         A.B. Roach\nRequest for Comments: 4077                              Estacado Systems\nCategory: Standards Track                                       May 2005",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "A Negative Acknowledgement Mechanism for Signaling Compression",
+      "zh-CHS": "一种用于信令压缩的否定确认机制"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism that allows Signaling Compression (SigComp) implementations to report precise error information upon receipt of a message which cannot be decompressed. This negative feedback can be used by the recipient to make fine-grained adjustments to the compressed message before retransmitting it, allowing for rapid and efficient recovery from error situations.",
+      "zh-CHS": "本文档描述了一种机制，该机制允许信令压缩（SigComp）实现在收到无法解压缩的消息时报告精确的错误信息。收件人可以使用此负面反馈在重新传输压缩消息之前对其进行细粒度的调整，从而快速有效地从错误情况中恢复。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n   1.1. The Problem ................................................2\n        1.1.1. Compartment Disposal ................................3\n        1.1.2. Client Restart ......................................3\n        1.1.3. Server Failover .....................................3\n   1.2. The Solution ...............................................4\n2. Node Behavior ...................................................4\n   2.1. Normal SigComp Message Transmission ........................4\n   2.2. Receiving a \"Bad\" SigComp Message ..........................5\n   2.3. Receiving a SigComp NACK ...................................6\n        2.3.1. Unreliable Transport ................................6\n        2.3.2. Reliable Transport ..................................6\n   2.4. Detecting Support for NACK .................................7\n3. Message Format ..................................................7\n   3.1. Message Fields .............................................8\n   3.2. Reason Codes ...............................................9\n4. Security Considerations ........................................13\n   4.1. Reflector Attacks .........................................13\n   4.2. NACK Spoofing .............................................13\n5. IANA Considerations ............................................14\n6. Acknowledgements ...............................................14\n7. References .....................................................14\n   7.1. Normative References ......................................14\n   7.2. Informative References ....................................14",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Signaling Compression [1], often called \"SigComp\", defines a protocol for transportation of compressed messages between two network elements. One of the key features of SigComp is the ability of the sending node to request that the receiving node store state objects for later retrieval.",
+      "zh-CHS": "信令压缩[1]，通常被称为“SigComp”，定义了两个网元之间传输压缩消息的协议。SigComp的一个关键特性是发送节点能够请求接收节点存储状态对象以供以后检索。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. The Problem",
+      "section_title": true,
+      "zh-CHS": "1.1. 问题"
+    },
+    {
+      "indent": 3,
+      "text": "While the \"SigComp - Extended Operations\" document [2] defines a mechanism that allows for confirmation of state creation, operational experience with the SigComp protocol has demonstrated that there are still several circumstances in which a sender's view of the shared state differs from the receiver's view. A non-exhaustive list detailing the circumstances in which such failures may occur is below.",
+      "zh-CHS": "虽然“SigComp-扩展操作”文件[2]定义了一种允许确认状态创建的机制，但SigComp协议的操作经验表明，仍有几种情况下，发送方对共享状态的看法与接收方的看法不同。下面列出了详细说明此类故障可能发生的情况的非详尽清单。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1.1. Compartment Disposal",
+      "section_title": true,
+      "zh-CHS": "1.1.1. 隔室处理"
+    },
+    {
+      "indent": 3,
+      "text": "In SigComp, stored states are associated with compartments. Conceptually, the compartments represent one instance of a remote application. These compartments are used to limit the amount of state that each remote application is allowed to store. Compartments are created upon receipt of a valid SigComp message from a remote application. In the current protocol, applications are expected to signal when they are finished with a compartment so that it can be deleted (by using the S-bit in requested feedback data).",
+      "zh-CHS": "在SigComp中，存储状态与隔室相关联。从概念上讲，分区表示远程应用程序的一个实例。这些分区用于限制每个远程应用程序允许存储的状态量。在从远程应用程序接收到有效的SigComp消息时，将创建隔室。在当前协议中，应用程序在完成一个隔室时需要发出信号，以便可以删除该隔室（通过在请求的反馈数据中使用S位）。"
+    },
+    {
+      "indent": 3,
+      "text": "Unfortunately, expecting the applications to be well-behaved is not sufficient to prevent state from piling up. Unexpected client failures, reboots, and loss of connectivity can cause compartments to become \"stuck\" and never removed. To prevent this situation, it becomes necessary to implement a scheme by which compartments that appear disused may eventually be discarded.",
+      "zh-CHS": "不幸的是，期望应用程序表现良好并不足以防止状态堆积。意外的客户端故障、重新启动和连接丢失可能会导致隔室“卡住”而无法移除。为了防止这种情况，有必要实施一项计划，通过该计划，似乎已废弃的隔间最终可能会被丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "While the preceding facts make such a practice necessary, discarding compartments without explicit signaling can have the unfortunate side effect that active compartments are sometimes discarded. This leads to a different view of state between the server and the client.",
+      "zh-CHS": "尽管前面的事实使这种做法成为必要，但在没有明确信号的情况下丢弃隔室可能会产生不幸的副作用，即有时会丢弃活动隔室。这导致服务器和客户端之间的状态视图不同。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1.2. Client Restart",
+      "section_title": true,
+      "zh-CHS": "1.1.2. 客户端重启"
+    },
+    {
+      "indent": 3,
+      "text": "The prime motivation for SigComp was compression of messages to be sent over a radio interface. Consequently, most deployments of SigComp will involve a mobile unit as one of the endpoints. Mobile terminals are generally not guaranteed to be available for extended durations of time. Node restarts (due to, for example, a battery running out) will induce situations in which the network-based server believes that the client contains several states that are no longer actually available.",
+      "zh-CHS": "SigComp的主要动机是压缩通过无线电接口发送的消息。因此，SigComp的大多数部署都将移动单元作为端点之一。移动终端通常不能保证长时间可用。节点重启（例如，由于电池耗尽）将导致基于网络的服务器认为客户端包含多个不再实际可用的状态。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1.3. Server Failover",
+      "section_title": true,
+      "zh-CHS": "1.1.3. 服务器故障切换"
+    },
+    {
+      "indent": 3,
+      "text": "Many applications for which SigComp will be used (e.g., SIP [3]) use DNS SRV records for server lookup. One of the important features of DNS SRV records is the ability to specify multiple servers from which clients will select at random, with probabilities determined by the q-value weighting. The reason for defining this behavior for SRV records is to allow load distribution through a set of equivalent servers, and to permit clients to continue to function even if the server with which they are communicating fails. When using protocols that use SRV for such distribution, the traffic to a failed server is typically sent by the client to an equivalent server that can serve",
+      "zh-CHS": "许多将使用SigComp的应用程序（例如，SIP[3]）使用DNS SRV记录进行服务器查找。DNS SRV记录的一个重要特征是能够指定多个服务器，客户机将从中随机选择，概率由q值加权确定。为SRV记录定义此行为的原因是允许通过一组等效的服务器进行负载分配，并允许客户端在与其通信的服务器出现故障时继续工作。当使用使用SRV进行此类分发的协议时，到故障服务器的通信量通常由客户端发送到可以提供服务的等效服务器"
+    },
+    {
+      "indent": 3,
+      "text": "the same purpose. From an application perspective, this new server often appears to be the same endpoint as the failed server, and will consequently resolve to the same compartment.",
+      "zh-CHS": "同样的目的。从应用程序的角度来看，这个新服务器通常与故障服务器是同一个端点，因此将解析为同一个分区。"
+    },
+    {
+      "indent": 3,
+      "text": "Although SigComp state can be replicated amongst such a cluster of servers, maintaining integrity of such states requires a two-phase commit process that adds a great deal of complexity to the server and can degrade performance significantly.",
+      "zh-CHS": "虽然SigComp状态可以在这样的服务器集群中复制，但维护这样的状态的完整性需要两个阶段的提交过程，这会给服务器增加大量复杂性，并会显著降低性能。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2. The Solution",
+      "section_title": true,
+      "zh-CHS": "1.2. 解决方案"
+    },
+    {
+      "indent": 3,
+      "text": "Although SigComp allows returned SigComp parameters to signal that all states have been lost (by setting \"state_memory_size\" to 0 for one message in the reverse direction), such an approach provides an incomplete solution to the problem. In addition to wiping out an entire compartment when only one state is corrupt or missing, this approach suffers from the unfortunate behavior that it requires a message in the reverse direction that the remote application will authorize. Unless a lower-layer security mechanism is employed (e.g., TLS), this would typically mean that a compressed application-level message in the reverse direction must be sent before recovery can occur. In many cases (such as SIP-based mobile terminals), these messages won't be sent often; in others (pure client/server deployments), they won't ever be sent.",
+      "zh-CHS": "尽管SigComp允许返回的SigComp参数发出所有状态已丢失的信号（通过将一条反向消息的“state\\u memory\\u size”设置为0），但这种方法提供了不完整的问题解决方案。除了在只有一个状态损坏或丢失时清除整个分区外，这种方法还存在一种不幸的行为，即它需要一条消息，该消息的方向与远程应用程序将授权的方向相反。除非采用较低层的安全机制（例如TLS），否则这通常意味着必须在恢复发生之前发送反向的压缩应用程序级消息。在许多情况下（如基于SIP的移动终端），这些消息不会经常发送；在其他情况下（纯客户端/服务器部署），它们永远不会被发送。"
+    },
+    {
+      "indent": 3,
+      "text": "The proposed solution to this problem is a simple Negative Acknowledgement (NACK) mechanism which allows the recipient to communicate to the sender that a failure has occurred. This NACK contains a reason code that communicates the nature of the failure. For certain types of failures, the NACK will also contain additional details that might be useful in recovering from the failure.",
+      "zh-CHS": "针对这个问题提出的解决方案是一种简单的否定确认（NACK）机制，该机制允许接收者向发送者传达故障已经发生。此NACK包含传达故障性质的原因码。对于某些类型的故障，NACK还将包含可能有助于从故障中恢复的其他详细信息。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Node Behavior",
+      "section_title": true,
+      "zh-CHS": "2. 节点行为"
+    },
+    {
+      "indent": 3,
+      "text": "The following sections detail the behavior of nodes sending and receiving SigComp NACKs. The actual format and values are described in Section 3.",
+      "zh-CHS": "以下各节详细介绍了发送和接收SigComp NACK的节点的行为。实际格式和值在第3节中描述。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Normal SigComp Message Transmission",
+      "section_title": true,
+      "zh-CHS": "2.1. 正常SigComp消息传输"
+    },
+    {
+      "indent": 3,
+      "text": "Although normal in all other respects, SigComp implementations that use the NACK mechanism need to calculate and store a SHA-1 hash for each SigComp message that they send. This must be stored in such a way that, given the SHA-1 hash, the implementation is able to locate the compartment with which the sent message was associated.",
+      "zh-CHS": "尽管在所有其他方面都很正常，但使用NACK机制的SigComp实现需要为其发送的每个SigComp消息计算并存储SHA-1哈希。这必须以这样的方式存储：给定SHA-1散列，实现能够定位与发送的消息相关联的隔室。"
+    },
+    {
+      "indent": 3,
+      "text": "In other words, if someone hands the SHA-1 hash back to the compressor, it needs to be able to find the compartment with which it was working when it sent the message with that hash. This only requires that the compressor knows with which compartment it is working when it sends a message (which is always the case), and that the SHA-1 hash, when stored, points to that compartment in some way.",
+      "zh-CHS": "换句话说，如果有人将SHA-1散列返回给压缩器，它需要能够找到它在使用该散列发送消息时所使用的隔间。这只需要压缩器在发送消息时知道它与哪个隔室一起工作（总是这样），并且SHA-1散列在存储时以某种方式指向该隔室。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Receiving a \"Bad\" SigComp Message",
+      "section_title": true,
+      "zh-CHS": "2.2. 接收“坏”SigComp消息"
+    },
+    {
+      "indent": 3,
+      "text": "When a received SigComp message causes a decompression failure, the recipient forms and sends a SigComp NACK message. This NACK message contains a SHA-1 hash of the received SigComp message that could not be decompressed. It also contains the exact reason decompression failed, as well as any additional details that might assist the NACK recipient to correct any problems. See Section 3 for more information about formatting the NACK message and its fields.",
+      "zh-CHS": "当收到的SigComp消息导致解压失败时，收件人将形成并发送SigComp NACK消息。此NACK消息包含无法解压缩的接收到的SigComp消息的SHA-1哈希。它还包含解压缩失败的确切原因，以及可能有助于NACK收件人纠正任何问题的任何其他详细信息。有关格式化NACK消息及其字段的更多信息，请参见第3节。"
+    },
+    {
+      "indent": 3,
+      "text": "For a connection-oriented transport, such as TCP, the NACK message is sent back to the originator of the failed message over that same connection.",
+      "zh-CHS": "对于面向连接的传输，例如TCP，NACK消息通过同一连接发送回失败消息的发起人。"
+    },
+    {
+      "indent": 3,
+      "text": "For a stream-based transport, such as TCP, the standard SigComp delimiter of 0xFFFF is used to terminate the NACK message.",
+      "zh-CHS": "对于基于流的传输，例如TCP，标准SigComp分隔符0xFFFF用于终止NACK消息。"
+    },
+    {
+      "indent": 3,
+      "text": "For a connectionless transport, such as UDP, the NACK message is sent back to the originator of the failed message at the port and IP address from which the message was sent. Note that this may or may not be the same port on which the application would typically receive messages. To accommodate implementations that use connect() or similar constructs, the NACK will be sent from the IP address and port to which the uninterpretable message was sent. From a practical perspective, this is probably easiest to determine by binding listening sockets to a specific interface; however, other mechanisms may also be employed.",
+      "zh-CHS": "对于无连接传输（如UDP），NACK消息将在发送消息的端口和IP地址处发送回失败消息的发起人。请注意，这可能是也可能不是应用程序通常接收消息的同一端口。为了适应使用connect（）或类似结构的实现，NACK将从发送不可理解消息的IP地址和端口发送。从实用的角度来看，这可能是通过将侦听套接字绑定到特定接口来确定的最简单方法；然而，也可以采用其他机制。"
+    },
+    {
+      "indent": 3,
+      "text": "The behavior specified above is strictly necessary for any generally useful form of a NACK mechanism. In the most general case, when an implementation receives a message that it cannot decompress, it has exactly three useful pieces of information: (1) the contents of the message, (2) an indication of why the message cannot be decoded, and (3) the IP address and port from which the message originated. Note that none of these contains any indication of where the remote application is listening for messages, if it differs from the sending port.",
+      "zh-CHS": "上述行为对于NACK机制的任何常用形式都是严格必要的。在最一般的情况下，当实现接收到无法解压缩的消息时，它正好有三条有用的信息：（1）消息的内容，（2）指示消息无法解码的原因，以及（3）消息来源的IP地址和端口。请注意，如果远程应用程序监听的消息与发送端口不同，则所有这些都不包含远程应用程序监听消息的位置指示。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Receiving a SigComp NACK",
+      "section_title": true,
+      "zh-CHS": "2.3. 接收SigComp-NACK"
+    },
+    {
+      "indent": 3,
+      "text": "The first action taken upon receipt of a NACK is an attempt to find the message to which the NACK corresponds. This search is performed using the 20-byte SHA-1 hash contained in the NACK. Once the matching message is located, further operations are performed based on the compartment that was associated with the sent message.",
+      "zh-CHS": "收到NACK后采取的第一个操作是尝试查找NACK对应的消息。该搜索使用NACK中包含的20字节SHA-1散列来执行。找到匹配消息后，将根据与所发送消息关联的隔室执行进一步的操作。"
+    },
+    {
+      "indent": 3,
+      "text": "Further behavior of a node upon receiving a SigComp NACK depends on whether a reliable or unreliable transport is being used.",
+      "zh-CHS": "节点在接收到SigComp NACK时的进一步行为取决于使用的是可靠的还是不可靠的传输。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.1. Unreliable Transport",
+      "section_title": true,
+      "zh-CHS": "2.3.1. 不可靠运输"
+    },
+    {
+      "indent": 3,
+      "text": "When SigComp is used over an unreliable transport, the application has no reasonable expectation that the transport layer will deliver any particular message. It then becomes the application layer's responsibility to ensure that data is retransmitted as necessary. In these circumstances, the NACK mechanism relies on such behavior to ensure delivery of the message, and never performs retransmissions on the application's behalf.",
+      "zh-CHS": "当在不可靠的传输上使用SigComp时，应用程序无法合理预期传输层将传递任何特定消息。然后，应用层负责确保必要时重新传输数据。在这些情况下，NACK机制依赖于这种行为来确保消息的传递，并且从不代表应用程序执行重传。"
+    },
+    {
+      "indent": 3,
+      "text": "When a NACK is received for a message sent over an unreliable transport, the NACK recipient uses the contained information to make appropriate adjustments to the compressor associated with the proper compartment. The exact nature of these adjustments are specific to the compression scheme being used, and will vary from implementation to implementation. The only requirement on these adjustments is that they must have the effect of compensating for the error that has been indicated (e.g., by removing the state that the remote node indicates it cannot retrieve).",
+      "zh-CHS": "当接收到通过不可靠传输发送的消息的NACK时，NACK接收者使用包含的信息对与适当隔室相关联的压缩机进行适当调整。这些调整的确切性质是特定于所使用的压缩方案的，并且会因实施而有所不同。对这些调整的唯一要求是，它们必须具有补偿已指示错误的效果（例如，通过移除远程节点指示其无法检索的状态）。"
+    },
+    {
+      "indent": 3,
+      "text": "In particular, when an unreliable transport is used, the original message must not be retransmitted by the SigComp layer upon receipt of a NACK. Instead, the next application-initiated transmission of a message will take advantage of the adjustments made as a result of processing the NACK.",
+      "zh-CHS": "特别是，当使用不可靠传输时，在接收到NACK时，SigComp层不得重新传输原始消息。相反，下一个应用程序发起的消息传输将利用由于处理NACK而进行的调整。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.2. Reliable Transport",
+      "section_title": true,
+      "zh-CHS": "2.3.2. 可靠运输"
+    },
+    {
+      "indent": 3,
+      "text": "When a reliable transport is employed, the application makes a basic assumption that any message passed down the stack will be retransmitted as necessary to ensure that the remote node receives it, unless a failure is indicated by the transport layer. Because SigComp acts as a shim between the transport-layer and the application, it becomes the responsibility of the SigComp implementation to ensure that any failure to transmit a message is communicated to the application.",
+      "zh-CHS": "当采用可靠的传输时，除非传输层指示出现故障，否则应用程序会做出一个基本的假设，即通过堆栈传递的任何消息都将在必要时重新传输，以确保远程节点接收到它。由于SigComp充当传输层和应用程序之间的垫片，因此SigComp实现的责任是确保将任何未能传输消息的情况传达给应用程序。"
+    },
+    {
+      "indent": 3,
+      "text": "When a NACK is received for a message sent over a reliable transport, the SigComp layer must indicate to the application that an error has occurred. In general, the application should react in the same way as it does for any other transport layer error, such as a TCP connection reset. For most applications, this reaction will initially be an attempt to reset and re-establish the connection, and re-initiate the failed transaction. The SigComp layer should also use the information contained in the NACK to make appropriate adjustments to the compressor associated with the proper compartment (similar to the adjustments made for unreliable transport). Thus, if the compartment is not reset by resetting the TCP connection, the next message will take advantage of the adjustments.",
+      "zh-CHS": "当接收到通过可靠传输发送的消息的NACK时，SigComp层必须向应用程序指示发生了错误。通常，应用程序的反应方式应与处理任何其他传输层错误（如TCP连接重置）时的反应方式相同。对于大多数应用程序，此反应最初是尝试重置和重新建立连接，并重新启动失败的事务。SigComp层还应使用NACK中包含的信息对与适当隔室相关的压缩机进行适当调整（类似于对不可靠运输进行的调整）。因此，如果未通过重置TCP连接重置隔室，则下一条消息将利用调整。"
+    },
+    {
+      "indent": 0,
+      "text": "2.4. Detecting Support for NACK",
+      "section_title": true,
+      "zh-CHS": "2.4. 检测对NACK的支持"
+    },
+    {
+      "indent": 3,
+      "text": "Detection of support for the NACK mechanism may be beneficial in certain circumstances. For example, with the current definition of SigComp, acknowledgment of state receipt is required before a sender can reference such state. When multiple messages are sent before a response is received, the need to wait for such responses can cause significant decreases in message compression efficiency. If it is known that the receiver supports the NACK mechanism, the sender can instead optimistically assume that the state created by a sent message has been created, and is allowed to be referenced. If such an assumption turns out to be false (due to, for example, packet loss or packet reordering), the sender can recover upon receipt of a NACK.",
+      "zh-CHS": "在某些情况下，检测对NACK机制的支持可能是有益的。例如，对于SigComp的当前定义，在发送方可以引用状态之前，需要确认状态接收。当在接收响应之前发送多条消息时，需要等待此类响应可能会导致消息压缩效率显著降低。如果已知接收方支持NACK机制，则发送方可以乐观地假设由发送消息创建的状态已经创建，并且允许被引用。如果这样的假设被证明是错误的（例如，由于分组丢失或分组重新排序），发送方可以在收到NACK时恢复。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to facilitate such detection, any implementation that will send NACK messages upon decompression failure will indicate a SigComp version number of 0x02 in its Universal Decompressor Virtual Machine (UDVM). The bytecodes sent to such an endpoint can check the version number, and send appropriate indication back to their compressor as requested feedback. Except for the NACK mechanism described in this document, implementations advertising a version of 0x02 behave exactly like those advertising a version number of 0x01.",
+      "zh-CHS": "为了便于此类检测，任何在解压失败时发送NACK消息的实现都将在其通用解压器虚拟机（UDVM）中指示SigComp版本号0x02。发送到这样一个端点的字节码可以检查版本号，并根据请求的反馈将适当的指示发送回压缩器。除了本文档中描述的NACK机制外，发布0x02版本的实现的行为与发布0x01版本号的实现完全相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Message Format",
+      "section_title": true,
+      "zh-CHS": "3. 消息格式"
+    },
+    {
+      "indent": 3,
+      "text": "SigComp NACK packets are syntactically valid SigComp messages which have been specifically designed to be safely ignored by implementations that do not support the NACK mechanism.",
+      "zh-CHS": "SigComp NACK数据包是语法上有效的SigComp消息，专门设计用于不支持NACK机制的实现安全地忽略这些消息。"
+    },
+    {
+      "indent": 3,
+      "text": "In particular, NACK messages are formatted as the second variant of a SigComp message (typically used for code upload) with a \"code_len\" field of zero. The NACK information (message identifier, reason for failure, and error details) is encoded in the \"remaining SigComp",
+      "zh-CHS": "特别是，NACK消息被格式化为SigComp消息的第二个变体（通常用于代码上传），其中“code_len”字段为零。NACK信息（消息标识符、故障原因和错误详细信息）编码在“剩余SigComp”中"
+    },
+    {
+      "indent": 3,
+      "text": "message\" area, typically used for input data. Further, the \"destination\" field is used as a version identifier to indicate which version of NACK is being employed.",
+      "zh-CHS": "“消息”区域，通常用于输入数据。此外，“目的地”字段用作版本标识符，以指示正在使用哪个版本的NACK。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Message Fields",
+      "section_title": true,
+      "zh-CHS": "3.1. 消息字段"
+    },
+    {
+      "indent": 3,
+      "text": "The format of the NACK message and the use of the fields within it are shown in Figure 1.",
+      "zh-CHS": "NACK消息的格式及其字段的使用如图1所示。"
+    },
+    {
+      "indent": 20,
+      "text": "  0   1   2   3   4   5   6   7\n+---+---+---+---+---+---+---+---+\n| 1   1   1   1   1 | T |   0   |\n+---+---+---+---+---+---+---+---+\n|                               |\n:    returned feedback item     :\n|                               |\n+---+---+---+---+---+---+---+---+\n|         code_len = 0          |\n+---+---+---+---+---+---+---+---+\n| code_len = 0  |  version = 1  |\n+---+---+---+---+---+---+---+---+\n|          Reason Code          |\n+---+---+---+---+---+---+---+---+\n|  OPCODE of failed instruction |\n+---+---+---+---+---+---+---+---+\n|   PC of failed instruction    |\n|                               |\n+---+---+---+---+---+---+---+---+\n|                               |\n: SHA-1 Hash of failed message  :\n|                               |\n+---+---+---+---+---+---+---+---+\n|                               |\n:         Error Details         :\n|                               |\n+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Figure 1: SigComp NACK Message Format",
+      "zh-CHS": "图1:SigComp NACK消息格式"
+    },
+    {
+      "indent": 3,
+      "text": "o \"Reason Code\" is a one-byte value that indicates the nature of the decompression failure. The specific codes are given in Section 3.2.",
+      "zh-CHS": "o “原因代码”是一个单字节值，表示解压缩失败的性质。具体代码见第3.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "o \"OPCODE of failed instruction\" is a one-byte field that includes the opcode to which the PC was pointing when the failure occurred. If failure occurred before the UDVM began executing any code, this field is set to 0.",
+      "zh-CHS": "o “失败指令的操作码”是一个单字节字段，包括发生故障时PC指向的操作码。如果在UDVM开始执行任何代码之前发生故障，则此字段设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "o \"PC of failed instruction\" is a two-byte field containing the value of the program counter when failure occurred (i.e., the memory address of the failed UDVM instruction). The field is encoded with the most significant byte of the PC first (i.e., in network or big endian order). If failure occurred before the UDVM began executing any code, this field is set to 0.",
+      "zh-CHS": "o “失败指令的PC”是一个双字节字段，包含发生故障时程序计数器的值（即失败UDVM指令的内存地址）。该字段首先用PC的最高有效字节编码（即网络或大端顺序）。如果在UDVM开始执行任何代码之前发生故障，则此字段设置为0。"
+    },
+    {
+      "indent": 3,
+      "text": "o \"SHA-1 Hash of failed message\" contains the full 20-byte SHA-1 hash of the SigComp message that could not be decompressed. This information allows the NACK recipient to locate the message that failed to decompress so that adjustments to the correct compartment can be performed. When performing this hash, the entire SigComp message is used, from the header byte (binary 11111xxx) to the end of the input. Any lower-level protocol headers (such as UDP or IP) and message delimiters (the 0xFFFF that marks message boundaries in stream protocols) are not included in the hash. When used over a stream based protocol, any 0xFFxx escape sequences are un-escaped before performing the hash operation.",
+      "zh-CHS": "o “失败消息的SHA-1哈希”包含无法解压缩的SigComp消息的完整20字节SHA-1哈希。此信息允许NACK收件人找到未能解压缩的邮件，以便可以对正确的隔室进行调整。执行此散列时，将使用整个SigComp消息，从报头字节（二进制11111 xxx）到输入端。哈希中不包括任何较低级别的协议头（如UDP或IP）和消息分隔符（在流协议中标记消息边界的0xFFFF）。在基于流的协议上使用时，任何0xFFxx转义序列都会在执行哈希操作之前取消转义。"
+    },
+    {
+      "indent": 3,
+      "text": "o \"Error Details\" provides additional information that might be useful in correcting the problem that caused decompression failure. Its meaning is specific to the \"Reason Code\". See Section 3.2 for specific information on what appears in this field.",
+      "zh-CHS": "o “错误详细信息”提供了可能有助于纠正导致解压缩失败的问题的其他信息。其含义特定于“原因代码”。有关此字段中显示内容的具体信息，请参见第3.2节。"
+    },
+    {
+      "indent": 3,
+      "text": "o \"Code_len\" is the \"code_len\" field from a standard SigComp message. It is always set to \"0\" for NACK messages.",
+      "zh-CHS": "o “Code_len”是标准SigComp消息中的“Code_len”字段。NACK消息始终设置为“0”。"
+    },
+    {
+      "indent": 3,
+      "text": "o \"Version\" gives the version of the NACK mechanism being employed. This document defines version 1.",
+      "zh-CHS": "o “版本”给出了所采用的NACK机制的版本。本文档定义了版本1。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Reason Codes",
+      "section_title": true,
+      "zh-CHS": "3.2. 原因码"
+    },
+    {
+      "indent": 3,
+      "text": "Note that many of the status codes are more useful in debugging interoperability problems than with on-the-fly correction of errors. The \"STATE_NOT_FOUND\" error is a notable exception: it will generally cause the NACK recipient to encode future messages so as to not use the indicated state.",
+      "zh-CHS": "请注意，许多状态代码在调试互操作性问题时比在实时更正错误时更有用。“STATE_NOT_FOUND”错误是一个值得注意的例外：它通常会导致NACK收件人对未来的消息进行编码，以便不使用指示的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receiving the other status messages, an implementation would typically be expected either to use a different set of bytecodes or, if that is not an option, to send that specific message uncompressed.",
+      "zh-CHS": "在接收到其他状态消息时，通常期望实现使用不同的字节码集，或者，如果这不是一个选项，则以未压缩的方式发送该特定消息。"
+    },
+    {
+      "indent": 7,
+      "text": "Error                      Code Details\n-------------------------- ---- ---------------------------\nSTATE_NOT_FOUND              1  State ID (6 - 20 bytes)\nCYCLES_EXHAUSTED             2  Cycles Per Bit (1 byte)\nUSER_REQUESTED               3\nSEGFAULT                     4\nTOO_MANY_STATE_REQUESTS      5\nINVALID_STATE_ID_LENGTH      6\nINVALID_STATE_PRIORITY       7\nOUTPUT_OVERFLOW              8\nSTACK_UNDERFLOW              9\nBAD_INPUT_BITORDER          10\nDIV_BY_ZERO                 11\nSWITCH_VALUE_TOO_HIGH       12\nTOO_MANY_BITS_REQUESTED     13\nINVALID_OPERAND             14\nHUFFMAN_NO_MATCH            15\nMESSAGE_TOO_SHORT           16\nINVALID_CODE_LOCATION       17\nBYTECODES_TOO_LARGE         18  Memory size (2 bytes)\nINVALID_OPCODE              19\nINVALID_STATE_PROBE         20\nID_NOT_UNIQUE               21  State ID (6 - 20 bytes)\nMULTILOAD_OVERWRITTEN       22\nSTATE_TOO_SHORT             23  State ID (6 - 20 bytes)\nINTERNAL_ERROR              24\nFRAMING_ERROR               25",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Only the five errors \"STATE_NOT_FOUND\", \"CYCLES_EXHAUSTED\", \"BYTECODES_TOO_LARGE\", \"ID_NOT_UNIQUE\", and \"STATE_TOO_SHORT\" contain details; for all other error codes, the \"Error Details\" field has zero length.",
+      "zh-CHS": "只有五个错误“STATE\\u NOT\\u FOUND”、“CYCLES\\u expensed”、“BYTECODES\\u TOO\\u LARGE”、“ID\\u NOT\\u UNIQUE”和“STATE\\u TOO\\u SHORT”包含详细信息；对于所有其他错误代码，“错误详细信息”字段的长度为零。"
+    },
+    {
+      "indent": 20,
+      "text": "Figure 2: SigComp NACK Reason Codes",
+      "zh-CHS": "图2:SigComp NACK原因代码"
+    },
+    {
+      "indent": 3,
+      "text": "1. STATE_NOT_FOUND A state that was referenced cannot be found. The state may have been referenced by the UDVM executing a STATE-ACCESS instruction; it also may have been referenced by the \"partial state identifier\" field in a SigComp message. The \"details\" field contains the state identifier for the state that could not be found. This is also the proper error to return in the case that a unique state item was matched but fewer bytes of state ID were sent than required by the minimum_access_length.",
+      "zh-CHS": "1. 状态\\u未\\u找不到被引用的状态。该状态可能已被执行状态访问指令的UDVM引用；它也可能被SigComp消息中的“部分状态标识符”字段引用。“详细信息”字段包含找不到的状态的状态标识符。如果匹配了唯一状态项，但发送的状态ID字节数少于最小访问长度所需的字节数，则返回此错误也是正确的。"
+    },
+    {
+      "indent": 3,
+      "text": "2. CYCLES_EXHAUSTED Decompression of the message has taken more cycles than were allocated to it. The \"details\" field contains a one-byte value that communicates the number of cycles per bit. The cycles per bit is represented as an unsigned 8-bit integer (i.e., not encoded).",
+      "zh-CHS": "2. 循环\\u消息解压缩所用的循环数超过分配给它的循环数。“详细信息”字段包含一个单字节值，该值表示每比特的循环数。每比特的循环数表示为无符号8位整数（即，未编码）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. USER_REQUESTED The DECOMPRESSION-FAILURE opcode has been executed.",
+      "zh-CHS": "3. 用户_请求解压缩失败操作码已执行。"
+    },
+    {
+      "indent": 3,
+      "text": "4. SEGFAULT An attempt to read from or write to memory that is outside of the UDVM's memory space has been attempted.",
+      "zh-CHS": "4. SEGFULT尝试读取或写入UDVM内存空间之外的内存。"
+    },
+    {
+      "indent": 3,
+      "text": "5. TOO_MANY_STATE_REQUESTS More than four requests to store or delete state objects have been requested.",
+      "zh-CHS": "5. 太多状态请求已请求四个以上存储或删除状态对象的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "6. INVALID_STATE_ID_LENGTH A state id length less than 6 or greater than 20 has been specified.",
+      "zh-CHS": "6. 无效的\\u状态\\u ID \\u长度指定的状态ID长度小于6或大于20。"
+    },
+    {
+      "indent": 3,
+      "text": "7. INVALID_STATE_PRIORITY A state priority of 65535 has been specified when attempting to store a state.",
+      "zh-CHS": "7. 无效状态优先级试图存储状态时已指定状态优先级65535。"
+    },
+    {
+      "indent": 3,
+      "text": "8. OUTPUT_OVERFLOW The decompressed message is too large to be decoded by the receiving node.",
+      "zh-CHS": "8. 输出溢出解压缩的消息太大，接收节点无法解码。"
+    },
+    {
+      "indent": 3,
+      "text": "9. STACK_UNDERFLOW An attempt to pop a value off the UDVM stack was made with a stack_fill value of 0.",
+      "zh-CHS": "9. STACK_UNDERFLOW尝试从UDVM堆栈中弹出一个值，堆栈_填充值为0。"
+    },
+    {
+      "indent": 3,
+      "text": "10. BAD_INPUT_BITORDER An INPUT-BITS or INPUT-HUFFMAN instruction was encountered with the \"input_bit_order\" register set to an invalid value (i.e., one of the upper 13 bits is set).",
+      "zh-CHS": "10. 错误的输入位顺序“输入位顺序”寄存器设置为无效值（即，设置了高13位中的一位）时遇到输入位或输入哈夫曼指令。"
+    },
+    {
+      "indent": 3,
+      "text": "11. DIV_BY_ZERO A DIVIDE or REMAINDER opcode was encountered with a divisor of 0.",
+      "zh-CHS": "11. DIV_BY_ZERO遇到除数为0的除法或余数操作码。"
+    },
+    {
+      "indent": 3,
+      "text": "12. SWITCH_VALUE_TOO_HIGH The input to a SWITCH opcode exceeds the number of branches defined.",
+      "zh-CHS": "12. 开关值太高开关操作码的输入超过定义的分支数。"
+    },
+    {
+      "indent": 3,
+      "text": "13. TOO_MANY_BITS_REQUESTED An INPUT-BITS or INPUT-HUFFMAN instruction was encountered that attempted to input more than 16 bits.",
+      "zh-CHS": "13. 请求的输入位太多。遇到试图输入超过16位的输入位或输入哈夫曼指令。"
+    },
+    {
+      "indent": 3,
+      "text": "14. INVALID_OPERAND An operand for an instruction could not be resolved to an integer value (e.g., a literal or reference operand beginning with 11111111).",
+      "zh-CHS": "14. 无效的操作数指令的操作数无法解析为整数值（例如，以11111开头的文字或引用操作数）。"
+    },
+    {
+      "indent": 3,
+      "text": "15. HUFFMAN_NO_MATCH The input string does not match any of the bitcodes in the INPUT-HUFFMAN opcode.",
+      "zh-CHS": "15. HUFFMAN_NO_MATCH输入字符串与输入-HUFFMAN操作码中的任何位码都不匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "16. MESSAGE_TOO_SHORT When attempting to decode a SigComp message, the recipient determined that there were not enough bytes in the message for it to be valid.",
+      "zh-CHS": "16. MESSAGE_TOO_SHORT尝试解码SigComp邮件时，收件人确定邮件中没有足够的字节使其有效。"
+    },
+    {
+      "indent": 3,
+      "text": "17. INVALID_CODE_LOCATION The \"code location\" field in the SigComp message was set to the invalid value of 0.",
+      "zh-CHS": "17. 无效\\u代码\\u位置SigComp消息中的“代码位置”字段设置为无效值0。"
+    },
+    {
+      "indent": 3,
+      "text": "18. BYTECODES_TOO_LARGE The bytecodes that a SigComp message attempted to upload exceed the amount of memory available in the receiving UDVM. The details field is a two-byte expression of the DECOMPRESSION_MEMORY_SIZE of the receiving UDVM. This value is communicated most-significant-byte first.",
+      "zh-CHS": "18. 字节码太大SigComp消息试图上载的字节码超过接收UDVM中可用的内存量。详细信息字段是接收UDVM的解压内存大小的两字节表达式。该值首先被传送到最高有效字节。"
+    },
+    {
+      "indent": 3,
+      "text": "19. INVALID_OPCODE The UDVM attempted to identify an undefined byte value as an instruction.",
+      "zh-CHS": "19. 操作码无效UDVM试图将未定义的字节值标识为指令。"
+    },
+    {
+      "indent": 3,
+      "text": "20. INVALID_STATE_PROBE When attempting to retrieve state, the state_length operand is set to 0 but the state_begin operand is non-zero.",
+      "zh-CHS": "20. 无效的\\u状态\\u探测尝试检索状态时，状态\\u长度操作数设置为0，但状态\\u开始操作数为非零。"
+    },
+    {
+      "indent": 3,
+      "text": "21. ID_NOT_UNIQUE A partial state identifier that was used to access state matched more than one state item. Note that this error might be returned as the result of executing a STATE-ACCESS instruction or attempting to locate a unique piece of state as identified by the \"partial state identifier\" in a SigComp message. The \"details\" field contains the partial state identifier that was requested.",
+      "zh-CHS": "21. ID_NOT_UNIQUE用于访问与多个状态项匹配的状态的部分状态标识符。请注意，此错误可能是由于执行状态访问指令或试图定位由SigComp消息中的“部分状态标识符”标识的唯一状态而返回的。“详细信息”字段包含请求的部分状态标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "22. MULTILOAD_OVERWRITTEN A MULTILOAD instruction attempted to overwrite itself.",
+      "zh-CHS": "22. 多加载\\覆盖试图覆盖自身的多加载指令。"
+    },
+    {
+      "indent": 3,
+      "text": "23. STATE_TOO_SHORT A STATE-ACCESS instruction has attempted to copy more bytes from a state item than the state item actually contains. The \"details\" field contains the partial state identifier that was requested. Implementors are cautioned to return only the partial state identifier that was requested; if the NACK contains any state identifier in addition to what was requested, attackers may be able to use that additional information to access the state.",
+      "zh-CHS": "23. STATE_TOO_SHORT状态访问指令试图从状态项复制的字节数超过状态项实际包含的字节数。“详细信息”字段包含请求的部分状态标识符。提醒实现者只返回请求的部分状态标识符；如果NACK除了所请求的之外还包含任何状态标识符，则攻击者可以使用该附加信息访问该状态。"
+    },
+    {
+      "indent": 3,
+      "text": "24. INTERNAL_ERROR The UDVM encountered an unexpected condition that prevented it from decompressing the message.",
+      "zh-CHS": "24. 内部错误UDVM遇到意外情况，无法解压缩消息。"
+    },
+    {
+      "indent": 3,
+      "text": "25. FRAMING_ERROR The UDVM encountered a framing error (unquoted 0xFF 80 .. 0xFF FE in an input stream.) This error is applicable only to messages received on a stream transport. In the case of a framing error, a SHA-1 hash for a unique message cannot be determined. Consequently, when a FRAMING_ERROR NACK is sent, the \"SHA-1 Hash of failed message\" field should be set to all zeros.",
+      "zh-CHS": "25. 成帧错误UDVM遇到成帧错误（输入流中未加引号的0xFF 80..0xFF FE）。此错误仅适用于在流传输上接收的消息。在帧错误的情况下，无法确定唯一消息的SHA-1哈希。因此，当发送帧错误NACK时，“失败消息的SHA-1哈希”字段应设置为全零。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Reflector Attacks",
+      "section_title": true,
+      "zh-CHS": "4.1. 反射器攻击"
+    },
+    {
+      "indent": 3,
+      "text": "Because SigComp NACK messages are by necessity sent in response to other messages, it is possible to trigger them by intentionally sending malformed messages to a SigComp implementation with a spoofed IP address. However, because such actions can only generate one message for each message sent, they don't serve as amplifier attacks. Further, due to the reasonably small size of NACK packets, there cannot be a significant increase in the size of the packet generated.",
+      "zh-CHS": "由于SigComp NACK消息是为了响应其他消息而发送的，因此可以通过故意向具有伪造IP地址的SigComp实现发送格式错误的消息来触发这些消息。但是，由于此类操作只能为每个发送的消息生成一条消息，因此它们不能用作放大器攻击。此外，由于NACK分组的大小相当小，因此生成的分组的大小不能显著增加。"
+    },
+    {
+      "indent": 3,
+      "text": "It is worth noting that nearly all deployed protocols exhibit this same behavior.",
+      "zh-CHS": "值得注意的是，几乎所有部署的协议都表现出相同的行为。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. NACK Spoofing",
+      "section_title": true,
+      "zh-CHS": "4.2. NACK欺骗"
+    },
+    {
+      "indent": 3,
+      "text": "Although it is possible to forge NACK messages as if they were generated by a different node, the damage that can be caused is minimal. Reporting a loss of state will typically result in nothing more than the re-transmission of that state in a subsequent message. Other failure codes would result in the next message being sent using an alternate compression mechanism, or possibly uncompressed.",
+      "zh-CHS": "尽管有可能伪造NACK消息，就好像它们是由不同的节点生成的一样，但可能造成的损害是最小的。报告状态丢失通常只会导致在后续消息中重新传输该状态。其他故障代码将导致使用备用压缩机制发送下一条消息，或者可能未压缩。"
+    },
+    {
+      "indent": 3,
+      "text": "Although all of the above consequences result in slightly larger messages, none of them have particularly catastrophic implications for security.",
+      "zh-CHS": "尽管上述所有后果都会产生稍大的消息，但它们都不会对安全性产生特别灾难性的影响。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new value for the IANA registered attribute SigComp_version.",
+      "zh-CHS": "本文档为IANA注册属性SigComp_版本定义了一个新值。"
+    },
+    {
+      "indent": 3,
+      "text": "Value (in hex): 02",
+      "zh-CHS": "值（十六进制）：02"
+    },
+    {
+      "indent": 3,
+      "text": "Description: SigComp version 2 (NACK support)",
+      "zh-CHS": "说明：SigComp版本2（NACK支持）"
+    },
+    {
+      "indent": 3,
+      "text": "Reference: [RFC4077]",
+      "zh-CHS": "参考文献：[RFC4077]"
+    },
+    {
+      "indent": 0,
+      "text": "6. Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "6. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Carsten Bormann, Zhigang Liu, Pekka Pessi, and Robert Sugar for their comments and suggestions. Special thanks to Abigail Surtees and Richard Price for several very detailed reviews and suggestions.",
+      "zh-CHS": "感谢卡斯滕·鲍曼、刘志刚、佩卡·佩西和罗伯特·苏格的评论和建议。特别感谢Abigail Surtees和Richard Price提供了一些非常详细的评论和建议。"
+    },
+    {
+      "indent": 0,
+      "text": "7. References",
+      "section_title": true,
+      "zh-CHS": "7. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "7.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Price, R., Bormann, C., Christoffersson, J., Hannu, H., Liu, Z., and J. Rosenberg, \"Signaling Compression (SigComp)\", RFC 3320, January 2003.",
+      "zh-CHS": "[1] Price，R.，Bormann，C.，Christofferson，J.，Hannu，H.，Liu，Z.，和J.Rosenberg，“信号压缩（SigComp）”，RFC3320，2003年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2] Hannu, H., Christoffersson, J., Forsgren, S., Leung, K.-C., Liu, Z., and R. Price, \"Signaling Compression (SigComp) - Extended Operations\", RFC 3321, January 2003.",
+      "zh-CHS": "[2] Hannu，H.，Christofferson，J.，Forsgren，S.，Leung，K.-C.，Liu，Z.，和R.Price，“信号压缩（SigComp）-扩展操作”，RFC 33212003年1月。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "7.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[3] Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston, A., Peterson, J., Sparks, R., Handley, M., and E. Schooler, \"SIP: Session Initiation Protocol\", RFC 3261, June 2002.",
+      "zh-CHS": "[3] Rosenberg，J.，Schulzrinne，H.，Camarillo，G.，Johnston，A.，Peterson，J.，Sparks，R.，Handley，M.，和E.Schooler，“SIP：会话启动协议”，RFC 3261，2002年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Adam Roach Estacado Systems 17210 Campbell Road Suite 250 Dallas, TX 75252 US",
+      "zh-CHS": "美国德克萨斯州达拉斯坎贝尔路17210号Adam Roach Estacado Systems 250套房，邮编75252"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: adam@estacado.net",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2005).",
+      "zh-CHS": "版权所有（C）互联网协会（2005年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

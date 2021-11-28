@@ -1,0 +1,2277 @@
+{
+  "title": {
+    "text": "RFC 5042: Direct Data Placement Protocol (DDP) / Remote Direct Memory Access Protocol (RDMAP) Security",
+    "zh-CHS": "RFC 5042"
+  },
+  "number": 5042,
+  "created_at": "2021-11-09 22:54:22.116601+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       J. Pinkerton\nRequest for Comments: 5042                         Microsoft Corporation\nCategory: Standards Track                                   E. Deleganes\n                                                                    Self\n                                                            October 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": " Direct Data Placement Protocol (DDP) / Remote Direct Memory Access Protocol (RDMAP) Security",
+      "zh-CHS": "直接数据放置协议（DDP）/远程直接内存访问协议（RDMAP）安全性"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document analyzes security issues around implementation and use of the Direct Data Placement Protocol (DDP) and Remote Direct Memory Access Protocol (RDMAP). It first defines an architectural model for an RDMA Network Interface Card (RNIC), which can implement DDP or RDMAP and DDP. The document reviews various attacks against the resources defined in the architectural model and the countermeasures that can be used to protect the system. Attacks are grouped into those that can be mitigated by using secure communication channels across the network, attacks from Remote Peers, and attacks from Local Peers. Attack categories include spoofing, tampering, information disclosure, denial of service, and elevation of privilege.",
+      "zh-CHS": "本文档分析了有关直接数据放置协议（DDP）和远程直接内存访问协议（RDMAP）的实现和使用的安全问题。它首先定义了RDMA网络接口卡（RNIC）的体系结构模型，它可以实现DDP或RDMAP和DDP。该文档回顾了针对体系结构模型中定义的资源的各种攻击以及可用于保护系统的对策。攻击分为可通过使用网络上的安全通信通道、来自远程对等方的攻击和来自本地对等方的攻击来缓解的攻击。攻击类别包括欺骗、篡改、信息泄露、拒绝服务和提升权限。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................4\n2. Architectural Model .............................................6\n   2.1. Components .................................................7\n   2.2. Resources ..................................................9\n        2.2.1. Stream Context Memory ...............................9\n        2.2.2. Data Buffers .......................................10\n        2.2.3. Page Translation Tables ............................10\n        2.2.4. Protection Domain (PD) .............................11\n        2.2.5. STag Namespace and Scope ...........................11\n        2.2.6. Completion Queues ..................................12\n        2.2.7. Asynchronous Event Queue ...........................12\n        2.2.8. RDMA Read Request Queue ............................13\n   2.3. RNIC Interactions .........................................13\n        2.3.1. Privileged Control Interface Semantics .............13\n        2.3.2. Non-Privileged Data Interface Semantics ............13\n        2.3.3. Privileged Data Interface Semantics ................14\n        2.3.4. Initialization of RNIC Data Structures for\n               Data Transfer ......................................14\n        2.3.5. RNIC Data Transfer Interactions ....................16\n3. Trust and Resource Sharing .....................................17\n4. Attacker Capabilities ..........................................18\n5. Attacks That Can Be Mitigated with End-to-End Security .........18\n   5.1. Spoofing ..................................................19\n        5.1.1. Impersonation ......................................19\n        5.1.2. Stream Hijacking ...................................20\n        5.1.3. Man-in-the-Middle Attack ...........................20\n   5.2. Tampering - Network-Based Modification of Buffer Content ..21\n   5.3. Information Disclosure - Network-Based Eavesdropping ......21\n   5.4. Specific Requirements for Security Services ...............21\n        5.4.1. Introduction to Security Options ...................21\n        5.4.2. TLS Is Inappropriate for DDP/RDMAP Security ........22\n        5.4.3. DTLS and RDDP ......................................23\n        5.4.4. ULPs That Provide Security .........................23\n        5.4.5. Requirements for IPsec Encapsulation of DDP ........23\n6. Attacks from Remote Peers ......................................24\n   6.1. Spoofing ..................................................25\n        6.1.1. Using an STag on a Different Stream ................25\n   6.2. Tampering .................................................26\n        6.2.1. Buffer Overrun - RDMA Write or Read Response .......26\n        6.2.2. Modifying a Buffer after Indication ................27\n        6.2.3. Multiple STags to Access the Same Buffer ...........27\n   6.3. Information Disclosure ....................................28\n        6.3.1. Probing Memory Outside of the Buffer Bounds ........28\n        6.3.2. Using RDMA Read to Access Stale Data ...............28\n        6.3.3. Accessing a Buffer after the Transfer ..............28\n        6.3.4. Accessing Unintended Data with a Valid STag ........29",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "        6.3.5. RDMA Read into an RDMA Write Buffer ................29\n        6.3.6. Using Multiple STags That Alias to the Same\n               Buffer .............................................29\n   6.4. Denial of Service (DOS) ...................................30\n        6.4.1. RNIC Resource Consumption ..........................30\n        6.4.2. Resource Consumption by Idle ULPs ..................31\n        6.4.3. Resource Consumption by Active ULPs ................32\n               6.4.3.1. Multiple Streams Sharing Receive Buffers ..32\n               6.4.3.2. Remote or Local Peer Attacking a\n                        Shared CQ .................................34\n               6.4.3.3. Attacking the RDMA Read Request Queue .....36\n        6.4.4. Exercise of Non-Optimal Code Paths .................37\n        6.4.5. Remote Invalidate an STag Shared on\n               Multiple Streams ...................................37\n        6.4.6. Remote Peer Attacking an Unshared CQ ...............38\n   6.5. Elevation of Privilege ....................................38\n7. Attacks from Local Peers .......................................38\n   7.1. Local ULP Attacking a Shared CQ ...........................39\n   7.2. Local Peer Attacking the RDMA Read Request Queue ..........39\n   7.3. Local ULP Attacking the PTT and STag Mapping ..............39\n8. Security considerations ........................................40\n9. IANA Considerations ............................................40\n10. References ....................................................40\n   10.1. Normative References .....................................40\n   10.2. Informative References ...................................41\nAppendix A. ULP Issues for RDDP Client/Server Protocols ...........43\nAppendix B. Summary of RNIC and ULP Implementation Requirements ...46\nAppendix C. Partial Trust Taxonomy ................................47\nAcknowledgments ...................................................49",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "RDMA enables new levels of flexibility when communicating between two parties compared to current conventional networking practice (e.g., a stream-based model or datagram model). This flexibility brings new security issues that must be carefully understood when designing Upper Layer Protocols (ULPs) utilizing RDMA and when implementing RDMA-aware NICs (RNICs). Note that for the purposes of this security analysis, an RNIC may implement RDMAP [RDMAP] and DDP [DDP], or just DDP. Also, a ULP may be an application or it may be a middleware library.",
+      "zh-CHS": "与当前的传统网络实践（例如，基于流的模型或数据报模型）相比，RDMA在双方通信时实现了更高级别的灵活性。这种灵活性带来了新的安全问题，在设计利用RDMA的上层协议（ULP）和实现支持RDMA的NIC（RNIC）时，必须仔细理解这些问题。请注意，出于安全分析的目的，RNIC可以实现RDMAP[RDMAP]和DDP[DDP]，或仅实现DDP。此外，ULP可以是应用程序，也可以是中间件库。"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in RFC 2119. Additionally, the security terminology defined in [RFC4949] is used in this specification.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“要求”、“应”、“不得”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119中的说明进行解释。此外，本规范中使用了[RFC4949]中定义的安全术语。"
+    },
+    {
+      "indent": 3,
+      "text": "The document first develops an architectural model that is relevant for the security analysis. Section 2 details components, resources, and system properties that may be attacked. The document uses Local Peer to represent the RDMA/DDP protocol implementation on the local end of a Stream (implemented with a transport protocol, such as [RFC793] or [RFC4960]). The local Upper-Layer-Protocol (ULP) is used to represent the application or middle-ware layer above the Local Peer. The document does not attempt to differentiate between a Remote Peer and a Remote ULP (an RDMA/DDP protocol implementation on the remote end of a Stream versus the application on the remote end) for several reasons: often, the source of the attack is difficult to know for sure and, regardless of the source, the mitigations required of the Local Peer or local ULP are the same. Thus, the document generically refers to a Remote Peer rather than trying to further delineate the attacker.",
+      "zh-CHS": "本文档首先开发了与安全分析相关的体系结构模型。第2节详细介绍了可能受到攻击的组件、资源和系统属性。文档使用本地对等表示流本地端的RDMA/DDP协议实现（使用传输协议实现，如[RFC793]或[RFC4960]）。本地上层协议（ULP）用于表示本地对等方之上的应用程序或中间件层。本文档没有试图区分远程对等方和远程ULP（流远程端上的RDMA/DDP协议实现与远程端上的应用程序），原因有几个：通常，很难确定攻击源，并且无论攻击源是什么，本地对等方或本地ULP所需的缓解措施相同。因此，文档通常指的是远程对等方，而不是试图进一步描述攻击者。"
+    },
+    {
+      "indent": 3,
+      "text": "The document then defines what resources a local ULP may share across Streams and what resources the local ULP may share with the Remote Peer across Streams in Section 3.",
+      "zh-CHS": "然后，文档在第3节中定义了本地ULP可跨流共享的资源以及本地ULP可跨流与远程对等方共享的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "Intentional sharing of resources between multiple Streams may imply some level of trust between the Streams. However, some types of resource sharing have unmitigated security attacks, which would mandate not sharing a specific type of resource unless there is some level of trust between the Streams sharing resources.",
+      "zh-CHS": "多个流之间有意共享资源可能意味着流之间存在某种程度的信任。但是，某些类型的资源共享具有未缓解的安全攻击，这将强制不共享特定类型的资源，除非共享资源的流之间存在某种程度的信任。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines a new term, \"Partial Mutual Trust\", to address this concept:",
+      "zh-CHS": "本文件定义了一个新术语“部分相互信任”，以解决这一概念："
+    },
+    {
+      "indent": 6,
+      "text": "Partial Mutual Trust - a collection of RDMAP/DDP Streams, which represent the local and remote end points of the Stream that are willing to assume that the Streams from the collection will not perform malicious attacks against any of the other Streams in the collection.",
+      "zh-CHS": "部分互信-RDMAP/DDP流的集合，表示流的本地和远程端点，这些端点愿意假设来自集合的流不会对集合中的任何其他流执行恶意攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "ULPs have explicit control of which collection of endpoints is in a Partial Mutual Trust collection through tools discussed in Appendix C, Partial Trust Taxonomy.",
+      "zh-CHS": "通过附录C“部分信任分类法”中讨论的工具，ULP可以明确控制部分互信集合中的端点集合。"
+    },
+    {
+      "indent": 3,
+      "text": "An untrusted peer relationship is appropriate when a ULP wishes to ensure that it will be robust and uncompromised even in the face of a deliberate attack by its peer. For example, a single ULP that concurrently supports multiple unrelated Streams (e.g., a server) would presumably treat each of its peers as an untrusted peer. For a collection of Streams that share Partial Mutual Trust, the assumption is that any Stream not in the collection is untrusted. For the untrusted peer, a brief list of capabilities is enumerated in Section 4.",
+      "zh-CHS": "当ULP希望确保即使面对其同伴的蓄意攻击，也能保持健壮和不妥协时，不受信任的同伴关系是合适的。例如，同时支持多个不相关流（例如，服务器）的单个ULP可能会将其每个对等方视为不受信任的对等方。对于共享部分互信的流集合，假设不在集合中的任何流都不受信任。对于不受信任的对等方，第4节列举了一个简短的功能列表。"
+    },
+    {
+      "indent": 3,
+      "text": "The rest of the document is focused on analyzing attacks and recommending specific mitigations to the attacks. Attacks are categorized into attacks mitigated by end-to-end security, attacks initiated by Remote Peers, and attacks initiated by Local Peers. For each attack, possible countermeasures are reviewed.",
+      "zh-CHS": "本文档的其余部分侧重于分析攻击并建议针对攻击的具体缓解措施。攻击分为通过端到端安全性缓解的攻击、由远程对等方发起的攻击和由本地对等方发起的攻击。对于每次攻击，都会审查可能的对策。"
+    },
+    {
+      "indent": 3,
+      "text": "ULPs within a host are divided into two categories - Privileged and Non-Privileged. Both ULP types can send and receive data and request resources. The key differences between the two are:",
+      "zh-CHS": "主机内的ULP分为两类-特权和非特权。这两种ULP类型都可以发送和接收数据以及请求资源。两者之间的主要区别是："
+    },
+    {
+      "indent": 6,
+      "text": "The Privileged ULP is trusted by the local system not to maliciously attack the operating environment, but it is not trusted to optimize resource allocation globally. For example, the Privileged ULP could be a kernel ULP; thus, the kernel presumably has in some way vetted the ULP before allowing it to execute.",
+      "zh-CHS": "本地系统信任特权ULP不会恶意攻击操作环境，但不信任它全局优化资源分配。例如，特权ULP可以是内核ULP；因此，内核可能在允许ULP执行之前以某种方式对其进行了检查。"
+    },
+    {
+      "indent": 6,
+      "text": "A Non-Privileged ULP's capabilities are a logical sub-set of the Privileged ULP's. It is assumed by the local system that a Non-Privileged ULP is untrusted. All Non-Privileged ULP interactions with the RNIC Engine that could affect other ULPs need to be done through a trusted intermediary that can verify the Non-Privileged ULP requests.",
+      "zh-CHS": "非特权ULP的功能是特权ULP的逻辑子集。本地系统假定非特权ULP不受信任。所有可能影响其他ULP的与RNIC引擎的非特权ULP交互都需要通过可验证非特权ULP请求的可信中介进行。"
+    },
+    {
+      "indent": 3,
+      "text": "The appendices provide focused summaries of this specification. Appendix A, ULP Issues for RDDP Client/Server Protocols, focuses on implementers of traditional client/server protocols. Appendix B, Summary of RNIC and ULP Implementation Requirements, summarizes all normative requirements in this specification. Appendix C, Partial Trust Taxonomy, provides an abstract model for categorizing trust boundaries.",
+      "zh-CHS": "附录提供了本规范的重点总结。附录A，RDDP客户机/服务器协议的ULP问题，重点关注传统客户机/服务器协议的实现者。附录B，RNIC和ULP实施要求概述，概述了本规范中的所有规范性要求。附录C，部分信任分类法，提供了一个用于分类信任边界的抽象模型。"
+    },
+    {
+      "indent": 3,
+      "text": "If an RDMAP/DDP protocol implementation uses the mitigations recommended in this document, that implementation should not exhibit additional security vulnerabilities above and beyond those of an implementation of the transport protocol (i.e., TCP or SCTP) and protocols beneath it (e.g., IP) without RDMAP/DDP.",
+      "zh-CHS": "如果RDMAP/DDP协议实施使用本文件中建议的缓解措施，则该实施不应在没有RDMAP/DDP的传输协议（即TCP或SCTP）及其下的协议（例如IP）实施的安全漏洞之上和之外显示额外的安全漏洞。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Architectural Model",
+      "section_title": true,
+      "zh-CHS": "2. 建筑模型"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes an RDMA architectural reference model that is used as security issues are examined. It introduces the components of the model, the resources that can be attacked, the types of interactions possible between components and resources, and the system properties that must be preserved.",
+      "zh-CHS": "本节描述了一个RDMA体系结构参考模型，该模型用于研究安全问题。它介绍了模型的组件、可能受到攻击的资源、组件和资源之间可能的交互类型以及必须保留的系统属性。"
+    },
+    {
+      "indent": 3,
+      "text": "Figure 1 shows the components comprising the architecture and the interfaces where potential security attacks could be launched. External attacks can be injected into the system from a ULP that sits above the RNIC Interface or from the network.",
+      "zh-CHS": "图1显示了组成架构的组件和可能发起潜在安全攻击的接口。外部攻击可以从位于RNIC接口上方的ULP或网络注入系统。"
+    },
+    {
+      "indent": 3,
+      "text": "The intent here is to describe high level components and capabilities that affect threat analysis, and not focus on specific implementation options. Also note that the architectural model is an abstraction, and an actual implementation may choose to subdivide its components along different boundary lines from those defined here. For example, the Privileged Resource Manager may be partially or completely encapsulated in the Privileged ULP. Regardless, it is expected that the security analysis of the potential threats and countermeasures still apply.",
+      "zh-CHS": "这里的目的是描述影响威胁分析的高级组件和功能，而不是关注具体的实现选项。还要注意，体系结构模型是一种抽象，实际实现可能会选择沿着不同于此处定义的边界线细分其组件。例如，特权资源管理器可以部分或完全封装在特权ULP中。无论如何，预计对潜在威胁和对策的安全分析仍然适用。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the model below is derived from several specific RDMA implementations. A few of note are [VERBS-RDMAC], [VERBS-RDMAC-Overview], and [INFINIBAND].",
+      "zh-CHS": "请注意，下面的模型源自几个特定的RDMA实现。需要注意的是[VERBS-RDMAC]、[VERBS-RDMAC概述]和[INFINIBAND]。"
+    },
+    {
+      "indent": 3,
+      "text": "          +-------------+\n          |  Privileged |\n          |  Resource   |\n Admin<-+>|  Manager    |     ULP Control Interface\n        | |             |<------+-------------------+\n        | +-------------+       |                   |\n        |       ^               v                   v\n        |       |         +-------------+   +-----------------+\n        +---------------->| Privileged  |   |  Non-Privileged |\n                |         | ULP         |   |  ULP            |\n                |         +-------------+   +-----------------+\n                |               ^                   ^\n                |Privileged     |Privileged         |Non-Privileged\n                |Control        |Data               |Data\n                |Interface      |Interface          |Interface\nRNIC            |               |                   |\nInterface       v               v                   v\n=================================================================",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "+--------------------------------------+\n|                                      |\n|               RNIC Engine            |\n|                                      |\n+--------------------------------------+\n                  ^\n                  |\n                  v\n               Internet",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 22,
+      "text": "Figure 1 - RDMA Security Model",
+      "zh-CHS": "图1-RDMA安全模型"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Components",
+      "section_title": true,
+      "zh-CHS": "2.1. 组件"
+    },
+    {
+      "indent": 3,
+      "text": "The components shown in Figure 1 - RDMA Security Model are:",
+      "zh-CHS": "图1-RDMA安全模型中所示的组件包括："
+    },
+    {
+      "indent": 3,
+      "text": "* RDMA Network Interface Controller Engine (RNIC) - The component that implements the RDMA protocol and/or DDP protocol.",
+      "zh-CHS": "* RDMA网络接口控制器引擎（RNIC）-实现RDMA协议和/或DDP协议的组件。"
+    },
+    {
+      "indent": 3,
+      "text": "* Privileged Resource Manager - The component responsible for managing and allocating resources associated with the RNIC Engine. The Resource Manager does not send or receive data. Note that whether the Resource Manager is an independent component, part of the RNIC, or part of the ULP is implementation dependent.",
+      "zh-CHS": "* 特权资源管理器—负责管理和分配与RNIC引擎关联的资源的组件。资源管理器不发送或接收数据。请注意，资源管理器是独立组件、RNIC的一部分还是ULP的一部分取决于实现。"
+    },
+    {
+      "indent": 3,
+      "text": "* Privileged ULP - See Section 1, Introduction, for a definition of Privileged ULP. The local host infrastructure can enable the Privileged ULP to map a Data Buffer directly from the RNIC Engine to the host through the RNIC Interface, but it does not allow the Privileged ULP to directly consume RNIC Engine resources.",
+      "zh-CHS": "* 特权ULP-有关特权ULP的定义，请参见第1节“引言”。本地主机基础设施可使特权ULP通过RNIC接口将数据缓冲区直接从RNIC引擎映射到主机，但不允许特权ULP直接消耗RNIC引擎资源。"
+    },
+    {
+      "indent": 3,
+      "text": "* Non-Privileged ULP - See Section 1, Introduction, for a definition of Non-Privileged ULP.",
+      "zh-CHS": "* 非特权ULP-有关非特权ULP的定义，请参见第1节，引言。"
+    },
+    {
+      "indent": 3,
+      "text": "A design goal of the DDP and RDMAP protocols is to allow, under constrained conditions, Non-Privileged ULP to send and receive data directly to/from the RDMA Engine without Privileged Resource Manager intervention, while ensuring that the host remains secure. Thus, one of the primary goals of this document is to analyze this usage model for the enforcement that is required in the RNIC Engine to ensure that the system remains secure.",
+      "zh-CHS": "DDP和RDMAP协议的设计目标是，在受限条件下，允许非特权ULP直接向RDMA引擎发送和接收数据，而无需特权资源管理器干预，同时确保主机保持安全。因此，本文档的主要目标之一是分析此使用模型，以便在RNIC引擎中执行，以确保系统保持安全。"
+    },
+    {
+      "indent": 3,
+      "text": "DDP provides two mechanisms for transferring data:",
+      "zh-CHS": "DDP提供两种传输数据的机制："
+    },
+    {
+      "indent": 3,
+      "text": "* Untagged Data Transfer - The incoming payload simply consumes the first buffer in a queue of buffers that are in the order specified by the receiving Peer (commonly referred to as the Receive Queue), and",
+      "zh-CHS": "* 未标记的数据传输-传入的有效负载仅消耗缓冲区队列中的第一个缓冲区，缓冲区队列的顺序由接收对等方指定（通常称为接收队列），并且"
+    },
+    {
+      "indent": 3,
+      "text": "* Tagged Data Transfer - The Peer transmitting the payload explicitly states which destination buffer is targeted, through use of an STag. STag-based transfers allow the receiving ULP to be indifferent to what order (or in what messages) the opposite Peer sent the data, or in what order packets are received.",
+      "zh-CHS": "* 标记数据传输-传输有效负载的对等方通过使用STag明确说明目标缓冲区。基于STag的传输允许接收ULP对对方发送数据的顺序（或消息）或接收数据包的顺序不敏感。"
+    },
+    {
+      "indent": 3,
+      "text": "Both data transfer mechanisms are also enabled through RDMAP, with additional control semantics. Typically, Tagged Data Transfer can be used for payload transfer, while Untagged Data Transfer is best used for control messages. However, each Upper Layer Protocol can determine the optimal use of Tagged and Untagged messages for itself. See [APPLICABILITY] for more information on application applicability for the two transfer mechanisms.",
+      "zh-CHS": "这两种数据传输机制也通过RDMAP启用，并带有附加的控制语义。通常，标记的数据传输可用于有效负载传输，而未标记的数据传输最好用于控制消息。然而，每个上层协议都可以为自己确定标记和未标记消息的最佳使用。有关两种传输机制的应用程序适用性的更多信息，请参见[适用性]。"
+    },
+    {
+      "indent": 3,
+      "text": "For DDP, the two forms correspond to Untagged and Tagged DDP Messages, respectively. For RDMAP, the two forms correspond to Send Type Messages and RDMA Messages (either RDMA Read or RDMA Write Messages), respectively.",
+      "zh-CHS": "对于DDP，这两种形式分别对应于未标记和标记的DDP消息。对于RDMAP，这两种形式分别对应于发送类型消息和RDMA消息（RDMA读消息或RDMA写消息）。"
+    },
+    {
+      "indent": 3,
+      "text": "The host interfaces that could be exercised include:",
+      "zh-CHS": "可执行的主机接口包括："
+    },
+    {
+      "indent": 3,
+      "text": "* Privileged Control Interface - A Privileged Resource Manager uses the RNIC Interface to allocate and manage RNIC Engine resources, control the state within the RNIC Engine, and monitor various events from the RNIC Engine. It also uses this interface to act as a proxy for some operations that a Non-Privileged ULP may require (after performing appropriate countermeasures).",
+      "zh-CHS": "* 特权控制接口-特权资源管理器使用RNIC接口分配和管理RNIC引擎资源，控制RNIC引擎内的状态，并监控来自RNIC引擎的各种事件。它还使用此接口作为非特权ULP可能需要的某些操作的代理（在执行适当的对策之后）。"
+    },
+    {
+      "indent": 3,
+      "text": "* ULP Control Interface - A ULP uses this interface to the Privileged Resource Manager to allocate RNIC Engine resources. The Privileged Resource Manager implements countermeasures to ensure that, if the Non-Privileged ULP launches an attack, it can prevent the attack from affecting other ULPs.",
+      "zh-CHS": "* ULP控制接口-ULP将此接口用于特权资源管理器，以分配RNIC引擎资源。特权资源管理器实施应对措施，以确保如果非特权ULP发起攻击，它可以防止攻击影响其他ULP。"
+    },
+    {
+      "indent": 3,
+      "text": "* Non-Privileged Data Transfer Interface - A Non-Privileged ULP uses this interface to initiate and check the status of data transfer operations.",
+      "zh-CHS": "* 非特权数据传输接口-非特权ULP使用此接口启动和检查数据传输操作的状态。"
+    },
+    {
+      "indent": 3,
+      "text": "* Privileged Data Transfer Interface - A superset of the functionality provided by the Non-Privileged Data Transfer Interface. The ULP is allowed to directly manipulate RNIC Engine mapping resources to map an STag to a ULP Data Buffer.",
+      "zh-CHS": "* 特权数据传输接口-非特权数据传输接口提供的功能的超集。ULP可以直接操作RNIC引擎映射资源，将STag映射到ULP数据缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "If Internet control messages, such as ICMP, ARP, RIPv4, etc. are processed by the RNIC Engine, the threat analyses for those protocols is also applicable, but outside the scope of this document.",
+      "zh-CHS": "如果互联网控制消息（如ICMP、ARP、RIPv4等）由RNIC引擎处理，则这些协议的威胁分析也适用，但不在本文档范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Resources",
+      "section_title": true,
+      "zh-CHS": "2.2. 资源"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the primary resources in the RNIC Engine that could be affected if under attack. For RDMAP, all the defined resources apply. For DDP, all the resources except the RDMA Read Queue apply.",
+      "zh-CHS": "本节介绍RNIC引擎中的主要资源，这些资源在受到攻击时可能会受到影响。对于RDMAP，所有定义的资源都适用。对于DDP，除RDMA读取队列之外的所有资源都适用。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.1. Stream Context Memory",
+      "section_title": true,
+      "zh-CHS": "2.2.1. 流上下文存储器"
+    },
+    {
+      "indent": 3,
+      "text": "The state information for each Stream is maintained in memory, which could be located in a number of places - on the NIC, inside RAM attached to the NIC, in host memory, or in any combination of the three, depending on the implementation.",
+      "zh-CHS": "每个流的状态信息都保存在内存中，内存可以位于多个位置—NIC上、连接到NIC的RAM内、主机内存中或三者的任意组合，具体取决于实现。"
+    },
+    {
+      "indent": 3,
+      "text": "Stream Context Memory includes state associated with Data Buffers. For Tagged Buffers, this includes how STag names, Data Buffers, and Page Translation Tables (see Section 2.2.3) interrelate. It also includes the list of Untagged Data Buffers posted for reception of Untagged Messages (commonly called the Receive Queue), and a list of operations to perform to send data (commonly called the Send Queue).",
+      "zh-CHS": "流上下文内存包括与数据缓冲区关联的状态。对于标记的缓冲区，这包括STag名称、数据缓冲区和页面转换表（参见第2.2.3节）之间的相互关系。它还包括为接收未标记消息而发布的未标记数据缓冲区列表（通常称为接收队列），以及为发送数据而执行的操作列表（通常称为发送队列）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.2. Data Buffers",
+      "section_title": true,
+      "zh-CHS": "2.2.2. 数据缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "As mentioned previously, there are two different ways to expose a local ULP's Data Buffers for data transfer: Untagged Data Transfer, where a buffer can be exposed for receiving RDMAP Send Type Messages (a.k.a. DDP Untagged Messages) on DDP Queue zero, or Tagged Data Transfer, where the buffer can be exposed for remote access through STags (a.k.a. DDP Tagged Messages). This distinction is important because the attacks and the countermeasures used to protect against the attack are different depending on the method for exposing the buffer to the network.",
+      "zh-CHS": "如前所述，有两种不同的方式公开本地ULP的数据缓冲区以进行数据传输：未标记的数据传输，其中可以公开缓冲区以接收DDP队列零上的RDMAP发送类型消息（又称DDP未标记的消息）；或标记的数据传输，其中可以公开缓冲区以通过STAG进行远程访问（又称DDP标记的消息）。这一区别很重要，因为根据向网络公开缓冲区的方法不同，用于防止攻击的攻击和对策也不同。"
+    },
+    {
+      "indent": 3,
+      "text": "For the purposes of the security discussion, for Tagged Data Transfer, a single logical Data Buffer is exposed with a single STag on a given Stream. Actual implementations may support scatter/gather capabilities to enable multiple physical data buffers to be accessed with a single STag, but from a threat analysis perspective, it is assumed that a single STag enables access to a single logical Data Buffer.",
+      "zh-CHS": "出于安全性讨论的目的，对于标记数据传输，在给定流上使用单个STag公开单个逻辑数据缓冲区。实际实现可能支持分散/聚集功能，以允许使用单个STag访问多个物理数据缓冲区，但从威胁分析的角度来看，假设单个STag允许访问单个逻辑数据缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "In any event, it is the responsibility of the Privileged Resource Manager to ensure that no STag can be created that exposes memory that the consumer had no authority to expose.",
+      "zh-CHS": "在任何情况下，特权资源管理器都有责任确保不能创建任何STag来公开使用者无权公开的内存。"
+    },
+    {
+      "indent": 3,
+      "text": "A Data Buffer has specific access rights. The local ULP can control whether a Data Buffer is exposed for local only, or local and remote access, and assign specific access privileges (read, write, read and write) on a per Stream basis.",
+      "zh-CHS": "数据缓冲区具有特定的访问权限。本地ULP可以控制数据缓冲区是仅用于本地访问，还是用于本地和远程访问，并基于每个流分配特定的访问权限（读、写、读和写）。"
+    },
+    {
+      "indent": 3,
+      "text": "For DDP, when an STag is Advertised, the Remote Peer is presumably given write access rights to the data (otherwise, there would not be much point to the Advertisement). For RDMAP, when a ULP Advertises an STag, it can enable write-only, read-only, or both write and read access rights.",
+      "zh-CHS": "对于DDP，当公布STag时，远程对等方可能被授予数据的写访问权限（否则，公布就没有多大意义）。对于RDMAP，当ULP播发STag时，它可以启用只读、只读或写访问权限和读访问权限。"
+    },
+    {
+      "indent": 3,
+      "text": "Similarly, some ULPs may wish to provide a single buffer with different access rights on a per Stream basis. For example, some Streams may have read-only access, some may have remote read and write access, while on other Streams, only the local ULP/Local Peer is allowed access.",
+      "zh-CHS": "类似地，一些ULP可能希望在每个流的基础上提供具有不同访问权限的单个缓冲区。例如，一些流可能具有只读访问，一些流可能具有远程读写访问，而在其他流上，仅允许本地ULP/本地对等方访问。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.3. Page Translation Tables",
+      "section_title": true,
+      "zh-CHS": "2.2.3. 页面翻译表"
+    },
+    {
+      "indent": 3,
+      "text": "Page Translation Tables are the structures used by the RNIC to be able to access ULP memory for data transfer operations. Even though these structures are called \"Page\" Translation Tables, they may not reference a page at all - conceptually, they are used to map a ULP address space representation (e.g., a virtual address) of a buffer to",
+      "zh-CHS": "页面转换表是RNIC用来访问ULP内存进行数据传输操作的结构。即使这些结构称为“页面”转换表，它们也可能根本不引用页面——从概念上讲，它们用于将缓冲区的ULP地址空间表示（例如，虚拟地址）映射到"
+    },
+    {
+      "indent": 3,
+      "text": "the physical addresses that are used by the RNIC Engine to move data. If, on a specific system, a mapping is not used, then a subset of the attacks examined may be appropriate. Note that the Page Translation Table may or may not be a shared resource.",
+      "zh-CHS": "RNIC引擎用于移动数据的物理地址。如果在特定系统上未使用映射，则检查的攻击子集可能是合适的。请注意，页面翻译表可能是共享资源，也可能不是共享资源。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.4. Protection Domain (PD)",
+      "section_title": true,
+      "zh-CHS": "2.2.4. 保护域（PD）"
+    },
+    {
+      "indent": 3,
+      "text": "A Protection Domain (PD) is a local construct to the RDMA implementation, and never visible over the wire. Protection Domains are assigned to three of the resources of concern - Stream Context Memory, STags associated with Page Translation Table entries, and Data Buffers. A correct implementation of a Protection Domain requires that resources that belong to a given Protection Domain cannot be used on a resource belonging to another Protection Domain, because Protection Domain membership is checked by the RNIC prior to taking any action involving such a resource. Protection Domains are therefore used to ensure that an STag can only be used to access an associated Data Buffer on one or more Streams that are associated with the same Protection Domain as the specific STag.",
+      "zh-CHS": "保护域（PD）是RDMA实现的本地构造，在线路上永远不可见。保护域被分配给关注的三个资源—流上下文内存、与页面转换表项关联的stag和数据缓冲区。保护域的正确实施要求属于给定保护域的资源不能用于属于另一个保护域的资源，因为在采取涉及此类资源的任何行动之前，RNIC会检查保护域成员资格。因此，保护域用于确保STag只能用于访问与特定STag相同的保护域关联的一个或多个流上的关联数据缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "If an implementation chooses not to share resources between Streams, it is recommended that each Stream be associated with its own, unique Protection Domain. If an implementation chooses to allow resource sharing, it is recommended that Protection Domain be limited to the collection of Streams that have Partial Mutual Trust with each other.",
+      "zh-CHS": "如果实现选择不在流之间共享资源，建议每个流与其自己的唯一保护域相关联。如果一个实现选择允许资源共享，建议将保护域限制为相互之间具有部分互信的流的集合。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that a ULP (either Privileged or Non-Privileged) can potentially have multiple Protection Domains. This could be used, for example, to ensure that multiple clients of a server do not have the ability to corrupt each other. The server would allocate a Protection Domain per client to ensure that resources covered by the Protection Domain could not be used by another (untrusted) client.",
+      "zh-CHS": "请注意，ULP（特权或非特权）可能具有多个保护域。例如，这可以用来确保一台服务器的多个客户端不会相互损坏。服务器将为每个客户端分配一个保护域，以确保保护域覆盖的资源不会被另一个（不受信任的）客户端使用。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.5. STag Namespace and Scope",
+      "section_title": true,
+      "zh-CHS": "2.2.5. STag名称空间和作用域"
+    },
+    {
+      "indent": 3,
+      "text": "The DDP specification defines a 32-bit namespace for the STag. Implementations may vary in terms of the actual number of STags that are supported. In any case, this is a bounded resource that can come under attack. Depending upon STag namespace allocation algorithms, the actual name space to attack may be significantly less than 2^32.",
+      "zh-CHS": "DDP规范为STag定义了一个32位命名空间。根据支持的stag的实际数量，实现可能会有所不同。在任何情况下，这都是一个可能受到攻击的有限资源。根据STag命名空间分配算法，实际攻击的名称空间可能明显小于2^32。"
+    },
+    {
+      "indent": 3,
+      "text": "The scope of an STag is the set of DDP/RDMAP Streams on which the STag is valid. If an STag is valid on a particular DDP/RDMAP Stream, then that stream can modify the buffer, subject to the access rights that the stream has for the STag (see Section 2.2.2, Data Buffers, for additional information).",
+      "zh-CHS": "STag的作用域是STag有效的DDP/RDMAP流集。如果STag在特定DDP/RDMAP流上有效，则该流可以修改缓冲区，但必须遵守该流对STag的访问权限（有关更多信息，请参阅第2.2.2节“数据缓冲区”）。"
+    },
+    {
+      "indent": 3,
+      "text": "The analysis presented in this document assumes two mechanisms for limiting the scope of Streams for which the STag is valid:",
+      "zh-CHS": "本文件中的分析假设了两种限制STag有效流范围的机制："
+    },
+    {
+      "indent": 3,
+      "text": "* Protection Domain scope. The STag is valid if used on any Stream within a specific Protection Domain, and is invalid if used on any Stream that is not a member of the Protection Domain.",
+      "zh-CHS": "* 保护域范围。如果STag用于特定保护域内的任何流，则STag有效；如果STag用于非保护域成员的任何流，则STag无效。"
+    },
+    {
+      "indent": 3,
+      "text": "* Single Stream scope. The STag is valid on a single Stream, regardless of what the Stream association is to a Protection Domain. If used on any other Stream, it is invalid.",
+      "zh-CHS": "* 单流范围。STag在单个流上有效，无论流与保护域的关联是什么。如果在任何其他流上使用，则无效。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.6. Completion Queues",
+      "section_title": true,
+      "zh-CHS": "2.2.6. 完成队列"
+    },
+    {
+      "indent": 3,
+      "text": "Completion Queues (CQ) are used in this document to conceptually represent how the RNIC Engine notifies the ULP about the completion of the transmission of data, or the completion of the reception of data through the Data Transfer Interface (specifically for Untagged Data Transfer; Tagged Data Transfer cannot cause a completion to occur). Because there could be many transmissions or receptions in flight at any one time, completions are modeled as a queue rather than as a single event. An implementation may also use the Completion Queue to notify the ULP of other activities; for example, the completion of a mapping of an STag to a specific ULP buffer. Completion Queues may be shared by a group of Streams, or may be designated to handle a specific Stream's traffic. Limiting Completion Queue association to one, or a small number, of RDMAP/DDP Streams can prevent several forms of attacks by sharply limiting the scope of the attack's effect.",
+      "zh-CHS": "本文件中使用的完成队列（CQ）在概念上表示RNIC引擎如何通过数据传输接口通知ULP数据传输完成或数据接收完成（特别是对于未标记的数据传输；标记的数据传输不能导致完成）。因为在任何时候都可能有许多传输或接收，所以完成被建模为一个队列，而不是单个事件。实现还可以使用完成队列来通知ULP其他活动；例如，完成STag到特定ULP缓冲区的映射。完成队列可以由一组流共享，或者可以被指定来处理特定流的流量。将完成队列关联限制为一个或一小部分RDMAP/DDP流可以通过大幅限制攻击的影响范围来防止多种形式的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Some implementations may allow this queue to be manipulated directly by both Non-Privileged and Privileged ULPs.",
+      "zh-CHS": "一些实现可能允许非特权和特权ULP直接操纵此队列。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.7. Asynchronous Event Queue",
+      "section_title": true,
+      "zh-CHS": "2.2.7. 异步事件队列"
+    },
+    {
+      "indent": 3,
+      "text": "The Asynchronous Event Queue is a queue from the RNIC to the Privileged Resource Manager of bounded size. It is used by the RNIC to notify the host of various events that might require management action, including protocol violations, Stream state changes, local operation errors, low water marks on receive queues, and possibly other events.",
+      "zh-CHS": "异步事件队列是从RNIC到大小有限的特权资源管理器的队列。RNIC使用它通知主机可能需要管理操作的各种事件，包括协议冲突、流状态更改、本地操作错误、接收队列上的低水位线，以及可能的其他事件。"
+    },
+    {
+      "indent": 3,
+      "text": "The Asynchronous Event Queue is a resource that can be attacked because Remote or Local Peers and/or ULPs can cause events to occur that have the potential of overflowing the queue.",
+      "zh-CHS": "异步事件队列是一种可能受到攻击的资源，因为远程或本地对等方和/或ULP可能导致发生可能溢出队列的事件。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that an implementation is at liberty to implement the functions of the Asynchronous Event Queue in a variety of ways, including multiple queues or even simple callbacks. All vulnerabilities",
+      "zh-CHS": "请注意，实现可以自由地以多种方式实现异步事件队列的功能，包括多个队列，甚至简单的回调。所有漏洞"
+    },
+    {
+      "indent": 3,
+      "text": "identified are intended to apply, regardless of the implementation of the Asynchronous Event Queue. For example, a callback function may be viewed simply as a very short queue.",
+      "zh-CHS": "无论异步事件队列的实现如何，都要应用已标识的事件。例如，回调函数可以简单地看作是一个非常短的队列。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2.8. RDMA Read Request Queue",
+      "section_title": true,
+      "zh-CHS": "2.2.8. RDMA读取请求队列"
+    },
+    {
+      "indent": 3,
+      "text": "The RDMA Read Request Queue is the memory that holds state information for one or more RDMA Read Request Messages that have arrived, but for which the RDMA Read Response Messages have not yet been completely sent. Because potentially more than one RDMA Read Request can be outstanding at one time, the memory is modeled as a queue of bounded size. Some implementations may enable sharing of a single RDMA Read Request Queue across multiple Streams.",
+      "zh-CHS": "RDMA Read Read Request Queue（RDMA读取请求队列）是保存一个或多个已到达但尚未完全发送RDMA读取响应消息的RDMA读取请求消息的状态信息的内存。由于一次可能有多个RDMA读取请求未完成，因此将内存建模为大小有界的队列。一些实现可能支持跨多个流共享单个RDMA读取请求队列。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. RNIC Interactions",
+      "section_title": true,
+      "zh-CHS": "2.3. RNIC相互作用"
+    },
+    {
+      "indent": 3,
+      "text": "With RNIC resources and interfaces defined, it is now possible to examine the interactions supported by the generic RNIC functional interfaces through each of the 3 interfaces: Privileged Control Interface, Privileged Data Interface, and Non-Privileged Data Interface. As mentioned previously in Section 2.1, Components, there are two data transfer mechanisms to be examined, Untagged Data Transfer and Tagged Data Transfer.",
+      "zh-CHS": "定义了RNIC资源和接口后，现在可以通过三个接口中的每一个来检查通用RNIC功能接口支持的交互：特权控制接口、特权数据接口和非特权数据接口。如前面第2.1节“组件”所述，有两种数据传输机制需要检查，即未标记数据传输和标记数据传输。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.1. Privileged Control Interface Semantics",
+      "section_title": true,
+      "zh-CHS": "2.3.1. 特权控制接口语义"
+    },
+    {
+      "indent": 3,
+      "text": "Generically, the Privileged Control Interface controls the RNIC's allocation, de-allocation, and initialization of RNIC global resources. This includes allocation and de-allocation of Stream Context Memory, Page Translation Tables, STag names, Completion Queues, RDMA Read Request Queues, and Asynchronous Event Queues.",
+      "zh-CHS": "一般来说，特权控制接口控制RNIC全局资源的分配、取消分配和初始化。这包括分配和取消分配流上下文内存、页面转换表、STag名称、完成队列、RDMA读取请求队列和异步事件队列。"
+    },
+    {
+      "indent": 3,
+      "text": "The Privileged Control Interface is also typically used for managing Non-Privileged ULP resources for the Non-Privileged ULP (and possibly for the Privileged ULP as well). This includes initialization and removal of Page Translation Table resources, and managing RNIC events (possibly managing all events for the Asynchronous Event Queue).",
+      "zh-CHS": "特权控制接口还通常用于管理非特权ULP（也可能用于特权ULP）的非特权ULP资源。这包括初始化和删除页面转换表资源，以及管理RNIC事件（可能管理异步事件队列的所有事件）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.2. Non-Privileged Data Interface Semantics",
+      "section_title": true,
+      "zh-CHS": "2.3.2. 非特权数据接口语义"
+    },
+    {
+      "indent": 3,
+      "text": "The Non-Privileged Data Interface enables data transfer (transmit and receive) but does not allow initialization of the Page Translation Table resources. However, once the Page Translation Table resources have been initialized, the interface may enable a specific STag mapping to be enabled and disabled by directly communicating with the RNIC, or create an STag mapping for a buffer that has been previously initialized in the RNIC.",
+      "zh-CHS": "非特权数据接口支持数据传输（传输和接收），但不允许初始化页面转换表资源。然而，一旦页面转换表资源被初始化，接口可以通过直接与RNIC通信来启用和禁用特定的STag映射，或者为先前在RNIC中初始化的缓冲区创建STag映射。"
+    },
+    {
+      "indent": 3,
+      "text": "For RDMAP, ULP data can be sent by one of the previously described data transfer mechanisms: Untagged Data Transfer or Tagged Data Transfer. Two RDMAP data transfer mechanisms are defined, one using Untagged Data Transfer (Send Type Messages), and one using Tagged Data Transfer (RDMA Read Responses and RDMA Writes). ULP data reception through RDMAP can be done by receiving Send Type Messages into buffers that have been posted on the Receive Queue or Shared Receive Queue. Thus, a Receive Queue or Shared Receive Queue can only be affected by Untagged Data Transfer. Data reception can also be done by receiving RDMA Write and RDMA Read Response Messages into buffers that have previously been exposed for external write access through Advertisement of an STag (i.e., Tagged Data Transfer). Additionally, to cause ULP data to be pulled (read) across the network, RDMAP uses an RDMA Read Request Message (which only contains RDMAP control information necessary to access the ULP buffer to be read), to cause an RDMA Read Response Message to be generated that contains the ULP data.",
+      "zh-CHS": "对于RDMAP，ULP数据可以通过前面描述的数据传输机制之一发送：未标记数据传输或标记数据传输。定义了两种RDMAP数据传输机制，一种使用未标记的数据传输（发送类型消息），另一种使用标记的数据传输（RDMA读取响应和RDMA写入）。通过RDMAP接收ULP数据可以通过将发送类型消息接收到已发布在接收队列或共享接收队列上的缓冲区来完成。因此，接收队列或共享接收队列只能受到未标记数据传输的影响。数据接收还可以通过将RDMA写入和RDMA读取响应消息接收到缓冲区中来完成，该缓冲区先前已通过STag广告（即，标记的数据传输）公开用于外部写入访问。此外，为了使ULP数据在网络上被拉入（读取），RDMAP使用RDMA读取请求消息（仅包含访问要读取的ULP缓冲区所需的RDMAP控制信息），以生成包含ULP数据的RDMA读取响应消息。"
+    },
+    {
+      "indent": 3,
+      "text": "For DDP, transmitting data means sending DDP Tagged or Untagged Messages. For data reception, DDP can receive Untagged Messages into buffers that have been posted on the Receive Queue or Shared Receive Queue. It can also receive Tagged DDP Messages into buffers that have previously been exposed for external write access through Advertisement of an STag.",
+      "zh-CHS": "对于DDP，传输数据意味着发送DDP标记或未标记的消息。对于数据接收，DDP可以将未标记的消息接收到已发布在接收队列或共享接收队列上的缓冲区中。它还可以将带标签的DDP消息接收到缓冲区中，这些缓冲区先前已通过STag广告公开供外部写访问。"
+    },
+    {
+      "indent": 3,
+      "text": "Completion of data transmission or reception generally entails informing the ULP of the completed work by placing completion information on the Completion Queue. For data reception, only an Untagged Data Transfer can cause completion information to be put in the Completion Queue.",
+      "zh-CHS": "数据传输或接收的完成通常需要通过将完成信息放置在完成队列中来通知ULP已完成的工作。对于数据接收，只有未标记的数据传输才能导致完成信息放入完成队列。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.3. Privileged Data Interface Semantics",
+      "section_title": true,
+      "zh-CHS": "2.3.3. 特权数据接口语义"
+    },
+    {
+      "indent": 3,
+      "text": "The Privileged Data Interface semantics are a superset of the Non-Privileged Data Transfer semantics. The interface can do everything defined in the prior section, as well as create/destroy buffer to STag mappings directly. This generally entails initialization or clearing of Page Translation Table state in the RNIC.",
+      "zh-CHS": "特权数据接口语义是非特权数据传输语义的超集。该接口可以完成上一节中定义的所有操作，还可以直接创建/销毁缓冲区到STag的映射。这通常需要初始化或清除RNIC中的页面转换表状态。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.4. Initialization of RNIC Data Structures for Data Transfer",
+      "section_title": true,
+      "zh-CHS": "2.3.4. 用于数据传输的RNIC数据结构初始化"
+    },
+    {
+      "indent": 3,
+      "text": "Initialization of the mapping between an STag and a Data Buffer can be viewed in the abstract as two separate operations:",
+      "zh-CHS": "STag和数据缓冲区之间映射的初始化可以抽象为两个单独的操作："
+    },
+    {
+      "indent": 3,
+      "text": "a. Initialization of the allocated Page Translation Table entries with the location of the Data Buffer, and",
+      "zh-CHS": "a. 使用数据缓冲区的位置初始化分配的页面转换表条目，以及"
+    },
+    {
+      "indent": 3,
+      "text": "b. Initialization of a mapping from an allocated STag name to a set of Page Translation Table entry(s) or partial entries.",
+      "zh-CHS": "b. 初始化从分配的STag名称到一组页面转换表项或部分项的映射。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that an implementation may not have a Page Translation Table (i.e., it may support a direct mapping between an STag and a Data Buffer). If there is no Page Translation Table, then attacks based on changing its contents or exhausting its resources are not possible.",
+      "zh-CHS": "注意，实现可能没有页面转换表（即，它可能支持STag和数据缓冲区之间的直接映射）。如果没有页面翻译表，则不可能进行基于更改其内容或耗尽其资源的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Initialization of the contents of the Page Translation Table can be done by either the Privileged ULP or by the Privileged Resource Manager as a proxy for the Non-Privileged ULP. By definition, the Non-Privileged ULP is not trusted to directly manipulate the Page Translation Table. In general, the concern is that the Non-Privileged ULP may try to maliciously initialize the Page Translation Table to access a buffer for which it does not have permission.",
+      "zh-CHS": "页面转换表内容的初始化可以由特权ULP或特权资源管理器作为非特权ULP的代理来完成。根据定义，不信任非特权ULP直接操作页面转换表。一般来说，问题在于非特权ULP可能会尝试恶意初始化页面转换表，以访问其无权访问的缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "The exact resource allocation algorithm for the Page Translation Table is outside the scope of this document. It may be allocated for a specific Data Buffer, or as a pooled resource to be consumed by potentially multiple Data Buffers, or be managed in some other way. This document attempts to abstract implementation dependent issues, and group them into higher level security issues, such as resource starvation and sharing of resources between Streams.",
+      "zh-CHS": "页面翻译表的确切资源分配算法不在本文档范围内。它可以被分配给特定的数据缓冲区，或者作为池资源被潜在的多个数据缓冲区使用，或者以其他方式进行管理。本文档试图抽象依赖于实现的问题，并将其分组为更高级别的安全问题，例如资源匮乏和流之间的资源共享。"
+    },
+    {
+      "indent": 3,
+      "text": "The next issue is how an STag name is associated with a Data Buffer. For the case of an Untagged Data Buffer (i.e., Untagged Data Transfer), there is no wire visible mapping between an STag and the Data Buffer. Note that there may, in fact, be an STag that represents the buffer, if an implementation chooses to internally represent Untagged Data Buffer using STags. However, because the STag, by definition, is not visible on the wire, this is a local host, implementation-specific issue that should be analyzed in the context of a local host implementation-specific security analysis, and thus, is outside the scope of this document.",
+      "zh-CHS": "下一个问题是STag名称如何与数据缓冲区关联。对于未标记的数据缓冲区（即，未标记的数据传输），STag和数据缓冲区之间没有有线可见映射。请注意，如果实现选择使用STag在内部表示未标记的数据缓冲区，那么实际上可能存在表示缓冲区的STag。但是，根据定义，由于STag在线路上不可见，因此这是一个本地主机、特定于实现的问题，应在本地主机特定于实现的安全分析的上下文中进行分析，因此不在本文档的范围内。"
+    },
+    {
+      "indent": 3,
+      "text": "For a Tagged Data Buffer (i.e., Tagged Data Transfer), either the Privileged ULP or the Privileged Resource Manager acting on behalf of the Non-Privileged ULP may initialize a mapping from an STag to a Page Translation Table, or may have the ability to simply enable/disable an existing STag to Page Translation Table mapping. There may also be multiple STag names that map to a specific group of Page Translation Table entries (or sub-entries). Specific security issues with this level of flexibility are examined in Section 6.2.3, Multiple STags to Access the Same Buffer.",
+      "zh-CHS": "对于标记数据缓冲区（即，标记数据传输），特权ULP或代表非特权ULP的特权资源管理器可以初始化从STag到页面转换表的映射，或者可以简单地启用/禁用现有STag到页面转换表的映射。也可能有多个STag名称映射到一组特定的页面翻译表条目（或子条目）。第6.2.3节“访问同一缓冲区的多个stag”研究了具有这种灵活性的特定安全问题。"
+    },
+    {
+      "indent": 3,
+      "text": "There are a variety of implementation options for initialization of Page Translation Table entries and mapping an STag to a group of Page Translation Table entries that have security repercussions. This includes support for separation of mapping an STag versus mapping a set of Page Translation Table entries, and support for ULPs directly manipulating STag to Page Translation Table entry mappings (versus requiring access through the Privileged Resource Manager).",
+      "zh-CHS": "有多种实现选项可用于初始化页面转换表条目，并将STag映射到一组具有安全影响的页面转换表条目。这包括支持将映射STag与映射一组页面转换表条目分开，以及支持ULP直接操作STag到页面转换表条目映射（与需要通过特权资源管理器访问相比）。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3.5. RNIC Data Transfer Interactions",
+      "section_title": true,
+      "zh-CHS": "2.3.5. RNIC数据传输交互"
+    },
+    {
+      "indent": 3,
+      "text": "RNIC Data Transfer operations can be subdivided into send and receive operations.",
+      "zh-CHS": "RNIC数据传输操作可细分为发送和接收操作。"
+    },
+    {
+      "indent": 3,
+      "text": "For send operations, there is typically a queue that enables the ULP to post multiple operation requests to send data (referred to as the Send Queue). Depending upon the implementation, Data Buffers used in the operations may or may not have Page Translation Table entries associated with them, and may or may not have STags associated with them. Because this is a local host specific implementation issue rather than a protocol issue, the security analysis of threats and mitigations is left to the host implementation.",
+      "zh-CHS": "对于发送操作，通常有一个队列，允许ULP发布多个操作请求以发送数据（称为发送队列）。根据实现，操作中使用的数据缓冲区可能有也可能没有与之关联的页面转换表条目，也可能有也可能没有与之关联的stag。因为这是一个特定于本地主机的实现问题，而不是协议问题，所以威胁和缓解措施的安全性分析将留给主机实现。"
+    },
+    {
+      "indent": 3,
+      "text": "Receive operations are different for Tagged Data Buffers versus Untagged Data Buffers (i.e., Tagged Data Transfer vs. Untagged Data Transfer). For Untagged Data Transfer, if more than one Untagged Data Buffer can be posted by the ULP, the DDP specification requires that they be consumed in sequential order (the RDMAP specification also requires this). Thus, the most general implementation is that there is a sequential queue of receive Untagged Data Buffers (Receive Queue). Some implementations may also support sharing of the sequential queue between multiple Streams. In this case, defining \"sequential\" becomes non-trivial - in general, the buffers for a single Stream are consumed from the queue in the order that they were placed on the queue, but there is no consumption order guarantee between Streams.",
+      "zh-CHS": "标记数据缓冲区与未标记数据缓冲区的接收操作不同（即，标记数据传输与未标记数据传输）。对于未标记的数据传输，如果ULP可以发布多个未标记的数据缓冲区，DDP规范要求按顺序使用它们（RDMAP规范也要求这样做）。因此，最普遍的实现是存在一个接收未标记数据缓冲区的顺序队列（接收队列）。一些实现还可能支持在多个流之间共享顺序队列。在这种情况下，定义“顺序”变得非常重要—通常，单个流的缓冲区是按照它们在队列上的放置顺序从队列中消耗的，但流之间没有消耗顺序保证。"
+    },
+    {
+      "indent": 3,
+      "text": "For receive Tagged Data Transfer (i.e., Tagged Data Buffers, RDMA Write Buffers, or RDMA Read Buffers), at some time prior to data transfer, the mapping of the STag to specific Page Translation Table entries (if present) and the mapping from the Page Translation Table entries to the Data Buffer must have been initialized (see Section 2.3.4 for interaction details).",
+      "zh-CHS": "对于接收标记的数据传输（即标记的数据缓冲区、RDMA写缓冲区或RDMA读缓冲区），在数据传输之前的某个时间，STag到特定页面转换表项（如果存在）的映射以及从页面转换表项到数据缓冲区的映射必须已初始化（交互细节见第2.3.4节）。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Trust and Resource Sharing",
+      "section_title": true,
+      "zh-CHS": "3. 信任与资源共享"
+    },
+    {
+      "indent": 3,
+      "text": "It is assumed that, in general, the Local and Remote Peer are untrusted, and thus attacks by either should have mitigations in place.",
+      "zh-CHS": "一般来说，假设本地和远程对等方不受信任，因此任何一方的攻击都应该有相应的缓解措施。"
+    },
+    {
+      "indent": 3,
+      "text": "A separate, but related issue is resource sharing between multiple Streams. If local resources are not shared, the resources are dedicated on a per Stream basis. Resources are defined in Section 2.2, Resources. The advantage of not sharing resources between Streams is that it reduces the types of attacks that are possible. The disadvantage of not sharing resources is that ULPs might run out of resources. Thus, there can be a strong incentive for sharing resources, if the security issues associated with the sharing of resources can be mitigated.",
+      "zh-CHS": "一个独立但相关的问题是多个流之间的资源共享。如果本地资源未共享，则资源将基于每个流进行专用。第2.2节“资源”中定义了资源。不在流之间共享资源的优点是减少了可能的攻击类型。不共享资源的缺点是ULP可能会耗尽资源。因此，如果与资源共享相关的安全问题能够得到缓解，那么共享资源可能会有强烈的动机。"
+    },
+    {
+      "indent": 3,
+      "text": "It is assumed in this document that the component that implements the mechanism to control sharing of the RNIC Engine resources is the Privileged Resource Manager. The RNIC Engine exposes its resources through the RNIC Interface to the Privileged Resource Manager. All Privileged and Non-Privileged ULPs request resources from the Resource Manager (note that by definition both the Non-Privileged and the Privileged application might try to greedily consume resources, thus creating a potential Denial of Service (DOS) attack). The Resource Manager implements resource management policies to ensure fair access to resources. The Resource Manager should be designed to take into account security attacks detailed in this document. Note that for some systems the Privileged Resource Manager may be implemented within the Privileged ULP.",
+      "zh-CHS": "在本文档中，假定实现控制RNIC引擎资源共享机制的组件是特权资源管理器。RNIC引擎通过RNIC接口向特权资源管理器公开其资源。所有特权和非特权ULP都从资源管理器请求资源（请注意，根据定义，非特权和特权应用程序都可能贪婪地消耗资源，从而造成潜在的拒绝服务（DOS）攻击）。资源管理器实施资源管理策略，以确保公平访问资源。资源管理器的设计应考虑本文档中详述的安全攻击。注意，对于某些系统，特权资源管理器可以在特权ULP中实现。"
+    },
+    {
+      "indent": 3,
+      "text": "All Non-Privileged ULP interactions with the RNIC Engine that could affect other ULPs MUST be done using the Privileged Resource Manager as a proxy. All ULP resource allocation requests for scarce resources MUST also be done using a Privileged Resource Manager.",
+      "zh-CHS": "所有可能影响其他ULP的与RNIC引擎的非特权ULP交互必须使用特权资源管理器作为代理来完成。稀缺资源的所有ULP资源分配请求也必须使用特权资源管理器完成。"
+    },
+    {
+      "indent": 3,
+      "text": "The sharing of resources across Streams should be under the control of the ULP, both in terms of the trust model the ULP wishes to operate under, as well as the level of resource sharing the ULP wishes to give local processes. For more discussion on types of trust models that combine partial trust and sharing of resources, see Appendix C, Partial Trust Taxonomy.",
+      "zh-CHS": "跨流资源共享应在ULP的控制下，无论是ULP希望在何种信任模型下运行，还是ULP希望为本地流程提供的资源共享级别。有关结合部分信任和资源共享的信任模型类型的更多讨论，请参阅附录C，部分信任分类法。"
+    },
+    {
+      "indent": 3,
+      "text": "The Privileged Resource Manager MUST NOT assume that different Streams share Partial Mutual Trust unless there is a mechanism to ensure that the Streams do indeed share Partial Mutual Trust. This can be done in several ways, including explicit notification from the ULP that owns the Streams.",
+      "zh-CHS": "特权资源管理器不得假设不同的流共享部分互信，除非存在确保流确实共享部分互信的机制。这可以通过几种方式完成，包括来自拥有流的ULP的显式通知。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Attacker Capabilities",
+      "section_title": true,
+      "zh-CHS": "4. 攻击者能力"
+    },
+    {
+      "indent": 3,
+      "text": "An attacker's capabilities delimit the types of attacks that the attacker is able to launch. RDMAP and DDP require that the initial LLP Stream (and connection) be set up prior to transferring RDMAP/DDP Messages. This requires at least one round-trip handshake to occur.",
+      "zh-CHS": "攻击者的能力限定了攻击者能够发起的攻击类型。RDMAP和DDP要求在传输RDMAP/DDP消息之前设置初始LLP流（和连接）。这需要至少进行一次往返握手。"
+    },
+    {
+      "indent": 3,
+      "text": "If the attacker is not the Remote Peer that created the initial connection, then the attacker's capabilities can be segmented into send only capabilities or send and receive capabilities. Attacking with send only capabilities requires the attacker to first guess the current LLP Stream parameters before they can attack RNIC resources (e.g., TCP sequence number). If this class of attacker also has receive capabilities and the ability to pose as the receiver to the sender and the sender to the receiver, they are typically referred to as a \"man-in-the-middle\" attacker [RFC3552]. A man-in-the-middle attacker has a much wider ability to attack RNIC resources. The breadth of attack is essentially the same as that of an attacking Remote Peer (i.e., the Remote Peer that set up the initial LLP Stream).",
+      "zh-CHS": "如果攻击者不是创建初始连接的远程对等方，则攻击者的功能可以分为仅发送功能或发送和接收功能。使用仅发送功能进行攻击需要攻击者首先猜测当前LLP流参数，然后才能攻击RNIC资源（例如TCP序列号）。如果这类攻击者还具有接收能力，并且能够在发送方和接收方之间扮演接收方，则他们通常被称为“中间人”攻击者[RFC3552]。中间人攻击者攻击RNIC资源的能力要大得多。攻击的广度基本上与攻击远程对等方（即，设置初始LLP流的远程对等方）的广度相同。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Attacks That Can Be Mitigated with End-to-End Security",
+      "section_title": true,
+      "zh-CHS": "5. 可通过端到端安全性减轻的攻击"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes the RDMAP/DDP attacks where the only solution is to implement some form of end-to-end security. The analysis includes a detailed description of each attack, what is being attacked, and a description of the countermeasures that can be taken to thwart the attack.",
+      "zh-CHS": "本节介绍RDMAP/DDP攻击，其中唯一的解决方案是实现某种形式的端到端安全性。该分析包括对每次攻击的详细描述、被攻击的内容以及可采取的阻止攻击的对策的描述。"
+    },
+    {
+      "indent": 3,
+      "text": "Some forms of attack involve modifying the RDMAP or DDP payload by a network-based attacker or involve monitoring the traffic to discover private information. An effective tool to ensure confidentiality is to encrypt the data stream through mechanisms, such as IPsec encryption. Additionally, authentication protocols, such as IPsec authentication, are an effective tool to ensure the remote entity is who they claim to be, as well as ensuring that the payload is unmodified as it traverses the network.",
+      "zh-CHS": "某些形式的攻击包括由基于网络的攻击者修改RDMAP或DDP有效负载，或涉及监控流量以发现私人信息。确保机密性的有效工具是通过IPsec加密等机制对数据流进行加密。此外，身份验证协议（如IPsec身份验证）是一种有效的工具，可确保远程实体是他们声称的实体，并确保有效负载在穿越网络时不被修改。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that connection setup and tear down is presumed to be done in stream mode (i.e., no RDMA encapsulation of the payload), so there are no new attacks related to connection setup/tear down beyond what is already present in the LLP (e.g., TCP or SCTP). Note, however, that RDMAP/DDP parameters may be exchanged in stream mode, and if they are corrupted by an attacker unintended consequences will result. Therefore, any existing mitigations for LLP Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, or",
+      "zh-CHS": "请注意，连接设置和断开假定在流模式下进行（即，负载没有RDMA封装），因此除了LLP中已经存在的攻击（例如TCP或SCTP）之外，没有与连接设置/断开相关的新攻击。但是，请注意，RDMAP/DDP参数可能在流模式下交换，如果它们被攻击者破坏，将导致意外后果。因此，针对LLP欺骗、篡改、否认、信息披露、拒绝服务或"
+    },
+    {
+      "indent": 3,
+      "text": "Elevation of Privilege continue to apply (and are out of scope of this document). Thus, the analysis in this section focuses on attacks that are present, regardless of the LLP Stream type.",
+      "zh-CHS": "特权提升继续适用（不在本文档范围内）。因此，本节中的分析侧重于存在的攻击，而不考虑LLP流类型。"
+    },
+    {
+      "indent": 3,
+      "text": "Tampering is any modification of the legitimate traffic (machine internal or network). Spoofing attack is a special case of tampering where the attacker falsifies an identity of the Remote Peer (identity can be an IP address, machine name, ULP level identity, etc.).",
+      "zh-CHS": "篡改是对合法流量（机器内部或网络）的任何修改。欺骗攻击是篡改的一种特殊情况，攻击者伪造远程对等方的身份（身份可以是IP地址、机器名、ULP级别的身份等）。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Spoofing",
+      "section_title": true,
+      "zh-CHS": "5.1. 欺骗"
+    },
+    {
+      "indent": 3,
+      "text": "Spoofing attacks can be launched by the Remote Peer, or by a network-based attacker. A network-based spoofing attack applies to all Remote Peers. This section analyzes the various types of spoofing attacks applicable to RDMAP and DDP.",
+      "zh-CHS": "远程对等方或基于网络的攻击者可以发起欺骗攻击。基于网络的欺骗攻击适用于所有远程对等方。本节分析适用于RDMAP和DDP的各种类型的欺骗攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. Impersonation",
+      "section_title": true,
+      "zh-CHS": "5.1.1. 模仿"
+    },
+    {
+      "indent": 3,
+      "text": "A network-based attacker can impersonate a legal RDMAP/DDP Peer (by spoofing a legal IP address). This can either be done as a blind attack (see [RFC3552]) or by establishing an RDMAP/DDP Stream with the victim. Because an RDMAP/DDP Stream requires an LLP Stream to be fully initialized (e.g., for [RFC793], it is in the ESTABLISHED state), existing transport layer protection mechanisms against blind attacks remain in place.",
+      "zh-CHS": "基于网络的攻击者可以模拟合法的RDMAP/DDP对等方（通过欺骗合法IP地址）。这可以通过盲攻击（参见[RFC3552]）或通过与受害者建立RDMAP/DDP流来实现。由于RDMAP/DDP流需要完全初始化LLP流（例如，对于[RFC793]，它处于已建立状态），现有的传输层盲攻击保护机制仍然存在。"
+    },
+    {
+      "indent": 3,
+      "text": "For a blind attack to succeed, it requires the attacker to inject a valid transport layer segment (e.g., for TCP, it must match at least the 4-tuple as well as guess a sequence number within the window) while also guessing valid RDMAP or DDP parameters. There are many ways to attack the RDMAP/DDP protocol if the transport protocol is assumed to be vulnerable. For example, for Tagged Messages, this entails guessing the STag and TO values. If the attacker wishes to simply terminate the connection, it can do so by correctly guessing the transport and network layer values, and providing an invalid STag. Per the DDP specification, if an invalid STag is received, the Stream is torn down and the Remote Peer is notified with an error. If an attacker wishes to overwrite an Advertised Buffer, it must successfully guess the correct STag and TO. Given that the TO will often start at zero, this is straightforward. The value of the STag should be chosen at random, as discussed in Section 6.1.1, Using an STag on a Different Stream. For Untagged Messages, if the MSN is invalid then the connection may be torn down. If it is valid, then the receive buffers can be corrupted.",
+      "zh-CHS": "为了使盲攻击成功，攻击者需要注入有效的传输层段（例如，对于TCP，它必须至少匹配4元组，并猜测窗口内的序列号），同时猜测有效的RDMAP或DDP参数。如果假定传输协议易受攻击，则有许多方法可以攻击RDMAP/DDP协议。例如，对于标记的消息，这需要猜测STag和TO值。如果攻击者希望简单地终止连接，可以通过正确猜测传输层和网络层的值并提供无效的STag来实现。根据DDP规范，如果接收到无效的STag，则流将被中断，并向远程对等方发出错误通知。如果攻击者希望覆盖公布的缓冲区，则必须成功猜测正确的STag和to。考虑到TO通常从零开始，这很简单。如第6.1.1节所述，应使用不同流上的STag随机选择STag值。对于未标记的消息，如果MSN无效，则可能会断开连接。如果有效，则接收缓冲区可能损坏。"
+    },
+    {
+      "indent": 3,
+      "text": "End-to-end authentication (e.g., IPsec or ULP authentication) provides protection against either the blind attack or the connected attack.",
+      "zh-CHS": "端到端身份验证（例如，IPsec或ULP身份验证）提供了针对盲攻击或连接攻击的保护。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.2. Stream Hijacking",
+      "section_title": true,
+      "zh-CHS": "5.1.2. 流劫持"
+    },
+    {
+      "indent": 3,
+      "text": "Stream hijacking happens when a network-based attacker eavesdrops on the LLP connection through the Stream establishment phase, and waits until the authentication phase (if such a phase exists) is completed successfully. The attacker then spoofs the IP address and re-directs the Stream from the victim to its own machine. For example, an attacker can wait until an iSCSI authentication is completed successfully, and then hijack the iSCSI Stream.",
+      "zh-CHS": "当基于网络的攻击者通过流建立阶段窃听LLP连接，并等待身份验证阶段（如果存在此阶段）成功完成时，就会发生流劫持。然后，攻击者伪造IP地址并将流从受害者重新定向到其自己的计算机。例如，攻击者可以等待iSCSI身份验证成功完成，然后劫持iSCSI流。"
+    },
+    {
+      "indent": 3,
+      "text": "The best protection against this form of attack is end-to-end integrity protection and authentication, such as IPsec, to prevent spoofing. Another option is to provide a physically segregated network for security. Discussion of physical security is out of scope for this document.",
+      "zh-CHS": "针对这种形式的攻击的最佳保护是端到端完整性保护和身份验证，如IPsec，以防止欺骗。另一种选择是提供物理隔离的网络以实现安全性。关于物理安全性的讨论超出了本文档的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Because the connection and/or Stream itself is established by the LLP, some LLPs are more difficult to hijack than others. Please see the relevant LLP documentation on security issues around connection and/or Stream hijacking.",
+      "zh-CHS": "因为连接和/或流本身是由LLP建立的，所以一些LLP比其他LLP更难被劫持。请参阅有关连接和/或流劫持安全问题的相关LLP文档。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.3. Man-in-the-Middle Attack",
+      "section_title": true,
+      "zh-CHS": "5.1.3. 中间人攻击"
+    },
+    {
+      "indent": 3,
+      "text": "If a network-based attacker has the ability to delete or modify packets that will still be accepted by the LLP (e.g., TCP sequence number is correct), then the Stream can be exposed to a man-in-the-middle attack. One style of attack is for the man-in-the-middle to send Tagged Messages (either RDMAP or DDP). If it can discover a buffer that has been exposed for STag enabled access, then the man-in-the-middle can use an RDMA Read operation to read the contents of the associated Data Buffer, perform an RDMA Write Operation to modify the contents of the associated Data Buffer, or invalidate the STag to disable further access to the buffer.",
+      "zh-CHS": "如果基于网络的攻击者能够删除或修改仍将被LLP接受的数据包（例如，TCP序列号正确），则流可能会受到中间人攻击。一种攻击方式是中间人发送带标签的消息（RDMAP或DDP）。如果它可以发现一个已为STag启用的访问而公开的缓冲区，那么中间人可以使用RDMA读取操作来读取关联数据缓冲区的内容，执行RDMA写入操作来修改关联数据缓冲区的内容，或者使STag失效以禁用对缓冲区的进一步访问。"
+    },
+    {
+      "indent": 3,
+      "text": "The best protection against this form of attack is end-to-end integrity protection and authentication, such as IPsec, to prevent spoofing or tampering. If authentication and integrity protections are not used, then physical protection must be employed to prevent man-in-the-middle attacks.",
+      "zh-CHS": "针对这种形式的攻击的最佳保护是端到端完整性保护和身份验证，如IPsec，以防止欺骗或篡改。如果未使用身份验证和完整性保护，则必须使用物理保护来防止中间人攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Because the connection/Stream itself is established by the LLP, some LLPs are more exposed to man-in-the-middle attack than others. Please see the relevant LLP documentation on security issues around connection and/or Stream hijacking.",
+      "zh-CHS": "因为连接/流本身是由LLP建立的，所以一些LLP比其他LLP更容易受到中间人攻击。请参阅有关连接和/或流劫持安全问题的相关LLP文档。"
+    },
+    {
+      "indent": 3,
+      "text": "Another approach is to restrict access to only the local subnet/link, and provide some mechanism to limit access, such as physical security or 802.1.x. This model is an extremely limited deployment scenario, and will not be further examined here.",
+      "zh-CHS": "另一种方法是仅限制对本地子网/链路的访问，并提供一些限制访问的机制，如物理安全或802.1.x。这个模型是一个非常有限的部署场景，这里将不再进一步研究。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Tampering - Network-Based Modification of Buffer Content",
+      "section_title": true,
+      "zh-CHS": "5.2. 篡改-基于网络的缓冲区内容修改"
+    },
+    {
+      "indent": 3,
+      "text": "This is actually a man-in-the-middle attack, but only on the content of the buffer, as opposed to the man-in-the-middle attack presented above, where both the signaling and content can be modified. See Section 5.1.3, Man-in-the-Middle Attack.",
+      "zh-CHS": "这实际上是一种中间人攻击，但只针对缓冲区的内容，而不是上面介绍的中间人攻击，在这种攻击中，信号和内容都可以修改。见第5.1.3节，中间人攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Information Disclosure - Network-Based Eavesdropping",
+      "section_title": true,
+      "zh-CHS": "5.3. 信息披露.基于网络的窃听"
+    },
+    {
+      "indent": 3,
+      "text": "An attacker that is able to eavesdrop on the network can read the content of all read and write accesses to a Peer's buffers. To prevent information disclosure, the read/written data must be encrypted. See also Section 5.1.3, Man-in-the-Middle Attack. The encryption can be done either by the ULP, or by a protocol that can provide security services to RDMAP and DDP (e.g., IPsec).",
+      "zh-CHS": "能够在网络上窃听的攻击者可以读取对对等方缓冲区的所有读写访问的内容。为防止信息泄露，必须对读/写数据进行加密。另见第5.1.3节“中间人攻击”。加密可以通过ULP完成，也可以通过向RDMAP和DDP（例如IPsec）提供安全服务的协议完成。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. Specific Requirements for Security Services",
+      "section_title": true,
+      "zh-CHS": "5.4. 安全服务的具体要求"
+    },
+    {
+      "indent": 3,
+      "text": "Generally speaking, Stream confidentiality protects against eavesdropping. Stream and/or session authentication and integrity protection is a counter measurement against various spoofing and tampering attacks. The effectiveness of authentication and integrity against a specific attack depends on whether the authentication is machine level authentication (such as IPsec), or ULP authentication.",
+      "zh-CHS": "一般来说，流机密性可以防止窃听。流和/或会话身份验证和完整性保护是针对各种欺骗和篡改攻击的一种对抗措施。针对特定攻击的身份验证和完整性的有效性取决于身份验证是机器级身份验证（如IPsec）还是ULP身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4.1. Introduction to Security Options",
+      "section_title": true,
+      "zh-CHS": "5.4.1. 安全选项简介"
+    },
+    {
+      "indent": 3,
+      "text": "The following security services can be applied to an RDMAP/DDP Stream:",
+      "zh-CHS": "以下安全服务可应用于RDMAP/DDP流："
+    },
+    {
+      "indent": 3,
+      "text": "1. Session confidentiality - Protects against eavesdropping (Section 5.3).",
+      "zh-CHS": "1. 会话机密性-防止窃听（第5.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Per-packet data source authentication - Protects against the following spoofing attacks: network-based impersonation (Section 5.1.1) and Stream hijacking (Section 5.1.2).",
+      "zh-CHS": "2. 每包数据源身份验证-防止以下欺骗攻击：基于网络的模拟（第5.1.1节）和流劫持（第5.1.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Per-packet integrity - Protects against tampering done by network-based modification of buffer content (Section 5.2) and when combined with authentication, also protects against man-in-the-middle attacks (Section 5.1.3).",
+      "zh-CHS": "3. 每数据包完整性-防止通过基于网络的缓冲区内容修改（第5.2节）进行篡改，并且当与身份验证结合使用时，还可防止中间人攻击（第5.1.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Packet sequencing - protects against replay attacks, which is a special case of the above tampering attack.",
+      "zh-CHS": "4. 数据包排序-防止重播攻击，这是上述篡改攻击的特例。"
+    },
+    {
+      "indent": 3,
+      "text": "If an RDMAP/DDP Stream may be subject to impersonation attacks, or Stream hijacking attacks, it is recommended that the Stream be authenticated, integrity protected, and protected from replay attacks; it may use confidentiality protection to protect from eavesdropping (in case the RDMAP/DDP Stream traverses a public network).",
+      "zh-CHS": "如果RDMAP/DDP流可能受到模拟攻击或流劫持攻击，建议对该流进行身份验证、完整性保护并防止重播攻击；它可以使用保密保护来防止窃听（在RDMAP/DDP流穿越公共网络的情况下）。"
+    },
+    {
+      "indent": 3,
+      "text": "IPsec is a protocol suite that is used to secure communication at the network layer between two peers. The IPsec protocol suite is specified within the IP Security Architecture [RFC2401], IKE [RFC2409], IPsec Authentication Header (AH) [RFC2402], and IPsec Encapsulating Security Payload (ESP) [RFC2406] documents. IKE is the key management protocol, while AH and ESP are used to protect IP traffic. Please see those RFCs for a complete description of the respective protocols.",
+      "zh-CHS": "IPsec是一个协议套件，用于在网络层保护两个对等方之间的通信。IPsec协议套件在IP安全体系结构[RFC2401]、IKE[RFC2409]、IPsec身份验证头（AH）[RFC2402]和IPsec封装安全负载（ESP）[RFC2406]文档中指定。IKE是密钥管理协议，而AH和ESP用于保护IP流量。请参阅这些RFC，以了解各自协议的完整说明。"
+    },
+    {
+      "indent": 3,
+      "text": "IPsec is capable of providing the above security services for IP and TCP traffic, respectively. ULP protocols are able to provide only part of the above security services.",
+      "zh-CHS": "IPsec能够分别为IP和TCP流量提供上述安全服务。ULP协议只能提供上述安全服务的一部分。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4.2. TLS Is Inappropriate for DDP/RDMAP Security",
+      "section_title": true,
+      "zh-CHS": "5.4.2. TLS不适用于DDP/RDMAP安全"
+    },
+    {
+      "indent": 3,
+      "text": "TLS [RFC4346] provides Stream authentication, integrity and confidentiality for TCP based ULPs. TLS supports one-way (server only) or mutual certificates based authentication.",
+      "zh-CHS": "TLS[RFC4346]为基于TCP的ULP提供流身份验证、完整性和机密性。TLS支持单向（仅限服务器）或基于相互证书的身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "If TLS is layered underneath RDMAP, TLS's connection orientation makes TLS inappropriate for DDP/RDMA security. If a stream cipher or block cipher in CBC mode is used for bulk encryption, then a packet can be decrypted only after all the packets preceding it have already arrived. If TLS is used to protect DDP/RDMAP traffic, then TCP must gather all out-of-order packets before TLS can decrypt them. Only after this is done can RDMAP/DDP place them into the ULP buffer. Thus, one of the primary features of DDP/RDMAP - enabling implementations to have a flow-through architecture with little to no buffering - cannot be achieved if TLS is used to protect the data stream.",
+      "zh-CHS": "如果TLS分层在RDMAP之下，TLS的连接方向会使TLS不适合DDP/RDMA安全。如果CBC模式下的流密码或分组密码用于批量加密，则只有在数据包之前的所有数据包都已到达后，才能对数据包进行解密。如果TLS用于保护DDP/RDMAP流量，那么TCP必须收集所有无序数据包，然后TLS才能解密它们。只有这样，RDMAP/DDP才能将它们放入ULP缓冲区。因此，如果使用TLS来保护数据流，DDP/RDMAP的一个主要特性——使实现具有几乎没有缓冲的流式体系结构——就无法实现。"
+    },
+    {
+      "indent": 3,
+      "text": "If TLS is layered on top of RDMAP or DDP, TLS does not protect the RDMAP and/or DDP headers. Thus, a man-in-the-middle attack can still occur by modifying the RDMAP/DDP header to place the data into the wrong buffer, thus effectively corrupting the data stream.",
+      "zh-CHS": "如果TLS分层在RDMAP或DDP之上，则TLS不会保护RDMAP和/或DDP头。因此，通过修改RDMAP/DDP报头将数据放入错误的缓冲区，仍然可能发生中间人攻击，从而有效地破坏数据流。"
+    },
+    {
+      "indent": 3,
+      "text": "For these reasons, it is not RECOMMENDED that TLS be layered on top of RDMAP or DDP.",
+      "zh-CHS": "出于这些原因，不建议将TLS分层在RDMAP或DDP之上。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4.3. DTLS and RDDP",
+      "section_title": true,
+      "zh-CHS": "5.4.3. DTLS和RDDP"
+    },
+    {
+      "indent": 3,
+      "text": "DTLS [DTLS] provides security services for datagram protocols, including unreliable datagram protocols. These services include anti-replay based on a mechanism adapted from IPsec that is intended to operate on packets as they are received from the network. For these and other reasons, DTLS is best applied to RDDP by employing DTLS beneath TCP, yielding a layering of RDDP over TCP over DTLS over UDP/IP. Such a layering inserts DTLS at roughly the same level in the protocol stack as IPsec, making DTLS's security services an alternative to IPsec's services from an RDDP standpoint.",
+      "zh-CHS": "DTLS[DTLS]为数据报协议提供安全服务，包括不可靠的数据报协议。这些服务包括基于IPsec改编的机制的反重播，该机制旨在在从网络接收数据包时对其进行操作。出于这些和其他原因，DTLS最好通过在TCP下使用DTLS来应用于RDDP，从而在UDP/IP上通过DTLS在TCP上产生RDDP的分层。这种分层在协议栈中插入DTL的级别与IPsec大致相同，从RDDP的角度来看，DTL的安全服务可以替代IPsec的服务。"
+    },
+    {
+      "indent": 3,
+      "text": "For RDDP, IPsec is the better choice for a security framework, and hence is mandatory-to-implement (as specified elsewhere in this document). An important contributing factor to the specification of IPsec rather than DTLS is that the non-RDDP versions of two initial adopters of RDDP (iSCSI [iSCSI][iSER] and NFSv4 [NFSv4][NFSv4.1]) are compatible with IPsec but neither of these protocols currently uses either TLS or DTLS. For the specific case of iSCSI, IPsec is the basis for mandatory-to-implement security services [RFC3723]. Therefore, this document and the RDDP protocol specifications contain mandatory implementation requirements for IPsec rather than for DTLS.",
+      "zh-CHS": "对于RDDP，IPsec是安全框架的更好选择，因此必须实现（如本文档其他部分所述）。规范IPsec而非DTLS的一个重要因素是，RDDP的两个最初采用者（iSCSI[iSCSI][iSER]和NFSv4[NFSv4][NFSv4.1]）的非RDDP版本与IPsec兼容，但目前这两个协议均未使用TLS或DTLS。对于iSCSI的特定情况，IPsec是强制实施安全服务的基础[RFC3723]。因此，本文档和RDDP协议规范包含IPsec而非DTL的强制实施要求。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4.4. ULPs That Provide Security",
+      "section_title": true,
+      "zh-CHS": "5.4.4. 提供安全性的ULP"
+    },
+    {
+      "indent": 3,
+      "text": "ULPs that provide integrated security but wish to leverage lower-layer protocol security, should be aware of security concerns around correlating a specific channel's security mechanisms to the authentication performed by the ULP. See [NFSv4CHANNEL] for additional information on a promising approach called \"channel binding\". From [NFSv4CHANNEL]:",
+      "zh-CHS": "提供集成安全性但希望利用较低层协议安全性的ULP应了解有关将特定通道的安全机制与ULP执行的身份验证关联的安全问题。请参阅[NFSv4CHANNEL]，了解有关称为“通道绑定”的有前途方法的更多信息。从[NFSv4频道]："
+    },
+    {
+      "indent": 6,
+      "text": "\"The concept of channel bindings allows applications to prove that the end-points of two secure channels at different network layers are the same by binding authentication at one channel to the session protection at the other channel. The use of channel bindings allows applications to delegate session protection to lower layers, which may significantly improve performance for some applications.\"",
+      "zh-CHS": "“通道绑定的概念允许应用程序通过将一个通道上的身份验证绑定到另一个通道上的会话保护来证明不同网络层上两个安全通道的端点相同。使用通道绑定允许应用程序将会话保护委托给较低层，这可能意味着可以显著提高某些应用程序的性能。”"
+    },
+    {
+      "indent": 0,
+      "text": "5.4.5. Requirements for IPsec Encapsulation of DDP",
+      "section_title": true,
+      "zh-CHS": "5.4.5. DDP的IPsec封装要求"
+    },
+    {
+      "indent": 3,
+      "text": "The IP Storage working group has spent significant time and effort to define the normative IPsec requirements for IP Storage [RFC3723]. Portions of that specification are applicable to a wide variety of protocols, including the RDDP protocol suite. In order not to replicate this effort, an RNIC implementation MUST follow the requirements defined in RFC 3723, Section 2.3 and Section 5,",
+      "zh-CHS": "IP存储工作组花费了大量时间和精力来定义IP存储的标准IPsec要求[RFC3723]。该规范的部分内容适用于各种协议，包括RDDP协议套件。为了避免重复这一工作，RNIC实施必须遵循RFC 3723第2.3节和第5节中定义的要求，"
+    },
+    {
+      "indent": 3,
+      "text": "including the associated normative references for those sections. Note that this means that support for IPSEC ESP mode is normative.",
+      "zh-CHS": "包括这些章节的相关规范性参考文件。请注意，这意味着对IPSEC ESP模式的支持是规范性的。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, since IPsec acceleration hardware may only be able to handle a limited number of active IKE Phase 2 SAs, Phase 2 delete messages may be sent for idle SAs as a means of keeping the number of active Phase 2 SAs to a minimum. The receipt of an IKE Phase 2 delete message MUST NOT be interpreted as a reason for tearing down a DDP/RDMA Stream. Rather, it is preferable to leave the Stream up, and if additional traffic is sent on it, to bring up another IKE Phase 2 SA to protect it. This avoids the potential for continually bringing Streams up and down.",
+      "zh-CHS": "此外，由于IPsec加速硬件可能只能处理有限数量的活动IKE阶段2 SA，因此可以为空闲SA发送阶段2删除消息，以将活动阶段2 SA的数量保持在最小。接收IKE第2阶段删除消息不得被解释为中断DDP/RDMA流的原因。相反，最好让流保持向上，如果在流上发送了额外的流量，则启动另一个IKE阶段2 SA来保护它。这避免了不断地使水流上下流动的可能性。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that there are serious security issues if IPsec is not implemented end-to-end. For example, if IPsec is implemented as a tunnel in the middle of the network, any hosts between the Peer and the IPsec tunneling device can freely attack the unprotected Stream.",
+      "zh-CHS": "请注意，如果未端到端实现IPsec，则会出现严重的安全问题。例如，如果IPSec被实现为网络中间的隧道，那么对等体和IPSec隧道设备之间的任何主机可以自由地攻击未受保护的流。"
+    },
+    {
+      "indent": 3,
+      "text": "The IPsec requirements for RDDP are based on the version of IPsec specified in RFC 2401 [RFC2401] and related RFCs, as profiled by RFC 3723 [RFC3723], despite the existence of a newer version of IPsec specified in RFC 4301 [RFC4301] and related RFCs. One of the important early applications of the RDDP protocols is their use with iSCSI [iSER]; RDDP's IPsec requirements follow those of IPsec in order to facilitate that usage by allowing a common profile of IPsec to be used with iSCSI and the RDDP protocols. In the future, RFC 3723 may be updated to the newer version of IPsec; the IPsec security requirements of any such update should apply uniformly to iSCSI and the RDDP protocols.",
+      "zh-CHS": "RDDP的IPsec要求基于RFC 2401[RFC2401]和相关RFC中规定的IPsec版本，如RFC 3723[RFC3723]所述，尽管存在RFC 4301[RFC4301]和相关RFC中规定的较新版本的IPsec。RDDP协议的一个重要早期应用是与iSCSI[iSER]一起使用；RDDP的IPsec要求遵循IPsec的要求，以便通过允许将IPsec的公共配置文件与iSCSI和RDDP协议一起使用来促进这种使用。将来，RFC 3723可能会更新到IPsec的较新版本；任何此类更新的IPsec安全要求都应统一适用于iSCSI和RDDP协议。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Attacks from Remote Peers",
+      "section_title": true,
+      "zh-CHS": "6. 来自远程对等方的攻击"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes remote attacks that are possible against the RDMA system defined in Figure 1 - RDMA Security Model and the RNIC Engine resources defined in Section 2.2. The analysis includes a detailed description of each attack, what is being attacked, and a description of the countermeasures that can be taken to thwart the attack.",
+      "zh-CHS": "本节描述了可能针对图1-RDMA安全模型中定义的RDMA系统和第2.2节中定义的RNIC引擎资源的远程攻击。该分析包括对每次攻击的详细描述、被攻击的内容以及可采取的阻止攻击的对策的描述。"
+    },
+    {
+      "indent": 3,
+      "text": "The attacks are classified into five categories: Spoofing, Tampering, Information Disclosure, Denial of Service (DoS) attacks, and Elevation of Privileges. As mentioned previously, tampering is any modification of the legitimate traffic (machine internal or network). A spoofing attack is a special case of tampering where the attacker falsifies an identity of the Remote Peer (identity can be an IP address, machine name, ULP level identity, etc.).",
+      "zh-CHS": "这些攻击分为五类：欺骗、篡改、信息泄露、拒绝服务（DoS）攻击和提升权限。如前所述，篡改是对合法流量（机器内部或网络）的任何修改。欺骗攻击是篡改的一种特殊情况，攻击者伪造远程对等方的身份（身份可以是IP地址、机器名、ULP级别身份等）。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Spoofing",
+      "section_title": true,
+      "zh-CHS": "6.1. 欺骗"
+    },
+    {
+      "indent": 3,
+      "text": "This section analyzes the various types of spoofing attacks applicable to RDMAP and DDP. Spoofing attacks can be launched by the Remote Peer or by a network-based attacker. For countermeasures against a network-based attacker, see Section 5, Attacks That Can Be Mitigated with End-to-End Security.",
+      "zh-CHS": "本节分析适用于RDMAP和DDP的各种类型的欺骗攻击。远程对等方或基于网络的攻击者可以发起欺骗攻击。有关针对基于网络的攻击者的对策，请参阅第5节，可通过端到端安全性缓解的攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1.1. Using an STag on a Different Stream",
+      "section_title": true,
+      "zh-CHS": "6.1.1. 在不同的流中使用STag"
+    },
+    {
+      "indent": 3,
+      "text": "One style of attack from the Remote Peer is for it to attempt to use STag values that it is not authorized to use. Note that if the Remote Peer sends an invalid STag to the Local Peer, per the DDP and RDMAP specifications, the Stream must be torn down. Thus, the threat exists if an STag has been enabled for Remote Access on one Stream and a Remote Peer is able to use it on an unrelated Stream. If the attack is successful, the attacker could potentially be able to either perform RDMA Read operations to read the contents of the associated Data Buffer, perform RDMA Write operations to modify the contents of the associated data buffer, or invalidate the STag to disable further access to the buffer.",
+      "zh-CHS": "远程对等方的一种攻击方式是试图使用未经授权的STag值。请注意，如果远程对等方根据DDP和RDMAP规范向本地对等方发送一个无效的STag，则必须断开该流。因此，如果STag已在一个流上启用远程访问，并且远程对等方能够在不相关的流上使用它，则存在威胁。如果攻击成功，攻击者可能会执行RDMA读取操作以读取关联数据缓冲区的内容，执行RDMA写入操作以修改关联数据缓冲区的内容，或者使STag无效以禁用对缓冲区的进一步访问。"
+    },
+    {
+      "indent": 3,
+      "text": "An attempt by a Remote Peer to access a buffer with an STag on a different Stream in the same Protection Domain may or may not be an attack, depending on whether resource sharing is intended (i.e., whether the Streams shared Partial Mutual Trust). For some ULPs, using an STag on multiple Streams within the same Protection Domain could be desired behavior. For other ULPs, attempting to use an STag on a different Stream could be considered an attack. Since this varies by ULP, a ULP typically would need to be able to control the scope of the STag.",
+      "zh-CHS": "远程对等方试图使用STag访问同一保护域中不同流上的缓冲区可能是攻击，也可能不是攻击，这取决于是否打算共享资源（即，流是否共享部分互信）。对于某些ULP，在同一保护域内的多个流上使用STag可能是理想的行为。对于其他ULP，尝试在不同流上使用STag可能被视为攻击。由于这因ULP而异，ULP通常需要能够控制STag的范围。"
+    },
+    {
+      "indent": 3,
+      "text": "In the case where an implementation does not share resources between Streams (including STags), this attack can be defeated by assigning each Stream to a different Protection Domain. Before allowing remote access to the buffer, the Protection Domain of the Stream where the access attempt was made is matched against the Protection Domain of the STag. If the Protection Domains do not match, access to the buffer is denied, an error is generated, and the RDMAP Stream associated with the attacking Stream is terminated.",
+      "zh-CHS": "在实现不在流（包括stag）之间共享资源的情况下，可以通过将每个流分配到不同的保护域来击败这种攻击。在允许远程访问缓冲区之前，尝试访问的流的保护域与STag的保护域相匹配。如果保护域不匹配，则拒绝访问缓冲区，生成错误，并终止与攻击流关联的RDMAP流。"
+    },
+    {
+      "indent": 3,
+      "text": "For implementations that share resources between multiple Streams, it may not be practical to separate each Stream into its own Protection Domain. In this case, the ULP can still limit the scope of any of the STags to a single Stream (if it is enabling it for remote access). If the STag scope has been limited to a single Stream, any attempt to use that STag on a different Stream will result in an error, and the RDMAP Stream is terminated.",
+      "zh-CHS": "对于在多个流之间共享资源的实现，将每个流分离到其自己的保护域中可能不切实际。在这种情况下，ULP仍然可以将任何STAG的范围限制为单个流（如果它启用远程访问）。如果STag作用域被限制为单个流，则在不同流上使用该STag的任何尝试都将导致错误，并且RDMAP流将终止。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, for implementations that do not share STags between Streams, each Stream MUST either be in a separate Protection Domain or the scope of an STag MUST be limited to a single Stream.",
+      "zh-CHS": "因此，对于不在流之间共享STag的实现，每个流必须位于单独的保护域中，或者STag的范围必须限于单个流。"
+    },
+    {
+      "indent": 3,
+      "text": "An RNIC MUST ensure that a specific Stream in a specific Protection Domain cannot access an STag in a different Protection Domain.",
+      "zh-CHS": "RNIC必须确保特定保护域中的特定流不能访问不同保护域中的STag。"
+    },
+    {
+      "indent": 3,
+      "text": "An RNIC MUST ensure that, if an STag is limited in scope to a single Stream, no other Stream can use the STag.",
+      "zh-CHS": "RNIC必须确保，如果STag的作用域限于单个流，则其他流不能使用该STag。"
+    },
+    {
+      "indent": 3,
+      "text": "An additional issue may be unintended sharing of STags (i.e., a bug in the ULP) or a bug in the Remote Peer that causes an off-by-one STag to be used. For additional protection, an implementation should allocate STags in such a fashion that it is difficult to predict the next allocated STag number, and also ensure that STags are reused at as slow a rate as possible. Any allocation method that would lead to intentional or unintentional reuse of an STag by the peer should be avoided (e.g., a method that always starts with a given STag and monotonically increases it for each new allocation, or a method that always uses the same STag for each operation).",
+      "zh-CHS": "另一个问题可能是STag的非故意共享（即ULP中的错误）或远程对等中的错误，导致使用一个STag关闭。对于额外的保护，实现应该以这样一种方式分配STag，即很难预测下一个分配的STag数量，并且还应确保以尽可能慢的速度重用STag。应避免任何可能导致对等方有意或无意重用STag的分配方法（例如，总是从给定STag开始并为每个新分配单调增加它的方法，或者总是为每个操作使用相同STag的方法）。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Tampering",
+      "section_title": true,
+      "zh-CHS": "6.2. 篡改"
+    },
+    {
+      "indent": 3,
+      "text": "A Remote Peer or a network-based attacker can attempt to tamper with the contents of Data Buffers on a Local Peer that have been enabled for remote write access. The types of tampering attacks from a Remote Peer are outlined in the sections that follow. For countermeasures against a network-based attacker, see Section 5, Attacks That Can Be Mitigated with End-to-End Security.",
+      "zh-CHS": "远程对等方或基于网络的攻击者可以尝试篡改本地对等方上已启用远程写访问的数据缓冲区的内容。来自远程对等方的篡改攻击类型将在下面的部分中概述。有关针对基于网络的攻击者的对策，请参阅第5节，可通过端到端安全性缓解的攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2.1. Buffer Overrun - RDMA Write or Read Response",
+      "section_title": true,
+      "zh-CHS": "6.2.1. 缓冲区溢出-RDMA写入或读取响应"
+    },
+    {
+      "indent": 3,
+      "text": "This attack is an attempt by the Remote Peer to perform an RDMA Write or RDMA Read Response to memory outside of the valid length range of the Data Buffer enabled for remote write access. This attack can occur even when no resources are shared across Streams. This issue can also arise if the ULP has a bug.",
+      "zh-CHS": "此攻击是远程对等方试图在为远程写访问启用的数据缓冲区的有效长度范围之外对内存执行RDMA写或RDMA读响应。即使没有跨流共享资源，也可能发生此攻击。如果ULP有bug，也会出现此问题。"
+    },
+    {
+      "indent": 3,
+      "text": "The countermeasure for this type of attack must be in the RNIC implementation, leveraging the STag. When the local ULP specifies to the RNIC the base address and the umber of bytes in the buffer that it wishes to make accessible, the RNIC must ensure that the base and bounds check are applied to any access to the buffer referenced by the STag before the STag is enabled for access. When an RDMA data transfer operation (which includes an STag) arrives on a Stream, a base and bounds byte granularity access check must be performed to ensure that the operation accesses only memory locations within the buffer described by that STag.",
+      "zh-CHS": "此类攻击的对策必须在RNIC实施中，利用STag。当本地ULP向RNIC指定其希望访问的缓冲区中的基址和字节数时，RNIC必须确保在启用STag访问之前，对STag引用的缓冲区的任何访问应用基址和边界检查。当RDMA数据传输操作（包括STag）到达流时，必须执行基本和边界字节粒度访问检查，以确保该操作仅访问该STag描述的缓冲区内的内存位置。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus an RNIC implementation MUST ensure that a Remote Peer is not able to access memory outside of the buffer specified when the STag was enabled for remote access.",
+      "zh-CHS": "因此，RNIC实现必须确保远程对等方无法访问STag启用远程访问时指定的缓冲区之外的内存。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2.2. Modifying a Buffer after Indication",
+      "section_title": true,
+      "zh-CHS": "6.2.2. 在指示后修改缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "This attack can occur if a Remote Peer attempts to modify the contents of an STag referenced buffer by performing an RDMA Write or an RDMA Read Response after the Remote Peer has indicated to the Local Peer or local ULP (by a variety of means) that the STag Data Buffer contents are ready for use. This attack can occur even when no resources are shared across Streams. Note that a bug in a Remote Peer, or network-based tampering, could also result in this problem.",
+      "zh-CHS": "如果远程对等方在向本地对等方或本地ULP（通过各种方式）指示STag数据缓冲区内容已准备好使用后，试图通过执行RDMA写入或RDMA读取响应来修改STag引用缓冲区的内容，则可能会发生此攻击。即使没有跨流共享资源，也可能发生此攻击。请注意，远程对等中的错误或基于网络的篡改也可能导致此问题。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, assume that the STag referenced buffer contains ULP control information as well as ULP payload, and the ULP sequence of operation is to first validate the control information and then perform operations on the control information. If the Remote Peer can perform an additional RDMA Write or RDMA Read Response (thus, changing the buffer) after the validity checks have been completed but before the control data is operated on, the Remote Peer could force the ULP down operational paths that were never intended.",
+      "zh-CHS": "例如，假设STag引用的缓冲区包含ULP控制信息以及ULP有效负载，并且ULP操作序列是首先验证控制信息，然后对控制信息执行操作。如果远程对等方可以在有效性检查完成后但在控制数据操作之前执行额外的RDMA写入或RDMA读取响应（因此，更改缓冲区），则远程对等方可以强制ULP沿着从未预期的操作路径运行。"
+    },
+    {
+      "indent": 3,
+      "text": "The local ULP can protect itself from this type of attack by revoking remote access when the original data transfer has completed and before it validates the contents of the buffer. The local ULP can do this either by explicitly revoking remote access rights for the STag when the Remote Peer indicates the operation has completed, or by checking to make sure the Remote Peer invalidated the STag through the RDMAP Remote Invalidate capability. If the Remote Peer did not invalidate the STag, the local ULP then explicitly revokes the STag remote access rights. (See Section 6.4.5, Remote Invalidate an STag Shared on Multiple Streams for a definition of Remote Invalidate.)",
+      "zh-CHS": "本地ULP可以通过在原始数据传输完成且验证缓冲区内容之前撤销远程访问来保护自己免受此类攻击。本地ULP可以通过在远程对等方指示操作已完成时显式撤销STag的远程访问权限，或者通过检查以确保远程对等方通过RDMAP remote Invalidate功能使STag无效来实现这一点。如果远程对等方未使STag无效，则本地ULP将显式撤销STag远程访问权限。（有关远程失效的定义，请参见第6.4.5节“远程失效多个流上共享的STag”。）"
+    },
+    {
+      "indent": 3,
+      "text": "The local ULP SHOULD follow the above procedure to protect the buffer before it validates the contents of the buffer (or uses the buffer in any way).",
+      "zh-CHS": "本地ULP在验证缓冲区内容（或以任何方式使用缓冲区）之前，应遵循上述步骤保护缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "An RNIC MUST ensure that network packets using the STag for a previously Advertised Buffer can no longer modify the buffer after the ULP revokes remote access rights for the specific STag.",
+      "zh-CHS": "RNIC必须确保在ULP撤销特定STag的远程访问权限后，将STag用于先前公布的缓冲区的网络数据包不能再修改缓冲区。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2.3. Multiple STags to Access the Same Buffer",
+      "section_title": true,
+      "zh-CHS": "6.2.3. 多个stag访问同一缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "See Section 6.3.6 Using Multiple STags That Alias to the Same Buffer, for this analysis.",
+      "zh-CHS": "有关此分析，请参阅第6.3.6节使用别名为同一缓冲区的多个stag。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3. Information Disclosure",
+      "section_title": true,
+      "zh-CHS": "6.3. 信息披露"
+    },
+    {
+      "indent": 3,
+      "text": "The main potential source for information disclosure is through a local buffer that has been enabled for remote access. If the buffer can be probed by a Remote Peer on another Stream, then there is potential for information disclosure.",
+      "zh-CHS": "信息披露的主要潜在来源是通过已启用远程访问的本地缓冲区。如果缓冲区可以被另一个流上的远程对等方探测，那么就有可能发生信息泄露。"
+    },
+    {
+      "indent": 3,
+      "text": "The potential attacks that could result in unintended information disclosure and countermeasures are detailed in the following sections.",
+      "zh-CHS": "可能导致意外信息披露的潜在攻击和对策在以下章节中详细说明。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3.1. Probing Memory Outside of the Buffer Bounds",
+      "section_title": true,
+      "zh-CHS": "6.3.1. 探测缓冲区边界之外的内存"
+    },
+    {
+      "indent": 3,
+      "text": "This is essentially the same attack as described in Section 6.2.1, Buffer Overrun - RDMA Write or Read Response, except that an RDMA Read Request is used to mount the attack. The same countermeasure applies.",
+      "zh-CHS": "这与第6.2.1节“缓冲区溢出-RDMA写入或读取响应”中描述的攻击基本相同，只是使用RDMA读取请求装载攻击。同样的对策也适用。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3.2. Using RDMA Read to Access Stale Data",
+      "section_title": true,
+      "zh-CHS": "6.3.2. 使用RDMA Read访问过时数据"
+    },
+    {
+      "indent": 3,
+      "text": "If a buffer is being used for some combination of reads and writes (either remote or local), and is exposed to a Remote Peer with at least remote read access rights before it is initialized with the correct data, there is a potential race condition where the Remote Peer can view the prior contents of the buffer. This becomes a security issue if the prior contents of the buffer were not intended to be shared with the Remote Peer.",
+      "zh-CHS": "如果缓冲区用于某种读写组合（远程或本地），并且在使用正确的数据初始化之前暴露给至少具有远程读访问权限的远程对等方，则存在潜在的竞争条件，远程对等方可以查看缓冲区的先前内容。如果缓冲区先前的内容不打算与远程对等方共享，则这将成为一个安全问题。"
+    },
+    {
+      "indent": 3,
+      "text": "To eliminate this race condition, the local ULP SHOULD ensure that no stale data is contained in the buffer before remote read access rights are granted (this can be done by zeroing the contents of the memory, for example). This ensures that the Remote Peer cannot access the buffer until the stale data has been removed.",
+      "zh-CHS": "为了消除这种竞争条件，本地ULP应确保在授予远程读取访问权限之前，缓冲区中不包含任何过时数据（例如，可以通过将内存内容归零来实现）。这将确保远程对等方在删除过时数据之前无法访问缓冲区。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3.3. Accessing a Buffer after the Transfer",
+      "section_title": true,
+      "zh-CHS": "6.3.3. 传输后访问缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "If the Remote Peer has remote read access to a buffer and, by some mechanism, tells the local ULP that the transfer has been completed, but the local ULP does not disable remote access to the buffer before modifying the data, it is possible for the Remote Peer to retrieve the new data.",
+      "zh-CHS": "如果远程对等方具有对缓冲区的远程读取访问权限，并且通过某种机制告知本地ULP传输已完成，但本地ULP在修改数据之前未禁用对缓冲区的远程访问，则远程对等方可以检索新数据。"
+    },
+    {
+      "indent": 3,
+      "text": "This is similar to the attack defined in Section 6.2.2, Modifying a Buffer after Indication. The same countermeasures apply. In addition, the local ULP SHOULD grant remote read access rights only for the amount of time needed to retrieve the data.",
+      "zh-CHS": "这类似于第6.2.2节中定义的攻击，在指示后修改缓冲区。同样的对策也适用。此外，本地ULP应仅为检索数据所需的时间授予远程读取访问权限。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3.4. Accessing Unintended Data with a Valid STag",
+      "section_title": true,
+      "zh-CHS": "6.3.4. 使用有效STag访问意外数据"
+    },
+    {
+      "indent": 3,
+      "text": "If the ULP enables remote access to a buffer using an STag that references the entire buffer, but intends only a portion of the buffer to be accessed, it is possible for the Remote Peer to access the other parts of the buffer anyway.",
+      "zh-CHS": "如果ULP使用引用整个缓冲区的STag启用对缓冲区的远程访问，但仅打算访问缓冲区的一部分，则远程对等方仍有可能访问缓冲区的其他部分。"
+    },
+    {
+      "indent": 3,
+      "text": "To prevent this attack, the ULP SHOULD set the base and bounds of the buffer when the STag is initialized to expose only the data to be retrieved.",
+      "zh-CHS": "为了防止这种攻击，ULP应该在STag初始化时设置缓冲区的基和边界，以仅公开要检索的数据。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3.5. RDMA Read into an RDMA Write Buffer",
+      "section_title": true,
+      "zh-CHS": "6.3.5. RDMA读入RDMA写入缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "One form of disclosure can occur if the access rights on the buffer enabled remote read, when only remote write access was intended. If the buffer contained ULP data, or data from a transfer on an unrelated Stream, the Remote Peer could retrieve the data through an RDMA Read operation. Note that an RNIC implementation is not required to support STags that have both read and write access.",
+      "zh-CHS": "如果缓冲区上的访问权限启用了远程读取，而只打算进行远程写入访问，则可能会发生一种形式的公开。如果缓冲区包含ULP数据，或来自无关流传输的数据，则远程对等方可以通过RDMA读取操作检索数据。请注意，支持具有读写访问权限的STAG不需要RNIC实现。"
+    },
+    {
+      "indent": 3,
+      "text": "The most obvious countermeasure for this attack is to not grant remote read access if the buffer is intended to be write-only. Then the Remote Peer would not be able to retrieve data associated with the buffer. An attempt to do so would result in an error and the RDMAP Stream associated with the Stream would be terminated.",
+      "zh-CHS": "此攻击最明显的对策是，如果缓冲区打算仅写，则不授予远程读取访问权限。然后远程对等方将无法检索与缓冲区关联的数据。尝试这样做将导致错误，并且与该流关联的RDMAP流将被终止。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, if a ULP only intends a buffer to be exposed for remote write access, it MUST set the access rights to the buffer to only enable remote write access. Note that this requirement is not meant to restrict the use of zero-length RDMA Reads. Zero-length RDMA Reads do not expose ULP data. Because they are intended to be used as a mechanism to ensure that all RDMA Writes have been received, and do not even require a valid STag, their use is permitted even if a buffer has only been enabled for write access.",
+      "zh-CHS": "因此，如果ULP仅打算为远程写访问公开缓冲区，则必须将缓冲区的访问权限设置为仅启用远程写访问。请注意，此要求并不意味着限制使用零长度RDMA读取。零长度RDMA读取不公开ULP数据。由于它们旨在用作确保已接收所有RDMA写入的机制，甚至不需要有效的STag，因此即使仅为写入访问启用了缓冲区，也允许使用它们。"
+    },
+    {
+      "indent": 0,
+      "text": "6.3.6. Using Multiple STags That Alias to the Same Buffer",
+      "section_title": true,
+      "zh-CHS": "6.3.6. 使用别名为同一缓冲区的多个stag"
+    },
+    {
+      "indent": 3,
+      "text": "Multiple STags that alias to the same buffer at the same time can result in unintentional information disclosure if the STags are used by different, mutually untrusted Remote Peers. This model applies specifically to client/server communication, where the server is communicating with multiple clients, each of which do not mutually trust each other.",
+      "zh-CHS": "如果多个stag被不同的、相互不信任的远程对等方使用，则同时别名到同一缓冲区的多个stag可能会导致无意的信息泄露。此模型特别适用于客户机/服务器通信，其中服务器与多个客户机通信，每个客户机之间互不信任。"
+    },
+    {
+      "indent": 3,
+      "text": "If only read access is enabled, then the local ULP has complete control over information disclosure. Thus, a server that intended to expose the same data (i.e., buffer) to multiple clients by using multiple STags to the same buffer creates no new security issues",
+      "zh-CHS": "如果仅启用读取访问，则本地ULP可以完全控制信息披露。因此，如果服务器打算通过在同一缓冲区中使用多个stag向多个客户机公开相同的数据（即缓冲区），则不会产生新的安全问题"
+    },
+    {
+      "indent": 3,
+      "text": "beyond what has already been described in this document. Note that if the server did not intend to expose the same data to the clients, it should use separate buffers for each client (and separate STags).",
+      "zh-CHS": "超出本文件中已描述的范围。请注意，如果服务器不打算向客户机公开相同的数据，则应为每个客户机（和单独的stag）使用单独的缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "When one STag has remote read access enabled and a different STag has remote write access enabled to the same buffer, it is possible for one Remote Peer to view the contents that have been written by another Remote Peer.",
+      "zh-CHS": "当一个STag启用了远程读取访问，而另一个STag启用了对同一缓冲区的远程写入访问时，一个远程对等方可以查看另一个远程对等方写入的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "If both STags have remote write access enabled and the two Remote Peers do not mutually trust each other, it is possible for one Remote Peer to overwrite the contents that have been written by the other Remote Peer.",
+      "zh-CHS": "如果两个STAG都启用了远程写访问，并且两个远程对等方彼此不信任，则一个远程对等方可能会覆盖另一个远程对等方已写入的内容。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, a ULP with multiple Remote Peers that do not share Partial Mutual Trust MUST NOT grant write access to the same buffer through different STags. A buffer should be exposed to only one untrusted Remote Peer at a time to ensure that no information disclosure or information tampering occurs between peers.",
+      "zh-CHS": "因此，具有多个不共享部分互信的远程对等方的ULP不得通过不同的stag授予对同一缓冲区的写访问权。缓冲区一次只能暴露给一个不受信任的远程对等方，以确保对等方之间不会发生信息泄露或信息篡改。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4. Denial of Service (DOS)",
+      "section_title": true,
+      "zh-CHS": "6.4. 拒绝服务（DOS）"
+    },
+    {
+      "indent": 3,
+      "text": "A DOS attack is one of the primary security risks of RDMAP. This is because RNIC resources are valuable and scarce, and many ULP environments require communication with untrusted Remote Peers. If the Remote Peer can be authenticated or the ULP payload encrypted, clearly, the DOS profile can be reduced. For the purposes of this analysis, it is assumed that the RNIC must be able to operate in untrusted environments, which are open to DOS-style attacks.",
+      "zh-CHS": "DOS攻击是RDMAP的主要安全风险之一。这是因为RNIC资源宝贵且稀缺，许多ULP环境需要与不受信任的远程对等方进行通信。如果可以对远程对等方进行身份验证或对ULP有效负载进行加密，则显然可以减少DOS配置文件。在本分析中，假设RNIC必须能够在不受信任的环境中运行，这些环境容易受到DOS攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Denial of service attacks against RNIC resources are not the typical unknown party spraying packets at a random host (such as a TCP SYN attack). Because the connection/Stream must be fully established (e.g., a 3-message transport layer handshake has occurred), the attacker must be able to both send and receive messages over that connection/Stream, or be able to guess a valid packet on an existing RDMAP Stream.",
+      "zh-CHS": "针对RNIC资源的拒绝服务攻击不是在随机主机上喷洒数据包的典型未知方攻击（例如TCP SYN攻击）。由于必须完全建立连接/流（例如，发生了3消息传输层握手），攻击者必须能够通过该连接/流发送和接收消息，或者能够猜测现有RDMAP流上的有效数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "This section outlines the potential attacks and the countermeasures available for dealing with each attack.",
+      "zh-CHS": "本节概述了潜在的攻击以及可用于应对每次攻击的对策。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.1. RNIC Resource Consumption",
+      "section_title": true,
+      "zh-CHS": "6.4.1. 资源消耗"
+    },
+    {
+      "indent": 3,
+      "text": "This section covers attacks that fall into the general category of a local ULP attempting to unfairly allocate scarce (i.e., bounded) RNIC resources. The local ULP may be attempting to allocate resources on its own behalf, or on behalf of a Remote Peer. Resources that fall into this category include Protection Domains, Stream Context Memory,",
+      "zh-CHS": "本节介绍属于本地ULP一般类别的攻击，这些攻击试图不公平地分配稀缺（即有界）RNIC资源。本地ULP可能正试图代表自己或代表远程对等方分配资源。属于此类别的资源包括保护域、流上下文内存、，"
+    },
+    {
+      "indent": 3,
+      "text": "Translation and Protection Tables, and STag namespace. These can be due to attacks by currently active local ULPs or ones that allocated resources earlier but are now idle.",
+      "zh-CHS": "转换和保护表，以及STag命名空间。这可能是由于当前活动的本地ULP或先前分配了资源但现在处于空闲状态的本地ULP发起的攻击造成的。"
+    },
+    {
+      "indent": 3,
+      "text": "This type of attack can occur regardless of whether resources are shared across Streams.",
+      "zh-CHS": "无论资源是否跨流共享，都可能发生这种类型的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The allocation of all scarce resources MUST be placed under the control of a Privileged Resource Manager. This allows the Privileged Resource Manager to:",
+      "zh-CHS": "所有稀缺资源的分配必须置于特权资源管理器的控制之下。这允许特权资源管理器："
+    },
+    {
+      "indent": 3,
+      "text": "* prevent a local ULP from allocating more than its fair share of resources.",
+      "zh-CHS": "* 防止本地ULP分配的资源超过其公平份额。"
+    },
+    {
+      "indent": 3,
+      "text": "* detect if a Remote Peer is attempting to launch a DOS attack by attempting to create an excessive number of Streams (with associated resources) and take corrective action (such as refusing the request or applying network layer filters against the Remote Peer).",
+      "zh-CHS": "* 通过尝试创建过多的流（带有相关资源）来检测远程对等方是否试图发起DOS攻击，并采取纠正措施（例如拒绝请求或对远程对等方应用网络层筛选器）。"
+    },
+    {
+      "indent": 3,
+      "text": "This analysis assumes that the Resource Manager is responsible for handing out Protection Domains, and that RNIC implementations will provide enough Protection Domains to allow the Resource Manager to be able to assign a unique Protection Domain for each unrelated, untrusted local ULP (for a bounded, reasonable number of local ULPs). This analysis further assumes that the Resource Manager implements policies to ensure that untrusted local ULPs are not able to consume all the Protection Domains through a DOS attack. Note that Protection Domain consumption cannot result from a DOS attack launched by a Remote Peer, unless a local ULP is acting on the Remote Peer's behalf.",
+      "zh-CHS": "此分析假设资源管理器负责分发保护域，并且RNIC实施将提供足够的保护域，以允许资源管理器能够为每个不相关、不受信任的本地ULP（对于有限、合理数量的本地ULP）分配唯一的保护域。此分析进一步假设资源管理器实施策略，以确保不受信任的本地ULP无法通过DOS攻击使用所有保护域。请注意，保护域消耗不能由远程对等方发起的DOS攻击导致，除非本地ULP代表远程对等方行事。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.2. Resource Consumption by Idle ULPs",
+      "section_title": true,
+      "zh-CHS": "6.4.2. 空闲ULP的资源消耗"
+    },
+    {
+      "indent": 3,
+      "text": "The simplest form of a DOS attack, given a fixed amount of resources, is for the Remote Peer to create an RDMAP Stream to a Local Peer, request dedicated resources, and then do no actual work. This allows the Remote Peer to be very light weight (i.e., only negotiate resources, but do no data transfer) and consumes a disproportionate amount of resources at the Local Peer.",
+      "zh-CHS": "在给定固定资源量的情况下，DOS攻击的最简单形式是远程对等方创建一个到本地对等方的RDMAP流，请求专用资源，然后不做任何实际工作。这使得远程对等体重量非常轻（即，仅协商资源，但不进行数据传输），并且在本地对等体消耗不成比例的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "A general countermeasure for this style of attack is to monitor active RDMAP Streams and, if resources are getting low, to reap the resources from RDMAP Streams that are not transferring data and possibly terminate the Stream. This would presumably be under administrative control.",
+      "zh-CHS": "这种攻击的一般对策是监视活动RDMAP流，如果资源越来越少，则从未传输数据的RDMAP流中获取资源，并可能终止该流。这大概是在行政控制之下。"
+    },
+    {
+      "indent": 3,
+      "text": "Refer to Section 6.4.1 for the analysis and countermeasures for this style of attack on the following RNIC resources: Stream Context Memory, Page Translation Tables, and STag namespace.",
+      "zh-CHS": "请参阅第6.4.1节，了解针对以下RNIC资源的此类攻击的分析和对策：流上下文内存、页面转换表和STag命名空间。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that some RNIC resources are not at risk of this type of attack from a Remote Peer because an attack requires the Remote Peer to send messages in order to consume the resource. Receive Data Buffers, Completion Queue, and RDMA Read Request Queue resources are examples. These resources are, however, at risk from a local ULP that attempts to allocate resources, then goes idle. This could also be created if the ULP negotiates the resource levels with the Remote Peer, which causes the Local Peer to consume resources; however, the Remote Peer never sends data to consume them. The general countermeasure described in this section can be used to free resources allocated by an idle Local Peer.",
+      "zh-CHS": "请注意，某些RNIC资源没有受到来自远程对等方的此类攻击的风险，因为攻击需要远程对等方发送消息以消耗资源。例如，接收数据缓冲区、完成队列和RDMA读取请求队列资源。然而，这些资源面临着本地ULP的风险，该ULP试图分配资源，然后变为空闲。如果ULP与远程对等方协商资源级别，这也会导致本地对等方消耗资源；但是，远程对等方从不发送数据来使用它们。本节中描述的一般对策可用于释放空闲本地对等方分配的资源。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.3. Resource Consumption by Active ULPs",
+      "section_title": true,
+      "zh-CHS": "6.4.3. 主动ULP的资源消耗"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes DOS attacks from Local and Remote Peers that are actively exchanging messages. Attacks on each RDMA NIC resource are examined and specific countermeasures are identified. Note that attacks on Stream Context Memory, Page Translation Tables, and STag namespace are covered in Section 6.4.1, RNIC Resource Consumption, so they are not included here.",
+      "zh-CHS": "本节介绍来自主动交换消息的本地和远程对等方的DOS攻击。检查对每个RDMA NIC资源的攻击，并确定具体的对策。请注意，第6.4.1节RNIC资源消耗中介绍了对流上下文内存、页面转换表和STag命名空间的攻击，因此此处不包括这些攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.3.1. Multiple Streams Sharing Receive Buffers",
+      "section_title": true,
+      "zh-CHS": "6.4.3.1. 多个流共享接收缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "The Remote Peer can attempt to consume more than its fair share of receive Data Buffers (i.e., Untagged Buffers for DDP or Send Type Messages for RDMAP) if receive buffers are shared across multiple Streams.",
+      "zh-CHS": "如果接收缓冲区在多个流中共享，远程对等方可以尝试消耗超过其公平份额的接收数据缓冲区（即DDP的未标记缓冲区或RDMAP的发送类型消息）。"
+    },
+    {
+      "indent": 3,
+      "text": "If resources are not shared across multiple Streams, then this attack is not possible because the Remote Peer will not be able to consume more buffers than were allocated to the Stream. The worst case scenario is that the Remote Peer can consume more receive buffers than the local ULP allowed, resulting in no buffers being available, which could cause the Remote Peer's Stream to the Local Peer to be torn down, and all allocated resources to be released.",
+      "zh-CHS": "如果资源未在多个流之间共享，则此攻击不可能发生，因为远程对等方将无法使用比分配给流的缓冲区更多的缓冲区。最坏的情况是，远程对等方可以使用比本地ULP允许的更多的接收缓冲区，导致没有可用的缓冲区，这可能会导致远程对等方到本地对等方的流被中断，并且释放所有分配的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "If local receive Data Buffers are shared among multiple Streams, then the Remote Peer can attempt to consume more than its fair share of the receive buffers, causing a different Stream to be short of receive buffers, and thus, possibly causing the other Stream to be torn down. For example, if the Remote Peer sent enough one-byte Untagged Messages, they might be able to consume all locally shared, receive queue resources with little effort on their part.",
+      "zh-CHS": "如果本地接收数据缓冲区在多个流之间共享，则远程对等方可以尝试消耗超过其公平份额的接收缓冲区，从而导致不同的流缺少接收缓冲区，从而可能导致另一个流被破坏。例如，如果远程对等方发送了足够多的单字节未标记消息，则它们可能能够使用所有本地共享的、接收队列资源，而无需付出多少努力。"
+    },
+    {
+      "indent": 3,
+      "text": "One method the Local Peer could use is to recognize that a Remote Peer is attempting to use more than its fair share of resources and terminate the Stream (causing the allocated resources to be released). However, if the Local Peer is sufficiently slow, it may be possible for the Remote Peer to still mount a denial of service attack. One countermeasure that can protect against this attack is implementing a low-water notification. The low-water notification alerts the ULP if the number of buffers in the receive queue is less than a threshold.",
+      "zh-CHS": "本地对等方可以使用的一种方法是识别远程对等方正试图使用超过其公平份额的资源，并终止流（导致释放分配的资源）。但是，如果本地对等方速度足够慢，则远程对等方仍可能发起拒绝服务攻击。一种可以防止这种攻击的对策是实施低水位通知。如果接收队列中的缓冲区数量小于阈值，低水位通知将向ULP发出警报。"
+    },
+    {
+      "indent": 3,
+      "text": "If all the following conditions are true, then the Local Peer or local ULP can size the amount of local receive buffers posted on the receive queue to ensure a DOS attack can be stopped.",
+      "zh-CHS": "如果以下所有条件均为真，则本地对等方或本地ULP可以调整发送到接收队列上的本地接收缓冲区的大小，以确保可以停止DOS攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "* A low-water notification is enabled, and",
+      "zh-CHS": "* 低水位通知已启用，并且"
+    },
+    {
+      "indent": 3,
+      "text": "* The Local Peer is able to bound the amount of time that it takes to replenish receive buffers, and",
+      "zh-CHS": "* 本地对等方能够限制补充接收缓冲区所需的时间，以及"
+    },
+    {
+      "indent": 3,
+      "text": "* The Local Peer maintains statistics to determine which Remote Peer is consuming buffers.",
+      "zh-CHS": "* 本地对等方维护统计信息以确定哪个远程对等方正在使用缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "The above conditions enable the low-water notification to arrive before resources are depleted, and thus, the Local Peer or local ULP can take corrective action (e.g., terminate the Stream of the attacking Remote Peer).",
+      "zh-CHS": "上述条件使得低水位通知能够在资源耗尽之前到达，因此，本地对等方或本地ULP可以采取纠正措施（例如，终止攻击远程对等方的流）。"
+    },
+    {
+      "indent": 3,
+      "text": "A different, but similar, attack is if the Remote Peer sends a significant number of out-of-order packets and the RNIC has the ability to use the ULP buffer (i.e., the Untagged Buffer for DDP or the buffer consumed by a Send Type Message for RDMAP) as a reassembly buffer. In this case, the Remote Peer can consume a significant number of ULP buffers, but never send enough data to enable the ULP buffer to be completed to the ULP.",
+      "zh-CHS": "另一种不同但类似的攻击是，如果远程对等方发送大量无序数据包，并且RNIC能够使用ULP缓冲区（即DDP的未标记缓冲区或RDMAP的发送类型消息所消耗的缓冲区）作为重组缓冲区。在这种情况下，远程对等方可以使用大量ULP缓冲区，但永远不会发送足够的数据以使ULP缓冲区能够完成到ULP。"
+    },
+    {
+      "indent": 3,
+      "text": "An effective countermeasure is to create a high-water notification that alerts the ULP if there is more than a specified number of receive buffers \"in process\" (partially consumed, but not completed). The notification is generated when more than the specified number of buffers are in process simultaneously on a specific Stream (i.e., packets have started to arrive for the buffer, but the buffer has not yet been delivered to the ULP).",
+      "zh-CHS": "一种有效的对策是创建高水位通知，如果“正在处理”的接收缓冲区超过指定数量（部分消耗，但未完成），则向ULP发出警报。当在特定流上同时处理超过指定数量的缓冲区时（即，数据包已开始到达缓冲区，但缓冲区尚未交付到ULP），将生成通知。"
+    },
+    {
+      "indent": 3,
+      "text": "A different countermeasure is for the RNIC Engine to provide the capability to limit the Remote Peer's ability to consume receive buffers on a per Stream basis. Unfortunately, this requires a large amount of state to be tracked in each RNIC on a per Stream basis.",
+      "zh-CHS": "另一种对策是RNIC引擎提供限制远程对等方在每个流的基础上使用接收缓冲区的能力。不幸的是，这需要在每个RNIC中按流跟踪大量状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, if an RNIC Engine provides the ability to share receive buffers across multiple Streams, the combination of the RNIC Engine and the Privileged Resource Manager MUST be able to detect if the Remote Peer is attempting to consume more than its fair share of resources so that the Local Peer or local ULP can apply countermeasures to detect and prevent the attack.",
+      "zh-CHS": "因此，如果RNIC引擎能够跨多个流共享接收缓冲区，RNIC引擎和特权资源管理器的组合必须能够检测远程对等方是否试图消耗超过其公平份额的资源，以便本地对等方或本地ULP可以应用对策来检测和防止攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.3.2. Remote or Local Peer Attacking a Shared CQ",
+      "section_title": true,
+      "zh-CHS": "6.4.3.2. 远程或本地对等方攻击共享CQ"
+    },
+    {
+      "indent": 3,
+      "text": "For an overview of the shared CQ attack model, see Section 7.1.",
+      "zh-CHS": "有关共享CQ攻击模型的概述，请参见第7.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "The Remote Peer can attack a shared CQ by consuming more than its fair share of CQ entries by using one of the following methods:",
+      "zh-CHS": "远程对等方可以通过使用以下方法之一消耗超过其公平份额的CQ条目来攻击共享CQ："
+    },
+    {
+      "indent": 3,
+      "text": "* The ULP protocol allows the Remote Peer to cause the local ULP to reserve a specified number of CQ entries, possibly leaving insufficient entries for other Streams that are sharing the CQ.",
+      "zh-CHS": "* ULP协议允许远程对等方使本地ULP保留指定数量的CQ条目，可能为共享CQ的其他流留下不足的条目。"
+    },
+    {
+      "indent": 3,
+      "text": "* If the Remote Peer, Local Peer, or local ULP (or any combination) can attack the CQ by overwhelming the CQ with completions, then completion processing on other Streams sharing that Completion Queue can be affected (e.g., the Completion Queue overflows and stops functioning).",
+      "zh-CHS": "* 如果远程对等方、本地对等方或本地ULP（或任何组合）可以通过用完成压倒CQ来攻击CQ，则共享该完成队列的其他流上的完成处理可能会受到影响（例如，完成队列溢出并停止工作）。"
+    },
+    {
+      "indent": 3,
+      "text": "The first method of attack can be avoided if the ULP does not allow a Remote Peer to reserve CQ entries, or if there is a trusted intermediary, such as a Privileged Resource Manager. Unfortunately, it is often unrealistic not to allow a Remote Peer to reserve CQ entries, particularly if the number of completion entries is dependent on other ULP negotiated parameters, such as the amount of buffering required by the ULP. Thus, an implementation MUST implement a Privileged Resource Manager to control the allocation of CQ entries. See Section 2.1, Components, for a definition of a Privileged Resource Manager.",
+      "zh-CHS": "如果ULP不允许远程对等方保留CQ条目，或者如果存在诸如特权资源管理器之类的可信中介，则可以避免第一种攻击方法。不幸的是，不允许远程对等方保留CQ条目通常是不现实的，特别是如果完成条目的数量取决于其他ULP协商参数，例如ULP所需的缓冲量。因此，实现必须实现特权资源管理器来控制CQ条目的分配。有关特权资源管理器的定义，请参见第2.1节“组件”。"
+    },
+    {
+      "indent": 3,
+      "text": "One way that a Local or Remote Peer can attempt to overwhelm a CQ with completions is by sending minimum length RDMAP/DDP Messages to cause as many completions (receive completions for the Remote Peer, send completions for the Local Peer) per second as possible. If it is the Remote Peer attacking, and we assume that the Local Peer's receive queue(s) do not run out of receive buffers (if they do, then this is a different attack, documented in Section 6.4.3.1 Multiple Streams Sharing Receive Buffers), then it might be possible for the Remote Peer to consume more than its fair share of Completion Queue entries. Depending upon the CQ implementation, this could either cause the CQ to overflow (if it is not large enough to handle all the completions generated) or for another Stream not to be able to generate CQ entries (if the RNIC had flow control on generation of CQ",
+      "zh-CHS": "本地或远程对等方可以尝试通过完成来压倒CQ的一种方法是发送最小长度的RDMAP/DDP消息，以使每秒完成的次数尽可能多（接收远程对等方的完成，发送本地对等方的完成）。如果是远程对等方攻击，并且我们假设本地对等方的接收队列没有用尽接收缓冲区（如果有，则这是另一种攻击，记录在第6.4.3.1节“多流共享接收缓冲区”中），然后，远程对等方可能消耗超过其公平份额的完成队列条目。取决于CQ实现，这可能导致CQ溢出（如果它不足以处理生成的所有完成），或者另一个流无法生成CQ条目（如果RNIC对CQ的生成具有流控制）"
+    },
+    {
+      "indent": 3,
+      "text": "entries into the CQ). In either case, the CQ will stop functioning correctly, and any Streams expecting completions on the CQ will stop functioning.",
+      "zh-CHS": "进入CQ的条目）。在任何一种情况下，CQ都将停止正常运行，任何期望CQ上完成的流都将停止运行。"
+    },
+    {
+      "indent": 3,
+      "text": "This attack can occur regardless of whether all the Streams associated with the CQ are in the same or different Protection Domains - the key issue is that the number of Completion Queue entries is less than the number of all outstanding operations that can cause a completion.",
+      "zh-CHS": "无论与CQ关联的所有流是否位于相同或不同的保护域中，都可能发生此攻击-关键问题是完成队列条目的数量小于可能导致完成的所有未完成操作的数量。"
+    },
+    {
+      "indent": 3,
+      "text": "The Local Peer can protect itself from this type of attack using either of the following methods:",
+      "zh-CHS": "本地对等方可以使用以下任一方法保护自己免受此类攻击："
+    },
+    {
+      "indent": 3,
+      "text": "* Size the CQ to the appropriate level, as specified below (note that if the CQ currently exists and needs to be resized, resizing the CQ is not required to succeed in all cases, so the CQ resize should be done before sizing the Send Queue and Receive Queue on the Stream), OR",
+      "zh-CHS": "* 如下所述，将CQ调整到适当的级别（注意，如果CQ当前存在并且需要调整大小，则并非所有情况下都需要成功调整CQ的大小，因此在调整流上的发送队列和接收队列的大小之前，应先调整CQ的大小），或者"
+    },
+    {
+      "indent": 3,
+      "text": "* Grant fewer resources than the Remote Peer requested (not supplying the number of Receive Data Buffers requested).",
+      "zh-CHS": "* 授予的资源少于请求的远程对等方（不提供请求的接收数据缓冲区数量）。"
+    },
+    {
+      "indent": 3,
+      "text": "The proper sizing of the CQ is dependent on whether the local ULP(s) will post as many resources to the various queues as the size of the queue enables. If the local ULP(s) can be trusted to post a number of resources that is smaller than the size of the specific resource's queue, then a correctly sized CQ means that the CQ is large enough to hold completion status for all the outstanding Data Buffers (both send and receive buffers), or:",
+      "zh-CHS": "CQ的适当大小取决于本地ULP是否将根据队列的大小向各种队列发送尽可能多的资源。如果可以信任本地ULP发布的资源数量小于特定资源队列的大小，那么正确大小的CQ意味着CQ足够大，足以保持所有未完成数据缓冲区（发送和接收缓冲区）的完成状态，或者："
+    },
+    {
+      "indent": 12,
+      "text": "CQ_MIN_SIZE = SUM(MaxPostedOnEachRQ)\n              + SUM(MaxPostedOnEachSRQ)\n              + SUM(MaxPostedOnEachSQ)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Where:",
+      "zh-CHS": "哪里："
+    },
+    {
+      "indent": 11,
+      "text": "MaxPostedOnEachRQ = the maximum number of requests that can cause a completion that will be posted on a specific Receive Queue.",
+      "zh-CHS": "MaxPostedOnEachRQ=可能导致将在特定接收队列上发布的完成的最大请求数。"
+    },
+    {
+      "indent": 11,
+      "text": "MaxPostedOnEachSRQ = the maximum number of requests that can cause a completion that will be posted on a specific Shared Receive Queue.",
+      "zh-CHS": "MaxPostedOnEachSRQ=将在特定共享接收队列上发布的可导致完成的最大请求数。"
+    },
+    {
+      "indent": 11,
+      "text": "MaxPostedOnEachSQ = the maximum number of requests that can cause a completion that will be posted on a specific Send Queue.",
+      "zh-CHS": "MaxPostedOnEachSQ=将在特定发送队列上发布的可导致完成的最大请求数。"
+    },
+    {
+      "indent": 3,
+      "text": "If the local ULP must be able to completely fill the queues, or cannot be trusted to observe a limit smaller than the queues, then the CQ must be sized to accommodate the maximum number of operations that it is possible to post at any one time. Thus, the equation becomes:",
+      "zh-CHS": "如果本地ULP必须能够完全填充队列，或者不能信任其遵守小于队列的限制，则必须调整CQ的大小，以适应在任何时间可以发布的最大操作数。因此，方程式变为："
+    },
+    {
+      "indent": 12,
+      "text": "CQ_MIN_SIZE = SUM(SizeOfEachRQ)\n              + SUM(SizeOfEachSRQ)\n              + SUM(SizeOfEachSQ)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Where:",
+      "zh-CHS": "哪里："
+    },
+    {
+      "indent": 10,
+      "text": "SizeOfEachRQ = the maximum number of requests that can cause a completion that can ever be posted on a specific Receive Queue.",
+      "zh-CHS": "SizeOfEachRQ=可以在特定接收队列上发布完成的最大请求数。"
+    },
+    {
+      "indent": 10,
+      "text": "SizeOfEachSRQ = the maximum number of requests that can cause a completion that can ever be posted on a specific Shared Receive Queue.",
+      "zh-CHS": "SizeOfEachSRQ=可以在特定共享接收队列上发布完成的最大请求数。"
+    },
+    {
+      "indent": 10,
+      "text": "SizeOfEachSQ = the maximum number of requests that can cause a completion that can ever be posted on a specific Send Queue.",
+      "zh-CHS": "SizeOfEachSQ=可以在特定发送队列上发布完成的最大请求数。"
+    },
+    {
+      "indent": 3,
+      "text": "MaxPosted*OnEach*Q and SizeOfEach*Q vary on a per Stream or per Shared Receive Queue basis.",
+      "zh-CHS": "MaxPosted*OnEach*Q和SizeOfEach*Q根据每个流或每个共享接收队列而变化。"
+    },
+    {
+      "indent": 3,
+      "text": "If the ULP is sharing a CQ across multiple Streams that do not share Partial Mutual Trust, then the ULP MUST implement a mechanism to ensure that the Completion Queue does not overflow. Note that it is possible to share CQs even if the Remote Peers accessing the CQs are untrusted if either of the above two formulas are implemented. If the ULP can be trusted not to post more than MaxPostedOnEachRQ, MaxPostedOnEachSRQ, and MaxPostedOnEachSQ, then the first formula applies. If the ULP cannot be trusted to obey the limit, then the second formula applies.",
+      "zh-CHS": "如果ULP在不共享部分互信的多个流之间共享CQ，则ULP必须实现一种机制以确保完成队列不会溢出。注意，如果实现了上述两个公式中的任何一个，则即使访问cq的远程对等方不受信任，也可以共享cq。如果可以信任ULP的发布量不超过MaxPostedOnEachRQ、MaxPostedOnEachSRQ和MaxPostedOnEachSQ，则第一个公式适用。如果无法信任ULP遵守该限制，则第二个公式适用。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.3.3. Attacking the RDMA Read Request Queue",
+      "section_title": true,
+      "zh-CHS": "6.4.3.3. 攻击RDMA读取请求队列"
+    },
+    {
+      "indent": 3,
+      "text": "The RDMA Read Request Queue can be attacked if the Remote Peer sends more RDMA Read Requests than the depth of the RDMA Read Request Queue at the Local Peer. If the RDMA Read Request Queue is a shared resource, this could corrupt the queue. If the queue is not shared, then the worst case is that the current Stream is no longer functional (e.g., torn down). One approach to solving the shared RDMA Read Request Queue would be to create thresholds, similar to those described in Section 6.4.3.1, Multiple Streams Sharing Receive Buffers. A simpler approach is to not share RDMA Read Request Queue",
+      "zh-CHS": "如果远程对等方发送的RDMA读取请求超过本地对等方RDMA读取请求队列的深度，则可能会攻击RDMA读取请求队列。如果RDMA读取请求队列是共享资源，则可能会损坏队列。如果队列未共享，则最坏的情况是当前流不再正常工作（例如，中断）。解决共享RDMA读取请求队列的一种方法是创建阈值，类似于第6.4.3.1节“多个流共享接收缓冲区”中所述的阈值。一种更简单的方法是不共享RDMA读取请求队列"
+    },
+    {
+      "indent": 3,
+      "text": "resources among Streams or to enforce hard limits of consumption per Stream. Thus, RDMA Read Request Queue resource consumption MUST be controlled by the Privileged Resource Manager such that RDMAP/DDP Streams that do not share Partial Mutual Trust do not share RDMA Read Request Queue resources.",
+      "zh-CHS": "流之间的资源或强制每个流的消耗量的硬限制。因此，RDMA读取请求队列资源消耗必须由特权资源管理器控制，以便不共享部分互信的RDMAP/DDP流不共享RDMA读取请求队列资源。"
+    },
+    {
+      "indent": 3,
+      "text": "If the issue is a bug in the Remote Peer's implementation, but not a malicious attack, the issue can be solved by requiring the Remote Peer's RNIC to throttle RDMA Read Requests. By properly configuring the Stream at the Remote Peer through a trusted agent, the RNIC can be made not to transmit RDMA Read Requests that exceed the depth of the RDMA Read Request Queue at the Local Peer. If the Stream is correctly configured, and if the Remote Peer submits more requests than the Local Peer's RDMA Read Request Queue can handle, the requests would be queued at the Remote Peer's RNIC until previous requests complete. If the Remote Peer's Stream is not configured correctly, the RDMAP Stream is terminated when more RDMA Read Requests arrive at the Local Peer than the Local Peer can handle (assuming that the prior paragraph's recommendation is implemented). Thus, an RNIC implementation SHOULD provide a mechanism to cap the number of outstanding RDMA Read Requests. The configuration of this limit is outside the scope of this document.",
+      "zh-CHS": "如果问题是远程对等方实现中的错误，而不是恶意攻击，则可以通过要求远程对等方的RNIC阻止RDMA读取请求来解决问题。通过通过可信代理在远程对等端正确配置流，可以使RNIC不发送超过本地对等端RDMA读取请求队列深度的RDMA读取请求。如果流配置正确，并且如果远程对等方提交的请求超过本地对等方的RDMA读取请求队列可以处理的数量，则请求将在远程对等方的RNIC排队，直到以前的请求完成。如果远程对等方的流配置不正确，当到达本地对等方的RDMA读取请求超过本地对等方可以处理的数量时（假设实现了上一段的建议），RDMAP流将终止。因此，RNIC实现应该提供一种机制来限制未完成的RDMA读取请求的数量。此限制的配置不在本文档的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.4. Exercise of Non-Optimal Code Paths",
+      "section_title": true,
+      "zh-CHS": "6.4.4. 非最佳代码路径的练习"
+    },
+    {
+      "indent": 3,
+      "text": "Another form of a DOS attack is to attempt to exercise data paths that can consume a disproportionate amount of resources. An example might be if error cases are handled on a \"slow path\" (consuming either host or RNIC computational resources), and an attacker generates excessive numbers of errors in an attempt to consume these resources. Note that for most RDMAP or DDP errors, the attacking Stream will simply be torn down. Thus, for this form of attack to be effective, the Remote Peer needs to exercise data paths that do not cause the Stream to be torn down.",
+      "zh-CHS": "DOS攻击的另一种形式是试图使用可能消耗不成比例资源的数据路径。例如，如果错误案例是在“慢路径”（消耗主机或RNIC计算资源）上处理的，则攻击者在尝试消耗这些资源时会产生过多的错误。请注意，对于大多数RDMAP或DDP错误，攻击流将被简单地删除。因此，为了使这种形式的攻击有效，远程对等方需要使用不会导致流中断的数据路径。"
+    },
+    {
+      "indent": 3,
+      "text": "If an RNIC implementation contains \"slow paths\" that do not result in the tear down of the Stream, it is recommended that an implementation provide the ability to detect the above condition and allow an administrator to act, including potentially administratively tearing down the RDMAP Stream associated with the Stream that is exercising data paths, which consume a disproportionate amount of resources.",
+      "zh-CHS": "如果RNIC实现包含不会导致流中断的“慢路径”，建议实现提供检测上述情况的能力，并允许管理员采取行动，包括潜在的管理性破坏与正在执行数据路径的流相关联的RDMAP流，这会消耗不成比例的资源。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.5. Remote Invalidate an STag Shared on Multiple Streams",
+      "section_title": true,
+      "zh-CHS": "6.4.5. 远程使多个流上共享的STag无效"
+    },
+    {
+      "indent": 3,
+      "text": "If a Local Peer has enabled an STag for remote access, the Remote Peer could attempt to remotely invalidate the STag by using the RDMAP Send with Invalidate or Send with SE and Invalidate Message. If the STag is only valid on the current Stream, then the only side effect",
+      "zh-CHS": "如果本地对等方已为远程访问启用STag，则远程对等方可以尝试使用RDMAP Send with invalidate或Send with SE and invalidate消息远程使STag无效。如果STag仅在当前流上有效，则唯一的副作用"
+    },
+    {
+      "indent": 3,
+      "text": "is that the Remote Peer can no longer use the STag; thus, there are no security issues.",
+      "zh-CHS": "远程对等方不能再使用STag；因此，不存在安全问题。"
+    },
+    {
+      "indent": 3,
+      "text": "If the STag is valid across multiple Streams, then the Remote Peer can prevent other Streams from using that STag by using the Remote Invalidate functionality.",
+      "zh-CHS": "如果STag在多个流中有效，则远程对等方可以通过使用远程失效功能防止其他流使用该STag。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, if RDDP Streams do not share Partial Mutual Trust (i.e., the Remote Peer may attempt to remotely invalidate the STag prematurely), the ULP MUST NOT enable an STag that would be valid across multiple Streams.",
+      "zh-CHS": "因此，如果RDDP流不共享部分互信（即，远程对等方可能试图过早地远程使STag无效），则ULP不得启用跨多个流有效的STag。"
+    },
+    {
+      "indent": 0,
+      "text": "6.4.6. Remote Peer Attacking an Unshared CQ",
+      "section_title": true,
+      "zh-CHS": "6.4.6. 远程对等攻击非共享CQ"
+    },
+    {
+      "indent": 3,
+      "text": "The Remote Peer can attack an unshared CQ if the Local Peer does not size the CQ correctly. For example, if the Local Peer enables the CQ to handle completions of received buffers, and the receive buffer queue is longer than the Completion Queue, then an overflow can potentially occur. The effect on the attacker's Stream is catastrophic. However, if an RNIC does not have the proper protections in place, then an attack to overflow the CQ can also cause corruption and/or termination of an unrelated Stream. Thus, an RNIC MUST ensure that if a CQ overflows, any Streams that do not use the CQ MUST remain unaffected.",
+      "zh-CHS": "如果本地对等方未正确调整CQ的大小，则远程对等方可以攻击非共享CQ。例如，如果本地对等方使CQ能够处理接收缓冲区的完成，并且接收缓冲区队列长于完成队列，则可能发生溢出。对攻击者流的影响是灾难性的。但是，如果RNIC没有适当的保护，则溢出CQ的攻击也可能导致损坏和/或终止无关流。因此，RNIC必须确保如果CQ溢出，任何不使用CQ的流必须保持不受影响。"
+    },
+    {
+      "indent": 0,
+      "text": "6.5. Elevation of Privilege",
+      "section_title": true,
+      "zh-CHS": "6.5. 特权的提升"
+    },
+    {
+      "indent": 3,
+      "text": "The RDMAP/DDP Security Architecture explicitly differentiates between three levels of privilege: Non-Privileged, Privileged, and the Privileged Resource Manager. If a Non-Privileged ULP is able to elevate its privilege level to a Privileged ULP, then mapping a physical address list to an STag can provide local and remote access to any physical address location on the node. If a Privileged Mode ULP is able to promote itself to be a Resource Manager, then it is possible for it to perform denial of service type attacks where substantial amounts of local resources could be consumed.",
+      "zh-CHS": "RDMAP/DDP安全体系结构明确区分了三个特权级别：非特权、特权和特权资源管理器。如果非特权ULP能够将其特权级别提升到特权ULP，则将物理地址列表映射到STag可以提供对节点上任何物理地址位置的本地和远程访问。如果特权模式ULP能够将自己提升为资源管理器，则它有可能执行拒绝服务类型的攻击，从而消耗大量本地资源。"
+    },
+    {
+      "indent": 3,
+      "text": "In general, elevation of privilege is a local implementation specific issue and is thus outside the scope of this document.",
+      "zh-CHS": "一般来说，权限提升是本地实现特有的问题，因此不在本文档的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Attacks from Local Peers",
+      "section_title": true,
+      "zh-CHS": "7. 来自本地对等方的攻击"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes local attacks that are possible against the RDMA system defined in Figure 1 - RDMA Security Model and the RNIC Engine resources defined in Section 2.2.",
+      "zh-CHS": "本节描述了可能针对图1-RDMA安全模型中定义的RDMA系统和第2.2节中定义的RNIC引擎资源的本地攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Local ULP Attacking a Shared CQ",
+      "section_title": true,
+      "zh-CHS": "7.1. 本地ULP攻击共享CQ"
+    },
+    {
+      "indent": 3,
+      "text": "DOS attacks against a Shared Completion Queue (CQ - see Section 2.2.6, Completion Queues) can be caused by either the local ULP or the Remote Peer if either attempts to cause more completions than its fair share of the number of entries; thus, potentially starving another unrelated ULP such that no Completion Queue entries are available.",
+      "zh-CHS": "如果本地ULP或远程对等方试图导致的完成次数超过其公平份额的条目数，则可能会导致对共享完成队列（CQ-参见第2.2.6节，完成队列）的DOS攻击；因此，可能会耗尽另一个无关的ULP，从而导致没有可用的完成队列条目。"
+    },
+    {
+      "indent": 3,
+      "text": "A Completion Queue entry can potentially be maliciously consumed by a completion from the Send Queue or a completion from the Receive Queue. In the former, the attacker is the local ULP. In the latter, the attacker is the Remote Peer.",
+      "zh-CHS": "完成队列条目可能被发送队列的完成或接收队列的完成恶意使用。在前者中，攻击者是本地ULP。在后者中，攻击者是远程对等方。"
+    },
+    {
+      "indent": 3,
+      "text": "A form of attack can occur where the local ULPs can consume resources on the CQ. A local ULP that is slow to free resources on the CQ by not reaping the completion status quickly enough could stall all other local ULPs attempting to use that CQ.",
+      "zh-CHS": "当本地ULP可以消耗CQ上的资源时，可能会发生一种形式的攻击。如果本地ULP由于没有足够快地获取完成状态而无法释放CQ上的资源，则可能会暂停尝试使用该CQ的所有其他本地ULP。"
+    },
+    {
+      "indent": 3,
+      "text": "For these reasons, an RNIC MUST NOT enable sharing a CQ across ULPs that do not share Partial Mutual Trust.",
+      "zh-CHS": "出于这些原因，RNIC不得允许在不共享部分互信的ULP之间共享CQ。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Local Peer Attacking the RDMA Read Request Queue",
+      "section_title": true,
+      "zh-CHS": "7.2. 本地对等方攻击RDMA读取请求队列"
+    },
+    {
+      "indent": 3,
+      "text": "If RDMA Read Request Queue resources are pooled across multiple Streams, one attack is if the local ULP attempts to unfairly allocate RDMA Read Request Queue resources for its Streams. For example, a local ULP attempts to allocate all available resources on a specific RDMA Read Request Queue for its Streams, thereby denying the resource to ULPs sharing the RDMA Read Request Queue. The same type of argument applies even if the RDMA Read Request is not shared, but a local ULP attempts to allocate all the RNIC's resources when the queue is created.",
+      "zh-CHS": "如果RDMA读取请求队列资源跨多个流汇集，一种攻击是本地ULP试图为其流不公平地分配RDMA读取请求队列资源。例如，本地ULP尝试为其流分配特定RDMA读取请求队列上的所有可用资源，从而拒绝将资源分配给共享RDMA读取请求队列的ULP。即使RDMA读取请求未共享，但当创建队列时，本地ULP尝试分配RNIC的所有资源，也会应用相同类型的参数。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, access to interfaces that allocate RDMA Read Request Queue entries MUST be restricted to a trusted Local Peer, such as a Privileged Resource Manager. The Privileged Resource Manager SHOULD prevent a local ULP from allocating more than its fair share of resources.",
+      "zh-CHS": "因此，对分配RDMA读取请求队列条目的接口的访问必须限制为受信任的本地对等方，例如特权资源管理器。特权资源管理器应防止本地ULP分配的资源超过其公平份额。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Local ULP Attacking the PTT and STag Mapping",
+      "section_title": true,
+      "zh-CHS": "7.3. 本地ULP攻击PTT和STag映射"
+    },
+    {
+      "indent": 3,
+      "text": "If a Non-Privileged ULP is able to directly manipulate the RNIC Page Translation Tables (which translate from an STag to a host address), it is possible that the Non-Privileged ULP could point the Page Translation Table at an unrelated Stream's or ULP's buffers and, thereby, be able to gain access to information of the unrelated Stream/ULP.",
+      "zh-CHS": "如果非特权ULP能够直接操作RNIC页面转换表（从STag转换到主机地址），则非特权ULP可能将页面转换表指向不相关流或ULP的缓冲区，从而能够访问不相关流/ULP的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in Section 2, Architectural Model, introduction of a Privileged Resource Manager to arbitrate the mapping requests is an effective countermeasure. This enables the Privileged Resource Manager to ensure that a local ULP can only initialize the Page Translation Table (PTT) to point to its own buffers.",
+      "zh-CHS": "正如第2节“体系结构模型”中所讨论的，引入特权资源管理器来仲裁映射请求是一种有效的对策。这使特权资源管理器能够确保本地ULP只能初始化页面转换表（PTT）以指向其自己的缓冲区。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, if Non-Privileged ULPs are supported, the Privileged Resource Manager MUST verify that the Non-Privileged ULP has the right to access a specific Data Buffer before allowing an STag for which the ULP has access rights to be associated with a specific Data Buffer. This can be done when the Page Translation Table is initialized to access the Data Buffer or when the STag is initialized to point to a group of Page Translation Table entries, or both.",
+      "zh-CHS": "因此，如果支持非特权ULP，特权资源管理器必须在允许ULP具有访问权限的STag与特定数据缓冲区关联之前验证非特权ULP是否有权访问特定数据缓冲区。当页面转换表被初始化以访问数据缓冲区时，或者当STag被初始化以指向一组页面转换表条目时，或者当这两种情况同时发生时，可以执行此操作。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Please see Sections 5, Attacks That Can be Mitigated with End-to-End Security; Section 6, Attacks from Remote Peers; and Section 7, Attacks from Local Peers, for a detailed analysis of attacks and normative countermeasures to mitigate the attacks.",
+      "zh-CHS": "请参阅第5节，可通过端到端安全性缓解的攻击；第6节，来自远程对等方的攻击；以及第7节“来自本地对等方的攻击”，详细分析攻击和减轻攻击的规范性对策。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, the appendices provide a summary of the security requirements for specific audiences. Appendix A, ULP Issues for RDDP Client/Server Protocols, provides a summary of implementation issues and requirements for applications that implement a traditional client/server style of interaction. It provides additional insight and applicability of the normative text in Sections 5, 6, and 7. Appendix B, Summary of RNIC and ULP Implementation Requirements, provides a convenient summary of normative requirements for implementers.",
+      "zh-CHS": "此外，附录还总结了特定受众的安全要求。附录A，RDDP客户机/服务器协议的ULP问题，提供了实现传统客户机/服务器交互风格的应用程序的实现问题和要求的摘要。它提供了第5、6和7节中规范性文本的额外见解和适用性。附录B“RNIC和ULP实施要求摘要”为实施者提供了一个方便的规范性要求摘要。"
+    },
+    {
+      "indent": 0,
+      "text": "9. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "9. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA considerations are not addressed by this document. Any IANA considerations resulting from the use of DDP or RDMA must be addressed in the relevant standards.",
+      "zh-CHS": "本文件未涉及IANA注意事项。因使用DDP或RDMA而产生的任何IANA考虑因素必须在相关标准中予以说明。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[DDP] Shah, H., Pinkerton, J., Recio, R., and P. Culley, \"Direct Data Placement over Reliable Transports\", RFC 5041, October 2007.",
+      "zh-CHS": "[DDP]Shah，H.，Pinkerton，J.，Recio，R.，和P.Culley，“可靠传输上的直接数据放置”，RFC 50412007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RDMAP] Recio, R., Culley, P., Garcia, D., and J. Hilland, \"A Remote Direct Memory Access Protocol Specification\", RFC 5040, October 2007.",
+      "zh-CHS": "[RDMAP]Recio，R.，Culley，P.，Garcia，D.，和J.Hilland，“远程直接内存访问协议规范”，RFC 50402007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2401] Kent, S. and R. Atkinson, \"Security Architecture for the Internet Protocol\", RFC 2401, November 1998.",
+      "zh-CHS": "[RFC2401]Kent，S.和R.Atkinson，“互联网协议的安全架构”，RFC 2401，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2402] Kent, S. and R. Atkinson, \"IP Authentication Header\", RFC 2402, November 1998.",
+      "zh-CHS": "[RFC2402]Kent，S.和R.Atkinson，“IP认证头”，RFC 2402，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2406] Kent, S. and R. Atkinson, \"IP Encapsulating Security Payload (ESP)\", RFC 2406, November 1998.",
+      "zh-CHS": "[RFC2406]Kent，S.和R.Atkinson，“IP封装安全有效载荷（ESP）”，RFC 2406，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2409] Harkins, D. and D. Carrel, \"The Internet Key Exchange (IKE)\", RFC 2409, November 1998.",
+      "zh-CHS": "[RFC2409]Harkins，D.和D.Carrel，“互联网密钥交换（IKE）”，RFC 2409，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3723] Aboba, B., Tseng, J., Walker, J., Rangan, V., and F. Travostino, \"Securing Block Storage Protocols over IP\", RFC 3723, April 2004.",
+      "zh-CHS": "[RFC3723]Aboba，B.，Tseng，J.，Walker，J.，Rangan，V.，和F.Travostino，“通过IP保护块存储协议”，RFC 37232004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4960] Stewart, R., Ed., \"Stream Control Transmission Protocol\", RFC 4960, September 2007.",
+      "zh-CHS": "[RFC4960]Stewart，R.，Ed.“流控制传输协议”，RFC 49602007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[RFC793]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4301] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[RFC4301]Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4346] Dierks, T. and E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.1\", RFC 4346, April 2006.",
+      "zh-CHS": "[RFC4346]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.1”，RFC 4346，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4949] Shirey, R., \"Internet Security Glossary, Version 2\", RFC 4949, August 2007.",
+      "zh-CHS": "[RFC4949]Shirey，R.，“互联网安全术语表，第2版”，RFC 49492007年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[APPLICABILITY] Bestler, C. and L. Coene, \"Applicability of Remote Direct Memory Access Protocol (RDMA) and Direct Data Placement (DDP)\", RFC 5045, October 2007.",
+      "zh-CHS": "[适用性]Bestler，C.和L.Coene，“远程直接内存访问协议（RDMA）和直接数据放置（DDP）的适用性”，RFC 50452007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NFSv4CHANNEL] Williams, N., \"On the Use of Channel Bindings to Secure Channels\", Work in Progress, July 2004.",
+      "zh-CHS": "[NFSv4CHANNEL]Williams，N.，“关于使用通道绑定保护通道”，正在进行的工作，2004年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[VERBS-RDMAC] \"RDMA Protocol Verbs Specification\", RDMA Consortium standard, April 2003, <http://www.rdmaconsortium.org/ home/draft-hilland-iwarp-verbs-v1.0-RDMAC.pdf>.",
+      "zh-CHS": "[VERBS-RDMAC]“RDMA协议VERBS规范”，RDMA联盟标准，2003年4月<http://www.rdmaconsortium.org/ home/draft-hilland-iwarp-verbs-v1.0-RDMAC.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[VERBS-RDMAC-Overview] \"RDMA enabled NIC (RNIC) Verbs Overview\", slide presentation by Renato Recio, April 2003, <http://www.rdmaconsortium.org/home/ RNIC_Verbs_Overview2.pdf>.",
+      "zh-CHS": "[动词RDMAC概述]“支持RDMA的NIC（RNIC）动词概述”，Renato Recio的幻灯片演示，2003年4月<http://www.rdmaconsortium.org/home/ RNIC动词概览2.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3552] Rescorla, E. and B. Korver, \"Guidelines for Writing RFC Text on Security Considerations\", BCP 72, RFC 3552, July 2003.",
+      "zh-CHS": "[RFC3552]Rescorla，E.和B.Korver，“关于安全考虑的RFC文本编写指南”，BCP 72，RFC 3552，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[INFINIBAND] \"InfiniBand Architecture Specification Volume 1\", release 1.2, InfiniBand Trade Association standard, <http://www.infinibandta.org/specs>. Verbs are documented in chapter 11.",
+      "zh-CHS": "[INFINIBAND]“INFINIBAND体系结构规范第1卷”，1.2版，INFINIBAND行业协会标准<http://www.infinibandta.org/specs>. 动词记录在第11章中。"
+    },
+    {
+      "indent": 3,
+      "text": "[DTLS] Rescorla, E. and N. Modadugu, \"Datagram Transport Layer Security\", RFC 4347, April 2006.",
+      "zh-CHS": "[DTLS]Rescorla，E.和N.Modadugu，“数据报传输层安全”，RFC 4347，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[iSCSI] Satran, J., Meth, K., Sapuntzakis, C., Chadalapaka, M., and E. Zeidner, \"Internet Small Computer Systems Interface (iSCSI)\", RFC 3720, April 2004.",
+      "zh-CHS": "[iSCSI]Satran，J.，Meth，K.，Sapuntzakis，C.，Chadalapaka，M.，和E.Zeidner，“互联网小型计算机系统接口（iSCSI）”，RFC 3720，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[iSER] Ko, M., Chadalapaka, M., Hufferd, J., Elzur, U., Shah, H., and P. Thaler, \"Internet Small Computer System Interface (iSCSI) Extensions for Remote Direct Memory Access (RDMA)\", RFC 5046, October 2007.",
+      "zh-CHS": "[iSER]Ko，M.，Chadalapaka，M.，Hufferd，J.，Elzur，U.，Shah，H.，和P.Thaler，“用于远程直接内存访问（RDMA）的互联网小型计算机系统接口（iSCSI）扩展”，RFC 50462007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NFSv4] Shepler, S., Callaghan, B., Robinson, D., Thurlow, R., Beame, C., Eisler, M., and D. Noveck, \"Network File System (NFS) version 4 Protocol\", RFC 3530, April 2003.",
+      "zh-CHS": "[NFSv4]Shepler，S.，Callaghan，B.，Robinson，D.，Thurlow，R.，Beame，C.，Eisler，M.，和D.Noveck，“网络文件系统（NFS）版本4协议”，RFC 3530，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NFSv4.1] Shepler, S., Ed., Eisler, M., Ed., and D. Noveck, Ed., \"NFSv4 Minor Version 1\", Work in Progress, September 2007.",
+      "zh-CHS": "[NFSv4.1]Shepler，S.，Ed.，Eisler，M.，Ed.，和D.Noveck，Ed.，“NFSv4次要版本1”，正在进行的工作，2007年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A: ULP Issues for RDDP Client/Server Protocols",
+      "zh-CHS": "附录A:RDDP客户端/服务器协议的ULP问题"
+    },
+    {
+      "indent": 3,
+      "text": "This section is a normative appendix to the document that is focused on client/server ULP implementation requirements to ensure a secure server implementation.",
+      "zh-CHS": "本节是本文档的规范性附录，重点介绍客户机/服务器ULP实施要求，以确保安全的服务器实施。"
+    },
+    {
+      "indent": 3,
+      "text": "The prior sections outlined specific attacks and their countermeasures. This section summarizes the attacks and countermeasures that have been defined in the prior section, which are applicable to creation of a secure ULP (e.g., application) server. A ULP server is defined as a ULP that must be able to communicate with many clients that do not necessarily have a trust relationship with each other, and to ensure that each client cannot attack another client through server interactions. Further, the server may wish to use multiple Streams to communicate with a specific client, and those Streams may share mutual trust. Note that this section assumes a compliant RNIC and Privileged Resource Manager implementation - thus, it focuses specifically on ULP server (e.g., application) implementation issues.",
+      "zh-CHS": "前几节概述了具体的攻击及其对策。本节总结了上一节中定义的攻击和对策，这些攻击和对策适用于创建安全ULP（例如，应用程序）服务器。ULP服务器被定义为ULP，它必须能够与许多不一定彼此具有信任关系的客户端通信，并确保每个客户端不能通过服务器交互攻击另一个客户端。此外，服务器可能希望使用多个流与特定客户端通信，并且这些流可以共享相互信任。请注意，本节假设一个兼容的RNIC和特权资源管理器实现—因此，它特别关注ULP服务器（例如，应用程序）实现问题。"
+    },
+    {
+      "indent": 3,
+      "text": "All of the prior section's details on attacks and countermeasures apply to the server; thus, requirements that are repeated in this section use non-normative \"must\", \"should\", and \"may\". In some cases, normative SHOULD statements for the ULP from the main body of this document are made MUST statements for the ULP server because the operating conditions can be refined to make the motives for a SHOULD inapplicable. If a prior SHOULD is changed to a MUST in this section, it is explicitly noted and it uses uppercase normative statements.",
+      "zh-CHS": "上一节关于攻击和对策的所有详细信息均适用于服务器；因此，本节中重复的要求使用非规范性的“必须”、“应该”和“可以”。在某些情况下，本文件正文中针对ULP的规范性应声明是针对ULP服务器的必须声明，因为可以对操作条件进行优化，以使应的动机不适用。如果本节中的“应该”改为“必须”，则应明确注明，并使用大写规范性陈述。"
+    },
+    {
+      "indent": 3,
+      "text": "The following list summarizes the relevant attacks that clients can mount on the shared server by re-stating the previous normative statements to be client/server specific. Note that each client/server ULP may employ explicit RDMA Operations (RDMA Read, RDMA Write) in differing fashions. Therefore, where appropriate, \"Local ULP\", \"Local Peer\", and \"Remote Peer\" are used in place of \"server\" or \"client\", in order to retain full generality of each requirement.",
+      "zh-CHS": "下面的列表总结了客户端可以通过将以前的规范性语句重新声明为特定于客户端/服务器而装载到共享服务器上的相关攻击。注意，每个客户机/服务器ULP可能以不同的方式使用显式RDMA操作（RDMA读取、RDMA写入）。因此，在适当的情况下，使用“本地ULP”、“本地对等方”和“远程对等方”来代替“服务器”或“客户端”，以保留每个需求的全部通用性。"
+    },
+    {
+      "indent": 3,
+      "text": "* Spoofing",
+      "zh-CHS": "* 欺骗"
+    },
+    {
+      "indent": 5,
+      "text": "* Sections 5.1.1 to 5.1.3. For protection against many forms of spoofing attacks, enable IPsec.",
+      "zh-CHS": "* 第5.1.1至5.1.3节。要防止多种形式的欺骗攻击，请启用IPsec。"
+    },
+    {
+      "indent": 5,
+      "text": "* Section 6.1.1, Using an STag on a Different Stream. To ensure that one client cannot access another client's data via use of the other client's STag, the server ULP must either scope an STag to a single Stream or use a unique Protection Domain per",
+      "zh-CHS": "* 第6.1.1节，在不同河流上使用STag。为了确保一个客户机无法通过使用另一个客户机的STag访问另一个客户机的数据，服务器ULP必须将STag范围限定为单个流，或者为每个流使用唯一的保护域"
+    },
+    {
+      "indent": 9,
+      "text": "client. If a single client has multiple Streams that share Partial Mutual Trust, then the STag can be shared between the associated Streams by using a single Protection Domain among the associated Streams (see Section 5.4.4, ULPs That Provide Security, for additional issues). To prevent unintended sharing of STags within the associated Streams, a server ULP should use STags in such a fashion that it is difficult to predict the next allocated STag number.",
+      "zh-CHS": "客户如果单个客户机有多个共享部分互信的流，则可以通过在关联流之间使用单个保护域在关联流之间共享STag（有关其他问题，请参阅第5.4.4节，提供安全性的ULP）。为了防止在相关流中意外共享STag，服务器ULP应该以难以预测下一个分配的STag数量的方式使用STag。"
+    },
+    {
+      "indent": 3,
+      "text": "* Tampering",
+      "zh-CHS": "* 篡改"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.2.2 Modifying a Buffer after Indication. Before the local ULP operates on a buffer that was written by the Remote Peer using an RDMA Write or RDMA Read, the local ULP MUST ensure the buffer can no longer be modified by invalidating the STag for remote access (note that this is stronger than the SHOULD in Section 6.2.2). This can be done either by explicitly revoking remote access rights for the STag when the Remote Peer indicates the operation has completed, or by checking to make sure the Remote Peer Invalidated the STag through the RDMAP Invalidate capability. If the Remote Peer did not invalidate the STag, the local ULP then explicitly revokes the STag remote access rights.",
+      "zh-CHS": "* 6.2.2指示后修改缓冲器。在本地ULP对远程对等方使用RDMA写入或RDMA读取写入的缓冲区进行操作之前，本地ULP必须确保不能再通过使远程访问的STag无效来修改缓冲区（注意，这比第6.2.2节中的应做的要强）。这可以通过在远程对等方指示操作已完成时显式撤销STag的远程访问权限来实现，也可以通过检查以确保远程对等方通过RDMAP Invalidate功能使STag无效。如果远程对等方未使STag无效，则本地ULP将显式撤销STag远程访问权限。"
+    },
+    {
+      "indent": 3,
+      "text": "* Information Disclosure",
+      "zh-CHS": "* 信息披露"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.3.2, Using RDMA Read to Access Stale Data. In a general purpose server environment, there is no compelling rationale not to require a buffer to be initialized before remote read is enabled (and an enormous downside of unintentionally sharing data). Thus, a local ULP MUST (this is stronger than the SHOULD in Section 6.3.2) ensure that no stale data is contained in a buffer before remote read access rights are granted to a Remote Peer (this can be done by zeroing the contents of the memory, for example).",
+      "zh-CHS": "* 6.3.2，使用RDMA读取访问陈旧数据。在通用服务器环境中，不需要在启用远程读取之前初始化缓冲区（这是无意中共享数据的一个巨大缺点），这是没有说服力的理由的。因此，本地ULP必须（这比第6.3.2节中的应更强）确保在向远程对等方授予远程读取访问权限之前，缓冲区中不包含过时数据（例如，可以通过将内存内容归零来实现）。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.3.3, Accessing a Buffer after the Transfer. This mitigation is already covered by Section 6.2.2 (above).",
+      "zh-CHS": "* 6.3.3，传输后访问缓冲区。第6.2.2节（上文）已涵盖该缓解措施。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.3.4, Accessing Unintended Data with a Valid STag. The ULP must set the base and bounds of the buffer when the STag is initialized to expose only the data to be retrieved.",
+      "zh-CHS": "* 6.3.4，使用有效STag访问意外数据。当STag初始化为仅公开要检索的数据时，ULP必须设置缓冲区的基数和边界。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.3.5, RDMA Read into an RDMA Write Buffer. If a peer only intends a buffer to be exposed for remote write access, it must set the access rights to the buffer to only enable remote write access.",
+      "zh-CHS": "* 6.3.5，RDMA读入RDMA写入缓冲区。如果对等方仅打算为远程写访问而公开缓冲区，则必须将缓冲区的访问权限设置为仅启用远程写访问。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.3.6, Using Multiple STags That Alias to the Same Buffer. The requirement in Section 6.1.1 (above) mitigates this attack. A server buffer is exposed to only one client at a time to ensure that no information disclosure or information tampering occurs between peers.",
+      "zh-CHS": "* 6.3.6，使用别名为同一缓冲区的多个stag。第6.1.1节（上文）中的要求缓解了这种攻击。服务器缓冲区一次只向一个客户机公开，以确保对等机之间不会发生信息泄露或信息篡改。"
+    },
+    {
+      "indent": 5,
+      "text": "* 5.3, Network-Based Eavesdropping. Confidentiality services should be enabled by the ULP if this threat is a concern.",
+      "zh-CHS": "* 5.3、基于网络的窃听。如果存在此威胁，ULP应启用保密服务。"
+    },
+    {
+      "indent": 3,
+      "text": "* Denial of Service",
+      "zh-CHS": "* 拒绝服务"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.4.3.1, Multiple Streams Sharing Receive Buffers. ULP memory footprint size can be important for some server ULPs. If a server ULP is expecting significant network traffic from multiple clients, using a receive buffer queue per Stream where there is a large number of Streams can consume substantial amounts of memory. Thus, a receive queue that can be shared by multiple Streams is attractive.",
+      "zh-CHS": "* 6.4.3.1，多个流共享接收缓冲区。ULP内存占用大小对于某些服务器ULP可能很重要。如果服务器ULP期望来自多个客户端的大量网络流量，则在存在大量流的情况下，使用每个流的接收缓冲队列可能会消耗大量内存。因此，可以由多个流共享的接收队列是有吸引力的。"
+    },
+    {
+      "indent": 9,
+      "text": "However, because of the attacks outlined in this section, sharing a single receive queue between multiple clients must only be done if a mechanism is in place to ensure that one client cannot consume receive buffers in excess of its limits, as defined by each ULP. For multiple Streams within a single client ULP (which presumably shared Partial Mutual Trust), this added overhead may be avoided.",
+      "zh-CHS": "但是，由于本节中概述的攻击，只有在有机制确保一个客户端不能使用超出每个ULP定义的限制的接收缓冲区时，才能在多个客户端之间共享单个接收队列。对于单个客户端ULP中的多个流（可能共享部分互信），可以避免增加的开销。"
+    },
+    {
+      "indent": 5,
+      "text": "* 7.1 Local ULP Attacking a Shared CQ. The normative RNIC mitigations require that the RNIC not enable sharing of a CQ if the local ULPs do not share Partial Mutual Trust. Thus, while the ULP is not allowed to enable this feature in an unsafe mode, if the two local ULPs share Partial Mutual Trust, they must behave in the following manner:",
+      "zh-CHS": "* 7.1本地ULP攻击共享CQ。规范性RNIC缓解措施要求，如果本地ULP不共享部分互信，RNIC不允许共享CQ。因此，虽然不允许ULP在不安全模式下启用此功能，但如果两个本地ULP共享部分互信，则它们必须以以下方式运行："
+    },
+    {
+      "indent": 9,
+      "text": "1) The sizing of the completion queue is based on the size of the receive queue and send queues, as documented in 6.4.3.2, Remote or Local Peer Attacking a Shared CQ.",
+      "zh-CHS": "1) 完成队列的大小取决于接收队列和发送队列的大小，如6.4.3.2《攻击共享CQ的远程或本地对等方》中所述。"
+    },
+    {
+      "indent": 9,
+      "text": "2) The local ULP ensures that CQ entries are reaped frequently enough to adhere to Section 6.4.3.2's rules.",
+      "zh-CHS": "2) 本地ULP确保频繁获取CQ条目，以遵守第6.4.3.2节的规则。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.4.3.2, Remote or Local Peer Attacking a Shared CQ. There are two mitigations specified in this section - one requires a worst-case size of the CQ, and can be implemented entirely within the Privileged Resource Manager. The second approach requires cooperation with the local ULP server (not to post too many buffers), and enables a smaller CQ to be used.",
+      "zh-CHS": "* 6.4.3.2、远程或本地对等方攻击共享CQ。本节中指定了两种缓解措施-一种要求CQ的最坏情况大小，并且可以完全在特权资源管理器中实现。第二种方法需要与本地ULP服务器协作（不要发布太多缓冲区），并允许使用较小的CQ。"
+    },
+    {
+      "indent": 9,
+      "text": "In some server environments, partial trust of the server ULP (but not the clients) is acceptable; thus, the smaller CQ fully mitigates the remote attacker. In other environments, the local server ULP could also contain untrusted elements that can attack the local machine (or have bugs). In those environments, the worst-case size of the CQ must be used.",
+      "zh-CHS": "在某些服务器环境中，服务器ULP（但不是客户端）的部分信任是可以接受的；因此，较小的CQ完全减轻了远程攻击者的攻击。在其他环境中，本地服务器ULP还可能包含不受信任的元素，这些元素可能会攻击本地计算机（或存在bug）。在这些环境中，必须使用CQ的最坏情况大小。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.4.3.3, Attacking the RDMA Read Request Queue. The section requires a server's Privileged Resource Manager not to allow sharing of RDMA Read Request Queues across multiple Streams that do not share Partial Mutual Trust for a ULP that performs RDMA Read operations to server buffers. However, because the server ULP knows which of its Streams best share Partial Mutual Trust, this requirement can be reflected back to the ULP. The ULP (i.e., server) requirement, in this case, is that it MUST NOT allow RDMA Read Request Queues to be shared between ULPs that do not have Partial Mutual Trust.",
+      "zh-CHS": "* 6.4.3.3，攻击RDMA读取请求队列。该部分要求服务器的特权资源管理器不允许跨多个流共享RDMA读取请求队列，这些流不共享对服务器缓冲区执行RDMA读取操作的ULP的部分互信。但是，由于服务器ULP知道它的哪些流最好地共享部分互信，因此此要求可以反映回ULP。在这种情况下，ULP（即服务器）要求不允许在不具有部分互信的ULP之间共享RDMA读取请求队列。"
+    },
+    {
+      "indent": 5,
+      "text": "* 6.4.5, Remote Invalidate an STag Shared on Multiple Streams. This mitigation is already covered by Section 6.2.2 (above).",
+      "zh-CHS": "* 6.4.5，远程使多个流上共享的STag无效。第6.2.2节（上文）已涵盖该缓解措施。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B: Summary of RNIC and ULP Implementation Requirements",
+      "zh-CHS": "附录B：RNIC和ULP实施要求摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix is informative.",
+      "zh-CHS": "本附录为资料性附录。"
+    },
+    {
+      "indent": 3,
+      "text": "Below is a summary of implementation requirements for the RNIC:",
+      "zh-CHS": "以下是RNIC的实施要求摘要："
+    },
+    {
+      "indent": 3,
+      "text": "* 3 Trust and Resource Sharing",
+      "zh-CHS": "* 3信任和资源共享"
+    },
+    {
+      "indent": 3,
+      "text": "* 5.4.5 Requirements for IPsec Encapsulation of DDP",
+      "zh-CHS": "* 5.4.5 DDP的IPsec封装要求"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.1.1 Using an STag on a Different Stream",
+      "zh-CHS": "* 6.1.1在不同河流上使用STag"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.2.1 Buffer Overrun - RDMA Write or Read Response",
+      "zh-CHS": "* 6.2.1缓冲区溢出-RDMA写入或读取响应"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.2.2 Modifying a Buffer after Indication",
+      "zh-CHS": "* 6.2.2指示后修改缓冲器"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.4.1 RNIC Resource Consumption",
+      "zh-CHS": "* 6.4.1 RNIC资源消耗"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.4.3.1 Multiple Streams Sharing Receive Buffers",
+      "zh-CHS": "* 6.4.3.1多个流共享接收缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.4.3.2 Remote or Local Peer Attacking a Shared CQ",
+      "zh-CHS": "* 6.4.3.2攻击共享CQ的远程或本地对等方"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.4.3.3 Attacking the RDMA Read Request Queue",
+      "zh-CHS": "* 6.4.3.3攻击RDMA读取请求队列"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.4.6 Remote Peer Attacking an Unshared CQ",
+      "zh-CHS": "* 6.4.6远程对等方攻击非共享CQ"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.5 Elevation of Privilege 39",
+      "zh-CHS": "* 6.5特权的提升39"
+    },
+    {
+      "indent": 3,
+      "text": "* 7.1 Local ULP Attacking a Shared CQ",
+      "zh-CHS": "* 7.1本地ULP攻击共享CQ"
+    },
+    {
+      "indent": 3,
+      "text": "* 7.3 Local ULP Attacking the PTT and STag Mapping",
+      "zh-CHS": "* 7.3本地ULP攻击PTT和STag映射"
+    },
+    {
+      "indent": 3,
+      "text": "Below is a summary of implementation requirements for the ULP above the RNIC:",
+      "zh-CHS": "以下是RNIC上方ULP的实施要求摘要："
+    },
+    {
+      "indent": 3,
+      "text": "* 5.3 Information Disclosure - Network-Based Eavesdropping",
+      "zh-CHS": "* 5.3信息披露-基于网络的窃听"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.1.1 Using an STag on a Different Stream",
+      "zh-CHS": "* 6.1.1在不同河流上使用STag"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.2.2 Modifying a Buffer after Indication",
+      "zh-CHS": "* 6.2.2指示后修改缓冲器"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.3.2 Using RDMA Read to Access Stale Data",
+      "zh-CHS": "* 6.3.2使用RDMA读取访问过时数据"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.3.3 Accessing a Buffer after the Transfer",
+      "zh-CHS": "* 6.3.3传输后访问缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.3.4 Accessing Unintended Data with a Valid STag",
+      "zh-CHS": "* 6.3.4使用有效STag访问意外数据"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.3.5 RDMA Read into an RDMA Write Buffer",
+      "zh-CHS": "* 6.3.5 RDMA读入RDMA写入缓冲区"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.3.6 Using Multiple STags That Alias to the Same Buffer",
+      "zh-CHS": "* 6.3.6使用别名为同一缓冲区的多个stag"
+    },
+    {
+      "indent": 3,
+      "text": "* 6.4.5 Remote Invalidate an STag Shared on Multiple Streams",
+      "zh-CHS": "* 6.4.5远程使多个流上共享的STag无效"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix C: Partial Trust Taxonomy",
+      "zh-CHS": "附录C：部分信任分类法"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix is informative.",
+      "zh-CHS": "本附录为资料性附录。"
+    },
+    {
+      "indent": 3,
+      "text": "Partial Trust is defined as when one party is willing to assume that another party will refrain from a specific attack or set of attacks, the parties are said to be in a state of Partial Trust. Note that the partially trusted peer may attempt a different set of attacks. This may be appropriate for many ULPs where any adverse effects of the betrayal is easily confined and does not place other clients or ULPs at risk.",
+      "zh-CHS": "部分信任的定义是，当一方愿意假设另一方将不进行特定攻击或一系列攻击时，双方被称为处于部分信任状态。请注意，部分受信任的对等方可能会尝试一组不同的攻击。这可能适用于许多ULP，在这些ULP中，背叛的任何不利影响都很容易受到限制，并且不会使其他客户或ULP面临风险。"
+    },
+    {
+      "indent": 3,
+      "text": "The Trust Models described in this section have three primary distinguishing characteristics. The Trust Model refers to a local ULP and Remote Peer, which are intended to be the local and remote ULP instances communicating via RDMA/DDP.",
+      "zh-CHS": "本节中描述的信任模型有三个主要区别特征。信任模型是指本地ULP和远程对等方，它们是通过RDMA/DDP进行通信的本地和远程ULP实例。"
+    },
+    {
+      "indent": 3,
+      "text": "* Local Resource Sharing (yes/no) - When local resources are shared, they are shared across a grouping of RDMAP/DDP Streams. If local resources are not shared, the resources are dedicated on a per Stream basis. Resources are defined in Section 2.2, Resources. The advantage of not sharing resources between Streams is that it reduces the types of attacks that are possible. The disadvantage is that ULPs might run out of resources.",
+      "zh-CHS": "* 本地资源共享（是/否）-当共享本地资源时，它们在一组RDMAP/DDP流中共享。如果本地资源未共享，则资源将基于每个流进行专用。第2.2节“资源”中定义了资源。不在流之间共享资源的优点是减少了可能的攻击类型。缺点是ULP可能会耗尽资源。"
+    },
+    {
+      "indent": 3,
+      "text": "* Local Partial Trust (yes/no) - Local Partial Trust is determined based on whether the local grouping of RDMAP/DDP Streams (which typically equates to one ULP or group of ULPs) mutually trust each other not to perform a specific set of attacks.",
+      "zh-CHS": "* 本地部分信任（是/否）-本地部分信任是基于RDMAP/DDP流的本地分组（通常相当于一个ULP或一组ULP）是否相互信任以不执行特定的攻击来确定的。"
+    },
+    {
+      "indent": 3,
+      "text": "* Remote Partial Trust (yes/no) - The Remote Partial Trust level is determined based on whether the local ULP of a specific RDMAP/DDP Stream partially trusts the Remote Peer of the Stream (see the definition of Partial Trust in Section 1, Introduction).",
+      "zh-CHS": "* 远程部分信任（是/否）-远程部分信任级别根据特定RDMAP/DDP流的本地ULP是否部分信任流的远程对等方来确定（请参阅第1节引言中的部分信任定义）。"
+    },
+    {
+      "indent": 3,
+      "text": "Not all the combinations of the trust characteristics are expected to be used by ULPs. This document specifically analyzes five ULP Trust Models that are expected to be in common use. The Trust Models are as follows:",
+      "zh-CHS": "并非所有信任特征的组合都会被ULP使用。本文档具体分析了五种预期通用的ULP信任模型。信任模型如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "* NS-NT - Non-Shared Local Resources, no Local Trust, no Remote Trust; typically, a server ULP that wants to run in the safest mode possible. All attack mitigations are in place to ensure robust operation.",
+      "zh-CHS": "* NS-NT-非共享本地资源，无本地信任，无远程信任；通常，希望以最安全的模式运行的服务器ULP。所有攻击缓解措施均已到位，以确保稳健运行。"
+    },
+    {
+      "indent": 3,
+      "text": "* NS-RT - Non-Shared Local Resources, no Local Trust, Remote Partial Trust; typically, a peer-to-peer ULP that has, by some method outside of the scope of this document, authenticated the Remote Peer. Note that unless some form of key based authentication is used on a per RDMA/DDP Stream basis, it may not be possible for man-in-the-middle attacks to occur.",
+      "zh-CHS": "* NS-RT-非共享本地资源，无本地信任，远程部分信任；通常，通过本文档范围之外的某种方法对远程对等方进行身份验证的对等ULP。请注意，除非在每个RDMA/DDP流的基础上使用某种形式的基于密钥的身份验证，否则中间人攻击可能不会发生。"
+    },
+    {
+      "indent": 3,
+      "text": "* S-NT - Shared Local Resources, no Local Trust, no Remote Trust; typically, a server ULP that runs in an untrusted environment where the amount of resources required is either too large or too dynamic to dedicate for each RDMAP/DDP Stream.",
+      "zh-CHS": "* S-NT-共享本地资源，无本地信任，无远程信任；通常，在不受信任的环境中运行的服务器ULP，其中所需的资源量太大或太动态，无法专用于每个RDMAP/DDP流。"
+    },
+    {
+      "indent": 3,
+      "text": "* S-LT - Shared Local Resources, Local Partial Trust, no Remote Trust; typically, a ULP that provides a session layer and uses multiple Streams, to provides additional throughput or fail-over capabilities. All the Streams within the local ULP partially trust each other, but do not trust the Remote Peer. This Trust Model may be appropriate for embedded environments.",
+      "zh-CHS": "* S-LT-共享本地资源，本地部分信任，无远程信任；通常，ULP提供会话层并使用多个流，以提供额外的吞吐量或故障转移能力。本地ULP中的所有流部分地相互信任，但不信任远程对等方。此信任模型可能适用于嵌入式环境。"
+    },
+    {
+      "indent": 3,
+      "text": "* S-T - Shared Local Resources, Local Partial Trust, Remote Partial Trust; typically, a distributed application, such as a distributed database application or High Performance Computer (HPC) application, which is intended to run on a cluster. Due to extreme resource and performance requirements, the application typically authenticates with all of its peers and then runs in a highly trusted environment. The application peers are all in a single application fault domain and depend on one another to be well-behaved when accessing data structures. If a trusted Remote Peer has an implementation defect that results in poor behavior, the entire application could be corrupted.",
+      "zh-CHS": "* S-T—共享本地资源、本地部分信任、远程部分信任；通常，分布式应用程序，如分布式数据库应用程序或高性能计算机（HPC）应用程序，旨在在集群上运行。由于极端的资源和性能要求，应用程序通常与所有对等方进行身份验证，然后在高度可信的环境中运行。应用程序对等点都位于单个应用程序容错域中，并且在访问数据结构时相互依赖才能表现良好。如果受信任的远程对等方存在导致不良行为的实现缺陷，则整个应用程序可能会损坏。"
+    },
+    {
+      "indent": 3,
+      "text": "Models NS-NT and S-NT, above, are typical for Internet networking - neither the local ULP nor the Remote Peer is trusted. Sometimes, optimizations can be done that enable sharing of Page Translation Tables across multiple local ULPs; thus, Model S-LT can be advantageous. Model S-T is typically used when resource scaling across a large parallel ULP makes it infeasible to use any other model. Resource scaling issues can either be due to performance around scaling or because there simply are not enough resources. Model NS-RT is probably the least likely model to be used, but is presented for completeness.",
+      "zh-CHS": "上面的NS-NT和S-NT型号是典型的Internet网络-本地ULP和远程对等机都不受信任。有时，可以进行优化，以便跨多个本地ULP共享页面翻译表；因此，S-LT型可能是有利的。当跨大型并行ULP的资源扩展导致无法使用任何其他模型时，通常使用S-T模型。资源扩展问题可能是由于扩展前后的性能问题，也可能是因为资源不足。模型NS-RT可能是最不可能使用的模型，但为了完整性而提供。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Sara Bitan Microsoft Corporation EMail: sarab@microsoft.com",
+      "zh-CHS": "Sara Bitan Microsoft Corporation电子邮件：sarab@microsoft.com"
+    },
+    {
+      "indent": 3,
+      "text": "Allyn Romanow Cisco Systems 170 W Tasman Drive San Jose, CA 95134 USA Phone: +1 (408) 525-8836 EMail: allyn@cisco.com",
+      "zh-CHS": "Allyn Romanow Cisco Systems 170 W美国加利福尼亚州圣何塞塔斯曼大道95134电话：+1（408）525-8836电子邮件：allyn@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Catherine Meadows Naval Research Laboratory Code 5543 Washington, DC 20375 USA EMail: meadows@itd.nrl.navy.mil",
+      "zh-CHS": "Catherine Meadows海军研究实验室代码5543华盛顿特区20375美国电子邮件：meadows@itd.nrl.navy.mil"
+    },
+    {
+      "indent": 3,
+      "text": "Patricia Thaler Agilent Technologies, Inc. 1101 Creekside Ridge Drive, #100 M/S-RG10 Roseville, CA 95678 USA Phone: +1 (916) 788-5662 EMail: pat_thaler@agilent.com",
+      "zh-CHS": "Patricia Thaler Agilent Technologies，Inc.美国加利福尼亚州罗斯维尔市溪畔山脊大道1101号，邮编：95678电话：+1（916）788-5662电子邮件：pat_thaler@agilent.com"
+    },
+    {
+      "indent": 3,
+      "text": "James Livingston NEC Solutions (America), Inc. 7525 166th Ave. N.E., Suite D210 Redmond, WA 98052-7811 USA Phone: +1 (425) 897-2033 EMail: james.livingston@necsam.com",
+      "zh-CHS": "James Livingston NEC Solutions（美国）有限公司，地址：美国西澳州雷德蒙德D210室北东区第166大道7525号，邮编：98052-7811电话：+1（425）897-2033电子邮件：James。livingston@necsam.com"
+    },
+    {
+      "indent": 3,
+      "text": "John Carrier Cray Inc. 411 First Avenue S, Suite 600 Seattle, WA 98104-2860 Phone: 206-701-2090 EMail: carrier@cray.com",
+      "zh-CHS": "John Carrier Cray Inc.华盛顿州西雅图第一大道S 411号600室98104-2860电话：206-701-2090电子邮件：carrier@cray.com"
+    },
+    {
+      "indent": 3,
+      "text": "Caitlin Bestler Broadcom 49 Discovery Irvine, CA 92618 EMail: cait@asomi.com",
+      "zh-CHS": "Caitlin Bestler Broadcom 49 Discovery Irvine，CA 92618电子邮件：cait@asomi.com"
+    },
+    {
+      "indent": 3,
+      "text": "Bernard Aboba Microsoft Corporation One Microsoft Way USA Redmond, WA 98052 Phone: +1 (425) 706-6606 EMail: bernarda@windows.microsoft.com",
+      "zh-CHS": "Bernard Aboba Microsoft Corporation One Microsoft Way USA华盛顿州雷德蒙德98052电话：+1（425）706-6606电子邮件：bernarda@windows.microsoft.com"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "James Pinkerton Microsoft Corporation One Microsoft Way Redmond, WA 98052 USA Phone: +1 (425) 705-5442 EMail: jpink@windows.microsoft.com",
+      "zh-CHS": "James Pinkerton Microsoft Corporation One Microsoft Way Redmond，WA 98052美国电话：+1（425）705-5442电子邮件：jpink@windows.microsoft.com"
+    },
+    {
+      "indent": 3,
+      "text": "Ellen Deleganes Self P.O. Box 9245 Brooks, OR 97305 Phone: (503) 642-3950 EMail: deleganes@yahoo.com",
+      "zh-CHS": "Ellen Deleganes Self邮政信箱9245 Brooks或97305电话：（503）642-3950电子邮件：deleganes@yahoo.com"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

@@ -1,0 +1,835 @@
+{
+  "title": {
+    "text": "RFC 8061: Locator/ID Separation Protocol (LISP) Data-Plane Confidentiality",
+    "zh-CHS": "RFC 8061"
+  },
+  "number": 8061,
+  "created_at": "2021-10-28 15:49:00.772462+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                      D. Farinacci\nRequest for Comments: 8061                                   lispers.net\nCategory: Experimental                                           B. Weis\nISSN: 2070-1721                                            Cisco Systems\n                                                           February 2017",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "Locator/ID Separation Protocol (LISP) Data-Plane Confidentiality",
+      "zh-CHS": "定位器/ID分离协议（LISP）数据平面机密性"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism for encrypting traffic encapsulated using the Locator/ID Separation Protocol (LISP). The design describes how key exchange is achieved using existing LISP control-plane mechanisms as well as how to secure the LISP data plane from third-party surveillance attacks.",
+      "zh-CHS": "本文档描述了一种用于加密使用定位器/ID分离协议（LISP）封装的流量的机制。该设计描述了如何使用现有LISP控制平面机制实现密钥交换，以及如何保护LISP数据平面免受第三方监视攻击。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for examination, experimental implementation, and evaluation.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为检查、实验实施和评估而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines an Experimental Protocol for the Internet community. This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 7841.",
+      "zh-CHS": "本文档为互联网社区定义了一个实验协议。本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc8061.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc8061."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2017 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2017 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n2. Requirements Notation ...........................................4\n3. Definition of Terms .............................................4\n4. Overview ........................................................4\n5. Diffie-Hellman Key Exchange .....................................5\n6. Encoding and Transmitting Key Material ..........................6\n7. Shared Keys Used for the Data Plane .............................8\n8. Data-Plane Operation ...........................................10\n9. Procedures for Encryption and Decryption .......................11\n10. Dynamic Rekeying ..............................................12\n11. Future Work ...................................................13\n12. Security Considerations .......................................14\n   12.1. SAAG Support .............................................14\n   12.2. LISP-Crypto Security Threats .............................14\n13. IANA Considerations ...........................................15\n14. References ....................................................16\n   14.1. Normative References .....................................16\n   14.2. Informative References ...................................17\nAcknowledgments ...................................................18\nAuthors' Addresses ................................................18",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism for encrypting LISP-encapsulated traffic. The design describes how key exchange is achieved using existing LISP control-plane mechanisms as well as how to secure the LISP data plane from third-party surveillance attacks.",
+      "zh-CHS": "本文档描述了一种加密LISP封装流量的机制。该设计描述了如何使用现有LISP控制平面机制实现密钥交换，以及如何保护LISP数据平面免受第三方监视攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "The Locator/ID Separation Protocol [RFC6830] defines a set of functions for routers to exchange information used to map from non-routable Endpoint Identifiers (EIDs) to routable Routing Locators (RLOCs). LISP Ingress Tunnel Routers (ITRs) and Proxy Ingress Tunnel Routers (PITRs) encapsulate packets to Egress Tunnel Routers (ETRs) and Re-encapsulating Tunnel Routers (RTRs). Packets that arrive at the ITR or PITR may not be encrypted, which means no protection or privacy of the data is added. When the source host encrypts the data stream, encapsulated packets do not need to be encrypted by LISP. However, when plaintext packets are sent by hosts, this design can encrypt the user payload to maintain privacy on the path between the encapsulator (the ITR or PITR) to a decapsulator (ETR or RTR). The encrypted payload is unidirectional. However, return traffic uses the same procedures but with different key values by the same xTRs or potentially different xTRs when the paths between LISP sites are asymmetric.",
+      "zh-CHS": "定位器/ID分离协议[RFC6830]为路由器定义了一组功能，用于交换用于将不可路由端点标识符（EID）映射到可路由路由定位器（RLOC）的信息。LISP入口隧道路由器（ITR）和代理入口隧道路由器（PITR）将数据包封装到出口隧道路由器（ETR）和重新封装隧道路由器（RTR）。到达ITR或PITR的数据包可能未加密，这意味着未添加数据保护或隐私。当源主机加密数据流时，封装的数据包不需要用LISP加密。但是，当主机发送纯文本数据包时，这种设计可以加密用户有效负载，以在封装器（ITR或PITR）到去封装器（ETR或RTR）之间的路径上保持隐私。加密的有效负载是单向的。但是，当LISP站点之间的路径不对称时，返回流量使用相同的过程，但相同XTR或可能不同的XTR使用不同的键值。"
+    },
+    {
+      "indent": 3,
+      "text": "This document has the following requirements (as well as the general requirements from [RFC6973]) for the solution space:",
+      "zh-CHS": "本文件对解决方案空间有以下要求（以及[RFC6973]的一般要求）："
+    },
+    {
+      "indent": 3,
+      "text": "o Do not require a separate Public Key Infrastructure (PKI) that is out of scope of the LISP control-plane architecture.",
+      "zh-CHS": "o 不需要LISP控制平面体系结构范围之外的单独公钥基础设施（PKI）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The budget for key exchange MUST be one round-trip time. That is, only a two-packet exchange can occur.",
+      "zh-CHS": "o 密钥交换的预算必须是一次往返时间。也就是说，只能进行两个数据包的交换。"
+    },
+    {
+      "indent": 3,
+      "text": "o Use symmetric keying so faster cryptography can be performed in the LISP data plane.",
+      "zh-CHS": "o 使用对称键控，以便在LISP数据平面中执行更快的加密。"
+    },
+    {
+      "indent": 3,
+      "text": "o Avoid a third-party trust anchor if possible.",
+      "zh-CHS": "o 尽可能避免使用第三方信任锚。"
+    },
+    {
+      "indent": 3,
+      "text": "o Provide for rekeying when secret keys are compromised.",
+      "zh-CHS": "o 提供在密钥泄露时重新设置密钥的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "o Support Authenticated Encryption with packet integrity checks.",
+      "zh-CHS": "o 支持通过数据包完整性检查进行身份验证加密。"
+    },
+    {
+      "indent": 3,
+      "text": "o Support multiple Cipher Suites so new crypto algorithms can be easily introduced.",
+      "zh-CHS": "o 支持多个密码套件，因此可以轻松引入新的加密算法。"
+    },
+    {
+      "indent": 3,
+      "text": "Satisfying the above requirements provides the following benefits:",
+      "zh-CHS": "满足上述要求可提供以下好处："
+    },
+    {
+      "indent": 3,
+      "text": "o Avoiding a PKI reduces the operational cost of managing a secure network. Key management is distributed and independent from any other infrastructure.",
+      "zh-CHS": "o 避免使用PKI可以降低管理安全网络的运营成本。密钥管理是分布式的，独立于任何其他基础架构。"
+    },
+    {
+      "indent": 3,
+      "text": "o Packet transport is optimized due to fewer packet headers. Packet loss is reduced by a more efficient key exchange.",
+      "zh-CHS": "o 由于更少的数据包头，数据包传输得到了优化。通过更有效的密钥交换减少了数据包丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "o Authentication and privacy are provided with a single mechanism thereby providing less per-packet overhead and therefore more resource efficiency.",
+      "zh-CHS": "o 通过单一机制提供身份验证和隐私，从而减少每个数据包的开销，从而提高资源效率。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Requirements Notation",
+      "section_title": true,
+      "zh-CHS": "2. 需求符号"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Definition of Terms",
+      "section_title": true,
+      "zh-CHS": "3. 术语的定义"
+    },
+    {
+      "indent": 3,
+      "text": "AEAD: Authenticated Encryption with Associated Data [RFC5116]",
+      "zh-CHS": "AEAD：使用相关数据进行身份验证加密[RFC5116]"
+    },
+    {
+      "indent": 3,
+      "text": "ICV: Integrity Check Value",
+      "zh-CHS": "完整性检查值"
+    },
+    {
+      "indent": 3,
+      "text": "LCAF: LISP Canonical Address Format [RFC8060]",
+      "zh-CHS": "LCAF:LISP规范地址格式[RFC8060]"
+    },
+    {
+      "indent": 3,
+      "text": "xTR: A general reference to ITRs, ETRs, RTRs, and PxTRs",
+      "zh-CHS": "xTR：对ITRs、ETRs、RTRs和PXTR的一般参考"
+    },
+    {
+      "indent": 0,
+      "text": "4. Overview",
+      "section_title": true,
+      "zh-CHS": "4. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "The approach proposed in this document is NOT to rely on the LISP mapping system (or any other key-infrastructure system) to store security keys. This will provide for a simpler and more secure mechanism. Secret shared keys will be negotiated between the ITR and the ETR in Map-Request and Map-Reply messages. Therefore, when an ITR needs to obtain the RLOC of an ETR, it will get security material to compute a shared secret with the ETR.",
+      "zh-CHS": "本文件中提出的方法不依赖LISP映射系统（或任何其他关键基础设施系统）来存储安全密钥。这将提供一种更简单、更安全的机制。在Map请求和Map回复消息中，将在ITR和ETR之间协商秘密共享密钥。因此，当ITR需要获得ETR的RLOC时，它将获得安全材料，以计算与ETR共享的秘密。"
+    },
+    {
+      "indent": 3,
+      "text": "The ITR can compute three shared secrets per ETR the ITR is encapsulating to. When the ITR encrypts a packet before encapsulation, it will identify the key it used for the crypto calculation so the ETR knows which key to use for decrypting the packet after decapsulation. By using key-ids in the LISP header, we can also get fast rekeying functionality.",
+      "zh-CHS": "ITR可以为ITR封装到的每个ETR计算三个共享机密。当ITR在封装前对数据包进行加密时，它将识别用于加密计算的密钥，以便ETR知道在解除封装后用于解密数据包的密钥。通过在LISP头中使用键ID，我们还可以获得快速的重新键控功能。"
+    },
+    {
+      "indent": 3,
+      "text": "The key management described in this document is unidirectional from the ITR (the encapsulator) to the ETR (the decapsultor).",
+      "zh-CHS": "本文档中描述的密钥管理是从ITR（封装器）到ETR（去封装器）的单向管理。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Diffie-Hellman Key Exchange",
+      "section_title": true,
+      "zh-CHS": "5. Diffie-Hellman密钥交换"
+    },
+    {
+      "indent": 3,
+      "text": "LISP will use a Diffie-Hellman [RFC2631] key exchange sequence and computation for computing a shared secret. The Diffie-Hellman parameters will be passed via Cipher Suite code-points in Map-Request and Map-Reply messages.",
+      "zh-CHS": "LISP将使用Diffie-Hellman[RFC2631]密钥交换序列和计算来计算共享密钥。Diffie-Hellman参数将通过Map请求和Map回复消息中的密码套件代码点传递。"
+    },
+    {
+      "indent": 3,
+      "text": "Here is a brief description how Diffie-Hellman works:",
+      "zh-CHS": "下面简要介绍Diffie Hellman的工作原理："
+    },
+    {
+      "indent": 3,
+      "text": "+----------------------------+---------+----------------------------+\n|              ITR           |         |           ETR              |\n+------+--------+------------+---------+------------+---------------+\n|Secret| Public | Calculates |  Sends  | Calculates | Public |Secret|\n+------|--------|------------|---------|------------|--------|------+\n|  i   |  p,g   |            | p,g --> |            |        |  e   |\n+------|--------|------------|---------|------------|--------|------+\n|  i   | p,g,I  |g^i mod p=I |  I -->  |            | p,g,I  |  e   |\n+------|--------|------------|---------|------------|--------|------+\n|  i   | p,g,I  |            |  <-- E  |g^e mod p=E |  p,g   |  e   |\n+------|--------|------------|---------|------------|--------|------+\n| i,s  |p,g,I,E |E^i mod p=s |         |I^e mod p=s |p,g,I,E | e,s  |\n+------|--------|------------|---------|------------|--------|------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "Public-Key Exchange for Computing a Shared Private Key [DH]",
+      "zh-CHS": "用于计算共享私钥的公钥交换[DH]"
+    },
+    {
+      "indent": 3,
+      "text": "Diffie-Hellman parameters 'p' and 'g' must be the same values used by the ITR and ETR. The ITR computes public key 'I' and transmits 'I' in a Map-Request packet. When the ETR receives the Map-Request, it uses parameters 'p' and 'g' to compute the ETR's public key 'E'. The ETR transmits 'E' in a Map-Reply message. At this point, the ETR has enough information to compute 's', the shared secret, by using 'I' as the base and the ETR's private key 'e' as the exponent. When the ITR receives the Map-Reply, it uses the ETR's public key 'E' with the ITR's private key 'i' to compute the same 's' shared secret the ETR computed. The value 'p' is used as a modulus to create the width of the shared secret 's' (see Section 6).",
+      "zh-CHS": "Diffie-Hellman参数“p”和“g”必须与ITR和ETR使用的值相同。ITR计算公钥“I”，并在Map请求数据包中传输“I”。当ETR收到Map请求时，它使用参数“p”和“g”计算ETR的公钥“E”。ETR在Map回复消息中传输“E”。在这一点上，ETR有足够的信息来计算共享秘密“s”，使用“I”作为基础，ETR的私钥“e”作为指数。当ITR收到Map回复时，它使用ETR的公钥“E”和ITR的私钥“i”来计算ETR计算的相同的“s”共享密钥。值“p”用作创建共享秘密“s”宽度的模数（参见第6节）。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Encoding and Transmitting Key Material",
+      "section_title": true,
+      "zh-CHS": "6. 编码和传输关键材料"
+    },
+    {
+      "indent": 3,
+      "text": "The Diffie-Hellman key material is transmitted in Map-Request and Map-Reply messages. Diffie-Hellman parameters are encoded in the LISP Security Key LCAF Type [RFC8060].",
+      "zh-CHS": "Diffie-Hellman密钥材料在Map请求和Map回复消息中传输。Diffie-Hellman参数编码为LISP安全密钥LCAF类型[RFC8060]。"
+    },
+    {
+      "indent": 4,
+      "text": " 0                   1                   2                   3\n 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           AFI = 16387         |     Rsvd1     |     Flags     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   Type = 11   |      Rsvd2    |             6 + n             |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|   Key Count   |      Rsvd3    | Cipher Suite  |   Rsvd4     |R|\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|           Key Length          |     Public Key Material ...   |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|                    ... Public Key Material                    |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n|              AFI = x          |       Locator Address ...     |\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Cipher Suite Field Contains DH Key Exchange and Cipher/Hash Functions",
+      "zh-CHS": "密码套件字段包含DH密钥交换和密码/哈希函数"
+    },
+    {
+      "indent": 3,
+      "text": "The Key Count field encodes the number of {'Key-Length', 'Key-Material'} fields included in the encoded LCAF. The maximum number of keys that can be encoded is three, each identified by key-id 1, followed by key-id 2, and finally key-id 3.",
+      "zh-CHS": "密钥计数字段编码编码LCAF中包含的{'Key-Length'、'Key Material'}字段的数量。可以编码的最大密钥数为三个，每个密钥由密钥id 1标识，然后是密钥id 2，最后是密钥id 3。"
+    },
+    {
+      "indent": 3,
+      "text": "The R bit is not used for this use case of the Security Key LCAF Type but is reserved for [LISP-DDT] security. Therefore, the R bit SHOULD be transmitted as 0 and MUST be ignored on receipt.",
+      "zh-CHS": "R位不用于此安全密钥LCAF类型的用例，但保留用于[LISP-DDT]安全性。因此，R位应作为0传输，并且在接收时必须忽略。"
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 0: Reserved",
+      "zh-CHS": "密码套件0:保留"
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 1 (LISP_2048MODP_AES128_CBC_SHA256):\n   Diffie-Hellman Group: 2048-bit MODP [RFC3526]\n   Encryption:  AES with 128-bit keys in CBC mode [AES-CBC]\n   Integrity:   Integrated with AEAD_AES_128_CBC_HMAC_SHA_256 [AES-CBC]\n   IV length:   16 bytes\n   KDF:         HMAC-SHA-256",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 2 (LISP_EC25519_AES128_CBC_SHA256):\n   Diffie-Hellman Group: 256-bit Elliptic-Curve 25519 [CURVE25519]\n   Encryption:  AES with 128-bit keys in CBC mode [AES-CBC]\n   Integrity:   Integrated with AEAD_AES_128_CBC_HMAC_SHA_256 [AES-CBC]\n   IV length:   16 bytes\n   KDF:         HMAC-SHA-256",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 3 (LISP_2048MODP_AES128_GCM):\n   Diffie-Hellman Group: 2048-bit MODP [RFC3526]\n   Encryption:  AES with 128-bit keys in GCM mode [RFC5116]\n   Integrity:   Integrated with AEAD_AES_128_GCM [RFC5116]\n   IV length:   12 bytes\n   KDF:         HMAC-SHA-256",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 4 (LISP_3072MODP_AES128_GCM):\n   Diffie-Hellman Group: 3072-bit MODP [RFC3526]\n   Encryption:  AES with 128-bit keys in GCM mode [RFC5116]\n   Integrity:   Integrated with AEAD_AES_128_GCM [RFC5116]\n   IV length:   12 bytes\n   KDF:         HMAC-SHA-256",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 5 (LISP_256_EC25519_AES128_GCM):\n   Diffie-Hellman Group: 256-bit Elliptic-Curve 25519 [CURVE25519]\n   Encryption:  AES with 128-bit keys in GCM mode [RFC5116]\n   Integrity:   Integrated with AEAD_AES_128_GCM [RFC5116]\n   IV length:   12 bytes\n   KDF:         HMAC-SHA-256",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 1,
+      "text": "Cipher Suite 6 (LISP_256_EC25519_CHACHA20_POLY1305):\n   Diffie-Hellman Group: 256-bit Elliptic-Curve 25519 [CURVE25519]\n   Encryption: Chacha20-Poly1305 [CHACHA-POLY] [RFC7539]\n   Integrity:  Integrated with AEAD_CHACHA20_POLY1305 [CHACHA-POLY]\n   IV length:  8 bytes\n   KDF:        HMAC-SHA-256",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The Public Key Material field contains the public key generated by one of the Cipher Suites defined above. The length of the key, in octets, is encoded in the Key Length field.",
+      "zh-CHS": "公钥材料字段包含由上面定义的密码套件之一生成的公钥。密钥长度（以八位字节为单位）编码在密钥长度字段中。"
+    },
+    {
+      "indent": 3,
+      "text": "When an ITR, PITR, or RTR sends a Map-Request, they will encode their own RLOC in the Security Key LCAF Type format within the ITR-RLOCs field. When an ETR or RTR sends a Map-Reply, they will encode their RLOCs in Security Key LCAF Type format within the RLOC-record field of each EID-record supplied.",
+      "zh-CHS": "当ITR、PITR或RTR发送Map请求时，它们将在ITR RLOCs字段中以安全密钥LCAF类型格式对自己的RLOC进行编码。当ETR或RTR发送Map应答时，他们将在提供的每个EID记录的RLOC记录字段中以安全密钥LCAF类型格式对其RLOC进行编码。"
+    },
+    {
+      "indent": 3,
+      "text": "If an ITR, PITR, or RTR sends a Map-Request with the Security Key LCAF Type included and the ETR or RTR does not want to have encapsulated traffic encrypted, they will return a Map-Reply with no RLOC-records encoded with the Security Key LCAF Type. This signals to the ITR, PITR, or RTR not to encrypt traffic (it cannot encrypt traffic anyway since no ETR public key was returned).",
+      "zh-CHS": "如果ITR、PITR或RTR发送包含安全密钥LCAF类型的Map请求，并且ETR或RTR不希望对封装的通信量进行加密，则它们将返回一个Map回复，其中没有使用安全密钥LCAF类型编码的RLOC记录。这会向ITR、PITR或RTR发出信号，表示不加密通信量（由于未返回ETR公钥，因此无法加密通信量）。"
+    },
+    {
+      "indent": 3,
+      "text": "Likewise, if an ITR or PITR wishes to include multiple key-ids in the Map-Request, but the ETR or RTR wishes to use some but not all of the key-ids, it returns a Map-Reply only for those key-ids it wishes to use.",
+      "zh-CHS": "类似地，如果ITR或PITR希望在Map请求中包括多个密钥ID，但ETR或RTR希望使用部分但不是全部密钥ID，则它将仅为希望使用的密钥ID返回Map回复。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Shared Keys Used for the Data Plane",
+      "section_title": true,
+      "zh-CHS": "7. 用于数据平面的共享键"
+    },
+    {
+      "indent": 3,
+      "text": "When an ITR or PITR receives a Map-Reply accepting the Cipher Suite sent in the Map-Request, it is ready to create data-plane keys. The same process is followed by the ETR or RTR returning the Map-Reply.",
+      "zh-CHS": "当ITR或PITR接收到接受Map请求中发送的密码套件的Map应答时，它就可以创建数据平面密钥。ETR或RTR返回Map应答后将执行相同的过程。"
+    },
+    {
+      "indent": 3,
+      "text": "The first step is to create a shared secret, using the peer's shared Diffie-Hellman Public Key Material combined with the device's own private keying material, as described in Section 5. The Diffie-Hellman parameters used are defined in the Cipher Suite sent in the Map-Request and copied into the Map-Reply.",
+      "zh-CHS": "第一步是创建共享秘密，使用对等方的共享Diffie-Hellman公钥材料与设备自己的私钥材料相结合，如第5节所述。使用的Diffie-Hellman参数在Map请求中发送的密码套件中定义，并复制到Map应答中。"
+    },
+    {
+      "indent": 3,
+      "text": "The resulting shared secret is used to compute an AEAD-key for the algorithms specified in the Cipher Suite. A Key Derivation Function (KDF) in counter mode, as specified by [NIST-SP800-108], is used to generate the data-plane keys. The amount of keying material that is derived depends on the algorithms in the Cipher Suite.",
+      "zh-CHS": "生成的共享密钥用于为密码套件中指定的算法计算AEAD密钥。按照[NIST-SP800-108]的规定，计数器模式下的密钥派生函数（KDF）用于生成数据平面密钥。导出的密钥材料的数量取决于密码套件中的算法。"
+    },
+    {
+      "indent": 3,
+      "text": "The inputs to the KDF are as follows:",
+      "zh-CHS": "KDF的输入如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "o KDF function. This is HMAC-SHA-256 in this document, but generally specified in each Cipher Suite definition.",
+      "zh-CHS": "o KDF函数。这是本文档中的HMAC-SHA-256，但通常在每个密码套件定义中指定。"
+    },
+    {
+      "indent": 3,
+      "text": "o A key for the KDF function. This is the computed Diffie-Hellman shared secret.",
+      "zh-CHS": "o KDF函数的键。这是计算出的Diffie Hellman共享秘密。"
+    },
+    {
+      "indent": 3,
+      "text": "o Context that binds the use of the data-plane keys to this session. The context is made up of the following fields, which are concatenated and provided as the data to be acted upon by the KDF function. A Context is made up of the following components:",
+      "zh-CHS": "o 将数据平面键的使用绑定到此会话的上下文。上下文由以下字段组成，这些字段被连接起来并作为数据提供给KDF函数。上下文由以下组件组成："
+    },
+    {
+      "indent": 6,
+      "text": "* A counter, represented as a two-octet value in network byte order.",
+      "zh-CHS": "* 一种计数器，以网络字节顺序表示为两个八位字节值。"
+    },
+    {
+      "indent": 6,
+      "text": "* The null-terminated string \"lisp-crypto\".",
+      "zh-CHS": "* 以null结尾的字符串“lisp crypto”。"
+    },
+    {
+      "indent": 6,
+      "text": "* The ITR's nonce from the Map-Request the Cipher Suite was included in.",
+      "zh-CHS": "* 密码套件包含在映射请求中的ITR nonce。"
+    },
+    {
+      "indent": 6,
+      "text": "* The number of bits of keying material required (L), represented as a two-octet value in network byte order.",
+      "zh-CHS": "* 所需键控材料的位数（L），以网络字节顺序表示为两个八位组值。"
+    },
+    {
+      "indent": 3,
+      "text": "The counter value in the context is first set to 1. When the amount of keying material exceeds the number of bits returned by the KDF function, then the KDF function is called again with the same inputs except that the counter increments for each call. When enough keying material is returned, it is concatenated and used to create keys.",
+      "zh-CHS": "上下文中的计数器值首先设置为1。当键控材料的数量超过KDF函数返回的位数时，将使用相同的输入再次调用KDF函数，但每次调用的计数器都会递增。当返回足够的关键帧材质时，将连接该材质并用于创建关键帧。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, AES with 128-bit keys requires 16 octets (128 bits) of keying material, and HMAC-SHA1-96 requires another 16 octets (128 bits) of keying material in order to maintain a consistent 128 bits of security. Since 32 octets (256 bits) of keying material are required, and the KDF function HMAC-SHA-256 outputs 256 bits, only one call is required. The inputs are as follows:",
+      "zh-CHS": "例如，具有128位密钥的AES需要16个八位字节（128位）的密钥材料，HMAC-SHA1-96需要另外16个八位字节（128位）的密钥材料，以保持一致的128位安全性。由于需要32个八位字节（256位）的键控材料，并且KDF函数HMAC-SHA-256输出256位，因此只需要一次调用。输入如下："
+    },
+    {
+      "indent": 3,
+      "text": "key-material = HMAC-SHA-256(dh-shared-secret, context)",
+      "zh-CHS": "密钥材料=HMAC-SHA-256（dh共享机密，上下文）"
+    },
+    {
+      "indent": 7,
+      "text": "where: context = 0x0001 || \"lisp-crypto\" || <itr-nonce> || 0x0100",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "In contrast, a Cipher Suite specifying AES with 256-bit keys requires 32 octets (256 bits) of keying material, and HMAC-SHA256-128 requires another 32 octets (256 bits) of keying material in order to maintain a consistent 256 bits of security. Since 64 octets (512 bits) of keying material are required, and the KDF function HMAC-SHA-256 outputs 256 bits, two calls are required.",
+      "zh-CHS": "相比之下，使用256位密钥指定AES的密码套件需要32个八位字节（256位）的密钥材料，HMAC-SHA256-128需要另外32个八位字节（256位）的密钥材料，以保持一致的256位安全性。由于需要64个八位字节（512位）的键控材料，并且KDF函数HMAC-SHA-256输出256位，因此需要两个调用。"
+    },
+    {
+      "indent": 3,
+      "text": "key-material-1 = HMAC-SHA-256(dh-shared-secret, context)",
+      "zh-CHS": "key-material-1=HMAC-SHA-256（dh共享机密，上下文）"
+    },
+    {
+      "indent": 7,
+      "text": "where: context = 0x0001 || \"lisp-crypto\" || <itr-nonce> || 0x0200",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "key-material-2 = HMAC-SHA-256(dh-shared-secret, context)",
+      "zh-CHS": "key-material-2=HMAC-SHA-256（dh共享机密，上下文）"
+    },
+    {
+      "indent": 7,
+      "text": "where: context = 0x0002 || \"lisp-crypto\" || <itr-nonce> || 0x0200",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "key-material = key-material-1 || key-material-2",
+      "zh-CHS": "关键材料=关键材料-1 | |关键材料-2"
+    },
+    {
+      "indent": 3,
+      "text": "If the key-material is longer than the required number of bits (L), then only the most significant L bits are used.",
+      "zh-CHS": "如果密钥材料长于所需的位数（L），则仅使用最有效的L位。"
+    },
+    {
+      "indent": 3,
+      "text": "From the derived key-material, the most significant 256 bits are used for the AEAD-key by AEAD ciphers. The 256-bit AEAD-key is divided into a 128-bit encryption key and a 128-bit integrity check key internal to the cipher used by the ITR.",
+      "zh-CHS": "根据衍生密钥材料，AEAD密码将最高有效256位用于AEAD密钥。256位AEAD密钥分为128位加密密钥和ITR使用的密码内部的128位完整性检查密钥。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Data-Plane Operation",
+      "section_title": true,
+      "zh-CHS": "8. 数据平面操作"
+    },
+    {
+      "indent": 3,
+      "text": "The LISP encapsulation header [RFC6830] requires changes to encode the key-id for the key being used for encryption.",
+      "zh-CHS": "LISP封装头[RFC6830]需要更改以编码用于加密的密钥的密钥id。"
+    },
+    {
+      "indent": 0,
+      "text": "     0                   1                   2                   3\n     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n  / |       Source Port = xxxx      |       Dest Port = 4341        |\nUDP +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n  \\ |           UDP Length          |        UDP Checksum           |\n    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\nL / |N|L|E|V|I|R|K|K|            Nonce/Map-Version                  |\\ \\\nI   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |A\nS \\ |                 Instance ID/Locator-Status-Bits               | |D\nP   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |/\n    |                   Initialization Vector (IV)                  | I\nE   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ C\nn / |                                                               | V\nc   |                                                               | |\nr   |                Packet Payload with EID Header ...             | |\ny   |                                                               | |\np \\ |                                                               |/\nt   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "K-bits Indicate When a Packet Is Encrypted and Which Key Is Used",
+      "zh-CHS": "K位表示数据包加密的时间和使用的密钥"
+    },
+    {
+      "indent": 3,
+      "text": "When the KK bits are 00, the encapsulated packet is not encrypted. When the value of the KK bits is 1, 2, or 3, it encodes the key-id of the secret keys computed during the Diffie-Hellman Map-Request/Map-Reply exchange. When the KK bits are not 0, the payload is prepended with an Initialization Vector (IV). The length of the IV field is based on the Cipher Suite used. Since all Cipher Suites defined in this document do Authenticated Encryption with Associated Data (AEAD), an ICV field does not need to be present in the packet since it is included in the ciphertext. The Additional Data (AD) used for the ICV is shown above and includes the LISP header, the IV field, and the packet payload.",
+      "zh-CHS": "当KK位为00时，封装的数据包不加密。当KK位的值为1、2或3时，它对Diffie-Hellman映射请求/映射应答交换期间计算的密钥的密钥id进行编码。当KK位不为0时，有效载荷以初始化向量（IV）为前缀。IV字段的长度基于使用的密码套件。由于本文档中定义的所有密码套件都使用相关数据进行身份验证加密（AEAD），因此ICV字段不需要出现在数据包中，因为它包含在密文中。ICV使用的附加数据（AD）如上所示，包括LISP报头、IV字段和数据包有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "When an ITR or PITR receives a packet to be encapsulated, the device will first decide what key to use, encode the key-id into the LISP header, and use that key to encrypt all packet data that follows the LISP header. Therefore, the outer header, UDP header, and LISP header travel as plaintext.",
+      "zh-CHS": "当ITR或PITR收到要封装的数据包时，设备将首先决定使用哪个密钥，将密钥id编码到LISP报头中，并使用该密钥加密LISP报头之后的所有数据包数据。因此，外部报头、UDP报头和LISP报头以明文形式传输。"
+    },
+    {
+      "indent": 3,
+      "text": "At the time of writing, there is an open working group item to discuss if the data encapsulation header needs change for encryption or any new applications. This document proposes changes to the existing header so experimentation can continue without making large changes to the data plane at this time. This document allocates two bits of the previously unused three flag bits (note the R-bit above is still a reserved flag bit, as documented in [RFC6830]) for the KK bits.",
+      "zh-CHS": "在撰写本文时，有一个开放的工作组项目需要讨论数据封装头是否需要更改以进行加密或任何新的应用程序。本文档建议对现有标头进行更改，以便在不对数据平面进行重大更改的情况下继续实验。本文件为KK位分配了先前未使用的三个标志位中的两位（注意，如[RFC6830]中所述，上面的R位仍然是保留标志位）。"
+    },
+    {
+      "indent": 0,
+      "text": "9. Procedures for Encryption and Decryption",
+      "section_title": true,
+      "zh-CHS": "9. 加密和解密程序"
+    },
+    {
+      "indent": 3,
+      "text": "When an ITR, PITR, or RTR encapsulates a packet and has already computed an AEAD-key (detailed in Section 7) that is associated with a destination RLOC, the following encryption and encapsulation procedures are performed:",
+      "zh-CHS": "当ITR、PITR或RTR封装数据包并已计算出与目标RLOC相关联的AEAD密钥（详见第7节）时，将执行以下加密和封装过程："
+    },
+    {
+      "indent": 3,
+      "text": "1. The encapsulator creates an IV and prepends the IV value to the packet being encapsulated. For GCM and ChaCha20 Cipher Suites, the IV is incremented for every packet (beginning with a value of 1 in the first packet) and sent to the destination RLOC. For CBC Cipher Suites, the IV is a new random number for every packet sent to the destination RLOC. For the ChaCha20 Cipher Suite, the IV is an 8-byte random value that is appended to a 4-byte counter that is incremented for every packet (beginning with a value of 1 in the first packet).",
+      "zh-CHS": "1. 封装器创建一个IV，并将IV值前置到被封装的数据包。对于GCM和ChaCha20密码套件，每个数据包的IV都会增加（从第一个数据包中的值1开始），并发送到目标RLOC。对于CBC密码套件，IV是发送到目标RLOC的每个数据包的新随机数。对于ChaCha20密码套件，IV是一个8字节的随机值，附加到每个数据包递增的4字节计数器上（从第一个数据包中的值1开始）。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Next encrypt with cipher function AES or ChaCha20 using the AEAD-key over the packet payload following the AEAD specification referenced in the Cipher Suite definition. This does not include the IV. The IV must be transmitted as plaintext so the decrypter",
+      "zh-CHS": "2. 接下来，按照密码套件定义中引用的AEAD规范，使用AEAD密钥在数据包有效负载上使用密码函数AES或ChaCha20进行加密。这不包括IV。IV必须以明文形式传输，以便解密程序"
+    },
+    {
+      "indent": 7,
+      "text": "can use it as input to the decryption cipher. The payload should be padded to an integral number of bytes a block cipher may require. The result of the AEAD operation may contain an ICV, the size of which is defined by the referenced AEAD specification. Note that the AD (i.e., the LISP header exactly as will be prepended in the next step and the IV) must be given to the AEAD encryption function as the \"associated data\" argument.",
+      "zh-CHS": "可以将其用作解密密码的输入。有效载荷应填充到分组密码可能需要的整数字节数。AEAD操作的结果可能包含ICV，其大小由参考的AEAD规范定义。请注意，必须将AD（即LISP头，与下一步和IV中完全相同）作为“关联数据”参数提供给AEAD加密函数。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Prepend the LISP header. The key-id field of the LISP header is set to the key-id value that corresponds to key-pair used for the encryption cipher.",
+      "zh-CHS": "3. 在LISP标题前加上前缀。LISP头的密钥id字段设置为密钥id值，该值对应于用于加密密码的密钥对。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Lastly, prepend the UDP header and outer IP header onto the encrypted packet and send packet to destination RLOC.",
+      "zh-CHS": "4. 最后，将UDP报头和外部IP报头前置到加密的数据包上，并将数据包发送到目标RLOC。"
+    },
+    {
+      "indent": 3,
+      "text": "When an ETR, PETR, or RTR receives an encapsulated packet, the following decapsulation and decryption procedures are performed:",
+      "zh-CHS": "当ETR、PETR或RTR接收到封装的数据包时，将执行以下去封装和解密程序："
+    },
+    {
+      "indent": 3,
+      "text": "1. The outer IP header, UDP header, LISP header, and IV field are stripped from the start of the packet. The LISP header and IV are retained and given to the AEAD decryption operation as the \"associated data\" argument.",
+      "zh-CHS": "1. 外部IP报头、UDP报头、LISP报头和IV字段从数据包的开头剥离。LISP头和IV被保留并作为“关联数据”参数提供给AEAD解密操作。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The packet is decrypted using the AEAD-key and the IV from the packet. The AEAD-key is obtained from a local-cache associated with the key-id value from the LISP header. The result of the decryption function is a plaintext packet payload if the cipher returned a verified ICV. Otherwise, the packet is invalid and is discarded. If the AEAD specification included an ICV, the AEAD decryption function will locate the ICV in the ciphertext and compare it to a version of the ICV that the AEAD decryption function computes. If the computed ICV is different than the ICV located in the ciphertext, then it will be considered tampered.",
+      "zh-CHS": "2. 使用AEAD密钥和来自数据包的IV对数据包进行解密。AEAD密钥从与LISP头中的密钥id值关联的本地缓存中获取。如果密码返回已验证的ICV，则解密函数的结果为明文数据包有效负载。否则，数据包无效并被丢弃。如果AEAD规范包含ICV，AEAD解密函数将在密文中定位ICV，并将其与AEAD解密函数计算的ICV版本进行比较。如果计算出的ICV与密文中的ICV不同，则视为被篡改。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If the packet was not tampered with, the decrypted packet is forwarded to the destination EID.",
+      "zh-CHS": "3. 如果数据包未被篡改，解密后的数据包将转发到目标EID。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Dynamic Rekeying",
+      "section_title": true,
+      "zh-CHS": "10. 动态密钥更新"
+    },
+    {
+      "indent": 3,
+      "text": "Since multiple keys can be encoded in both control and data messages, an ITR can encapsulate and encrypt with a specific key while it is negotiating other keys with the same ETR. As soon as an ETR or RTR returns a Map-Reply, it should be prepared to decapsulate and decrypt using the new keys computed with the new Diffie-Hellman parameters received in the Map-Request and returned in the Map-Reply.",
+      "zh-CHS": "由于可以在控制和数据消息中对多个密钥进行编码，因此ITR可以在与同一ETR协商其他密钥时使用特定密钥进行封装和加密。一旦ETR或RTR返回Map回复，它就应该准备使用使用在Map请求中接收并在Map回复中返回的新Diffie-Hellman参数计算的新密钥解封装和解密。"
+    },
+    {
+      "indent": 3,
+      "text": "RLOC-probing can be used to change keys or Cipher Suites by the ITR at any time. And when an initial Map-Request is sent to populate the ITR's map-cache, the Map-Request flows across the mapping system where a single ETR from the Map-Reply RLOC-set will respond. If the ITR decides to use the other RLOCs in the RLOC-set, it MUST send a Map-Request directly to negotiate security parameters with the ETR. This process may be used to test reachability from an ITR to an ETR initially when a map-cache entry is added for the first time, so an ITR can get both reachability status and keys negotiated with one Map-Request/Map-Reply exchange.",
+      "zh-CHS": "RLOC探测可用于ITR随时更改密钥或密码套件。当发送初始Map请求以填充ITR的Map缓存时，Map请求将流经映射系统，其中来自Map Reply RLOC集合的单个ETR将作出响应。如果ITR决定使用RLOC集中的其他RLOC，则必须直接发送Map请求，以与ETR协商安全参数。当首次添加映射缓存条目时，此过程可用于测试从ITR到ETR的可达性，因此ITR可以获得可达性状态和与一个映射请求/映射应答交换协商的密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "A rekeying event is defined to be when an ITR or PITR changes the Cipher Suite or public key in the Map-Request. The ETR or RTR compares the Cipher Suite and public key it last received from the ITR for the key-id, and if any value has changed, it computes a new public key and Cipher Suite requested by the ITR from the Map-Request and returns it in the Map-Reply. Now a new shared secret is computed and can be used for the key-id for encryption by the ITR and decryption by the ETR. When the ITR or PITR starts this process of negotiating a new key, it must not use the corresponding key-id in encapsulated packets until it receives a Map-Reply from the ETR with the same Cipher Suite value it expects (the values it sent in a Map-Request).",
+      "zh-CHS": "当ITR或PITR更改Map请求中的密码套件或公钥时，将定义一个密钥更新事件。ETR或RTR比较上次从ITR收到的密钥id的密码套件和公钥，如果任何值已更改，则计算ITR从Map请求请求的新公钥和密码套件，并在Map回复中返回。现在，将计算一个新的共享密钥，该密钥可用于ITR加密和ETR解密的密钥id。当ITR或PITR开始协商新密钥的过程时，它不得在封装的数据包中使用相应的密钥id，直到它从ETR接收到具有它期望的相同密码套件值（它在Map请求中发送的值）的Map应答。"
+    },
+    {
+      "indent": 3,
+      "text": "Note when RLOC-probing continues to maintain RLOC reachability and rekeying is not desirable, the ITR or RTR can either not include the Security Key LCAF Type in the Map-Request or supply the same key material as it received from the last Map-Reply from the ETR or RTR. This approach signals to the ETR or RTR that no rekeying event is requested.",
+      "zh-CHS": "注：当RLOC探测继续保持RLOC可达性且不需要重新设置密钥时，ITR或RTR不能在Map请求中包含安全密钥LCAF类型，也不能提供从ETR或RTR上一次Map回复中收到的相同密钥材料。此方法向ETR或RTR发出信号，表示未请求任何密钥更新事件。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Future Work",
+      "section_title": true,
+      "zh-CHS": "11. 今后的工作"
+    },
+    {
+      "indent": 3,
+      "text": "For performance considerations, newer Elliptic-Curve Diffie-Hellman (ECDH) groups can be used as specified in [RFC4492] and [RFC6090] to reduce CPU cycles required to compute shared secret keys.",
+      "zh-CHS": "出于性能考虑，可以按照[RFC4492]和[RFC6090]中的规定使用较新的椭圆曲线Diffie-Hellman（ECDH）组，以减少计算共享密钥所需的CPU周期。"
+    },
+    {
+      "indent": 3,
+      "text": "For better security considerations as well as to be able to build faster software implementations, newer approaches to ciphers and authentication methods will be researched and tested. Some examples are ChaCha20 and Poly1305 [CHACHA-POLY] [RFC7539].",
+      "zh-CHS": "为了更好的安全考虑以及能够构建更快的软件实现，将研究和测试密码和身份验证方法的更新方法。一些示例是ChaCha20和Poly1305[CHACHA-POLY][RFC7539]。"
+    },
+    {
+      "indent": 0,
+      "text": "12. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "12. 安全考虑"
+    },
+    {
+      "indent": 0,
+      "text": "12.1. SAAG Support",
+      "section_title": true,
+      "zh-CHS": "12.1. SAAG支持"
+    },
+    {
+      "indent": 3,
+      "text": "The LISP working group received security advice and guidance from the Security Area Advisory Group (SAAG). The SAAG has been involved early in the design process, and their input and reviews have been included in this document.",
+      "zh-CHS": "LISP工作组收到了安全区域咨询小组（SAAG）的安全建议和指导。SAAG已参与设计过程的早期阶段，其输入和评审已包含在本文件中。"
+    },
+    {
+      "indent": 3,
+      "text": "Comments from the SAAG included:",
+      "zh-CHS": "SAAG的评论包括："
+    },
+    {
+      "indent": 3,
+      "text": "1. Do not use asymmetric ciphers in the data plane.",
+      "zh-CHS": "1. 不要在数据平面中使用非对称密码。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Consider adding ECDH early in the design.",
+      "zh-CHS": "2. 考虑在设计早期加入ECDH。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Add Cipher Suites because ciphers are created more frequently than protocols that use them.",
+      "zh-CHS": "3. 添加密码套件，因为创建密码的频率高于使用密码套件的协议。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Consider the newer AEAD technology so authentication comes with doing encryption.",
+      "zh-CHS": "4. 考虑更新的AEAD技术，因此认证与加密有关。"
+    },
+    {
+      "indent": 0,
+      "text": "12.2. LISP-Crypto Security Threats",
+      "section_title": true,
+      "zh-CHS": "12.2. LISP加密安全威胁"
+    },
+    {
+      "indent": 3,
+      "text": "Since ITRs and ETRs participate in key exchange over a public non-secure network, a man in the middle (MITM) could circumvent the key exchange and compromise data-plane confidentiality. This can happen when the MITM is acting as a Map-Replier and provides its own public key so the ITR and the MITM generate a shared secret key between them. If the MITM is in the data path between the ITR and ETR, it can use the shared secret key to decrypt traffic from the ITR.",
+      "zh-CHS": "由于ITRS和ETRS参与了一个公共非安全网络的密钥交换，中间人（MITM）可以规避密钥交换并破坏数据平面机密性。当MITM充当映射应答器并提供自己的公钥以便ITR和MITM在它们之间生成共享密钥时，就会发生这种情况。如果MITM位于ITR和ETR之间的数据路径中，它可以使用共享密钥解密来自ITR的流量。"
+    },
+    {
+      "indent": 3,
+      "text": "Since LISP can secure Map-Replies by the authentication process specified in [LISP-SEC], the ITR can detect when a MITM has signed a Map-Reply for an EID-prefix for which it is not authoritative. When an ITR determines that the signature verification fails, it discards and does not reuse the key exchange parameters, avoids using the ETR for encapsulation, and issues a severe log message to the network administrator. Optionally, the ITR can send RLOC-probes to the compromised RLOC to determine if the authoritative ETR is reachable. And when the ITR validates the signature of a Map-Reply, it can begin encrypting and encapsulating packets to the RLOC of ETR.",
+      "zh-CHS": "由于LISP可以通过[LISP-SEC]中指定的身份验证过程保护映射回复，因此ITR可以检测MITM何时为其不具有权威性的EID前缀签署映射回复。当ITR确定签名验证失败时，它将丢弃并不再重用密钥交换参数，避免使用ETR进行封装，并向网络管理员发出严重日志消息。或者，ITR可以向受损的RLOC发送RLOC探测，以确定是否可以访问权威ETR。当ITR验证Map应答的签名时，它可以开始加密数据包并将其封装到ETR的RLOC。"
+    },
+    {
+      "indent": 0,
+      "text": "13. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "13. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a mechanism for encrypting LISP-encapsulated packets based on Diffie-Hellman key exchange procedures. During the exchange, the devices have to agree on a Cipher Suite to be used (i.e., the cipher and hash functions used to encrypt/decrypt and to sign/verify packets). The 8-bit Cipher Suite field is reserved for such purpose in the security material section of the Map-Request and Map-Reply messages.",
+      "zh-CHS": "本文档描述了一种基于Diffie-Hellman密钥交换过程加密LISP封装数据包的机制。在交换期间，设备必须就要使用的密码套件达成一致（即，用于加密/解密和签名/验证数据包的密码和哈希函数）。8位密码套件字段在Map请求和Map回复消息的安全资料部分中保留用于此目的。"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has created a new registry (as outlined in [RFC5226]) titled \"LISP Crypto Cipher Suite\". Initial values for the registry are provided below. Future assignments are to be made on a \"First Come, First Served\" basis [RFC5226].",
+      "zh-CHS": "IANA创建了一个新的注册表（如[RFC5226]所述），名为“LISP加密密码套件”。注册表的初始值如下所示。未来的任务将在“先到先得”的基础上完成[RFC5226]。"
+    },
+    {
+      "indent": 3,
+      "text": "+-----+--------------------------------------------+------------+\n|Value| Suite                                      | Reference  |\n+-----+--------------------------------------------+------------+\n|  0  | Reserved                                   | Section 6  |\n+-----+--------------------------------------------+------------+\n|  1  | LISP_2048MODP_AES128_CBC_SHA256            | Section 6  |\n+-----+--------------------------------------------+------------+\n|  2  | LISP_EC25519_AES128_CBC_SHA256             | Section 6  |\n+-----+--------------------------------------------+------------+\n|  3  | LISP_2048MODP_AES128_GCM                   | Section 6  |\n+-----+--------------------------------------------+------------+\n|  4  | LISP_3072MODP_AES128_GCM                   | Section 6  |\n+-----+--------------------------------------------+------------+\n|  5  | LISP_256_EC25519_AES128_GCM                | Section 6  |\n+-----+--------------------------------------------+------------+\n|  6  | LISP_256_EC25519_CHACHA20_POLY1305         | Section 6  |\n+-----+--------------------------------------------+------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 25,
+      "text": "LISP Crypto Cipher Suites",
+      "zh-CHS": "LISP密码套件"
+    },
+    {
+      "indent": 0,
+      "text": "14. References",
+      "section_title": true,
+      "zh-CHS": "14. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "14.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "14.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[NIST-SP800-108] National Institute of Standards and Technology, \"Recommendation for Key Derivation Using Pseudorandom Functions\", NIST Special Publication SP 800-108, DOI 10.6028/NIST.SP.800-108, October 2009.",
+      "zh-CHS": "[NIST-SP800-108]国家标准与技术研究所，“使用伪随机函数进行密钥推导的建议”，NIST特别出版物SP 800-108，DOI 10.6028/NIST.SP.800-108，2009年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2631] Rescorla, E., \"Diffie-Hellman Key Agreement Method\", RFC 2631, DOI 10.17487/RFC2631, June 1999, <http://www.rfc-editor.org/info/rfc2631>.",
+      "zh-CHS": "[RFC2631]Rescorla，E.，“Diffie-Hellman密钥协商方法”，RFC 2631，DOI 10.17487/RFC26311999年6月<http://www.rfc-editor.org/info/rfc2631>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3526] Kivinen, T. and M. Kojo, \"More Modular Exponential (MODP) Diffie-Hellman groups for Internet Key Exchange (IKE)\", RFC 3526, DOI 10.17487/RFC3526, May 2003, <http://www.rfc-editor.org/info/rfc3526>.",
+      "zh-CHS": "[RFC3526]Kivinen，T.和M.Kojo，“互联网密钥交换（IKE）的更多模指数（MODP）Diffie-Hellman群”，RFC 3526，DOI 10.17487/RFC3526，2003年5月<http://www.rfc-editor.org/info/rfc3526>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4492] Blake-Wilson, S., Bolyard, N., Gupta, V., Hawk, C., and B. Moeller, \"Elliptic Curve Cryptography (ECC) Cipher Suites for Transport Layer Security (TLS)\", RFC 4492, DOI 10.17487/RFC4492, May 2006, <http://www.rfc-editor.org/info/rfc4492>.",
+      "zh-CHS": "[RFC4492]Blake Wilson，S.，Bolyard，N.，Gupta，V.，Hawk，C.，和B.Moeller，“用于传输层安全（TLS）的椭圆曲线密码（ECC）密码套件”，RFC 4492，DOI 10.17487/RFC4492，2006年5月<http://www.rfc-editor.org/info/rfc4492>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5116] McGrew, D., \"An Interface and Algorithms for Authenticated Encryption\", RFC 5116, DOI 10.17487/RFC5116, January 2008, <http://www.rfc-editor.org/info/rfc5116>.",
+      "zh-CHS": "[RFC5116]McGrew，D.“认证加密的接口和算法”，RFC 5116，DOI 10.17487/RFC5116，2008年1月<http://www.rfc-editor.org/info/rfc5116>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5226] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 5226, DOI 10.17487/RFC5226, May 2008, <http://www.rfc-editor.org/info/rfc5226>.",
+      "zh-CHS": "[RFC5226]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 5226，DOI 10.17487/RFC5226，2008年5月<http://www.rfc-editor.org/info/rfc5226>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6090] McGrew, D., Igoe, K., and M. Salter, \"Fundamental Elliptic Curve Cryptography Algorithms\", RFC 6090, DOI 10.17487/RFC6090, February 2011, <http://www.rfc-editor.org/info/rfc6090>.",
+      "zh-CHS": "[RFC6090]McGrew，D.，Igoe，K.，和M.Salter，“基本椭圆曲线密码算法”，RFC 6090，DOI 10.17487/RFC6090，2011年2月<http://www.rfc-editor.org/info/rfc6090>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6830] Farinacci, D., Fuller, V., Meyer, D., and D. Lewis, \"The Locator/ID Separation Protocol (LISP)\", RFC 6830, DOI 10.17487/RFC6830, January 2013, <http://www.rfc-editor.org/info/rfc6830>.",
+      "zh-CHS": "[RFC6830]Farinaci，D.，Fuller，V.，Meyer，D.，和D.Lewis，“定位器/身份分离协议（LISP）”，RFC 6830，DOI 10.17487/RFC6830，2013年1月<http://www.rfc-editor.org/info/rfc6830>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6973] Cooper, A., Tschofenig, H., Aboba, B., Peterson, J., Morris, J., Hansen, M., and R. Smith, \"Privacy Considerations for Internet Protocols\", RFC 6973, DOI 10.17487/RFC6973, July 2013, <http://www.rfc-editor.org/info/rfc6973>.",
+      "zh-CHS": "[RFC6973]Cooper，A.，Tschofenig，H.，Aboba，B.，Peterson，J.，Morris，J.，Hansen，M.，和R.Smith，“互联网协议的隐私考虑”，RFC 6973，DOI 10.17487/RFC6973，2013年7月<http://www.rfc-editor.org/info/rfc6973>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7539] Nir, Y. and A. Langley, \"ChaCha20 and Poly1305 for IETF Protocols\", RFC 7539, DOI 10.17487/RFC7539, May 2015, <http://www.rfc-editor.org/info/rfc7539>.",
+      "zh-CHS": "[RFC7539]Nir，Y.和A.Langley，“IETF协议的ChaCha20和Poly1305”，RFC 7539，DOI 10.17487/RFC7539，2015年5月<http://www.rfc-editor.org/info/rfc7539>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8060] Farinacci, D., Meyer, D., and J. Snijders, \"LISP Canonical Address Format (LCAF)\", RFC 8060, DOI 10.17487/RFC8060, February 2017, <http://www.rfc-editor.org/info/rfc8060>.",
+      "zh-CHS": "[RFC8060]Farinaci，D.，Meyer，D.，和J.Snijders，“LISP规范地址格式（LCAF）”，RFC 8060，DOI 10.17487/RFC8060，2017年2月<http://www.rfc-editor.org/info/rfc8060>."
+    },
+    {
+      "indent": 0,
+      "text": "14.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "14.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[AES-CBC] McGrew, D., Foley, J., and K. Paterson, \"Authenticated Encryption with AES-CBC and HMAC-SHA\", Work in Progress, draft-mcgrew-aead-aes-cbc-hmac-sha2-05, July 2014.",
+      "zh-CHS": "[AES-CBC]McGrew，D.，Foley，J.，和K.Paterson，“使用AES-CBC和HMAC-SHA进行认证加密”，正在进行的工作，草稿-McGrew-aead-AES-CBC-HMAC-sha2-052014年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CHACHA-POLY] Langley, A. and W. Chang, \"ChaCha20 and Poly1305 based Cipher Suites for TLS\", Work in Progress, draft-agl-tls-chacha20poly1305-04, November 2013.",
+      "zh-CHS": "[CHACHA-POLY]Langley，A.和W.Chang，“基于ChaCha20和Poly1305的TLS密码套件”，正在进行的工作，草稿-agl-TLS-chacha20poly1305-042013年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CURVE25519] Bernstein, D., \"Curve25519: new Diffie-Hellman speed records\", DOI 10.1007/11745853_14, <http://www.iacr.org/cryptodb/archive/2006/ PKC/3351/3351.pdf>.",
+      "zh-CHS": "[CURVE25519]Bernstein，D.，“CURVE25519：新的Diffie-Hellman速度记录”，DOI 10.1007/11745853_14<http://www.iacr.org/cryptodb/archive/2006/ PKC/3351/3351.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[DH] Wikipedia, \"Diffie-Hellman key exchange\", January 2017, <https://en.wikipedia.org/w/index.php?title=Diffie%E2%80%9 3Hellman_key_exchange&oldid=759611604>.",
+      "zh-CHS": "[DH]维基百科，“Diffie-Hellman密钥交换”，2017年1月<https://en.wikipedia.org/w/index.php?title=Diffie%E2%80%9 3赫尔曼密钥交换&oldid=759611604>。"
+    },
+    {
+      "indent": 3,
+      "text": "[LISP-DDT] Fuller, V., Lewis, D., Ermagan, V., Jain, A., and A. Smirnov, \"LISP Delegated Database Tree\", Work in Progress, draft-ietf-lisp-ddt-08, September 2016.",
+      "zh-CHS": "[LISP-DDT]Fuller，V.，Lewis，D.，Ermagan，V.，Jain，A.，和A.Smirnov，“LISP委托数据库树”，正在进行的工作，草案-ietf-LISP-DDT-082016年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[LISP-SEC] Maino, F., Ermagan, V., Cabellos, A., and D. Saucez, \"LISP-Security (LISP-SEC)\", Work in Progress, draft-ietf-lisp-sec-12, November 2016.",
+      "zh-CHS": "[LISP-SEC]Maino，F.，Ermagan，V.，Cabellos，A.，和D.Saucez，“LISP安全（LISP-SEC）”，正在进行的工作，草案-ietf-LISP-SEC-12，2016年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Dan Harkins, Joel Halpern, Fabio Maino, Ed Lopez, Roger Jorgensen, and Watson Ladd for their interest, suggestions, and discussions about LISP data-plane security. An individual thank you to LISP WG Chair Luigi Iannone for shepherding this document as well as contributing to the IANA Considerations section.",
+      "zh-CHS": "作者要感谢Dan Harkins、Joel Halpern、Fabio Maino、Ed Lopez、Roger Jorgensen和Watson Ladd对LISP数据平面安全性的兴趣、建议和讨论。个人感谢LISP工作组主席Luigi Iannone对本文件的指导以及对IANA注意事项部分的贡献。"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to give a special thank you to Ilari Liusvaara for his extensive commentary and discussion. He has contributed his security expertise to make lisp-crypto as secure as the state of the art in cryptography.",
+      "zh-CHS": "作者要特别感谢Ilari Liusvaara的广泛评论和讨论。他贡献了自己的安全专业知识，使lisp crypto与最先进的密码学一样安全。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, the support and suggestions from the SAAG working group were helpful and appreciated.",
+      "zh-CHS": "此外，SAAG工作组的支持和建议是有益的，值得赞赏。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Dino Farinacci lispers.net San Jose, California 95120 United States of America",
+      "zh-CHS": "Dino Farinaci lispers.net加利福尼亚州圣何塞95120美利坚合众国"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 408-718-2001 Email: farinacci@gmail.com",
+      "zh-CHS": "电话：408-718-2001电子邮件：farinacci@gmail.com"
+    },
+    {
+      "indent": 3,
+      "text": "Brian Weis Cisco Systems 170 West Tasman Drive San Jose, California 95124-1706 United States of America",
+      "zh-CHS": "Brian Weis Cisco Systems美国加利福尼亚州圣何塞西塔斯曼大道170号95124-1706"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 408-526-4796 Email: bew@cisco.com",
+      "zh-CHS": "电话：408-526-4796电子邮件：bew@cisco.com"
+    }
+  ]
+}

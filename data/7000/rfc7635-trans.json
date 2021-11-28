@@ -1,0 +1,1097 @@
+{
+  "title": {
+    "text": "RFC 7635: Session Traversal Utilities for NAT (STUN) Extension for Third-Party Authorization",
+    "zh-CHS": "RFC 7635"
+  },
+  "number": 7635,
+  "created_at": "2021-10-31 09:57:29.827505+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                          T. Reddy\nRequest for Comments: 7635                                      P. Patil\nCategory: Standards Track                                R. Ravindranath\nISSN: 2070-1721                                                    Cisco\n                                                               J. Uberti\n                                                                  Google\n                                                             August 2015",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "Session Traversal Utilities for NAT (STUN) Extension for Third-Party Authorization",
+      "zh-CHS": "用于第三方授权的NAT（STUN）扩展的会话遍历实用程序"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document proposes the use of OAuth 2.0 to obtain and validate ephemeral tokens that can be used for Session Traversal Utilities for NAT (STUN) authentication. The usage of ephemeral tokens ensures that access to a STUN server can be controlled even if the tokens are compromised.",
+      "zh-CHS": "本文档建议使用OAuth 2.0获取和验证可用于NAT（STUN）身份验证的会话遍历实用程序的临时令牌。短暂令牌的使用确保了即使令牌被破坏，也可以控制对STUN服务器的访问。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7635.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7635."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2015 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2015 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2\n2.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . .   3\n3.  Solution Overview . . . . . . . . . . . . . . . . . . . . . .   3\n  3.1.  Usage with TURN . . . . . . . . . . . . . . . . . . . . .   4\n4.  Obtaining a Token Using OAuth . . . . . . . . . . . . . . . .   7\n  4.1.  Key Establishment . . . . . . . . . . . . . . . . . . . .   8\n    4.1.1.  HTTP Interactions . . . . . . . . . . . . . . . . . .   8\n    4.1.2.  Manual Provisioning . . . . . . . . . . . . . . . . .  10\n5.  Forming a Request . . . . . . . . . . . . . . . . . . . . . .  10\n6.  STUN Attributes . . . . . . . . . . . . . . . . . . . . . . .  10\n  6.1.  THIRD-PARTY-AUTHORIZATION . . . . . . . . . . . . . . . .  10\n  6.2.  ACCESS-TOKEN  . . . . . . . . . . . . . . . . . . . . . .  11\n7.  STUN Server Behavior  . . . . . . . . . . . . . . . . . . . .  13\n8.  STUN Client Behavior  . . . . . . . . . . . . . . . . . . . .  14\n9.  TURN Client and Server Behavior . . . . . . . . . . . . . . .  14\n10. Operational Considerations  . . . . . . . . . . . . . . . . .  15\n11. Security Considerations . . . . . . . . . . . . . . . . . . .  15\n12. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  16\n  12.1.  Well-Known 'stun-key' URI  . . . . . . . . . . . . . . .  16\n13. References  . . . . . . . . . . . . . . . . . . . . . . . . .  16\n  13.1.  Normative References . . . . . . . . . . . . . . . . . .  16\n  13.2.  Informative References . . . . . . . . . . . . . . . . .  17\nAppendix A.  Sample Tickets . . . . . . . . . . . . . . . . . . .  20\nAppendix B.  Interaction between the Client and Authorization\n             Server . . . . . . . . . . . . . . . . . . . . . . .  22\nAcknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  24\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  24",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Session Traversal Utilities for NAT (STUN) [RFC5389] provides a mechanism to control access via 'long-term' username/password credentials that are provided as part of the STUN protocol. It is expected that these credentials will be kept secret; if the credentials are discovered, the STUN server could be used by unauthorized users or applications. However, in web applications like WebRTC [WEBRTC] where JavaScript uses the browser functionality for making real-time audio and/or video calls, web conferencing, and direct data transfer, ensuring this secrecy is typically not possible.",
+      "zh-CHS": "NAT会话遍历实用程序（STUN）[RFC5389]提供了一种通过STUN协议中提供的“长期”用户名/密码凭据控制访问的机制。预计这些证书将保密；如果发现凭据，则未经授权的用户或应用程序可能会使用STUN服务器。但是，在WebRTC[WebRTC]等web应用程序中，JavaScript使用浏览器功能进行实时音频和/或视频通话、web会议和直接数据传输，确保这种保密性通常是不可能的。"
+    },
+    {
+      "indent": 3,
+      "text": "To address this problem and the ones described in [RFC7376], this document proposes the use of third-party authorization using OAuth 2.0 [RFC6749] for STUN. Using OAuth 2.0, a client obtains an ephemeral token from an authorization server, e.g., a WebRTC server, and the token is presented to the STUN server instead of the",
+      "zh-CHS": "为了解决这个问题以及[RFC7376]中描述的问题，本文建议使用OAuth 2.0[RFC6749]对STUN进行第三方授权。使用OAuth 2.0，客户机从授权服务器（例如WebRTC服务器）获取临时令牌，该令牌将呈现给STUN服务器，而不是"
+    },
+    {
+      "indent": 3,
+      "text": "traditional mechanism of presenting username/password credentials. The STUN server validates the authenticity of the token and provides required services. Third-party authorization using OAuth 2.0 for STUN explained in this specification can also be used with Traversal Using Relays around NAT (TURN) [RFC5766].",
+      "zh-CHS": "显示用户名/密码凭据的传统机制。STUN服务器验证令牌的真实性并提供所需的服务。本规范中解释的使用OAuth 2.0进行STUN的第三方授权也可用于NAT（TURN）周围使用继电器的遍历[RFC5766]。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the following abbreviations:",
+      "zh-CHS": "本文件使用以下缩写："
+    },
+    {
+      "indent": 3,
+      "text": "o WebRTC Server: A web server that supports WebRTC [WEBRTC].",
+      "zh-CHS": "o WebRTC服务器：支持WebRTC[WebRTC]的web服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "o Access Token: OAuth 2.0 access token.",
+      "zh-CHS": "o 访问令牌：OAuth 2.0访问令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "o mac_key: The session key generated by the authorization server. This session key has a lifetime that corresponds to the lifetime of the access token, is generated by the authorization server, and is bound to the access token.",
+      "zh-CHS": "o mac_密钥：授权服务器生成的会话密钥。此会话密钥的生存期与访问令牌的生存期相对应，由授权服务器生成，并绑定到访问令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "o kid: An ephemeral and unique key identifier. The kid also allows the resource server to select the appropriate keying material for decryption.",
+      "zh-CHS": "o kid：一个短暂且唯一的密钥标识符。kid还允许资源服务器选择适当的密钥材料进行解密。"
+    },
+    {
+      "indent": 3,
+      "text": "o AS: Authorization server.",
+      "zh-CHS": "o AS：授权服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "o RS: Resource server.",
+      "zh-CHS": "o 资源服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "Some sections in this specification show the WebRTC server as the authorization server and the client as the WebRTC client; however, WebRTC is intended to be used for illustrative purpose only.",
+      "zh-CHS": "本规范中的某些部分将WebRTC服务器显示为授权服务器，客户端显示为WebRTC客户端；然而，WebRTC仅用于说明目的。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Solution Overview",
+      "section_title": true,
+      "zh-CHS": "3. 解决方案概述"
+    },
+    {
+      "indent": 3,
+      "text": "The STUN client knows that it can use OAuth 2.0 with the target STUN server either through configuration or when it receives the new STUN attribute THIRD-PARTY-AUTHORIZATION in the error response with an error code of 401 (Unauthorized).",
+      "zh-CHS": "STUN客户端知道，它可以通过配置或在错误响应中收到错误代码为401（未经授权）的新STUN属性THIRD-PARTY-AUTHORIZATION时，将OAuth 2.0用于目标STUN服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "This specification uses the token type 'Assertion' (a.k.a. self-contained token) described in [RFC6819] where all the information necessary to authenticate the validity of the token is contained within the token itself. This approach has the benefit of avoiding a protocol between the STUN server and the authorization server for token validation, thus reducing latency. The content of the token is",
+      "zh-CHS": "本规范使用[RFC6819]中描述的令牌类型“断言”（也称为自包含令牌），其中验证令牌有效性所需的所有信息都包含在令牌本身中。这种方法的好处是避免了STUN服务器和授权服务器之间的令牌验证协议，从而减少了延迟。令牌的内容是"
+    },
+    {
+      "indent": 3,
+      "text": "opaque to the client. The client embeds the token within a STUN request sent to the STUN server. Once the STUN server has determined the token is valid, its services are offered for a determined period of time. The access token issued by the authorization server is explained in Section 6.2. OAuth 2.0 in [RFC6749] defines four grant types. This specification uses the OAuth 2.0 grant type 'Implicit' as explained in Section 1.3.2 of [RFC6749] where the client is issued an access token directly. The string 'stun' is defined by this specification for use as the OAuth scope parameter (see Section 3.3 of [RFC6749]) for the OAuth token.",
+      "zh-CHS": "对客户不透明。客户端将令牌嵌入发送到STUN服务器的STUN请求中。一旦STUN服务器确定令牌有效，其服务将在确定的时间段内提供。第6.2节解释了授权服务器发布的访问令牌。[RFC6749]中的OAuth 2.0定义了四种授权类型。本规范使用[RFC6749]第1.3.2节中解释的OAuth 2.0授权类型“隐式”，其中客户端直接获得访问令牌。字符串“stun”由本规范定义，用作OAuth令牌的OAuth范围参数（参见[RFC6749]第3.3节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The exact mechanism used by a client to obtain a token and other OAuth 2.0 parameters like token type, mac_key, token lifetime, and kid is outside the scope of this document. Appendix B provides an example deployment scenario of interaction between the client and authorization server to obtain a token and other OAuth 2.0 parameters.",
+      "zh-CHS": "客户端用于获取令牌和其他OAuth 2.0参数（如令牌类型、mac_密钥、令牌生存期和kid）的确切机制不在本文档的范围内。附录B提供了客户端和授权服务器之间交互的示例部署场景，以获取令牌和其他OAuth 2.0参数。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 3.1 illustrates the use of OAuth 2.0 to achieve third-party authorization for TURN.",
+      "zh-CHS": "第3.1节说明了如何使用OAuth 2.0实现TURN的第三方授权。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Usage with TURN",
+      "section_title": true,
+      "zh-CHS": "3.1. 轮流使用"
+    },
+    {
+      "indent": 3,
+      "text": "TURN, an extension to the STUN protocol, is often used to improve the connectivity of peer-to-peer (P2P) applications. TURN ensures that a connection can be established even when one or both sides are incapable of a direct P2P connection. However, as a relay service, it imposes a non-trivial cost on the service provider. Therefore, access to a TURN service is almost always access controlled. In order to achieve third-party authorization, a resource owner, e.g., a WebRTC server, authorizes a TURN client to access resources on the TURN server.",
+      "zh-CHS": "TURN是STUN协议的扩展，通常用于改善对等（P2P）应用程序的连接性。TURN确保即使当一方或双方无法建立直接P2P连接时，也可以建立连接。然而，作为一种中继服务，它给服务提供商带来了不小的成本。因此，对转弯服务的访问几乎总是受访问控制的。为了实现第三方授权，资源所有者（例如WebRTC服务器）授权TURN客户端访问TURN服务器上的资源。"
+    },
+    {
+      "indent": 3,
+      "text": "In this example, a resource owner, i.e., a WebRTC server, authorizes a TURN client to access resources on a TURN server.",
+      "zh-CHS": "在此示例中，资源所有者（即WebRTC服务器）授权TURN客户端访问TURN服务器上的资源。"
+    },
+    {
+      "indent": 11,
+      "text": "+----------------------+----------------------------+\n|     OAuth 2.0        |            WebRTC          |\n+======================+============================+\n| Client               | WebRTC client              |\n+----------------------+----------------------------+\n| Resource owner       | WebRTC server              |\n+----------------------+----------------------------+\n| Authorization server | Authorization server       |\n+----------------------+----------------------------+\n| Resource server      | TURN server                |\n+----------------------+----------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "Figure 1: OAuth Terminology Mapped to WebRTC Terminology",
+      "zh-CHS": "图1：映射到WebRTC术语的OAuth术语"
+    },
+    {
+      "indent": 3,
+      "text": "Using the OAuth 2.0 authorization framework, a WebRTC client (third-party application) obtains limited access to a TURN server (resource server) on behalf of the WebRTC server (resource owner or authorization server). The WebRTC client requests access to resources controlled by the resource owner (WebRTC server) and hosted by the resource server (TURN server). The WebRTC client obtains the access token, lifetime, session key, and kid. The TURN client conveys the access token and other OAuth 2.0 parameters learned from the authorization server to the TURN server. The TURN server obtains the session key from the access token. The TURN server validates the token, computes the message integrity of the request, and takes appropriate action, i.e, permits the TURN client to create allocations. This is shown in an abstract way in Figure 2.",
+      "zh-CHS": "使用OAuth 2.0授权框架，WebRTC客户端（第三方应用程序）代表WebRTC服务器（资源所有者或授权服务器）获得对TURN服务器（资源服务器）的有限访问权。WebRTC客户端请求访问由资源所有者（WebRTC服务器）控制并由资源服务器（TURN服务器）托管的资源。WebRTC客户端获取访问令牌、生存期、会话密钥和kid。TURN客户端将访问令牌和从授权服务器学到的其他OAuth 2.0参数传送到TURN服务器。TURN服务器从访问令牌获取会话密钥。TURN服务器验证令牌，计算请求的消息完整性，并采取适当的操作，即允许TURN客户端创建分配。这在图2中以抽象的方式显示。"
+    },
+    {
+      "indent": 3,
+      "text": "                        +---------------+\n                        |               +<******+\n         +------------->| Authorization |       *\n         |              | server        |       *\n         |   +----------|(WebRTC server)|       *  AS-RS,\n         |   |          |               |       *  AUTH keys\n(1)      |   |           +---------------+      *   (0)\nAccess   |   |  (2)                             *\nToken    |   | Access Token                     *\nrequest  |   |    +                             *\n         |   | Session Key                      *\n         |   |                                  *\n         |   V                                  V\n     +-------+---+                       +-+----=-----+\n     |           |         (3)           |            |\n     |           | TURN request + Access |            |\n     | WebRTC    | Token                 | TURN       |\n     | client    |---------------------->| server     |\n     | (Alice)   | Allocate response (4) |            |\n     |           |<----------------------|            |\n     +-----------+                       +------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "User: Alice\n****: Out-of-Band Long-Term Symmetric Key Establishment",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 26,
+      "text": "Figure 2: Interactions",
+      "zh-CHS": "图2：互动"
+    },
+    {
+      "indent": 3,
+      "text": "In the below figure, the TURN client sends an Allocate request to the TURN server without credentials. Since the TURN server requires that all requests be authenticated using OAuth 2.0, the TURN server rejects the request with a 401 (Unauthorized) error code and the STUN attribute THIRD-PARTY-AUTHORIZATION. The WebRTC client obtains an access token from the WebRTC server, provides the access token to the TURN client, and it tries again, this time including the access token in the Allocate request. This time, the TURN server validates the token, accepts the Allocate request, and returns an Allocate success response containing (among other things) the relayed transport address assigned to the allocation.",
+      "zh-CHS": "在下图中，TURN客户端向TURN服务器发送分配请求，但不提供凭据。由于TURN服务器要求使用OAuth 2.0对所有请求进行身份验证，因此TURN服务器会使用401（未经授权）错误代码和STUN属性THIRD-PARTY-AUTHORIZATION拒绝请求。WebRTC客户端从WebRTC服务器获取访问令牌，将访问令牌提供给TURN客户端，然后重试，这次将访问令牌包括在分配请求中。这一次，TURN服务器验证令牌，接受分配请求，并返回一个分配成功响应，其中包括分配给分配的中继传输地址。"
+    },
+    {
+      "indent": 3,
+      "text": "+-------------------+                         +--------+  +---------+\n| .........  TURN   |                         |  TURN  |  |  WebRTC |\n| .WebRTC .  client |                         |        |  |         |\n| .client .         |                         | server |  |  server |\n| .........         |                         |        |  |         |\n+-------------------+                         +--------+  +---------+\n  |       |           Allocate request                |         |\n  |       |------------------------------------------>|         |\n  |       |                                           |         |\n  |       |         Allocate error response           |         |\n  |       |         (401 Unauthorized)                |         |\n  |       |<------------------------------------------|         |\n  |       |         THIRD-PARTY-AUTHORIZATION         |         |\n  |       |                                           |         |\n  |       |                                           |         |\n  |       |      HTTP request for token               |         |\n  |------------------------------------------------------------>|\n  |       |      HTTP response with token parameters  |         |\n  |<------------------------------------------------------------|\n  |OAuth 2.0                                          |         |\n   attributes                                         |         |\n  |------>|                                           |         |\n  |       |    Allocate request ACCESS-TOKEN          |         |\n  |       |------------------------------------------>|         |\n  |       |                                           |         |\n  |       |         Allocate success response         |         |\n  |       |<------------------------------------------|         |\n  |       |             TURN messages                 |         |\n  |       |      ////// integrity protected //////    |         |\n  |       |      ////// integrity protected //////    |         |\n  |       |      ////// integrity protected //////    |         |",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 3: TURN Third-Party Authorization",
+      "zh-CHS": "图3:TURN第三方授权"
+    },
+    {
+      "indent": 0,
+      "text": "4. Obtaining a Token Using OAuth",
+      "section_title": true,
+      "zh-CHS": "4. 使用OAuth获取令牌"
+    },
+    {
+      "indent": 3,
+      "text": "A STUN client needs to know the authentication capability of the STUN server before deciding to use third-party authorization. A STUN client initially makes a request without any authorization. If the STUN server supports third-party authorization, it will return an error message indicating that the client can authorize to the STUN server using an OAuth 2.0 access token. The STUN server includes an ERROR-CODE attribute with a value of 401 (Unauthorized), a nonce value in a NONCE attribute, and a SOFTWARE attribute that gives information about the STUN server's software. The STUN server also includes the additional STUN attribute THIRD-PARTY-AUTHORIZATION, which signals the STUN client that the STUN server supports third-party authorization.",
+      "zh-CHS": "在决定使用第三方授权之前，STUN客户端需要知道STUN服务器的身份验证功能。STUN客户端最初未经任何授权发出请求。如果STUN服务器支持第三方授权，它将返回一条错误消息，指示客户端可以使用OAuth 2.0访问令牌向STUN服务器授权。STUN服务器包括值为401（未经授权）的错误代码属性、nonce属性中的nonce值以及提供有关STUN服务器软件信息的软件属性。STUN服务器还包括额外的STUN属性THIRD-PARTY-AUTHORIZATION，它向STUN客户端发出信号，表示STUN服务器支持第三方授权。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: An implementation may choose to contact the authorization server to obtain a token even before it makes a STUN request, if it knows the server details beforehand. For example, once a client has learned that a STUN server supports third-party authorization from a authorization server, the client can obtain the token before making subsequent STUN requests.",
+      "zh-CHS": "注意：如果实现事先知道服务器的详细信息，那么它甚至可以在发出STUN请求之前联系授权服务器以获取令牌。例如，一旦客户机了解到STUN服务器支持来自授权服务器的第三方授权，客户机就可以在发出后续STUN请求之前获取令牌。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Key Establishment",
+      "section_title": true,
+      "zh-CHS": "4.1. 关键机构"
+    },
+    {
+      "indent": 3,
+      "text": "In this model, the STUN server would not authenticate the client itself but would rather verify whether the client knows the session key associated with a specific access token. An example of this approach can be found with the OAuth 2.0 Proof-of-Possession (PoP) Security Architecture [POP-ARCH]. The authorization server shares a long-term secret (K) with the STUN server. When the client requests an access token, the authorization server creates a fresh and unique session key (mac_key) and places it into the token encrypted with the long-term secret. Symmetric cryptography MUST be chosen to ensure that the size of the encrypted token is not large because usage of asymmetric cryptography will result in large encrypted tokens, which may not fit into a single STUN message.",
+      "zh-CHS": "在此模型中，STUN服务器不会对客户端本身进行身份验证，而是验证客户端是否知道与特定访问令牌关联的会话密钥。这种方法的一个例子可以在OAuth 2.0占有证明（PoP）安全体系结构[PoP-ARCH]中找到。授权服务器与STUN服务器共享一个长期秘密（K）。当客户端请求访问令牌时，授权服务器创建一个新的唯一会话密钥（mac_密钥），并将其放入使用长期密钥加密的令牌中。必须选择对称加密，以确保加密令牌的大小不太大，因为使用非对称加密将导致较大的加密令牌，而这些令牌可能无法放入单个STUN消息中。"
+    },
+    {
+      "indent": 3,
+      "text": "The STUN server and authorization server can establish a long-term symmetric key (K) and a certain authenticated encryption algorithm, using an out-of-band mechanism. The STUN and authorization servers MUST establish K over an authenticated secure channel. If authenticated encryption with AES-CBC and HMAC-SHA (defined in [ENCRYPT]) is used, then the AS-RS and AUTH keys will be derived from K. The AS-RS key is used for encrypting the self-contained token, and the message integrity of the encrypted token is calculated using the AUTH key. If the Authenticated Encryption with Associated Data (AEAD) algorithm defined in [RFC5116] is used, then there is no need to generate the AUTH key, and the AS-RS key will have the same value as K.",
+      "zh-CHS": "STUN服务器和授权服务器可以使用带外机制建立长期对称密钥（K）和特定的认证加密算法。STUN和授权服务器必须通过经过身份验证的安全通道建立K。如果使用AES-CBC和HMAC-SHA（在[ENCRYPT]中定义）的身份验证加密，则AS-RS和身份验证密钥将从K中派生。AS-RS密钥用于加密自包含令牌，并使用身份验证密钥计算加密令牌的消息完整性。如果使用[RFC5116]中定义的关联数据认证加密（AEAD）算法，则无需生成认证密钥，AS-RS密钥将具有与K相同的值。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedure for establishment of the long-term symmetric key is outside the scope of this specification, and this specification does not mandate support of any given mechanism. Sections 4.1.1 and 4.1.2 show examples of mechanisms that can be used.",
+      "zh-CHS": "建立长期对称密钥的过程不在本规范的范围内，本规范不要求支持任何给定机制。第4.1.1和4.1.2节显示了可使用的机制示例。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.1. HTTP Interactions",
+      "section_title": true,
+      "zh-CHS": "4.1.1. HTTP交互"
+    },
+    {
+      "indent": 3,
+      "text": "The STUN and AS servers could choose to use Representational State Transfer (REST) API over HTTPS to establish a long-term symmetric key. HTTPS MUST be used for data confidentiality, and TLS based on a client certificate MUST be used for mutual authentication. To retrieve a new long-term symmetric key, the STUN server makes an HTTP GET request to the authorization server, specifying STUN as the",
+      "zh-CHS": "STUN和AS服务器可以选择通过HTTPS使用代表性状态传输（REST）API来建立长期对称密钥。HTTPS必须用于数据保密，基于客户端证书的TLS必须用于相互身份验证。为了检索新的长期对称密钥，STUN服务器向授权服务器发出HTTP GET请求，并将STUN指定为"
+    },
+    {
+      "indent": 3,
+      "text": "service to allocate the long-term symmetric keys for and specifying the name of the STUN server. The response is returned with content-type 'application/json' and consists of a JavaScript Object Notation (JSON) [RFC7159] object containing the long-term symmetric key.",
+      "zh-CHS": "服务为STUN服务器分配长期对称密钥并指定其名称。响应返回的内容类型为“application/json”，由包含长期对称密钥的JavaScript对象表示法（json）[RFC7159]对象组成。"
+    },
+    {
+      "indent": 3,
+      "text": "Request\n-------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "service - specifies the desired service (TURN) name - STUN server name associated with the key",
+      "zh-CHS": "服务-指定所需的服务（TURN）名称-与密钥关联的STUN服务器名称"
+    },
+    {
+      "indent": 3,
+      "text": "example:\nGET https://www.example.com/.well-known/stun-key?service=stun\n&name=turn1@example.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Response\n--------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "k - long-term symmetric key exp - identifies the time after which the key expires",
+      "zh-CHS": "k-长期对称密钥exp-标识密钥过期的时间"
+    },
+    {
+      "indent": 3,
+      "text": "example:\n{\n   \"k\" :\n\"ESIzRFVmd4iZABEiM0RVZgKn6WjLaTC1FXAghRMVTzkBGNaaN496523WIISKerLi\",\n   \"exp\" : 1300819380,\n   \"kid\" :\"22BIjxU93h/IgwEb\"\n   \"enc\" : A256GCM\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The authorization server must also signal kid to the STUN server, which will be used to select the appropriate keying material for decryption. The parameter 'k' is defined in Section 6.4.1 of [RFC7518], 'enc' is defined in Section 4.1.2 of [RFC7516], 'kid' is defined in Section 4.1.4 of [RFC7515], and 'exp' is defined in Section 4.1.4 of [RFC7519]. A256GCM and other authenticated encryption algorithms are defined in Section 5.1 of [RFC7518]. A STUN server and authorization server implementation MUST support A256GCM as the authenticated encryption algorithm.",
+      "zh-CHS": "授权服务器还必须向STUN服务器发送kid信号，STUN服务器将用于选择适当的密钥材料进行解密。[RFC7518]第6.4.1节定义了参数“k”，[RFC7516]第4.1.2节定义了参数“enc”，[RFC7515]第4.1.4节定义了参数“kid”，而[RFC7519]第4.1.4节定义了参数“exp”。[RFC7518]第5.1节定义了A256GCM和其他经验证的加密算法。STUN服务器和授权服务器实现必须支持A256GCM作为经过身份验证的加密算法。"
+    },
+    {
+      "indent": 3,
+      "text": "If A256CBC-HS512 as defined in [RFC7518] is used, then the AS-RS and AUTH keys are derived from K using the mechanism explained in Section 5.2.2.1 of [RFC7518]. In this case, the AS-RS key length must be 256 bits and the AUTH key length must be 256 bits (Section 2.6 of [RFC4868]).",
+      "zh-CHS": "如果使用[RFC7518]中定义的A256CBC-HS512，则使用[RFC7518]第5.2.2.1节中解释的机制从K中导出as-RS和认证密钥。在这种情况下，AS-RS密钥长度必须为256位，认证密钥长度必须为256位（RFC4868第2.6节）。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1.2. Manual Provisioning",
+      "section_title": true,
+      "zh-CHS": "4.1.2. 手动资源调配"
+    },
+    {
+      "indent": 3,
+      "text": "The STUN and AS servers could be manually configured with a long-term symmetric key, an authenticated encryption algorithm, and kid.",
+      "zh-CHS": "STUN和AS服务器可以手动配置长期对称密钥、经过身份验证的加密算法和kid。"
+    },
+    {
+      "indent": 3,
+      "text": "Note: The mechanism specified in this section requires configuration to change the long-term symmetric key and/or authenticated encryption algorithm. Hence, a STUN server and authorization server implementation SHOULD support REST as explained in Section 4.1.1.",
+      "zh-CHS": "注意：本节中指定的机制需要配置以更改长期对称密钥和/或经过身份验证的加密算法。因此，STUN服务器和授权服务器实现应支持REST，如第4.1.1节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Forming a Request",
+      "section_title": true,
+      "zh-CHS": "5. 提出请求"
+    },
+    {
+      "indent": 3,
+      "text": "When a STUN server responds that third-party authorization is required, a STUN client re-attempts the request, this time including access token and kid values in the ACCESS-TOKEN and USERNAME STUN attributes. The STUN client includes a MESSAGE-INTEGRITY attribute as the last attribute in the message over the contents of the STUN message. The HMAC for the MESSAGE-INTEGRITY attribute is computed as described in Section 15.4 of [RFC5389] where the mac_key is used as the input key for the HMAC computation. The STUN client and server will use the mac_key to compute the message integrity and do not perform MD5 hash on the credentials.",
+      "zh-CHS": "当STUN服务器响应需要第三方授权时，STUN客户端将重新尝试该请求，这次在access-token和USERNAME STUN属性中包括access token和kid值。STUN客户端在STUN消息的内容上包含消息完整性属性作为消息中的最后一个属性。消息完整性属性的HMAC按照[RFC5389]第15.4节所述进行计算，其中mac_键用作HMAC计算的输入键。STUN客户端和服务器将使用mac_密钥计算消息完整性，并且不对凭据执行MD5哈希。"
+    },
+    {
+      "indent": 0,
+      "text": "6. STUN Attributes",
+      "section_title": true,
+      "zh-CHS": "6. 眩晕属性"
+    },
+    {
+      "indent": 3,
+      "text": "The following new STUN attributes are introduced by this specification to accomplish third-party authorization.",
+      "zh-CHS": "本规范引入了以下新的STUN属性，以实现第三方授权。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. THIRD-PARTY-AUTHORIZATION",
+      "section_title": true,
+      "zh-CHS": "6.1. 第三方授权"
+    },
+    {
+      "indent": 3,
+      "text": "This attribute is used by the STUN server to inform the client that it supports third-party authorization. This attribute value contains the STUN server name. The authorization server may have tie ups with multiple STUN servers and vice versa, so the client MUST provide the STUN server name to the authorization server so that it can select the appropriate keying material to generate the self-contained token. If the authorization server does not have tie up with the STUN server, then it returns an error to the client. If the client does not support or is not capable of doing third-party authorization, then it defaults to first-party authentication. The THIRD-PARTY-AUTHORIZATION attribute is a comprehension-optional attribute (see Section 15 from [RFC5389]). If the client is able to comprehend THIRD-PARTY-AUTHORIZATION, it MUST ensure that third-party authorization takes precedence over first-party authentication (as explained in Section 10 of [RFC5389]).",
+      "zh-CHS": "STUN服务器使用此属性通知客户端它支持第三方授权。此属性值包含STUN服务器名称。授权服务器可能与多个STUN服务器有关联，反之亦然，因此客户端必须向授权服务器提供STUN服务器名称，以便它可以选择适当的密钥材料来生成自包含令牌。如果授权服务器与STUN服务器没有关联，则它会向客户端返回一个错误。如果客户端不支持或无法执行第三方授权，则默认为第一方身份验证。第三方授权属性是一个可选属性（参见[RFC5389]第15节）。如果客户能够理解第三方授权，则必须确保第三方授权优先于第一方认证（如[RFC5389]第10节所述）。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. ACCESS-TOKEN",
+      "section_title": true,
+      "zh-CHS": "6.2. 接入令牌"
+    },
+    {
+      "indent": 3,
+      "text": "The access token is issued by the authorization server. OAuth 2.0 does not impose any limitation on the length of the access token but if path MTU is unknown, then STUN messages over IPv4 would need to be less than 548 bytes (Section 7.1 of [RFC5389]). The access token length needs to be restricted to fit within the maximum STUN message size. Note that the self-contained token is opaque to the client, and the client MUST NOT examine the token. The ACCESS-TOKEN attribute is a comprehension-required attribute (see Section 15 from [RFC5389]).",
+      "zh-CHS": "访问令牌由授权服务器颁发。OAuth 2.0没有对访问令牌的长度施加任何限制，但如果路径MTU未知，则IPv4上的STUN消息需要小于548字节（RFC5389的第7.1节）。需要限制访问令牌长度，使其符合最大STUN消息大小。请注意，自包含令牌对客户端是不透明的，客户端不得检查令牌。ACCESS-TOKEN属性是一个需要理解的属性（参见[RFC5389]第15节）。"
+    },
+    {
+      "indent": 3,
+      "text": "The token is structured as follows:",
+      "zh-CHS": "令牌的结构如下所示："
+    },
+    {
+      "indent": 9,
+      "text": "struct {\n    uint16_t nonce_length;\n    opaque nonce[nonce_length];\n    opaque {\n        uint16_t key_length;\n        opaque mac_key[key_length];\n        uint64_t timestamp;\n        uint32_t lifetime;\n    } encrypted_block;\n} token;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 19,
+      "text": "Figure 4: Self-Contained Token Format",
+      "zh-CHS": "图4：自包含令牌格式"
+    },
+    {
+      "indent": 3,
+      "text": "Note: uintN_t means an unsigned integer of exactly N bits. Single-byte entities containing uninterpreted data are of type 'opaque'. All values in the token are stored in network byte order.",
+      "zh-CHS": "注：uintN_t表示正好N位的无符号整数。包含未解释数据的单字节实体属于“不透明”类型。令牌中的所有值都以网络字节顺序存储。"
+    },
+    {
+      "indent": 3,
+      "text": "The fields are described below:",
+      "zh-CHS": "这些字段描述如下："
+    },
+    {
+      "indent": 3,
+      "text": "nonce_length: Length of the nonce field. The length of nonce for AEAD algorithms is explained in [RFC5116].",
+      "zh-CHS": "nonce_length：nonce字段的长度。AEAD算法的nonce长度在[RFC5116]中进行了解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Nonce: Nonce (N) formation is explained in Section 3.2 of [RFC5116].",
+      "zh-CHS": "Nonce:Nonce（N）的形成在[RFC5116]的第3.2节中进行了解释。"
+    },
+    {
+      "indent": 3,
+      "text": "key_length: Length of the session key in octets. The key length of 160 bits MUST be supported (i.e., only the 160-bit key is used by HMAC-SHA-1 for message integrity of STUN messages). The key length facilitates the hash agility plan discussed in Section 16.3 of [RFC5389].",
+      "zh-CHS": "密钥长度：会话密钥的长度，以八位字节为单位。必须支持160位的密钥长度（即HMAC-SHA-1仅使用160位密钥来保证STUN消息的消息完整性）。密钥长度有助于[RFC5389]第16.3节中讨论的散列敏捷性计划。"
+    },
+    {
+      "indent": 3,
+      "text": "mac_key: The session key generated by the authorization server.",
+      "zh-CHS": "mac_密钥：授权服务器生成的会话密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "timestamp: 64-bit unsigned integer field containing a timestamp. The value indicates the time since January 1, 1970, 00:00 UTC, by using a fixed-point format. In this format, the integer number of seconds is contained in the first 48 bits of the field, and the remaining 16 bits indicate the number of 1/64000 fractions of a second (Native format - Unix).",
+      "zh-CHS": "时间戳：包含时间戳的64位无符号整数字段。该值使用定点格式表示自1970年1月1日00:00 UTC以来的时间。在此格式中，整数秒数包含在字段的前48位中，其余16位表示1/64000秒分数（本机格式-Unix）。"
+    },
+    {
+      "indent": 3,
+      "text": "lifetime: The lifetime of the access token, in seconds. For example, the value 3600 indicates one hour. The lifetime value MUST be greater than or equal to the 'expires_in' parameter defined in Section 4.2.2 of [RFC6749], otherwise the resource server could revoke the token, but the client would assume that the token has not expired and would not refresh the token.",
+      "zh-CHS": "生存期：访问令牌的生存期，以秒为单位。例如，值3600表示一小时。生存期值必须大于或等于[RFC6749]第4.2.2节中定义的“expires_in”参数，否则资源服务器可以撤销令牌，但客户端将假定令牌尚未过期，并且不会刷新令牌。"
+    },
+    {
+      "indent": 3,
+      "text": "encrypted_block: The encrypted_block (P) is encrypted and authenticated using the long-term symmetric key established between the STUN server and the authorization server.",
+      "zh-CHS": "加密的_块：加密的_块（P）使用在STUN服务器和授权服务器之间建立的长期对称密钥进行加密和身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "The AEAD encryption operation has four inputs: K, N, A, and P, as defined in Section 2.1 of [RFC5116], and there is a single output of ciphertext C or an indication that the requested encryption operation could not be performed.",
+      "zh-CHS": "AEAD加密操作有四个输入：K、N、A和P，如[RFC5116]第2.1节所定义，并且存在密文C的单个输出或无法执行请求的加密操作的指示。"
+    },
+    {
+      "indent": 3,
+      "text": "The associated data (A) MUST be the STUN server name. This ensures that the client does not use the same token to gain illegal access to other STUN servers provided by the same administrative domain, i.e., when multiple STUN servers in a single administrative domain share the same long-term symmetric key with an authorization server.",
+      "zh-CHS": "关联数据（A）必须是STUN服务器名称。这可确保客户端不会使用相同的令牌非法访问同一管理域提供的其他STUN服务器，即，当单个管理域中的多个STUN服务器与授权服务器共享相同的长期对称密钥时。"
+    },
+    {
+      "indent": 3,
+      "text": "If authenticated encryption with AES-CBC and HMAC-SHA (explained in Section 2.1 of [ENCRYPT]) is used, then the encryption process is as illustrated below. The ciphertext consists of the string S, with the string T appended to it. Here, C and A denote ciphertext and the STUN server name, respectively. The octet string AL (Section 2.1 of [ENCRYPT]) is equal to the number of bits in A expressed as a 64-bit unsigned big-endian integer.",
+      "zh-CHS": "如果使用AES-CBC和HMAC-SHA（在[ENCRYPT]第2.1节中解释）的认证加密，则加密过程如下所示。密文由字符串S组成，并附加字符串T。这里，C和A分别表示密文和STUN服务器名称。八进制字符串AL（加密）的第2.1节等于A中的位数，表示为64位无符号大端整数。"
+    },
+    {
+      "indent": 3,
+      "text": "o AUTH = initial authentication key length octets of K,",
+      "zh-CHS": "o AUTH=初始身份验证密钥长度为K的八位字节，"
+    },
+    {
+      "indent": 3,
+      "text": "o AS-RS = final encryption key length octets of K,",
+      "zh-CHS": "o AS-RS=K的最终加密密钥长度八位字节，"
+    },
+    {
+      "indent": 3,
+      "text": "o S = CBC-PKCS7-ENC(AS-RS, encrypted_block),",
+      "zh-CHS": "o S=CBC-PKCS7-ENC（AS-RS，加密块），"
+    },
+    {
+      "indent": 6,
+      "text": "* The Initialization Vector is set to zero because the encrypted_block in each access token will not be identical and hence will not result in generation of identical ciphertext.",
+      "zh-CHS": "* 初始化向量设置为零，因为每个访问令牌中加密的_块将不相同，因此不会生成相同的密文。"
+    },
+    {
+      "indent": 3,
+      "text": "o mac = MAC(AUTH, A || S || AL),",
+      "zh-CHS": "o mac=mac（AUTH，A | S | AL），"
+    },
+    {
+      "indent": 3,
+      "text": "o T = initial T_LEN octets of mac,",
+      "zh-CHS": "o T=mac的初始T_LEN八位字节，"
+    },
+    {
+      "indent": 3,
+      "text": "o C = S || T.",
+      "zh-CHS": "o C=S | | T。"
+    },
+    {
+      "indent": 3,
+      "text": "The entire token, i.e., the 'encrypted_block', is base64 encoded (see Section 4 of [RFC4648]), and the resulting access token is signaled to the client.",
+      "zh-CHS": "整个令牌，即“加密的_块”是base64编码的（参见[RFC4648]第4节），产生的访问令牌通过信号发送给客户端。"
+    },
+    {
+      "indent": 0,
+      "text": "7. STUN Server Behavior",
+      "section_title": true,
+      "zh-CHS": "7. STUN服务器行为"
+    },
+    {
+      "indent": 3,
+      "text": "The STUN server, on receiving a request with the ACCESS-TOKEN attribute, performs checks listed in Section 10.2.2 of [RFC5389] in addition to the following steps to verify that the access token is valid:",
+      "zh-CHS": "STUN服务器在收到具有ACCESS-TOKEN属性的请求时，除执行以下步骤外，还执行[RFC5389]第10.2.2节中列出的检查，以验证访问令牌是否有效："
+    },
+    {
+      "indent": 3,
+      "text": "o The STUN server selects the keying material based on kid signaled in the USERNAME attribute.",
+      "zh-CHS": "o STUN服务器根据用户名属性中的kid信号选择关键点材质。"
+    },
+    {
+      "indent": 3,
+      "text": "o The AEAD decryption operation has four inputs: K, N, A, and C, as defined in Section 2.2 of [RFC5116]. The AEAD decryption algorithm has only a single output, either a plaintext or a special symbol FAIL that indicates that the inputs are not authentic. If the authenticated decrypt operation returns FAIL, then the STUN server rejects the request with an error response 401 (Unauthorized).",
+      "zh-CHS": "o AEAD解密操作有四个输入：K、N、A和C，如[RFC5116]第2.2节所定义。AEAD解密算法只有一个输出，纯文本或特殊符号FAIL表示输入不真实。如果经过身份验证的解密操作返回FAIL，则STUN服务器将拒绝该请求，并给出错误响应401（未经授权）。"
+    },
+    {
+      "indent": 3,
+      "text": "o If AES_CBC_HMAC_SHA2 is used, then the final T_LEN octets are stripped from C. It performs the verification of the token message integrity by calculating HMAC over the STUN server name, the encrypted portion in the self-contained token, and the AL using the AUTH key, and if the resulting value does not match the mac field in the self-contained token, then it rejects the request with an error response 401 (Unauthorized).",
+      "zh-CHS": "o 如果使用AES_CBC_HMAC_SHA2，则最后的T_LEN八位字节从C中剥离。它通过计算STUN服务器名称上的HMAC、自包含令牌中的加密部分以及使用身份验证密钥的AL来执行令牌消息完整性验证，并且，如果结果值与自包含令牌中的mac字段不匹配，则其使用错误响应401（未授权）拒绝请求。"
+    },
+    {
+      "indent": 3,
+      "text": "o The STUN server obtains the mac_key by retrieving the content of the access token (which requires decryption of the self-contained token using the AS-RS key).",
+      "zh-CHS": "o STUN服务器通过检索访问令牌的内容（需要使用AS-RS密钥对自包含令牌进行解密）来获取mac_密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o The STUN server verifies that no replay took place by performing the following check:",
+      "zh-CHS": "o STUN服务器通过执行以下检查来验证未发生重播："
+    },
+    {
+      "indent": 6,
+      "text": "* The access token is accepted if the timestamp field (TS) in the self-contained token is shortly before the reception time of the STUN request (RDnew). The following formula is used:",
+      "zh-CHS": "* 如果自包含令牌中的时间戳字段（TS）在STUN请求（RDnew）的接收时间之前不久，则接受访问令牌。使用以下公式："
+    },
+    {
+      "indent": 12,
+      "text": "lifetime + Delta > abs(RDnew - TS)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "The RECOMMENDED value for the allowed Delta is 5 seconds. If the timestamp is NOT within the boundaries, then the STUN server discards the request with error response 401 (Unauthorized).",
+      "zh-CHS": "允许的增量的建议值为5秒。如果时间戳不在边界内，则STUN服务器将丢弃带有错误响应401（未经授权）的请求。"
+    },
+    {
+      "indent": 3,
+      "text": "o The STUN server uses the mac_key to compute the message integrity over the request, and if the resulting value does not match the contents of the MESSAGE-INTEGRITY attribute, then it rejects the request with an error response 401 (Unauthorized).",
+      "zh-CHS": "o STUN服务器使用mac_密钥计算请求上的消息完整性，如果结果值与message-integrity属性的内容不匹配，那么它将拒绝请求，并发出错误响应401（未经授权）。"
+    },
+    {
+      "indent": 3,
+      "text": "o If all the checks pass, the STUN server continues to process the request.",
+      "zh-CHS": "o 如果所有检查都通过，STUN服务器将继续处理该请求。"
+    },
+    {
+      "indent": 3,
+      "text": "o Any response generated by the server MUST include the MESSAGE-INTEGRITY attribute, computed using the mac_key.",
+      "zh-CHS": "o 服务器生成的任何响应都必须包含MESSAGE-INTEGRITY属性，该属性使用mac_密钥计算。"
+    },
+    {
+      "indent": 3,
+      "text": "If a STUN server receives an ACCESS-TOKEN attribute unexpectedly (because it had not previously sent out a THIRD-PARTY-AUTHORIZATION), it will respond with an error code of 420 (Unknown Attribute) as specified in Section 7.3.1 of [RFC5389].",
+      "zh-CHS": "如果STUN服务器意外地接收到访问令牌属性（因为它之前没有发送第三方授权），它将按照[RFC5389]第7.3.1节的规定，以错误代码420（未知属性）进行响应。"
+    },
+    {
+      "indent": 0,
+      "text": "8. STUN Client Behavior",
+      "section_title": true,
+      "zh-CHS": "8. 挫败客户行为"
+    },
+    {
+      "indent": 3,
+      "text": "o The client looks for the MESSAGE-INTEGRITY attribute in the response. If MESSAGE-INTEGRITY is absent or the value computed for message integrity using mac_key does not match the contents of the MESSAGE-INTEGRITY attribute, then the response MUST be discarded.",
+      "zh-CHS": "o 客户端在响应中查找MESSAGE-INTEGRITY属性。如果不存在MESSAGE-INTEGRITY，或者使用mac_键为MESSAGE INTEGRITY计算的值与MESSAGE-INTEGRITY属性的内容不匹配，则必须放弃响应。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the access token expires, then the client MUST obtain a new token from the authorization server and use it for new STUN requests.",
+      "zh-CHS": "o 如果访问令牌过期，则客户端必须从授权服务器获取新令牌，并将其用于新的STUN请求。"
+    },
+    {
+      "indent": 0,
+      "text": "9. TURN Client and Server Behavior",
+      "section_title": true,
+      "zh-CHS": "9. 转换客户端和服务器行为"
+    },
+    {
+      "indent": 3,
+      "text": "Changes specific to TURN are listed below:",
+      "zh-CHS": "特定于TURN的更改如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "o The access token can be reused for multiple Allocate requests to the same TURN server. The TURN client MUST include the ACCESS-TOKEN attribute only in Allocate and Refresh requests. Since the access token is valid for a specific period of time, the TURN server can cache it so that it can check if the access token in a new allocation request matches one of the cached tokens and avoids the need to decrypt the token.",
+      "zh-CHS": "o 访问令牌可用于对同一TURN服务器的多个分配请求。TURN客户端必须仅在分配和刷新请求中包含ACCESS-TOKEN属性。由于访问令牌在特定时间段内有效，TURN服务器可以缓存它，以便它可以检查新分配请求中的访问令牌是否与缓存的令牌之一匹配，并避免解密令牌的需要。"
+    },
+    {
+      "indent": 3,
+      "text": "o The lifetime provided by the TURN server in the Allocate and Refresh responses MUST be less than or equal to the lifetime of the token. It is RECOMMENDED that the TURN server calculate the maximum allowed lifetime value using the formula:",
+      "zh-CHS": "o TURN服务器在分配和刷新响应中提供的生存期必须小于或等于令牌的生存期。建议TURN服务器使用以下公式计算允许的最大生存期值："
+    },
+    {
+      "indent": 8,
+      "text": "lifetime + Delta - abs(RDnew - TS)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "The RECOMMENDED value for the allowed Delta is 5 seconds.",
+      "zh-CHS": "允许的增量的建议值为5秒。"
+    },
+    {
+      "indent": 3,
+      "text": "o If the access token expires, then the client MUST obtain a new token from the authorization server and use it for new allocations. The client MUST use the new token to refresh existing allocations. This way, the client has to maintain only one token per TURN server.",
+      "zh-CHS": "o 如果访问令牌过期，则客户端必须从授权服务器获取新令牌，并将其用于新分配。客户端必须使用新令牌刷新现有分配。这样，客户端每转服务器只需维护一个令牌。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Operational Considerations",
+      "section_title": true,
+      "zh-CHS": "10. 业务考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The following operational considerations should be taken into account:",
+      "zh-CHS": "应考虑以下操作注意事项："
+    },
+    {
+      "indent": 3,
+      "text": "o Each authorization server should maintain the list of STUN servers for which it will grant tokens and the long-term secret shared with each of those STUN servers.",
+      "zh-CHS": "o 每个授权服务器应维护其将授予令牌的STUN服务器列表以及与这些STUN服务器共享的长期秘密。"
+    },
+    {
+      "indent": 3,
+      "text": "o If manual configuration (Section 4.1.2) is used to establish long-term symmetric keys, the necessary information, which includes long-term secret (K) and the authenticated encryption algorithm, has to be configured on each authorization server and STUN server for each kid. The client obtains the session key and HMAC algorithm from the authorization server in company with the token.",
+      "zh-CHS": "o 如果使用手动配置（第4.1.2节）建立长期对称密钥，则必须在每个授权服务器和STUN服务器上为每个孩子配置必要的信息，包括长期机密（K）和经过身份验证的加密算法。客户端与令牌一起从授权服务器获取会话密钥和HMAC算法。"
+    },
+    {
+      "indent": 3,
+      "text": "o When a STUN client sends a request to get access to a particular STUN server (S), the authorization server must ensure that it selects the appropriate kid and access token depending on server S.",
+      "zh-CHS": "o 当STUN客户端发送访问特定STUN服务器的请求时，授权服务器必须确保根据服务器选择适当的kid和访问令牌。"
+    },
+    {
+      "indent": 0,
+      "text": "11. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "11. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "When OAuth 2.0 is used, the interaction between the client and the authorization server requires Transport Layer Security (TLS) with a ciphersuite offering confidentiality protection, and the guidance given in [RFC7525] must be followed to avoid attacks on TLS. The session key MUST NOT be transmitted in clear since this would completely destroy the security benefits of the proposed scheme. An attacker trying to replay the message with the ACCESS-TOKEN attribute can be mitigated by frequent changes of the nonce value as discussed in Section 10.2 of [RFC5389]. The client may know some (but not all) of the token fields encrypted with an unknown secret key, and the",
+      "zh-CHS": "使用OAuth 2.0时，客户端和授权服务器之间的交互需要传输层安全性（TLS），并使用提供保密保护的密码套件，并且必须遵循[RFC7525]中给出的指南以避免对TLS的攻击。会话密钥不能被清晰地传输，因为这将完全破坏提议方案的安全优势。如[RFC5389]第10.2节所述，频繁更改nonce值可以缓解试图重播具有ACCESS-TOKEN属性的消息的攻击者。客户端可能知道一些（但不是全部）使用未知密钥加密的令牌字段，以及"
+    },
+    {
+      "indent": 3,
+      "text": "token can be subjected to known-plaintext attacks, but AES is secure against this attack.",
+      "zh-CHS": "令牌可能受到已知的明文攻击，但AES可以安全地抵御这种攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "An attacker may remove the THIRD-PARTY-AUTHORIZATION STUN attribute from the error message forcing the client to pick first-party authentication; this attack may be mitigated by opting for TLS [RFC5246] or Datagram Transport Layer Security (DTLS) [RFC6347] as a transport protocol for STUN, as defined in [RFC5389]and [RFC7350].",
+      "zh-CHS": "攻击者可能会从错误消息中删除第三方授权STUN属性，迫使客户端选择第一方身份验证；根据[RFC5389]和[RFC7350]中的定义，选择TLS[RFC5246]或数据报传输层安全性（DTLS）[RFC6347]作为STUN的传输协议，可以缓解此攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Threat mitigation discussed in Section 5 of [POP-ARCH] and security considerations in [RFC5389] are to be taken into account.",
+      "zh-CHS": "应考虑[POP-ARCH]第5节中讨论的威胁缓解和[RFC5389]中的安全注意事项。"
+    },
+    {
+      "indent": 0,
+      "text": "12. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "12. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the THIRD-PARTY-AUTHORIZATION STUN attribute, described in Section 6. IANA has allocated the comprehension-optional codepoint 0x802E for this attribute.",
+      "zh-CHS": "本文档定义了第六节中描述的第三方授权STUN属性。IANA已为此属性分配了可选代码点0x802E。"
+    },
+    {
+      "indent": 3,
+      "text": "This document defines the ACCESS-TOKEN STUN attribute, described in Section 6. IANA has allocated the comprehension-required codepoint 0x001B for this attribute.",
+      "zh-CHS": "本文档定义了ACCESS-TOKEN STUN属性，如第6节所述。IANA已为此属性分配了所需的代码点0x001B。"
+    },
+    {
+      "indent": 0,
+      "text": "12.1. Well-Known 'stun-key' URI",
+      "section_title": true,
+      "zh-CHS": "12.1. 众所周知的“击晕键”URI"
+    },
+    {
+      "indent": 3,
+      "text": "This memo registers the 'stun-key' well-known URI in the Well-Known URIs registry as defined by [RFC5785].",
+      "zh-CHS": "此备忘录在[RFC5785]定义的已知URI注册表中注册“stun key”已知URI。"
+    },
+    {
+      "indent": 3,
+      "text": "URI suffix: stun-key",
+      "zh-CHS": "URI后缀：击晕键"
+    },
+    {
+      "indent": 3,
+      "text": "Change controller: IETF",
+      "zh-CHS": "更改控制器：IETF"
+    },
+    {
+      "indent": 3,
+      "text": "Specification document(s): This RFC",
+      "zh-CHS": "规范文件：本RFC"
+    },
+    {
+      "indent": 3,
+      "text": "Related information: None",
+      "zh-CHS": "相关信息：无"
+    },
+    {
+      "indent": 0,
+      "text": "13. References",
+      "section_title": true,
+      "zh-CHS": "13. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "13.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4648] Josefsson, S., \"The Base16, Base32, and Base64 Data Encodings\", RFC 4648, DOI 10.17487/RFC4648, October 2006, <http://www.rfc-editor.org/info/rfc4648>.",
+      "zh-CHS": "[RFC4648]Josefsson，S.，“Base16、Base32和Base64数据编码”，RFC 4648，DOI 10.17487/RFC4648，2006年10月<http://www.rfc-editor.org/info/rfc4648>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4868] Kelly, S. and S. Frankel, \"Using HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512 with IPsec\", RFC 4868, DOI 10.17487/RFC4868, May 2007, <http://www.rfc-editor.org/info/rfc4868>.",
+      "zh-CHS": "[RFC4868]Kelly，S.和S.Frankel，“在IPsec中使用HMAC-SHA-256、HMAC-SHA-384和HMAC-SHA-512”，RFC 4868，DOI 10.17487/RFC4868，2007年5月<http://www.rfc-editor.org/info/rfc4868>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5116] McGrew, D., \"An Interface and Algorithms for Authenticated Encryption\", RFC 5116, DOI 10.17487/RFC5116, January 2008, <http://www.rfc-editor.org/info/rfc5116>.",
+      "zh-CHS": "[RFC5116]McGrew，D.“认证加密的接口和算法”，RFC 5116，DOI 10.17487/RFC5116，2008年1月<http://www.rfc-editor.org/info/rfc5116>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5389] Rosenberg, J., Mahy, R., Matthews, P., and D. Wing, \"Session Traversal Utilities for NAT (STUN)\", RFC 5389, DOI 10.17487/RFC5389, October 2008, <http://www.rfc-editor.org/info/rfc5389>.",
+      "zh-CHS": "[RFC5389]Rosenberg，J.，Mahy，R.，Matthews，P.，和D.Wing，“NAT（STUN）的会话遍历实用程序”，RFC 5389，DOI 10.17487/RFC5389，2008年10月<http://www.rfc-editor.org/info/rfc5389>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6749] Hardt, D., Ed., \"The OAuth 2.0 Authorization Framework\", RFC 6749, DOI 10.17487/RFC6749, October 2012, <http://www.rfc-editor.org/info/rfc6749>.",
+      "zh-CHS": "[RFC6749]Hardt，D.，Ed.“OAuth 2.0授权框架”，RFC 6749，DOI 10.17487/RFC6749，2012年10月<http://www.rfc-editor.org/info/rfc6749>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7518] Jones, M., \"JSON Web Algorithms (JWA)\", RFC 7518, DOI 10.17487/RFC7518, May 2015, <http://www.rfc-editor.org/info/rfc7518>.",
+      "zh-CHS": "[RFC7518]Jones，M.，“JSON网络算法（JWA）”，RFC 7518，DOI 10.17487/RFC7518，2015年5月<http://www.rfc-editor.org/info/rfc7518>."
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "13.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[ENCRYPT] McGrew, D., Foley, J., and K. Paterson, \"Authenticated Encryption with AES-CBC and HMAC-SHA\", Work in Progress, draft-mcgrew-aead-aes-cbc-hmac-sha2-05, July 2014.",
+      "zh-CHS": "[加密]McGrew，D.，Foley，J.，和K.Paterson，“使用AES-CBC和HMAC-SHA进行认证加密”，正在进行的工作，草稿-McGrew-aead-AES-CBC-HMAC-sha2-052014年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[POP-ARCH] Hunt, P., Richer, J., Mills, W., Mishra, P., and H. Tschofenig, \"OAuth 2.0 Proof-of-Possession (PoP) Security Architecture\", Work in Progress, draft-ietf-oauth-pop-architecture-02, July 2015.",
+      "zh-CHS": "[POP-ARCH]Hunt，P.，Richer，J.，Mills，W.，Mishra，P.，和H.Tschofenig，“OAuth 2.0占有证明（POP）安全体系结构”，正在进行的工作，草案-ietf-OAuth-POP-Architecture-022015年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[POP-KEY-DIST] Bradley, J., Hunt, P., Jones, M., and H. Tschofenig, \"OAuth 2.0 Proof-of-Possession: Authorization Server to Client Key Distribution\", Work in Progress, draft-ietf-oauth-pop-key-distribution-01, March 2015.",
+      "zh-CHS": "[POP-KEY-DIST]Bradley，J.，Hunt，P.，Jones，M.，和H.Tschofenig，“OAuth 2.0占有证明：授权服务器到客户端密钥分发”，正在进行的工作，草稿-ietf-OAuth-POP-KEY-Distribution-012015年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5246] Dierks, T. and E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.2\", RFC 5246, DOI 10.17487/RFC5246, August 2008, <http://www.rfc-editor.org/info/rfc5246>.",
+      "zh-CHS": "[RFC5246]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.2”，RFC 5246，DOI 10.17487/RFC5246，2008年8月<http://www.rfc-editor.org/info/rfc5246>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5766] Mahy, R., Matthews, P., and J. Rosenberg, \"Traversal Using Relays around NAT (TURN): Relay Extensions to Session Traversal Utilities for NAT (STUN)\", RFC 5766, DOI 10.17487/RFC5766, April 2010, <http://www.rfc-editor.org/info/rfc5766>.",
+      "zh-CHS": "[RFC5766]Mahy，R.，Matthews，P.，和J.Rosenberg，“使用NAT周围的中继进行遍历（TURN）：NAT（STUN）会话遍历实用程序的中继扩展”，RFC 5766，DOI 10.17487/RFC5766，2010年4月<http://www.rfc-editor.org/info/rfc5766>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5785] Nottingham, M. and E. Hammer-Lahav, \"Defining Well-Known Uniform Resource Identifiers (URIs)\", RFC 5785, DOI 10.17487/RFC5785, April 2010, <http://www.rfc-editor.org/info/rfc5785>.",
+      "zh-CHS": "[RFC5785]诺丁汉，M.和E.Hammer Lahav，“定义众所周知的统一资源标识符（URI）”，RFC 5785，DOI 10.17487/RFC5785，2010年4月<http://www.rfc-editor.org/info/rfc5785>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6347] Rescorla, E. and N. Modadugu, \"Datagram Transport Layer Security Version 1.2\", RFC 6347, DOI 10.17487/RFC6347, January 2012, <http://www.rfc-editor.org/info/rfc6347>.",
+      "zh-CHS": "[RFC6347]Rescorla，E.和N.Modadugu，“数据报传输层安全版本1.2”，RFC 6347，DOI 10.17487/RFC6347，2012年1月<http://www.rfc-editor.org/info/rfc6347>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6819] Lodderstedt, T., Ed., McGloin, M., and P. Hunt, \"OAuth 2.0 Threat Model and Security Considerations\", RFC 6819, DOI 10.17487/RFC6819, January 2013, <http://www.rfc-editor.org/info/rfc6819>.",
+      "zh-CHS": "[RFC6819]Lodderstet，T.，Ed.，McGloin，M.，和P.Hunt，“OAuth 2.0威胁模型和安全考虑”，RFC 6819，DOI 10.17487/RFC6819，2013年1月<http://www.rfc-editor.org/info/rfc6819>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7159] Bray, T., Ed., \"The JavaScript Object Notation (JSON) Data Interchange Format\", RFC 7159, DOI 10.17487/RFC7159, March 2014, <http://www.rfc-editor.org/info/rfc7159>.",
+      "zh-CHS": "[RFC7159]Bray，T.，Ed.“JavaScript对象表示法（JSON）数据交换格式”，RFC 7159，DOI 10.17487/RFC7159，2014年3月<http://www.rfc-editor.org/info/rfc7159>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7350] Petit-Huguenin, M. and G. Salgueiro, \"Datagram Transport Layer Security (DTLS) as Transport for Session Traversal Utilities for NAT (STUN)\", RFC 7350, DOI 10.17487/RFC7350, August 2014, <http://www.rfc-editor.org/info/rfc7350>.",
+      "zh-CHS": "[RFC7350]Petit Huguenin，M.和G.Salgueiro，“作为NAT（STUN）会话遍历实用程序传输的数据报传输层安全性（DTLS）”，RFC 7350，DOI 10.17487/RFC7350，2014年8月<http://www.rfc-editor.org/info/rfc7350>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7376] Reddy, T., Ravindranath, R., Perumal, M., and A. Yegin, \"Problems with Session Traversal Utilities for NAT (STUN) Long-Term Authentication for Traversal Using Relays around NAT (TURN)\", RFC 7376, DOI 10.17487/RFC7376, September 2014, <http://www.rfc-editor.org/info/rfc7376>.",
+      "zh-CHS": "[RFC7376]Reddy，T.，Ravindranath，R.，Perumal，M.，和A.Yegin，“NAT（STUN）会话遍历实用程序的问题，使用NAT（TURN）周围的中继进行遍历的长期身份验证”，RFC 7376，DOI 10.17487/RFC7376，2014年9月<http://www.rfc-editor.org/info/rfc7376>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7515] Jones, M., Bradley, J., and N. Sakimura, \"JSON Web Signature (JWS)\", RFC 7515, DOI 10.17487/RFC7515, May 2015, <http://www.rfc-editor.org/info/rfc7515>.",
+      "zh-CHS": "[RFC7515]Jones，M.，Bradley，J.和N.Sakimura，“JSON网络签名（JWS）”，RFC 7515，DOI 10.17487/RFC7515，2015年5月<http://www.rfc-editor.org/info/rfc7515>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7516] Jones, M. and J. Hildebrand, \"JSON Web Encryption (JWE)\", RFC 7516, DOI 10.17487/RFC7516, May 2015, <http://www.rfc-editor.org/info/rfc7516>.",
+      "zh-CHS": "[RFC7516]Jones，M.和J.Hildebrand，“JSON Web加密（JWE）”，RFC 7516，DOI 10.17487/RFC7516，2015年5月<http://www.rfc-editor.org/info/rfc7516>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7519] Jones, M., Bradley, J., and N. Sakimura, \"JSON Web Token (JWT)\", RFC 7519, DOI 10.17487/RFC7519, May 2015, <http://www.rfc-editor.org/info/rfc7519>.",
+      "zh-CHS": "[RFC7519]Jones，M.，Bradley，J.和N.Sakimura，“JSON网络令牌（JWT）”，RFC 7519，DOI 10.17487/RFC7519，2015年5月<http://www.rfc-editor.org/info/rfc7519>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7525] Sheffer, Y., Holz, R., and P. Saint-Andre, \"Recommendations for Secure Use of Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS)\", BCP 195, RFC 7525, DOI 10.17487/RFC7525, May 2015, <http://www.rfc-editor.org/info/rfc7525>.",
+      "zh-CHS": "[RFC7525]Sheffer，Y.，Holz，R.，和P.Saint Andre，“安全使用传输层安全性（TLS）和数据报传输层安全性（DTLS）的建议”，BCP 195，RFC 7525，DOI 10.17487/RFC7525，2015年5月<http://www.rfc-editor.org/info/rfc7525>."
+    },
+    {
+      "indent": 3,
+      "text": "[STUN] Petit-Huguenin, M., Salgueiro, G., Rosenberg, J., Wing, D., Mahy, R., and P. Matthews, \"Session Traversal Utilities for NAT (STUN)\", Work in Progress, draft-ietf-tram-stunbis-04, March 2015.",
+      "zh-CHS": "[STUN]Petit Huguenin，M.，Salgueiro，G.，Rosenberg，J.，Wing，D.，Mahy，R.，和P.Matthews，“NAT（STUN）的会话遍历实用程序”，在建工程，草案-ietf-tram-stunbis-042015年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[WEBRTC] Alvestrand, H., \"Overview: Real Time Protocols for Browser-based Applications\", Work in Progress, draft-ietf-rtcweb-overview-14, June 2015.",
+      "zh-CHS": "[WEBRTC]Alvestrand，H.，“概述：基于浏览器的应用程序的实时协议”，正在进行的工作，草稿-ietf-rtcweb-Overview-14，2015年6月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Sample Tickets",
+      "section_title": true,
+      "zh-CHS": "附录A.样票"
+    },
+    {
+      "indent": 3,
+      "text": "Input data (same for all samples below):",
+      "zh-CHS": "输入数据（以下所有样本相同）："
+    },
+    {
+      "indent": 6,
+      "text": "//STUN SERVER NAME\nserver_name = \"blackdow.carleon.gov\";",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "//Shared key between AS and RS",
+      "zh-CHS": "//AS和RS之间的共享密钥"
+    },
+    {
+      "indent": 6,
+      "text": "long_term_key = \\x48\\x47\\x6b\\x6a\\x33\\x32\\x4b\\x4a\\x47\\x69\\x75\\x79 \\x30\\x39\\x38\\x73\\x64\\x66\\x61\\x71\\x62\\x4e\\x6a\\x4f \\x69\\x61\\x7a\\x37\\x31\\x39\\x32\\x33",
+      "zh-CHS": "长期密钥=\\x48\\x47\\x6b\\x6a\\x33\\x32\\x4b\\x4a\\x47\\x69\\x75\\x79\\x30\\x39\\x38\\x73\\x64\\x66\\x61\\x71\\x62\\x4e\\x6a\\x4f\\x69\\x61\\x7a\\x37\\x31\\x39\\x32\\x33"
+    },
+    {
+      "indent": 6,
+      "text": "//MAC key of the session (included in the token) mac_key = \\x5a\\x6b\\x73\\x6a\\x70\\x77\\x65\\x6f\\x69\\x78\\x58\\x6d\\x76\\x6e \\x36\\x37\\x35\\x33\\x34\\x6d;",
+      "zh-CHS": "//会话的MAC密钥（包含在令牌中）MAC\\U密钥=\\x5a\\x6b\\x73\\x6a\\x70\\x77\\x65\\x6f\\x69\\x78\\x58\\x6d\\x76\\x6e\\x36\\x37\\x35\\x33\\x34\\x6d；"
+    },
+    {
+      "indent": 6,
+      "text": "//length of the MAC key\nmac_key_length  =  20;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "//The timestamp field in the token\ntoken_timestamp = 92470300704768;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "//The lifetime of the token\ntoken_lifetime = 3600;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "//nonce for AEAD\naead_nonce = \\x68\\x34\\x6a\\x33\\x6b\\x32\\x6c\\x32\\x6e\\x34\\x62\\x35;",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Samples:",
+      "zh-CHS": "样品："
+    },
+    {
+      "indent": 6,
+      "text": "1) token encryption algorithm = AEAD_AES_256_GCM",
+      "zh-CHS": "1) 令牌加密算法=AEAD\\U AES\\U 256\\U GCM"
+    },
+    {
+      "indent": 9,
+      "text": "Encrypted token (64 bytes = 2 + 12 + 34 + 16) =",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 7,
+      "text": "\\x00\\x0c\\x68\\x34\\x6a\\x33\\x6b\\x32\\x6c\\x32\\x6e\\x34\\x62 \\x35\\x61\\x7e\\xf1\\x34\\xa3\\xd5\\xe4\\x4e\\x9a\\x19\\xcc\\x7d \\xc1\\x04\\xb0\\xc0\\x3d\\x03\\xb2\\xa5\\x51\\xd8\\xfd\\xf5\\xcd \\x3b\\x6d\\xca\\x6f\\x10\\xcf\\xb7\\x7e\\x5b\\x2d\\xde\\xc8\\x4d \\x29\\x3a\\x5c\\x50\\x49\\x93\\x59\\xf0\\xc2\\xe2\\x6f\\x76",
+      "zh-CHS": "\\x00\\X0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\\x76"
+    },
+    {
+      "indent": 6,
+      "text": "2) token encryption algorithm = AEAD_AES_128_GCM",
+      "zh-CHS": "2) 令牌加密算法=AEAD\\U AES\\U 128\\U GCM"
+    },
+    {
+      "indent": 9,
+      "text": "Encrypted token (64 bytes = 2 + 12 + 34 + 16) =",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "\\x00\\x0c\\x68\\x34\\x6a\\x33\\x6b\\x32\\x6c\\x32\\x6e\\x34\\x62 \\x35\\x7f\\xb9\\xe9\\x9f\\x08\\x27\\xbe\\x3d\\xf1\\xe1\\xbd\\x65 \\x14\\x93\\xd3\\x03\\x1d\\x36\\xdf\\x57\\x07\\x97\\x84\\xae\\xe5 \\xea\\xcb\\x65\\xfa\\xd4\\xf2\\x7f\\xab\\x1a\\x3f\\x97\\x97\\x4b \\x69\\xf8\\x51\\xb2\\x4b\\xf5\\xaf\\x09\\xed\\xa3\\x57\\xe0",
+      "zh-CHS": "\\X0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 xe0"
+    },
+    {
+      "indent": 3,
+      "text": "Note: [1] After EVP_EncryptFinal_ex encrypts the final data, EVP_CIPHER_CTX_ctrl must be called to append the authentication tag to the ciphertext. //EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, taglen, tag);",
+      "zh-CHS": "注意：[1]EVP_EncryptFinal_ex加密最终数据后，必须调用EVP_CIPHER_CTX_ctrl将身份验证标记附加到密文中//EVP_密码_CTX_ctrl（CTX，EVP_ctrl_AEAD_GET_标签，标签，标签）；"
+    },
+    {
+      "indent": 3,
+      "text": "[2] EVP_CIPHER_CTX_ctrl must be invoked to set the authentication tag before calling EVP_DecryptFinal. //EVP_CIPHER_CTX_ctrl (&ctx, EVP_CTRL_GCM_SET_TAG, taglen, tag);",
+      "zh-CHS": "[2] 在调用EVP_Decrypt Final之前，必须调用EVP_CIPHER_CTX_ctrl来设置身份验证标记//EVP\\U密码\\U CTX\\U ctrl（&CTX，EVP\\U ctrl\\U GCM\\U SET\\U TAG，taglen，TAG）；"
+    },
+    {
+      "indent": 25,
+      "text": "Figure 5: Sample Tickets",
+      "zh-CHS": "图5：示例票据"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Interaction between the Client and Authorization Server",
+      "section_title": true,
+      "zh-CHS": "附录B.客户端和授权服务器之间的交互"
+    },
+    {
+      "indent": 3,
+      "text": "The client makes an HTTP request to an authorization server to obtain a token that can be used to avail itself of STUN services. The STUN token is returned in JSON syntax [RFC7159], along with other OAuth 2.0 parameters like token type, key, token lifetime, and kid as defined in [POP-KEY-DIST].",
+      "zh-CHS": "客户端向授权服务器发出HTTP请求，以获取可用于利用STUN服务的令牌。STUN令牌以JSON语法[RFC7159]返回，以及[POP-key-DIST]中定义的其他OAuth 2.0参数，如令牌类型、密钥、令牌生存期和kid。"
+    },
+    {
+      "indent": 3,
+      "text": "+-------------------+                         +--------+  +---------+\n| .........  STUN   |                         |  STUN  |  |  WebRTC |\n| .WebRTC .  client |                         |        |  |         |\n| .client .         |                         | server |  |  server |\n| .........         |                         |        |  |         |\n+-------------------+                         +--------+  +---------+\n  |       |           STUN request                    |         |\n  |       |------------------------------------------>|         |\n  |       |                                           |         |\n  |       |         STUN error response               |         |\n  |       |         (401 Unauthorized)                |         |\n  |       |<------------------------------------------|         |\n  |       |         THIRD-PARTY-AUTHORIZATION         |         |\n  |       |                                           |         |\n  |       |                                           |         |\n  |       |      HTTP request for token               |         |\n  |------------------------------------------------------------>|\n  |       |      HTTP response with token parameters  |         |\n  |<------------------------------------------------------------|\n  |OAuth 2.0                                          |         |\n   attributes                                         |         |\n  |------>|                                           |         |\n  |       |    STUN request with ACCESS-TOKEN         |         |\n  |       |------------------------------------------>|         |\n  |       |                                           |         |\n  |       |         STUN success response             |         |\n  |       |<------------------------------------------|         |\n  |       |             STUN messages                 |         |\n  |       |      ////// integrity protected //////    |         |\n  |       |      ////// integrity protected //////    |         |\n  |       |      ////// integrity protected //////    |         |",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 17,
+      "text": "Figure 6: STUN Third-Party Authorization",
+      "zh-CHS": "图6:STUN第三方授权"
+    },
+    {
+      "indent": 3,
+      "text": "[POP-KEY-DIST] describes the interaction between the client and the authorization server. For example, the client learns the STUN server name \"stun1@example.com\" from the THIRD-PARTY-AUTHORIZATION attribute value and makes the following HTTP request for the access token using TLS (with extra line breaks for display purposes only):",
+      "zh-CHS": "[POP-KEY-DIST]描述客户端和授权服务器之间的交互。例如，客户机学习STUN服务器名称“stun1@example.com“从第三方授权属性值，并使用TLS对访问令牌发出以下HTTP请求（带有额外的换行符，仅用于显示目的）："
+    },
+    {
+      "indent": 8,
+      "text": "HTTP/1.1\nHost: server.example.com\nContent-Type: application/x-www-form-urlencoded\naud=stun1@example.com\ntimestamp=1361471629\ngrant_type=implicit\ntoken_type=pop\nalg=HMAC-SHA-256-128",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 29,
+      "text": "Figure 7: Request",
+      "zh-CHS": "图7：请求"
+    },
+    {
+      "indent": 3,
+      "text": "[STUN] supports hash agility and accomplishes this agility by computing message integrity using both HMAC-SHA-1 and HMAC-SHA-256-128. The client signals the algorithm supported by it to the authorization server in the 'alg' parameter defined in [POP-KEY-DIST]. The authorization server determines the length of the mac_key based on the HMAC algorithm conveyed by the client. If the client supports both HMAC-SHA-1 and HMAC-SHA-256-128, then it signals HMAC-SHA-256-128 to the authorization server, gets a 256-bit key from the authorization server, and calculates a 160-bit key for HMAC-SHA-1 using SHA1 and taking the 256-bit key as input.",
+      "zh-CHS": "[STUN]支持哈希灵活性，并通过使用HMAC-SHA-1和HMAC-SHA-256-128计算消息完整性来实现这种灵活性。客户端在[POP-KEY-DIST]中定义的“alg”参数中将其支持的算法发送给授权服务器。授权服务器根据客户端传送的HMAC算法确定mac_密钥的长度。如果客户端同时支持HMAC-SHA-1和HMAC-SHA-256-128，则它向授权服务器发送HMAC-SHA-256-128信号，从授权服务器获取256位密钥，并使用SHA1计算HMAC-SHA-1的160位密钥，并将256位密钥作为输入。"
+    },
+    {
+      "indent": 3,
+      "text": "If the client is authorized, then the authorization server issues an access token. An example of a successful response:",
+      "zh-CHS": "如果客户机已授权，则授权服务器将发出访问令牌。成功响应的一个示例："
+    },
+    {
+      "indent": 8,
+      "text": "HTTP/1.1 200 OK\nContent-Type: application/json\nCache-Control: no-store",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "     {\n       \"access_token\":\n\"U2FsdGVkX18qJK/kkWmRcnfHglrVTJSpS6yU32kmHmOrfGyI3m1gQj1jRPsr0uBb\nHctuycAgsfRX7nJW2BdukGyKMXSiNGNnBzigkAofP6+Z3vkJ1Q5pWbfSRroOkWBn\",\n       \"token_type\":\"pop\",\n       \"expires_in\":1800,\n       \"kid\":\"22BIjxU93h/IgwEb\",\n       \"key\":\"v51N62OM65kyMvfTI08O\"\n       \"alg\":HMAC-SHA-256-128\n     }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 28,
+      "text": "Figure 8: Response",
+      "zh-CHS": "图8：答复"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgements",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank Dan Wing, Pal Martinsen, Oleg Moskalenko, Charles Eckel, Spencer Dawkins, Hannes Tschofenig, Yaron Sheffer, Tom Taylor, Christer Holmberg, Pete Resnick, Kathleen Moriarty, Richard Barnes, Stephen Farrell, Alissa Cooper, and Rich Salz for comments and review. The authors would like to give special thanks to Brandon Williams for his help.",
+      "zh-CHS": "作者要感谢Dan Wing、Pal Martinsen、Oleg Moskalenko、Charles Eckel、Spencer Dawkins、Hannes Tschofenig、Yaron Sheffer、Tom Taylor、Christer Holmberg、Pete Resnick、Kathleen Moriarty、Richard Barnes、Stephen Farrell、Alissa Cooper和Rich Salz的评论和评论。作者要特别感谢布兰登·威廉姆斯的帮助。"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Oleg Moskalenko for providing token samples in Appendix A.",
+      "zh-CHS": "感谢Oleg Moskalenko在附录A中提供代币样品。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Tirumaleswar Reddy Cisco Systems, Inc. Cessna Business Park, Varthur Hobli Sarjapur Marathalli Outer Ring Road Bangalore, Karnataka 560103 India Email: tireddy@cisco.com",
+      "zh-CHS": "Tirumaleswar Reddy Cisco Systems，Inc.印度卡纳塔克邦班加罗尔外环路瓦图尔霍布利萨尔贾布尔塞斯纳商业园560103电子邮件：tireddy@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Prashanth Patil Cisco Systems, Inc. Bangalore India Email: praspati@cisco.com",
+      "zh-CHS": "Prashanth Patil Cisco Systems，Inc.印度班加罗尔电子邮件：praspati@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Ram Mohan Ravindranath Cisco Systems, Inc. Cessna Business Park, Kadabeesanahalli Village, Varthur Hobli, Sarjapur-Marathahalli Outer Ring Road Bangalore, Karnataka 560103 India Email: rmohanr@cisco.com",
+      "zh-CHS": "Ram Mohan Ravindranath Cisco Systems，Inc.印度卡纳塔克邦班加罗尔Sarjapur Marathahalli外环路Varthur Hobli Kadabeesanahalli村塞斯纳商业园邮编：560103电子邮件：rmohanr@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Justin Uberti Google 747 6th Ave S. Kirkland, WA 98033 United States Email: justin@uberti.name",
+      "zh-CHS": "Justin Uberti谷歌747美国华盛顿州科克兰第六大道S.Kirkland，邮编98033电子邮件：justin@uberti.name"
+    }
+  ]
+}

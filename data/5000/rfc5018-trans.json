@@ -1,0 +1,412 @@
+{
+  "title": {
+    "text": "RFC 5018: Connection Establishment in the Binary Floor Control Protocol (BFCP)",
+    "zh-CHS": "RFC 5018"
+  },
+  "number": 5018,
+  "created_at": "2021-11-09 20:42:48.533310+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                       G. Camarillo\nRequest for Comments: 5018                                      Ericsson\nCategory: Standards Track                                 September 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 2,
+      "text": "Connection Establishment in the Binary Floor Control Protocol (BFCP)",
+      "zh-CHS": "二进制地板控制协议（BFCP）中的连接建立"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies how a Binary Floor Control Protocol (BFCP) client establishes a connection to a BFCP floor control server outside the context of an offer/answer exchange. Client and server authentication are based on Transport Layer Security (TLS).",
+      "zh-CHS": "本文档指定了二进制楼层控制协议（BFCP）客户端如何在报价/应答交换上下文之外建立到BFCP楼层控制服务器的连接。客户端和服务器身份验证基于传输层安全性（TLS）。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 2\n2.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . . . 2\n3.  TCP Connection Establishment  . . . . . . . . . . . . . . . . . 2\n4.  TLS Usage . . . . . . . . . . . . . . . . . . . . . . . . . . . 4\n5.  Authentication  . . . . . . . . . . . . . . . . . . . . . . . . 4\n  5.1.  Certificate-Based Server Authentication . . . . . . . . . . 4\n  5.2.  Client Authentication Based on a Pre-Shared Secret  . . . . 5\n6.  Security Considerations . . . . . . . . . . . . . . . . . . . . 5\n7.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . 7\n8.  References  . . . . . . . . . . . . . . . . . . . . . . . . . . 7\n  8.1.  Normative References  . . . . . . . . . . . . . . . . . . . 7\n  8.2.  Informative References  . . . . . . . . . . . . . . . . . . 8",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "As discussed in the BFCP (Binary Floor Control Protocol) specification [RFC4582], a given BFCP client needs a set of data in order to establish a BFCP connection to a floor control server. These data include the transport address of the server, the conference identifier, and the user identifier.",
+      "zh-CHS": "如BFCP（二进制地板控制协议）规范[RFC4582]所述，给定的BFCP客户端需要一组数据，以便建立到地板控制服务器的BFCP连接。这些数据包括服务器的传输地址、会议标识符和用户标识符。"
+    },
+    {
+      "indent": 3,
+      "text": "Once a client obtains this information, it needs to establish a BFCP connection to the floor control server. The way this connection is established depends on the context of the client and the floor control server. How to establish such a connection in the context of an SDP (Session Description Protocol) [RFC4566] offer/answer [RFC3264] exchange between a client and a floor control server is specified in RFC 4583 [RFC4583]. This document specifies how a client establishes a connection to a floor control server outside the context of an SDP offer/answer exchange.",
+      "zh-CHS": "客户机获得此信息后，需要建立到楼层控制服务器的BFCP连接。建立此连接的方式取决于客户端和楼层控制服务器的上下文。RFC 4583[RFC4583]中规定了如何在客户端和楼层控制服务器之间的SDP（会话描述协议）[RFC4566]提供/应答[RFC3264]交换的上下文中建立这样的连接。本文档指定客户端如何在SDP提供/应答交换上下文之外建立与楼层控制服务器的连接。"
+    },
+    {
+      "indent": 3,
+      "text": "BFCP entities establishing a connection outside an SDP offer/answer exchange need different authentication mechanisms than entities using offer/answer exchanges. This is because offer/answer exchanges provide parties with an initial integrity-protected channel that clients and floor control servers can use to exchange the fingerprints of their self-signed certificates. Outside the offer/ answer model, such a channel is not typically available. This document specifies how to authenticate clients using PSK (Pre-Shared Key)-TLS (Transport Layer Security) [RFC4279] and how to authenticate servers using server certificates.",
+      "zh-CHS": "在SDP提供/应答交换外部建立连接的BFCP实体需要不同于使用提供/应答交换的实体的身份验证机制。这是因为提供/应答交换为各方提供了初始完整性保护通道，客户端和楼层控制服务器可以使用该通道交换其自签名证书的指纹。在提供/应答模式之外，此类渠道通常不可用。本文档指定了如何使用PSK（预共享密钥）-TLS（传输层安全）[RFC4279]对客户端进行身份验证，以及如何使用服务器证书对服务器进行身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. TCP Connection Establishment",
+      "section_title": true,
+      "zh-CHS": "3. TCP连接建立"
+    },
+    {
+      "indent": 3,
+      "text": "As stated in Section 1, a given BFCP client needs a set of data in order to establish a BFCP connection to a floor control server. These data include the transport address of the server, the conference identifier, and the user identifier. It is outside the scope of this document to specify how a client obtains this information. This document assumes that the client obtains this information using an out-of-band method.",
+      "zh-CHS": "如第1节所述，给定的BFCP客户端需要一组数据，以便建立到楼层控制服务器的BFCP连接。这些数据包括服务器的传输地址、会议标识符和用户标识符。指定客户如何获取此信息超出了本文档的范围。本文档假设客户机使用带外方法获取此信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Once the client has the transport address (i.e., IP address and port) of the floor control server, it initiates a TCP connection towards it. That is, the client performs an active TCP open.",
+      "zh-CHS": "一旦客户机拥有楼层控制服务器的传输地址（即IP地址和端口），它就会向其发起TCP连接。也就是说，客户端执行活动的TCP打开。"
+    },
+    {
+      "indent": 3,
+      "text": "If the client is provided with the floor control server's host name instead of with its IP address, the client MUST perform a DNS lookup in order to resolve the host name into an IP address. Clients eventually perform an A or AAAA DNS lookup (or both) on the host name.",
+      "zh-CHS": "如果为客户端提供了楼层控制服务器的主机名而不是其IP地址，则客户端必须执行DNS查找，以便将主机名解析为IP地址。客户端最终会对主机名执行A或AAAA DNS查找（或两者都执行）。"
+    },
+    {
+      "indent": 3,
+      "text": "In order to translate the target to the corresponding set of IP addresses, IPv6-only or dual-stack clients MUST use name resolution functions that implement the Source and Destination Address Selection algorithms specified in [RFC3484]. (On many hosts that support IPv6, APIs like getaddrinfo() provide this functionality and subsume existing APIs like gethostbyname().)",
+      "zh-CHS": "为了将目标转换为相应的IP地址集，仅IPv6或双堆栈客户端必须使用名称解析函数，这些函数实现[RFC3484]中指定的源地址和目标地址选择算法。（在许多支持IPv6的主机上，getaddrinfo（）等API提供此功能，并包含gethostbyname（）等现有API。）"
+    },
+    {
+      "indent": 3,
+      "text": "The advantage of the additional complexity is that this technique will output an ordered list of IPv6/IPv4 destination addresses based on the relative merits of the corresponding source/destination pairs. This will result in the selection of a preferred destination address. However, the Source and Destination Selection algorithms of [RFC3484] are dependent on broad operating system support and uniform implementation of the application programming interfaces that implement this behavior.",
+      "zh-CHS": "额外复杂性的优点是，该技术将根据相应源/目标对的相对优点输出IPv6/IPv4目标地址的有序列表。这将导致选择首选目标地址。然而，[RFC3484]的源和目标选择算法依赖于广泛的操作系统支持和实现此行为的应用程序编程接口的统一实现。"
+    },
+    {
+      "indent": 6,
+      "text": "Developers should carefully consider the issues described by Roy et al. [RFC4943] with respect to address resolution delays and address selection rules. For example, implementations of getaddrinfo() may return address lists containing IPv6 global addresses at the top of the list and IPv4 addresses at the bottom, even when the host is only configured with an IPv6 local scope (e.g., link-local) and an IPv4 address. This will, of course, introduce a delay in completing the connection.",
+      "zh-CHS": "开发人员应该仔细考虑罗伊等人关于地址解析延迟和地址选择规则所描述的问题[RCFC443]。例如，getaddrinfo（）的实现可能返回地址列表，列表顶部包含IPv6全局地址，底部包含IPv4地址，即使主机仅配置了IPv6本地作用域（例如，本地链路）和IPv4地址。当然，这将在完成连接时引入延迟。"
+    },
+    {
+      "indent": 3,
+      "text": "The BFCP specification [RFC4582] describes a number of situations when the TCP connection between a client and the floor control server needs to be reestablished. However, that specification does not describe the reestablishment process because this process depends on how the connection was established in the first place.",
+      "zh-CHS": "BFCP规范[RFC4582]描述了客户机和楼层控制服务器之间需要重新建立TCP连接的许多情况。但是，该规范没有描述重建过程，因为该过程取决于连接最初是如何建立的。"
+    },
+    {
+      "indent": 3,
+      "text": "When the existing TCP connection is closed following the rules in [RFC4582], the client SHOULD reestablish the connection towards the floor control server. If a TCP connection cannot deliver a BFCP message from the client to the floor control server and times out, the client SHOULD reestablish the TCP connection.",
+      "zh-CHS": "当按照[RFC4582]中的规则关闭现有TCP连接时，客户端应重新建立与楼层控制服务器的连接。如果TCP连接无法将BFCP消息从客户端传送到楼层控制服务器并超时，则客户端应重新建立TCP连接。"
+    },
+    {
+      "indent": 0,
+      "text": "4. TLS Usage",
+      "section_title": true,
+      "zh-CHS": "4. TLS使用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4582] requires that all BFCP entities implement TLS [RFC4346] and recommends that they use it in all their connections. TLS provides integrity and replay protection, and optional confidentiality. The floor control server MUST always act as the TLS server.",
+      "zh-CHS": "[RFC4582]要求所有BFCP实体实现TLS[RFC4346]，并建议它们在所有连接中使用TLS。TLS提供完整性和重播保护，以及可选的保密性。楼层控制服务器必须始终充当TLS服务器。"
+    },
+    {
+      "indent": 3,
+      "text": "A floor control server that receives a BFCP message over TCP (no TLS) SHOULD request the use of TLS by generating an Error message with an Error code with a value of 9 (Use TLS).",
+      "zh-CHS": "通过TCP（无TLS）接收BFCP消息的楼层控制服务器应通过生成错误消息请求使用TLS，错误代码值为9（使用TLS）。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Authentication",
+      "section_title": true,
+      "zh-CHS": "5. 认证"
+    },
+    {
+      "indent": 3,
+      "text": "BFCP supports client authentication based on pre-shared secrets and server authentication based on server certificates.",
+      "zh-CHS": "BFCP支持基于预共享机密的客户端身份验证和基于服务器证书的服务器身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Certificate-Based Server Authentication",
+      "section_title": true,
+      "zh-CHS": "5.1. 基于证书的服务器身份验证"
+    },
+    {
+      "indent": 3,
+      "text": "At TLS connection establishment, the floor control server MUST present its certificate to the client. The certificate provided at the TLS level MUST either be directly signed by one of the other party's trust anchors or be validated using a certification path that terminates at one of the other party's trust anchors [RFC3280].",
+      "zh-CHS": "在TLS连接建立时，楼层控制服务器必须向客户端出示其证书。在TLS级别提供的证书必须由另一方的信任锚直接签名，或者使用终止于另一方的信任锚之一的证书路径进行验证[RFC3280]。"
+    },
+    {
+      "indent": 3,
+      "text": "A client establishing a connection to a server knows the server's host name or IP address. If the client knows the server's host name, the client MUST check it against the server's identity as presented in the server's Certificate message, in order to prevent man-in-the-middle attacks.",
+      "zh-CHS": "与服务器建立连接的客户端知道服务器的主机名或IP地址。如果客户端知道服务器的主机名，则客户端必须根据服务器的证书消息中显示的服务器身份进行检查，以防止中间人攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "If a subjectAltName extension of type dNSName is present, that MUST be used as the identity. Otherwise, the (most specific) Common Name field in the Subject field of the certificate MUST be used. Although the use of the Common Name is existing practice, it is deprecated and Certification Authorities are encouraged to use the subjectAltName instead.",
+      "zh-CHS": "如果存在dNSName类型的subjectAltName扩展名，则必须将其用作标识。否则，必须使用证书的Subject字段中的（最具体的）Common Name字段。虽然使用通用名称是现有的做法，但不推荐使用，并鼓励证书颁发机构改用subjectAltName。"
+    },
+    {
+      "indent": 3,
+      "text": "Matching is performed using the matching rules specified by [RFC3280]. If more than one identity of a given type is present in the certificate (e.g., more than one dNSName name), a match in any one of the set is considered acceptable. Names in Common Name fields may contain the wildcard character *, which is considered to match any single domain name component or component fragment (e.g., *.a.com matches foo.a.com but not bar.foo.a.com. f*.com matches foo.com but not bar.com).",
+      "zh-CHS": "使用[RFC3280]指定的匹配规则执行匹配。如果证书中存在给定类型的多个标识（例如，多个dNSName名称），则可以接受集合中任何一个的匹配。公共名称字段中的名称可能包含通配符*，通配符被视为匹配任何单个域名组件或组件片段（例如，*.a.com匹配foo.a.com，但不匹配bar.foo.a.com.f*.com匹配foo.com，但不匹配bar.com）。"
+    },
+    {
+      "indent": 3,
+      "text": "If the client does not know the server's host name and contacts the server directly using the server's IP address, the iPAddress subjectAltName must be present in the certificate and must exactly match the IP address known to the client.",
+      "zh-CHS": "如果客户端不知道服务器的主机名，并且直接使用服务器的IP地址与服务器联系，则iPAddress subjectAltName必须存在于证书中，并且必须与客户端已知的IP地址完全匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "If the host name or IP address known to the client does not match the identity in the certificate, user-oriented clients MUST either notify the user (clients MAY give the user the opportunity to continue with the connection in any case) or terminate the connection with a bad certificate error. Automated clients MUST log the error to an appropriate audit log (if available) and SHOULD terminate the connection (with a bad certificate error). Automated clients MAY provide a configuration setting that disables this check, but MUST provide a setting that enables it.",
+      "zh-CHS": "如果客户机已知的主机名或IP地址与证书中的标识不匹配，面向用户的客户机必须通知用户（客户机在任何情况下都可能给用户继续连接的机会）或使用错误的证书终止连接。自动客户端必须将错误记录到适当的审核日志（如果可用）中，并应终止连接（出现错误证书）。自动客户端可以提供禁用此检查的配置设置，但必须提供启用此检查的设置。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Client Authentication Based on a Pre-Shared Secret",
+      "section_title": true,
+      "zh-CHS": "5.2. 基于预共享秘密的客户端身份验证"
+    },
+    {
+      "indent": 3,
+      "text": "Client authentication is based on a pre-shared secret between client and server. Authentication is performed using PSK-TLS [RFC4279].",
+      "zh-CHS": "客户端身份验证基于客户端和服务器之间预先共享的秘密。使用PSK-TLS[RFC4279]执行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "The BFCP specification mandates support for the TLS_RSA_WITH_AES_128_CBC_SHA ciphersuite. Additionally, clients and servers supporting this specification MUST support the TLS_RSA_PSK_WITH_AES_128_CBC_SHA ciphersuite as well.",
+      "zh-CHS": "BFCP规范要求支持TLS_RSA_和_AES_128_CBC_SHA密码套件。此外，支持此规范的客户端和服务器还必须支持TLS_RSA_PSK_和_AES_128_CBC_SHA密码套件。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "6. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Client and server authentication as specified in this document are based on the use of TLS. Therefore, it is strongly RECOMMENDED that TLS with non-null encryption is always used. Clients and floor control servers MAY use other security mechanisms as long as they provide similar security properties (i.e., replay and integrity protection, confidentiality, and client and server authentication).",
+      "zh-CHS": "本文档中指定的客户端和服务器身份验证基于TLS的使用。因此，强烈建议始终使用具有非空加密的TLS。客户端和楼层控制服务器可以使用其他安全机制，只要它们提供类似的安全属性（即重播和完整性保护、机密性以及客户端和服务器身份验证）。"
+    },
+    {
+      "indent": 3,
+      "text": "TLS PSK simply relies on a pre-shared key without specifying the nature of the key. In practice, such keys have two sources: text passwords and randomly generated binary keys. When keys are derived from passwords, TLS PSK mode is subject to offline dictionary attacks. In DHE (Diffie-Hellman Exchange) and RSA modes, an attacker who can mount a single man-in-the-middle attack on a client/server pair can then mount a dictionary attack on the password. In modes without DHE or RSA, an attacker who can record communications between a client/server pair can mount a dictionary attack on the password. Accordingly, it is RECOMMENDED that, where possible, clients use certificate-based server authentication ciphersuites with password-derived PSKs in order to defend against dictionary attacks.",
+      "zh-CHS": "TLS PSK仅依赖于预共享密钥，而不指定密钥的性质。实际上，这类密钥有两个来源：文本密码和随机生成的二进制密钥。当密钥来自密码时，TLS PSK模式会受到脱机字典攻击。在DHE（Diffie-Hellman Exchange）和RSA模式下，可以在客户端/服务器对上发起中间人攻击的攻击者可以在密码上发起字典攻击。在没有DHE或RSA的模式下，能够记录客户端/服务器对之间通信的攻击者可以对密码发起字典攻击。因此，建议在可能的情况下，客户端使用基于证书的服务器身份验证密码套件和密码派生的PSK，以抵御字典攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, passwords SHOULD be chosen with enough entropy to provide some protection against dictionary attacks. Because the entropy of text varies dramatically and is generally far less than that of an equivalent random bitstring, no hard and fast rules about password length are possible. However, in general passwords SHOULD be chosen to be at least 8 characters and selected from a pool containing both upper and lower case, numbers, and special keyboard characters (note that an 8-character ASCII password has a maximum entropy of 56 bits and in general far lower). FIPS PUB 112 [PUB112] provides some guidance on the relevant issues. If possible, passphrases are preferable to passwords. It is RECOMMENDED that implementations support, at minimum, 16-character passwords or passphrases. In addition, a cooperating client and server pair MAY choose to derive the TLS PSK shared key from the passphrase via a password-based key derivation function such as PBKDF2 [RFC2898]. Because such key derivation functions may incorporate iteration functions for key strengthening, they provide some additional protection against dictionary attacks by increasing the amount of work that the attacker must perform.",
+      "zh-CHS": "此外，选择的密码应具有足够的熵，以提供一些防止字典攻击的保护。由于文本的熵变化很大，通常远小于等效随机位字符串的熵，因此不可能有关于密码长度的硬性规则。但是，通常应选择至少8个字符的密码，并从包含大小写、数字和特殊键盘字符的池中选择（请注意，8个字符的ASCII密码的最大熵为56位，通常更低）。FIPS PUB 112[PUB112]就相关问题提供了一些指导。如果可能，密码短语比密码更可取。建议实现至少支持16个字符的密码或密码短语。此外，协作的客户端和服务器对可以选择通过基于密码的密钥派生函数（例如PBKDF2[RFC2898]）从密码短语派生TLS-PSK共享密钥。由于此类密钥派生函数可能包含用于密钥增强的迭代函数，因此它们通过增加攻击者必须执行的工作量来提供一些额外的保护，以防止字典攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "When the keys are randomly generated and of sufficient length, dictionary attacks are not effective because such keys are highly unlikely to be in the attacker's dictionary. Where possible, keys SHOULD be generated using a strong random number generator as specified in [RFC4086]. A minimum key length of 80 bits SHOULD be used.",
+      "zh-CHS": "当密钥随机生成且长度足够长时，字典攻击无效，因为此类密钥不太可能位于攻击者的字典中。在可能的情况下，应使用[RFC4086]中规定的强随机数生成器生成密钥。应使用80位的最小密钥长度。"
+    },
+    {
+      "indent": 3,
+      "text": "The remainder of this section analyzes some of the threats against BFCP and how they are addressed.",
+      "zh-CHS": "本节剩余部分将分析针对BFCP的一些威胁以及如何应对这些威胁。"
+    },
+    {
+      "indent": 3,
+      "text": "An attacker may attempt to impersonate a client (a floor participant or a floor chair) in order to generate forged floor requests or to grant or deny existing floor requests. Client impersonation is avoided by using TLS. The floor control server assumes that attackers cannot hijack TLS connections from authenticated clients.",
+      "zh-CHS": "攻击者可能试图模拟客户端（楼层参与者或楼层椅子），以生成伪造的楼层请求，或批准或拒绝现有的楼层请求。使用TLS可以避免客户端模拟。地板控制服务器假定攻击者无法劫持来自已验证客户端的TLS连接。"
+    },
+    {
+      "indent": 3,
+      "text": "An attacker may attempt to impersonate a floor control server. A successful attacker would be able to make clients think that they hold a particular floor so that they would try to access a resource (e.g., sending media) without having legitimate rights to access it. Floor control server impersonation is avoided by having floor control servers present their server certificates at TLS connection establishment time.",
+      "zh-CHS": "攻击者可能试图模拟楼层控制服务器。成功的攻击者将能够使客户端认为他们拥有特定的权限，从而在没有合法访问权限的情况下尝试访问资源（例如，发送媒体）。通过让楼层控制服务器在TLS连接建立时出示其服务器证书，可以避免楼层控制服务器模拟。"
+    },
+    {
+      "indent": 3,
+      "text": "Attackers may attempt to modify messages exchanged by a client and a floor control server. The integrity protection provided by TLS connections prevents this attack.",
+      "zh-CHS": "攻击者可能试图修改客户端和楼层控制服务器交换的消息。TLS连接提供的完整性保护可防止此攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Attackers may attempt to pick messages from the network to get access to confidential information between the floor control server and a client (e.g., why a floor request was denied). TLS confidentiality prevents this attack. Therefore, it is RECOMMENDED that TLS is used with a non-null encryption algorithm.",
+      "zh-CHS": "攻击者可能试图从网络中选取消息以访问楼层控制服务器和客户端之间的机密信息（例如，拒绝楼层请求的原因）。TLS机密性可防止此攻击。因此，建议TLS与非空加密算法一起使用。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Sam Hartman, David Black, Karim El Malki, and Vijay Gurbani provided useful comments on this document. Eric Rescorla performed a detailed security analysis of this document.",
+      "zh-CHS": "Sam Hartman、David Black、Karim El-Malki和Vijay Gurbani对该文件提供了有用的评论。Eric Rescorla对此文档进行了详细的安全分析。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3264] Rosenberg, J. and H. Schulzrinne, \"An Offer/Answer Model with Session Description Protocol (SDP)\", RFC 3264, June 2002.",
+      "zh-CHS": "[RFC3264]Rosenberg，J.和H.Schulzrinne，“具有会话描述协议（SDP）的提供/应答模型”，RFC 3264，2002年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3280] Housley, R., Polk, W., Ford, W., and D. Solo, \"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile\", RFC 3280, April 2002.",
+      "zh-CHS": "[RFC3280]Housley，R.，Polk，W.，Ford，W.，和D.Solo，“互联网X.509公钥基础设施证书和证书撤销列表（CRL）概要”，RFC 32802002年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3484] Draves, R., \"Default Address Selection for Internet Protocol version 6 (IPv6)\", RFC 3484, February 2003.",
+      "zh-CHS": "[RFC3484]Draves，R.，“互联网协议版本6（IPv6）的默认地址选择”，RFC 3484，2003年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4086] Eastlake, D., Schiller, J., and S. Crocker, \"Randomness Requirements for Security\", BCP 106, RFC 4086, June 2005.",
+      "zh-CHS": "[RFC4086]Eastlake，D.，Schiller，J.，和S.Crocker，“安全的随机性要求”，BCP 106，RFC 4086，2005年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4279] Eronen, P. and H. Tschofenig, \"Pre-Shared Key Ciphersuites for Transport Layer Security (TLS)\", RFC 4279, December 2005.",
+      "zh-CHS": "[RFC4279]Eronen，P.和H.Tschofenig，“用于传输层安全（TLS）的预共享密钥密码套件”，RFC 4279，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4346] Dierks, T. and E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.1\", RFC 4346, April 2006.",
+      "zh-CHS": "[RFC4346]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.1”，RFC 4346，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4566] Handley, M., Jacobson, V., and C. Perkins, \"SDP: Session Description Protocol\", RFC 4566, July 2006.",
+      "zh-CHS": "[RFC4566]Handley，M.，Jacobson，V.，和C.Perkins，“SDP：会话描述协议”，RFC4566，2006年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4582] Camarillo, G., Ott, J., and K. Drage, \"The Binary Floor Control Protocol (BFCP)\", RFC 4582, November 2006.",
+      "zh-CHS": "[RFC4582]Camarillo，G.，Ott，J.，和K.Drage，“二进制地板控制协议（BFCP）”，RFC 4582，2006年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4583] Camarillo, G., \"Session Description Protocol (SDP) Format for Binary Floor Control Protocol (BFCP) Streams\", RFC 4583, November 2006.",
+      "zh-CHS": "[RFC4583]Camarillo，G.“二进制地板控制协议（BFCP）流的会话描述协议（SDP）格式”，RFC4583，2006年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[PUB112] National Institute of Standards and Technology (NIST), \"Password Usage\", FIPS PUB 112, May 1985.",
+      "zh-CHS": "[PUB112]国家标准与技术研究所（NIST），“密码使用”，FIPS PUB 112，1985年5月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2898] Kaliski, B., \"PKCS #5: Password-Based Cryptography Specification Version 2.0\", RFC 2898, September 2000.",
+      "zh-CHS": "[RFC2898]Kaliski，B.，“PKCS#5：基于密码的加密规范版本2.0”，RFC 28982000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4943] Roy, S., Durand, A., and J. Paugh, \"IPv6 Neighbor Discovery On-Link Assumption Considered Harmful\", RFC 4943, September 2007.",
+      "zh-CHS": "[RFC4943]Roy，S.，Durand，A.，和J.Paugh，“基于链路假设的IPv6邻居发现被认为是有害的”，RFC 49432007年9月。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Gonzalo Camarillo Ericsson Hirsalantie 11 Jorvas 02420 Finland",
+      "zh-CHS": "Gonzalo Camarillo Ericsson Hirsalantie 11 Jorvas 02420芬兰"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Gonzalo.Camarillo@ericsson.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

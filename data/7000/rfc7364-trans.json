@@ -1,0 +1,891 @@
+{
+  "title": {
+    "text": "RFC 7364: Problem Statement: Overlays for Network Virtualization",
+    "zh-CHS": "RFC 7364"
+  },
+  "number": 7364,
+  "created_at": "2021-11-02 18:40:17.625553+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                    T. Narten, Ed.\nRequest for Comments: 7364                                           IBM\nCategory: Informational                                     E. Gray, Ed.\nISSN: 2070-1721                                                 Ericsson\n                                                                D. Black\n                                                                     EMC\n                                                                 L. Fang\n                                                               Microsoft\n                                                              L. Kreeger\n                                                                   Cisco\n                                                            M. Napierala\n                                                                    AT&T\n                                                            October 2014",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 9,
+      "text": "Problem Statement: Overlays for Network Virtualization",
+      "zh-CHS": "问题陈述：用于网络虚拟化的覆盖"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes issues associated with providing multi-tenancy in large data center networks and how these issues may be addressed using an overlay-based network virtualization approach. A key multi-tenancy requirement is traffic isolation so that one tenant's traffic is not visible to any other tenant. Another requirement is address space isolation so that different tenants can use the same address space within different virtual networks. Traffic and address space isolation is achieved by assigning one or more virtual networks to each tenant, where traffic within a virtual network can only cross into another virtual network in a controlled fashion (e.g., via a configured router and/or a security gateway). Additional functionality is required to provision virtual networks, associating a virtual machine's network interface(s) with the appropriate virtual network and maintaining that association as the virtual machine is activated, migrated, and/or deactivated. Use of an overlay-based approach enables scalable deployment on large network infrastructures.",
+      "zh-CHS": "本文档描述了与在大型数据中心网络中提供多租户相关的问题，以及如何使用基于覆盖的网络虚拟化方法解决这些问题。一个关键的多租户要求是流量隔离，以便一个租户的流量对任何其他租户都不可见。另一个要求是地址空间隔离，以便不同的租户可以在不同的虚拟网络中使用相同的地址空间。流量和地址空间隔离是通过向每个租户分配一个或多个虚拟网络来实现的，其中虚拟网络中的流量只能以受控方式（例如，通过配置的路由器和/或安全网关）跨入另一个虚拟网络。提供虚拟网络、将虚拟机的网络接口与适当的虚拟网络关联并在激活、迁移和/或停用虚拟机时维护该关联需要其他功能。使用基于覆盖的方法可以在大型网络基础设施上进行可扩展的部署。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document is not an Internet Standards Track specification; it is published for informational purposes.",
+      "zh-CHS": "本文件不是互联网标准跟踪规范；它是为了提供信息而发布的。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Not all documents approved by the IESG are a candidate for any level of Internet Standard; see Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。并非IESG批准的所有文件都适用于任何级别的互联网标准；见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7364.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7364."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2014 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2014 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................4\n2. Terminology .....................................................6\n3. Problem Areas ...................................................6\n   3.1. Need for Dynamic Provisioning ..............................6\n   3.2. Virtual Machine Mobility Limitations .......................7\n   3.3. Inadequate Forwarding Table Sizes ..........................7\n   3.4. Need to Decouple Logical and Physical Configuration ........7\n   3.5. Need for Address Separation between Virtual Networks .......8\n   3.6. Need for Address Separation between Virtual Networks and ...8\n   3.7. Optimal Forwarding .........................................9\n4. Using Network Overlays to Provide Virtual Networks .............10\n   4.1. Overview of Network Overlays ..............................10\n   4.2. Communication between Virtual and Non-virtualized\n        Networks ..................................................12\n   4.3. Communication between Virtual Networks ....................12\n   4.4. Overlay Design Characteristics ............................13\n   4.5. Control-Plane Overlay Networking Work Areas ...............14\n   4.6. Data-Plane Work Areas .....................................15\n5. Related IETF and IEEE Work .....................................15\n   5.1. BGP/MPLS IP VPNs ..........................................16\n   5.2. BGP/MPLS Ethernet VPNs ....................................16\n   5.3. 802.1 VLANs ...............................................17\n   5.4. IEEE 802.1aq -- Shortest Path Bridging ....................17\n   5.5. VDP .......................................................17\n   5.6. ARMD ......................................................18\n   5.7. TRILL .....................................................18\n   5.8. L2VPNs ....................................................18\n   5.9. Proxy Mobile IP ...........................................19\n   5.10. LISP .....................................................19\n6. Summary ........................................................19\n7. Security Considerations ........................................19\n8. References .....................................................20\n   8.1. Normative Reference .......................................20\n   8.2. Informative References ....................................20\nAcknowledgments ...................................................22\nContributors ......................................................22\nAuthors' Addresses ................................................23",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "Data centers are increasingly being consolidated and outsourced in an effort to improve the deployment time of applications and reduce operational costs. This coincides with an increasing demand for compute, storage, and network resources from applications. In order to scale compute, storage, and network resources, physical resources are being abstracted from their logical representation, in what is referred to as server, storage, and network virtualization. Virtualization can be implemented in various layers of computer systems or networks.",
+      "zh-CHS": "为了缩短应用程序的部署时间并降低运营成本，数据中心正越来越多地被整合和外包。这与应用程序对计算、存储和网络资源日益增长的需求相吻合。为了扩展计算、存储和网络资源，物理资源正从其逻辑表示中抽象出来，即所谓的服务器、存储和网络虚拟化。虚拟化可以在计算机系统或网络的各个层中实现。"
+    },
+    {
+      "indent": 3,
+      "text": "The demand for server virtualization is increasing in data centers. With server virtualization, each physical server supports multiple virtual machines (VMs), each running its own operating system, middleware, and applications. Virtualization is a key enabler of workload agility, i.e., allowing any server to host any application and providing the flexibility of adding, shrinking, or moving services within the physical infrastructure. Server virtualization provides numerous benefits, including higher utilization, increased security, reduced user downtime, reduced power usage, etc.",
+      "zh-CHS": "数据中心对服务器虚拟化的需求正在增加。通过服务器虚拟化，每个物理服务器都支持多个虚拟机（VM），每个虚拟机运行自己的操作系统、中间件和应用程序。虚拟化是工作负载敏捷性的关键促成因素，即允许任何服务器托管任何应用程序，并提供在物理基础架构中添加、缩小或移动服务的灵活性。服务器虚拟化提供了许多好处，包括更高的利用率、更高的安全性、减少用户停机时间、减少电源使用等。"
+    },
+    {
+      "indent": 3,
+      "text": "Multi-tenant data centers are taking advantage of the benefits of server virtualization to provide a new kind of hosting, a virtual hosted data center. Multi-tenant data centers are ones where individual tenants could belong to a different company (in the case of a public provider) or a different department (in the case of an internal company data center). Each tenant has the expectation of a level of security and privacy separating their resources from those of other tenants. For example, one tenant's traffic must never be exposed to another tenant, except through carefully controlled interfaces, such as a security gateway (e.g., a firewall).",
+      "zh-CHS": "多租户数据中心正利用服务器虚拟化的优势提供一种新的托管方式，即虚拟托管数据中心。多租户数据中心是指单个租户可能属于不同公司（对于公共提供商）或不同部门（对于内部公司数据中心）的数据中心。每个租户都期望有一个安全和隐私级别，将他们的资源与其他租户的资源分开。例如，一个租户的流量决不能暴露给另一个租户，除非通过精心控制的接口，如安全网关（如防火墙）。"
+    },
+    {
+      "indent": 3,
+      "text": "To a tenant, virtual data centers are similar to their physical counterparts, consisting of end stations attached to a network, complete with services such as load balancers and firewalls. But unlike a physical data center, Tenant Systems connect to a virtual network (VN). To Tenant Systems, a virtual network looks like a normal network (e.g., providing an Ethernet or L3 service), except that the only end stations connected to the virtual network are those belonging to a tenant's specific virtual network.",
+      "zh-CHS": "对于租户来说，虚拟数据中心与物理数据中心类似，由连接到网络的终端站组成，并配有负载平衡器和防火墙等服务。但与物理数据中心不同，租户系统连接到虚拟网络（VN）。对于租户系统，虚拟网络看起来像普通网络（例如，提供以太网或L3服务），但连接到虚拟网络的唯一终端站是属于租户特定虚拟网络的终端站。"
+    },
+    {
+      "indent": 3,
+      "text": "A tenant is the administrative entity on whose behalf one or more specific virtual network instances and their associated services (whether virtual or physical) are managed. In a cloud environment, a tenant would correspond to the customer that is using a particular virtual network. However, a tenant may also find it useful to create multiple different virtual network instances. Hence, there is a one-",
+      "zh-CHS": "租户是代表其管理一个或多个特定虚拟网络实例及其关联服务（无论是虚拟的还是物理的）的管理实体。在云环境中，租户将对应于使用特定虚拟网络的客户。但是，租户可能会发现创建多个不同的虚拟网络实例也很有用。因此，有一个-"
+    },
+    {
+      "indent": 3,
+      "text": "to-many mapping between tenants and virtual network instances. A single tenant may operate multiple individual virtual network instances, each associated with a different service.",
+      "zh-CHS": "租户和虚拟网络实例之间的多对多映射。单个租户可以操作多个单独的虚拟网络实例，每个实例都与不同的服务相关联。"
+    },
+    {
+      "indent": 3,
+      "text": "How a virtual network is implemented does not generally matter to the tenant; what matters is that the service provided (Layer 2 (L2) or Layer 3 (L3)) has the right semantics, performance, etc. It could be implemented via a pure routed network, a pure bridged network, or a combination of bridged and routed networks. A key requirement is that each individual virtual network instance be isolated from other virtual network instances, with traffic crossing from one virtual network to another only when allowed by policy.",
+      "zh-CHS": "虚拟网络的实现方式通常与租户无关；重要的是所提供的服务（第2层（L2）或第3层（L3））具有正确的语义、性能等。它可以通过纯路由网络、纯桥接网络或桥接网络和路由网络的组合来实现。一个关键要求是，每个单独的虚拟网络实例都要与其他虚拟网络实例隔离，只有在策略允许的情况下，才能从一个虚拟网络到另一个虚拟网络进行流量交叉。"
+    },
+    {
+      "indent": 3,
+      "text": "For data center virtualization, two key issues must be addressed. First, address space separation between tenants must be supported. Second, it must be possible to place (and migrate) VMs anywhere in the data center, without restricting VM addressing to match the subnet boundaries of the underlying data center network.",
+      "zh-CHS": "对于数据中心虚拟化，必须解决两个关键问题。首先，必须支持租户之间的地址空间分离。其次，必须能够在数据中心的任何位置放置（和迁移）虚拟机，而不限制虚拟机寻址以匹配底层数据中心网络的子网边界。"
+    },
+    {
+      "indent": 3,
+      "text": "This document outlines problems encountered in scaling the number of isolated virtual networks in a data center. Furthermore, the document presents issues associated with managing those virtual networks in relation to operations, such as virtual network creation/ deletion and end-node membership change. Finally, this document makes the case that an overlay-based approach has a number of advantages over traditional, non-overlay approaches. The purpose of this document is to identify the set of issues that any solution has to address in building multi-tenant data centers. With this approach, the goal is to allow the construction of standardized, interoperable implementations to allow the construction of multi-tenant data centers.",
+      "zh-CHS": "本文档概述了在数据中心中扩展隔离虚拟网络数量时遇到的问题。此外，本文件还提出了与管理这些虚拟网络相关的操作问题，如虚拟网络创建/删除和终端节点成员资格更改。最后，本文说明了基于覆盖的方法与传统的非覆盖方法相比具有许多优势。本文档旨在确定任何解决方案在构建多租户数据中心时必须解决的一系列问题。通过这种方法，目标是允许构建标准化的、可互操作的实现，从而允许构建多租户数据中心。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is the problem statement for the \"Network Virtualization over Layer 3\" (NVO3) Working Group. NVO3 is focused on the construction of overlay networks that operate over an IP (L3) underlay transport network. NVO3 expects to provide both L2 service and IP service to Tenant Systems (though perhaps as two different solutions). Some deployments require an L2 service, others an L3 service, and some may require both.",
+      "zh-CHS": "本文档是“第3层网络虚拟化”（NVO3）工作组的问题陈述。NVO3专注于在IP（L3）底层传输网络上运行的覆盖网络的构建。NVO3希望向租户系统提供L2服务和IP服务（尽管可能是两种不同的解决方案）。有些部署需要L2服务，有些部署需要L3服务，有些部署可能同时需要这两种服务。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 2 gives terminology. Section 3 describes the problem space details. Section 4 describes overlay networks in more detail. Section 5 reviews related and further work, and Section 6 closes with a summary.",
+      "zh-CHS": "第2节给出了术语。第3节描述了问题空间的详细信息。第4节更详细地描述了覆盖网络。第5节回顾了相关的和进一步的工作，第6节以总结结束。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the same terminology as [RFC7365]. In addition, this document use the following terms.",
+      "zh-CHS": "本文件使用与[RFC7365]相同的术语。此外，本文件使用以下术语。"
+    },
+    {
+      "indent": 3,
+      "text": "Overlay Network: A virtual network in which the separation of tenants is hidden from the underlying physical infrastructure. That is, the underlying transport network does not need to know about tenancy separation to correctly forward traffic. IEEE 802.1 Provider Backbone Bridging (PBB) [IEEE-802.1Q] is an example of an L2 overlay network. PBB uses MAC-in-MAC encapsulation (where \"MAC\" refers to \"Media Access Control\"), and the underlying transport network forwards traffic using only the Backbone MAC (B-MAC) and Backbone VLAN Identifier (B-VID) in the outer header. The underlay transport network is unaware of the tenancy separation provided by, for example, a 24-bit Backbone Service Instance Identifier (I-SID).",
+      "zh-CHS": "覆盖网络：一种虚拟网络，其中租户的分离隐藏在底层物理基础设施之外。也就是说，底层传输网络不需要知道租赁分离，就可以正确转发流量。IEEE 802.1提供商主干桥接（PBB）[IEEE-802.1Q]是L2覆盖网络的一个示例。PBB使用MAC-in-MAC封装（其中“MAC”指“媒体访问控制”），底层传输网络仅使用外部报头中的主干MAC（B-MAC）和主干VLAN标识符（B-VID）转发流量。参考底图传输网络不知道由例如24位主干网服务实例标识符（I-SID）提供的租赁分离。"
+    },
+    {
+      "indent": 3,
+      "text": "C-VLAN: This document refers to Customer VLANs (C-VLANs) as implemented by many routers, i.e., an L2 virtual network identified by a Customer VLAN Identifier (C-VID). An end station (e.g., a VM) in this context that is part of an L2 virtual network will effectively belong to a C-VLAN. Within an IEEE 802.1Q-2011 network, other tags may be used as well, but such usage is generally not visible to the end station. Section 5.3 provides more details on VLANs defined by [IEEE-802.1Q].",
+      "zh-CHS": "C-VLAN：本文档指由许多路由器实现的客户VLAN（C-VLAN），即由客户VLAN标识符（C-VID）标识的L2虚拟网络。在此上下文中，作为L2虚拟网络一部分的终端站（例如VM）将实际上属于C-VLAN。在IEEE 802.1Q-2011网络中，也可以使用其他标签，但终端站通常看不到这种用法。第5.3节提供了有关[IEEE-802.1Q]定义的VLAN的更多详细信息。"
+    },
+    {
+      "indent": 3,
+      "text": "This document uses the phrase \"virtual network instance\" with its ordinary meaning to represent an instance of a virtual network. Its usage may differ from the \"VNI\" acronym defined in the framework document [RFC7365]. The \"VNI\" acronym is not used in this document.",
+      "zh-CHS": "本文档使用短语“虚拟网络实例”及其普通含义来表示虚拟网络的实例。其用法可能不同于框架文档[RFC7365]中定义的“VNI”首字母缩略词。本文件中未使用“VNI”首字母缩写。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Problem Areas",
+      "section_title": true,
+      "zh-CHS": "3. 问题领域"
+    },
+    {
+      "indent": 3,
+      "text": "The following subsections describe aspects of multi-tenant data center networking that pose problems for network infrastructure. Different problem aspects may arise based on the network architecture and scale.",
+      "zh-CHS": "以下小节描述了多租户数据中心网络的各个方面，这些方面会给网络基础设施带来问题。基于网络架构和规模，可能会出现不同的问题方面。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Need for Dynamic Provisioning",
+      "section_title": true,
+      "zh-CHS": "3.1. 需要动态资源调配"
+    },
+    {
+      "indent": 3,
+      "text": "Some service providers offer services to multiple customers whereby services are dynamic and the resources assigned to support them must be able to change quickly as demand changes. In current systems, it can be difficult to provision resources for individual tenants (e.g., QoS) in such a way that provisioned properties migrate automatically when services are dynamically moved around within the data center to optimize workloads.",
+      "zh-CHS": "一些服务提供商向多个客户提供服务，因此服务是动态的，分配给支持他们的资源必须能够随着需求的变化而快速变化。在当前系统中，很难为单个租户调配资源（例如，QoS），以便在数据中心内动态移动服务以优化工作负载时，自动迁移调配的属性。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Virtual Machine Mobility Limitations",
+      "section_title": true,
+      "zh-CHS": "3.2. 虚拟机移动性限制"
+    },
+    {
+      "indent": 3,
+      "text": "A key benefit of server virtualization is virtual machine (VM) mobility. A VM can be migrated from one server to another live, i.e., while continuing to run and without needing to shut down and restart at the new location. A key requirement for live migration is that a VM retain critical network state at its new location, including its IP and MAC address(es). Preservation of MAC addresses may be necessary, for example, when software licenses are bound to MAC addresses. More generally, any change in the VM's MAC addresses resulting from a move would be visible to the VM and thus potentially result in unexpected disruptions. Retaining IP addresses after a move is necessary to prevent existing transport connections (e.g., TCP) from breaking and needing to be restarted.",
+      "zh-CHS": "服务器虚拟化的一个关键好处是虚拟机（VM）的移动性。虚拟机可以从一台服务器实时迁移到另一台服务器，即在继续运行的同时，无需在新位置关闭和重新启动。实时迁移的一个关键要求是VM在其新位置保留关键网络状态，包括其IP和MAC地址。例如，当软件许可证绑定到MAC地址时，可能需要保留MAC地址。更一般地说，VM的MAC地址因移动而发生的任何变化都将对VM可见，因此可能导致意外中断。移动后保留IP地址是防止现有传输连接（如TCP）中断和需要重新启动的必要条件。"
+    },
+    {
+      "indent": 3,
+      "text": "In data center networks, servers are typically assigned IP addresses based on their physical location, for example, based on the Top-of-Rack (ToR) switch for the server rack or the C-VLAN configured to the server. Servers can only move to other locations within the same IP subnet. This constraint is not problematic for physical servers, which move infrequently, but it restricts the placement and movement of VMs within the data center. Any solution for a scalable multi-tenant data center must allow a VM to be placed (or moved) anywhere within the data center without being constrained by the subnet boundary concerns of the host servers.",
+      "zh-CHS": "在数据中心网络中，服务器通常根据其物理位置分配IP地址，例如，基于服务器机架的机架顶部（ToR）交换机或配置到服务器的C-VLAN。服务器只能移动到同一IP子网内的其他位置。此约束对于不经常移动的物理服务器来说没有问题，但它限制了虚拟机在数据中心内的放置和移动。任何可扩展多租户数据中心的解决方案都必须允许将VM放置（或移动）到数据中心内的任何位置，而不受主机服务器的子网边界问题的限制。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Inadequate Forwarding Table Sizes",
+      "section_title": true,
+      "zh-CHS": "3.3. 转发表大小不足"
+    },
+    {
+      "indent": 3,
+      "text": "Today's virtualized environments place additional demands on the forwarding tables of forwarding nodes in the physical infrastructure. The core problem is that location independence results in specific end state information being propagated into the forwarding system (e.g., /32 host routes in IPv4 networks or MAC addresses in IEEE 802.3 Ethernet networks). In L2 networks, for instance, instead of just one address per server, the network infrastructure may have to learn addresses of the individual VMs (which could range in the hundreds per server). This increases the demand on a forwarding node's table capacity compared to non-virtualized environments.",
+      "zh-CHS": "今天的虚拟化环境对物理基础架构中的转发节点的转发表提出了额外的要求。核心问题是位置独立性导致特定的终端状态信息传播到转发系统（例如，IPv4网络中的/32主机路由或IEEE 802.3以太网网络中的MAC地址）。例如，在L2网络中，网络基础设施可能需要了解单个VM的地址（每个服务器的地址范围可能在数百个），而不是每个服务器一个地址。与非虚拟化环境相比，这增加了对转发节点表容量的需求。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Need to Decouple Logical and Physical Configuration",
+      "section_title": true,
+      "zh-CHS": "3.4. 需要解耦逻辑和物理配置"
+    },
+    {
+      "indent": 3,
+      "text": "Data center operators must be able to achieve high utilization of server and network capacity. For efficient and flexible allocation, operators should be able to spread a virtual network instance across servers in any rack in the data center. It should also be possible to migrate compute workloads to any server anywhere in the network while retaining the workload's addresses.",
+      "zh-CHS": "数据中心运营商必须能够实现服务器和网络容量的高利用率。为实现高效灵活的分配，运营商应能够在数据中心任何机架中的服务器上分布虚拟网络实例。还可以将计算工作负载迁移到网络中任何位置的任何服务器，同时保留工作负载的地址。"
+    },
+    {
+      "indent": 3,
+      "text": "In networks of many types (e.g., IP subnets, MPLS VPNs, VLANs, etc.), moving servers elsewhere in the network may require expanding the scope of a portion of the network (e.g., subnet, VPN, VLAN, etc.) beyond its original boundaries. While this can be done, it requires potentially complex network configuration changes and may, in some cases (e.g., a VLAN or L2VPN), conflict with the desire to bound the size of broadcast domains. In addition, when VMs migrate, the physical network (e.g., access lists) may need to be reconfigured, which can be time consuming and error prone.",
+      "zh-CHS": "在许多类型的网络（例如，IP子网、MPLS VPN、VLAN等）中，将服务器移动到网络中的其他位置可能需要将部分网络（例如，子网、VPN、VLAN等）的范围扩展到其原始边界之外。虽然可以做到这一点，但它需要潜在的复杂网络配置更改，并且在某些情况下（例如，VLAN或L2VPN）可能与绑定广播域大小的愿望相冲突。此外，当虚拟机迁移时，可能需要重新配置物理网络（例如访问列表），这可能非常耗时且容易出错。"
+    },
+    {
+      "indent": 3,
+      "text": "An important use case is cross-pod expansion. A pod typically consists of one or more racks of servers with associated network and storage connectivity. A tenant's virtual network may start off on a pod and, due to expansion, require servers/VMs on other pods, especially the case when other pods are not fully utilizing all their resources. This use case requires that virtual networks span multiple pods in order to provide connectivity to all of the tenants' servers/VMs. Such expansion can be difficult to achieve when tenant addressing is tied to the addressing used by the underlay network or when the expansion requires that the scope of the underlying C-VLAN expand beyond its original pod boundary.",
+      "zh-CHS": "一个重要的用例是跨吊舱扩展。pod通常由一个或多个具有相关网络和存储连接的服务器机架组成。租户的虚拟网络可能从一个pod开始，由于扩展，需要在其他pod上安装服务器/VM，特别是在其他pod没有充分利用其所有资源的情况下。此用例要求虚拟网络跨越多个POD，以便提供到所有租户服务器/虚拟机的连接。当租户寻址与底层网络使用的寻址绑定时，或者当扩展需要底层C-VLAN的范围扩展到其原始pod边界之外时，这种扩展可能很难实现。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Need for Address Separation between Virtual Networks",
+      "section_title": true,
+      "zh-CHS": "3.5. 需要在虚拟网络之间进行地址分离"
+    },
+    {
+      "indent": 3,
+      "text": "Individual tenants need control over the addresses they use within a virtual network. But it can be problematic when different tenants want to use the same addresses or even if the same tenant wants to reuse the same addresses in different virtual networks. Consequently, virtual networks must allow tenants to use whatever addresses they want without concern for what addresses are being used by other tenants or other virtual networks.",
+      "zh-CHS": "单个租户需要控制他们在虚拟网络中使用的地址。但是，当不同的租户希望使用相同的地址时，或者即使同一租户希望在不同的虚拟网络中重用相同的地址，也会出现问题。因此，虚拟网络必须允许租户使用他们想要的任何地址，而不必担心其他租户或其他虚拟网络正在使用什么地址。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Need for Address Separation between Virtual Networks and Infrastructure",
+      "zh-CHS": "3.6. 虚拟网络和基础设施之间需要地址分离"
+    },
+    {
+      "indent": 3,
+      "text": "As in the previous case, a tenant needs to be able to use whatever addresses it wants in a virtual network independent of what addresses the underlying data center network is using. Tenants (and the underlay infrastructure provider) should be able use whatever addresses make sense for them without having to worry about address collisions between addresses used by tenants and those used by the underlay data center network.",
+      "zh-CHS": "与前一种情况一样，租户需要能够在虚拟网络中使用它想要的任何地址，而不依赖于底层数据中心网络正在使用的地址。租户（和参考底图基础设施提供商）应该能够使用对他们有意义的任何地址，而不必担心租户使用的地址与参考底图数据中心网络使用的地址之间的地址冲突。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. Optimal Forwarding",
+      "section_title": true,
+      "zh-CHS": "3.7. 最佳转发"
+    },
+    {
+      "indent": 3,
+      "text": "Another problem area relates to the optimal forwarding of traffic between peers that are not connected to the same virtual network. Such forwarding happens when a host on a virtual network communicates with a host not on any virtual network (e.g., an Internet host) as well as when a host on a virtual network communicates with a host on a different virtual network. A virtual network may have two (or more) gateways for forwarding traffic onto and off of the virtual network, and the optimal choice of which gateway to use may depend on the set of available paths between the communicating peers. The set of available gateways may not be equally \"close\" to a given destination. The issue appears both when a VM is initially instantiated on a virtual network or when a VM migrates or is moved to a different location. After a migration, for instance, a VM's best-choice gateway for such traffic may change, i.e., the VM may get better service by switching to the \"closer\" gateway, and this may improve the utilization of network resources.",
+      "zh-CHS": "另一个问题领域涉及未连接到同一虚拟网络的对等方之间流量的最佳转发。当虚拟网络上的主机与不在任何虚拟网络上的主机（例如，因特网主机）通信时，以及当虚拟网络上的主机与不同虚拟网络上的主机通信时，发生这种转发。虚拟网络可以具有两个（或更多）网关，用于将业务转发到虚拟网络上或从虚拟网络转出，并且使用哪个网关的最佳选择可能取决于通信对等方之间的可用路径集。可用网关集可能与给定目的地的距离不相等。当虚拟机最初在虚拟网络上实例化时，或者当虚拟机迁移或移动到其他位置时，都会出现此问题。例如，在迁移之后，VM针对此类流量的最佳选择网关可能会改变，即，VM可能通过切换到“更近”的网关获得更好的服务，这可能会提高网络资源的利用率。"
+    },
+    {
+      "indent": 3,
+      "text": "IP implementations in network endpoints typically do not distinguish between multiple routers on the same subnet -- there may only be a single default gateway in use, and any use of multiple routers usually considers all of them to be one hop away. Routing protocol functionality is constrained by the requirement to cope with these endpoint limitations -- for example, the Virtual Router Redundancy Protocol (VRRP) has one router serve as the master to handle all outbound traffic. This problem can be particularly acute when the virtual network spans multiple data centers, as a VM is likely to receive significantly better service when forwarding external traffic through a local router compared to using a router at a remote data center.",
+      "zh-CHS": "网络端点中的IP实现通常不区分同一子网上的多个路由器——可能只有一个默认网关在使用，并且使用多个路由器通常会将所有路由器都视为一跳。路由协议的功能受到处理这些端点限制的要求的限制——例如，虚拟路由器冗余协议（VRRP）有一个路由器作为主路由器来处理所有出站流量。当虚拟网络跨越多个数据中心时，此问题可能特别严重，因为与在远程数据中心使用路由器相比，通过本地路由器转发外部流量时，VM可能会收到显著更好的服务。"
+    },
+    {
+      "indent": 3,
+      "text": "The optimal forwarding problem applies to both outbound and inbound traffic. For outbound traffic, the choice of outbound router determines the path of outgoing traffic from the VM, which may be sub-optimal after a VM move. For inbound traffic, the location of the VM within the IP subnet for the VM is not visible to the routers beyond the virtual network. Thus, the routing infrastructure will have no information as to which of the two externally visible gateways leading into the virtual network would be the better choice for reaching a particular VM.",
+      "zh-CHS": "最优转发问题适用于出站和入站流量。对于出站流量，出站路由器的选择决定了来自VM的出站流量的路径，在VM移动后，这可能是次优的。对于入站流量，虚拟机在IP子网中的位置对于虚拟网络以外的路由器不可见。因此，路由基础设施将没有关于通向虚拟网络的两个外部可见网关中哪一个是到达特定VM的更好选择的信息。"
+    },
+    {
+      "indent": 3,
+      "text": "The issue is further complicated when middleboxes (e.g., load balancers, firewalls, etc.) must be traversed. Middleboxes may have session state that must be preserved for ongoing communication, and traffic must continue to flow through the middlebox, regardless of which router is \"closest\".",
+      "zh-CHS": "当必须穿越中间盒（如负载平衡器、防火墙等）时，问题更加复杂。中间箱可能具有会话状态，必须为持续通信保留该状态，并且无论哪个路由器“最近”，通信量必须继续通过中间箱。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Using Network Overlays to Provide Virtual Networks",
+      "section_title": true,
+      "zh-CHS": "4. 使用网络覆盖提供虚拟网络"
+    },
+    {
+      "indent": 3,
+      "text": "Virtual networks are used to isolate a tenant's traffic from that of other tenants (or even traffic within the same tenant network that requires isolation). There are two main characteristics of virtual networks:",
+      "zh-CHS": "虚拟网络用于将租户的通信量与其他租户的通信量（甚至是同一租户网络中需要隔离的通信量）隔离开来。虚拟网络有两个主要特征："
+    },
+    {
+      "indent": 3,
+      "text": "1. Virtual networks isolate the address space used in one virtual network from the address space used by another virtual network. The same network addresses may be used in different virtual networks at the same time. In addition, the address space used by a virtual network is independent from that used by the underlying physical network.",
+      "zh-CHS": "1. 虚拟网络将一个虚拟网络中使用的地址空间与另一个虚拟网络使用的地址空间隔离开来。相同的网络地址可以同时在不同的虚拟网络中使用。此外，虚拟网络使用的地址空间独立于底层物理网络使用的地址空间。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Virtual networks limit the scope of packets sent on the virtual network. Packets sent by Tenant Systems attached to a virtual network are delivered as expected to other Tenant Systems on that virtual network and may exit a virtual network only through controlled exit points, such as a security gateway. Likewise, packets sourced from outside of the virtual network may enter the virtual network only through controlled entry points, such as a security gateway.",
+      "zh-CHS": "2. 虚拟网络限制在虚拟网络上发送的数据包的范围。连接到虚拟网络的租户系统发送的数据包按预期传送到该虚拟网络上的其他租户系统，并且只能通过受控出口点（如安全网关）退出虚拟网络。类似地，来自虚拟网络外部的分组可以仅通过诸如安全网关之类的受控入口点进入虚拟网络。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Overview of Network Overlays",
+      "section_title": true,
+      "zh-CHS": "4.1. 网络覆盖概述"
+    },
+    {
+      "indent": 3,
+      "text": "To address the problems described in Section 3, a network overlay approach can be used.",
+      "zh-CHS": "为了解决第3节中描述的问题，可以使用网络覆盖方法。"
+    },
+    {
+      "indent": 3,
+      "text": "The idea behind an overlay is quite straightforward. Each virtual network instance is implemented as an overlay. The original packet is encapsulated by the first-hop network device, called a Network Virtualization Edge (NVE), and tunneled to a remote NVE. The encapsulation identifies the destination of the device that will perform the decapsulation (i.e., the egress NVE for the tunneled packet) before delivering the original packet to the endpoint. The rest of the network forwards the packet based on the encapsulation header and can be oblivious to the payload that is carried inside.",
+      "zh-CHS": "覆盖层背后的想法非常简单。每个虚拟网络实例都实现为覆盖。原始数据包由称为网络虚拟化边缘（NVE）的第一跳网络设备封装，并通过隧道传输到远程NVE。封装标识将在将原始分组传送到端点之前执行解除封装的设备的目的地（即，隧道分组的出口NVE）。网络的其余部分基于封装报头转发数据包，并且可以忽略其中携带的有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "Overlays are based on what is commonly known as a \"map-and-encap\" architecture. When processing and forwarding packets, three distinct and logically separable steps take place:",
+      "zh-CHS": "覆盖基于通常所称的“地图和营地”架构。处理和转发数据包时，会发生三个不同且逻辑上可分离的步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. The first-hop overlay device implements a mapping operation that determines where the encapsulated packet should be sent to reach its intended destination VM. Specifically, the mapping function maps the destination address (either L2 or L3) of a packet received from a VM into the corresponding destination address of",
+      "zh-CHS": "1. 第一跳覆盖设备实现映射操作，该映射操作确定封装的分组应发送到何处以到达其预期目的地VM。具体地说，映射函数将从VM接收的数据包的目标地址（L2或L3）映射到VM的相应目标地址"
+    },
+    {
+      "indent": 7,
+      "text": "the egress NVE device. The destination address will be the underlay address of the NVE device doing the decapsulation and is an IP address.",
+      "zh-CHS": "出口NVE装置。目标地址将是执行去封装的NVE设备的参考底图地址，并且是IP地址。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Once the mapping has been determined, the ingress overlay NVE device encapsulates the received packet within an overlay header.",
+      "zh-CHS": "2. 一旦确定了映射，入口覆盖NVE设备将接收到的分组封装在覆盖报头内。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The final step is to actually forward the (now encapsulated) packet to its destination. The packet is forwarded by the underlay (i.e., the IP network) based entirely on its outer address. Upon receipt at the destination, the egress overlay NVE device decapsulates the original packet and delivers it to the intended recipient VM.",
+      "zh-CHS": "3. 最后一步是将（现在封装的）数据包实际转发到其目的地。数据包由底层（即IP网络）完全基于其外部地址转发。在目的地接收时，出口覆盖NVE设备解除原始数据包的封装，并将其传送到预期的接收方VM。"
+    },
+    {
+      "indent": 3,
+      "text": "Each of the above steps is logically distinct, though an implementation might combine them for efficiency or other reasons. It should be noted that in L3 BGP/VPN terminology, the above steps are commonly known as \"forwarding\" or \"virtual forwarding\".",
+      "zh-CHS": "上述每个步骤在逻辑上都是不同的，尽管一个实现可能出于效率或其他原因将它们结合起来。需要注意的是，在L3 BGP/VPN术语中，上述步骤通常称为“转发”或“虚拟转发”。"
+    },
+    {
+      "indent": 3,
+      "text": "The first-hop NVE device can be a traditional switch or router or the virtual switch residing inside a hypervisor. Furthermore, the endpoint can be a VM, or it can be a physical server. Examples of architectures based on network overlays include BGP/MPLS IP VPNs [RFC4364], Transparent Interconnection of Lots of Links (TRILL) [RFC6325], the Locator/ID Separation Protocol (LISP) [RFC6830], and Shortest Path Bridging (SPB) [IEEE-802.1aq].",
+      "zh-CHS": "第一跳NVE设备可以是传统交换机或路由器，也可以是驻留在虚拟机监控程序中的虚拟交换机。此外，端点可以是VM，也可以是物理服务器。基于网络覆盖的架构示例包括BGP/MPLS IP VPN[RFC4364]、大量链路的透明互连（TRILL）[RFC6325]、定位器/ID分离协议（LISP）[RFC6830]和最短路径桥接（SPB）[IEEE-802.1aq]。"
+    },
+    {
+      "indent": 3,
+      "text": "In the data plane, an overlay header provides a place to carry either the virtual network identifier or an identifier that is locally significant to the edge device. In both cases, the identifier in the overlay header specifies which specific virtual network the data packet belongs to. Since both routed and bridged semantics can be supported by a virtual data center, the original packet carried within the overlay header can be an Ethernet frame or just the IP packet.",
+      "zh-CHS": "在数据平面中，覆盖报头提供承载虚拟网络标识符或对边缘设备具有本地意义的标识符的位置。在这两种情况下，覆盖报头中的标识符指定数据包所属的特定虚拟网络。由于虚拟数据中心可以支持路由和桥接语义，因此覆盖报头中携带的原始数据包可以是以太网帧，也可以只是IP数据包。"
+    },
+    {
+      "indent": 3,
+      "text": "A key aspect of overlays is the decoupling of the \"virtual\" MAC and/ or IP addresses used by VMs from the physical network infrastructure and the infrastructure IP addresses used by the data center. If a VM changes location, the overlay edge devices simply update their mapping tables to reflect the new location of the VM within the data center's infrastructure space. Because an overlay network is used, a VM can now be located anywhere in the data center that the overlay reaches without regard to traditional constraints imposed by the underlay network, such as the C-VLAN scope or the IP subnet scope.",
+      "zh-CHS": "覆盖的一个关键方面是将虚拟机使用的“虚拟”MAC和/或IP地址与物理网络基础设施和数据中心使用的基础设施IP地址分离。如果虚拟机更改位置，覆盖边缘设备只需更新其映射表，以反映虚拟机在数据中心基础设施空间中的新位置。由于使用了覆盖网络，虚拟机现在可以位于覆盖所到达的数据中心的任何位置，而不考虑底层网络施加的传统约束，例如C-VLAN范围或IP子网范围。"
+    },
+    {
+      "indent": 3,
+      "text": "Multi-tenancy is supported by isolating the traffic of one virtual network instance from traffic of another. Traffic from one virtual network instance cannot be delivered to another instance without (conceptually) exiting the instance and entering the other instance via an entity (e.g., a gateway) that has connectivity to both virtual network instances. Without the existence of a gateway entity, tenant traffic remains isolated within each individual virtual network instance.",
+      "zh-CHS": "通过将一个虚拟网络实例的流量与另一个虚拟网络实例的流量隔离，支持多租户。如果没有（概念上）退出实例并通过与两个虚拟网络实例都具有连接的实体（例如网关）进入另一个实例，则无法将来自一个虚拟网络实例的流量传递到另一个实例。如果不存在网关实体，租户流量在每个单独的虚拟网络实例中保持隔离。"
+    },
+    {
+      "indent": 3,
+      "text": "Overlays are designed to allow a set of VMs to be placed within a single virtual network instance, whether that virtual network provides a bridged network or a routed network.",
+      "zh-CHS": "覆盖被设计为允许在单个虚拟网络实例中放置一组虚拟机，无论该虚拟网络提供桥接网络还是路由网络。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Communication between Virtual and Non-virtualized Networks",
+      "section_title": true,
+      "zh-CHS": "4.2. 虚拟和非虚拟化网络之间的通信"
+    },
+    {
+      "indent": 3,
+      "text": "Not all communication will be between devices connected to virtualized networks. Devices using overlays will continue to access devices and make use of services on non-virtualized networks, whether in the data center, the public Internet, or at remote/branch campuses. Any virtual network solution must be capable of interoperating with existing routers, VPN services, load balancers, intrusion-detection services, firewalls, etc., on external networks.",
+      "zh-CHS": "并非所有通信都将在连接到虚拟化网络的设备之间进行。使用overlays的设备将继续访问设备并使用非虚拟化网络上的服务，无论是在数据中心、公共互联网还是远程/分校。任何虚拟网络解决方案都必须能够与外部网络上的现有路由器、VPN服务、负载平衡器、入侵检测服务、防火墙等进行互操作。"
+    },
+    {
+      "indent": 3,
+      "text": "Communication between devices attached to a virtual network and devices connected to non-virtualized networks is handled architecturally by having specialized gateway devices that receive packets from a virtualized network, decapsulate them, process them as regular (i.e., non-virtualized) traffic, and finally forward them on to their appropriate destination (and vice versa).",
+      "zh-CHS": "连接到虚拟网络的设备和连接到非虚拟化网络的设备之间的通信在体系结构上通过使用专门的网关设备来处理，这些网关设备从虚拟化网络接收数据包，将其解除封装，并将其作为常规（即非虚拟化）通信进行处理，最后将它们转发到相应的目的地（反之亦然）。"
+    },
+    {
+      "indent": 3,
+      "text": "A wide range of implementation approaches are possible. Overlay gateway functionality could be combined with other network functionality into a network device that implements the overlay functionality and then forwards traffic between other internal components that implement functionality such as full router service, load balancing, firewall support, VPN gateway, etc.",
+      "zh-CHS": "可以采用多种实施方法。覆盖网关功能可以与其他网络功能组合到实现覆盖功能的网络设备中，然后在实现功能的其他内部组件之间转发流量，例如完整路由器服务、负载平衡、防火墙支持、VPN网关等。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Communication between Virtual Networks",
+      "section_title": true,
+      "zh-CHS": "4.3. 虚拟网络间的通信"
+    },
+    {
+      "indent": 3,
+      "text": "Communication between devices on different virtual networks is handled architecturally by adding specialized interconnect functionality among the otherwise isolated virtual networks. For a virtual network providing an L2 service, such interconnect functionality could be IP forwarding configured as part of the \"default gateway\" for each virtual network. For a virtual network providing L3 service, the interconnect functionality could be IP forwarding configured as part of routing between IP subnets, or it could be based on configured inter-virtual-network traffic policies.",
+      "zh-CHS": "不同虚拟网络上的设备之间的通信通过在其他隔离的虚拟网络之间添加专门的互连功能在体系结构上进行处理。对于提供L2服务的虚拟网络，这种互连功能可以是IP转发，配置为每个虚拟网络的“默认网关”的一部分。对于提供L3服务的虚拟网络，互连功能可以是作为IP子网之间路由的一部分配置的IP转发，也可以基于配置的虚拟网络间流量策略。"
+    },
+    {
+      "indent": 3,
+      "text": "In both cases, the implementation of the interconnect functionality could be distributed across the NVEs and could be combined with other network functionality (e.g., load balancing and firewall support) that is applied to traffic forwarded between virtual networks.",
+      "zh-CHS": "在这两种情况下，互连功能的实现可以分布在各个NVE中，并且可以与应用于虚拟网络之间转发的流量的其他网络功能（例如，负载平衡和防火墙支持）相结合。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Overlay Design Characteristics",
+      "section_title": true,
+      "zh-CHS": "4.4. 覆盖层设计特点"
+    },
+    {
+      "indent": 3,
+      "text": "Below are some of the characteristics of environments that must be taken into account by the overlay technology.",
+      "zh-CHS": "下面是叠加技术必须考虑的一些环境特征。"
+    },
+    {
+      "indent": 3,
+      "text": "1. Highly distributed systems: The overlay should work in an environment where there could be many thousands of access switches (e.g., residing within the hypervisors) and many more Tenant Systems (e.g., VMs) connected to them. This leads to a distributed mapping system that puts a low overhead on the overlay tunnel endpoints.",
+      "zh-CHS": "1. 高度分布式系统：覆盖应该在一个环境中工作，在这个环境中，可能有数千个访问交换机（例如，驻留在虚拟机监控程序中）和更多的租户系统（例如，虚拟机）连接到它们。这导致了一个分布式映射系统，该系统在覆盖隧道端点上的开销较低。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Many highly distributed virtual networks with sparse membership: Each virtual network could be highly dispersed inside the data center. Also, along with expectation of many virtual networks, the number of Tenant Systems connected to any one virtual network is expected to be relatively low; therefore, the percentage of NVEs participating in any given virtual network would also be expected to be low. For this reason, efficient delivery of multi-destination traffic within a virtual network instance should be taken into consideration.",
+      "zh-CHS": "2. 许多成员稀疏的高度分布的虚拟网络：每个虚拟网络可以在数据中心内高度分散。此外，随着对许多虚拟网络的预期，连接到任何一个虚拟网络的租户系统的数量预计将相对较低；因此，预计参与任何给定虚拟网络的NVE的百分比也将很低。因此，应考虑在虚拟网络实例中有效地传递多目标流量。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Highly dynamic Tenant Systems: Tenant Systems connected to virtual networks can be very dynamic, both in terms of creation/deletion/power-on/power-off and in terms of mobility from one access device to another.",
+      "zh-CHS": "3. 高度动态的租户系统：连接到虚拟网络的租户系统在创建/删除/通电/断电以及从一个接入设备到另一个接入设备的移动性方面都是非常动态的。"
+    },
+    {
+      "indent": 3,
+      "text": "4. Be incrementally deployable, without necessarily requiring major upgrade of the entire network: The first-hop device (or end system) that adds and removes the overlay header may require new software and may require new hardware (e.g., for improved performance). The rest of the network should not need to change just to enable the use of overlays.",
+      "zh-CHS": "4. 可增量部署，无需对整个网络进行重大升级：添加和删除覆盖报头的第一跳设备（或终端系统）可能需要新软件，也可能需要新硬件（例如，为了提高性能）。网络的其余部分不应该仅仅为了使用覆盖而改变。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Work with existing data center network deployments without requiring major changes in operational or other practices: For example, some data centers have not enabled multicast beyond link-local scope. Overlays should be capable of leveraging underlay multicast support where appropriate, but not require its enablement in order to use an overlay solution.",
+      "zh-CHS": "5. 使用现有的数据中心网络部署，而无需对操作或其他实践进行重大更改：例如，某些数据中心未启用链路本地范围以外的多播。覆盖应该能够在适当的情况下利用参考底图多播支持，但不需要为使用覆盖解决方案而启用它。"
+    },
+    {
+      "indent": 3,
+      "text": "6. Network infrastructure administered by a single administrative domain: This is consistent with operation within a data center, and not across the Internet.",
+      "zh-CHS": "6. 由单个管理域管理的网络基础设施：这与数据中心内的操作一致，而不是跨Internet。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Control-Plane Overlay Networking Work Areas",
+      "section_title": true,
+      "zh-CHS": "4.5. 控制平面覆盖网络工作区"
+    },
+    {
+      "indent": 3,
+      "text": "There are three specific and separate potential work areas in the area of control-plane protocols needed to realize an overlay solution. The areas correspond to different possible \"on-the-wire\" protocols, where distinct entities interact with each other.",
+      "zh-CHS": "在实现覆盖解决方案所需的控制平面协议领域中，有三个特定且独立的潜在工作区域。这些区域对应于不同的可能的“在线”协议，其中不同的实体彼此交互。"
+    },
+    {
+      "indent": 3,
+      "text": "One area of work concerns the address dissemination protocol an NVE uses to build and maintain the mapping tables it uses to deliver encapsulated packets to their proper destination. One approach is to build mapping tables entirely via learning (as is done in 802.1 networks). Another approach is to use a specialized control-plane protocol. While there are some advantages to using or leveraging an existing protocol for maintaining mapping tables, the fact that large numbers of NVEs will likely reside in hypervisors places constraints on the resources (CPU and memory) that can be dedicated to such functions.",
+      "zh-CHS": "一个工作领域涉及地址分发协议，NVE使用该协议来构建和维护映射表，该映射表用于将封装的数据包传递到其正确的目的地。一种方法是完全通过学习来构建映射表（就像在802.1网络中所做的那样）。另一种方法是使用专门的控制平面协议。虽然使用或利用现有协议维护映射表有一些优势，但大量NVE可能驻留在虚拟机监控程序中这一事实限制了可用于此类功能的资源（CPU和内存）。"
+    },
+    {
+      "indent": 3,
+      "text": "From an architectural perspective, one can view the address-mapping dissemination problem as having two distinct and separable components. The first component consists of a back-end Network Virtualization Authority (NVA) that is responsible for distributing and maintaining the mapping information for the entire overlay system. For this document, we use the term \"NVA\" to refer to an entity that supplies answers, without regard to how it knows the answers it is providing. The second component consists of the on-the-wire protocols an NVE uses when interacting with the NVA.",
+      "zh-CHS": "从体系结构的角度来看，可以将地址映射传播问题视为具有两个不同且可分离的组件。第一个组件由后端网络虚拟化机构（NVA）组成，负责分发和维护整个覆盖系统的映射信息。在本文件中，我们使用术语“NVA”来指提供答案的实体，而不考虑其如何知道所提供的答案。第二个组件包括NVE与NVA交互时使用的在线协议。"
+    },
+    {
+      "indent": 3,
+      "text": "The first two areas of work are thus: describing the NVA function and defining NVA-NVE interactions.",
+      "zh-CHS": "因此，前两个工作领域是：描述NVA功能和定义NVA-NVE交互。"
+    },
+    {
+      "indent": 3,
+      "text": "The back-end NVA could provide high performance, high resiliency, failover, etc., and could be implemented in significantly different ways. For example, one model uses a traditional, centralized \"directory-based\" database, using replicated instances for reliability and failover. A second model involves using and possibly extending an existing routing protocol (e.g., BGP, IS-IS, etc.). To support different architectural models, it is useful to have one standard protocol for the NVE-NVA interaction while allowing different protocols and architectural approaches for the NVA itself. Separating the two allows NVEs to transparently interact with different types of NVAs, i.e., either of the two architectural models described above. Having separate protocols could also allow for a",
+      "zh-CHS": "后端NVA可以提供高性能、高恢复能力、故障切换等，并且可以以显著不同的方式实现。例如，一种模型使用传统的集中式“基于目录”数据库，使用复制实例实现可靠性和故障切换。第二个模型涉及使用并可能扩展现有路由协议（例如，BGP、IS-IS等）。为了支持不同的体系结构模型，为NVE-NVA交互提供一个标准协议非常有用，同时允许NVA本身使用不同的协议和体系结构方法。将这两个模型分开，可以使NVE透明地与不同类型的NVA交互，即上述两种体系结构模型中的任何一种。有单独的协议也可以允许"
+    },
+    {
+      "indent": 3,
+      "text": "simplified NVE that only interacts with the NVA for the mapping table entries it needs and allows the NVA (and its associated protocols) to evolve independently over time with minimal impact to the NVEs.",
+      "zh-CHS": "简化的NVE，仅与NVA就其需要的映射表条目进行交互，并允许NVA（及其相关协议）随时间独立发展，对NVE的影响最小。"
+    },
+    {
+      "indent": 3,
+      "text": "A third work area considers the attachment and detachment of VMs (or Tenant Systems [RFC7365], more generally) from a specific virtual network instance. When a VM attaches, the NVE associates the VM with a specific overlay for the purposes of tunneling traffic sourced from or destined to the VM. When a VM disconnects, the NVE should notify the NVA that the Tenant System to NVE address mapping is no longer valid. In addition, if this VM was the last remaining member of the virtual network, then the NVE can also terminate any tunnels used to deliver tenant multi-destination packets within the VN to the NVE. In the case where an NVE and hypervisor are on separate physical devices separated by an access network, a standardized protocol may be needed.",
+      "zh-CHS": "第三个工作区考虑从特定虚拟网络实例连接和分离虚拟机（或更一般地说，租户系统[RFC7365]）。当虚拟机连接时，NVE将虚拟机与特定覆盖相关联，以便通过隧道传输来自或目的地为虚拟机的流量。当VM断开连接时，NVE应通知NVA租户系统到NVE地址映射不再有效。此外，如果此VM是虚拟网络的最后一个剩余成员，则NVE还可以终止用于将VN内的租户多目标数据包传送到NVE的任何隧道。如果NVE和虚拟机监控程序位于由接入网络分隔的单独物理设备上，则可能需要标准化协议。"
+    },
+    {
+      "indent": 3,
+      "text": "In summary, there are three areas of potential work. The first area concerns the implementation of the NVA function itself and any protocols it needs (e.g., if implemented in a distributed fashion). A second area concerns the interaction between the NVA and NVEs. The third work area concerns protocols associated with attaching and detaching a VM from a particular virtual network instance. All three work areas are important to the development of scalable, interoperable solutions.",
+      "zh-CHS": "总之，有三个潜在的工作领域。第一个领域涉及NVA功能本身的实现及其所需的任何协议（例如，如果以分布式方式实现）。第二个领域涉及NVA和NVE之间的相互作用。第三个工作区域涉及与从特定虚拟网络实例连接和分离VM相关的协议。这三个工作领域对于开发可伸缩、可互操作的解决方案都很重要。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6. Data-Plane Work Areas",
+      "section_title": true,
+      "zh-CHS": "4.6. 数据平面工作区"
+    },
+    {
+      "indent": 3,
+      "text": "The data plane carries encapsulated packets for Tenant Systems. The data-plane encapsulation header carries a VN Context identifier [RFC7365] for the virtual network to which the data packet belongs. Numerous encapsulation or tunneling protocols already exist that can be leveraged. In the absence of strong and compelling justification, it would not seem necessary or helpful to develop yet another encapsulation format just for NVO3.",
+      "zh-CHS": "数据平面承载租户系统的封装数据包。数据平面封装报头携带数据包所属虚拟网络的VN上下文标识符[RFC7365]。已经存在许多可以利用的封装或隧道协议。在缺乏有力和令人信服的理由的情况下，仅为NVO3开发另一种封装格式似乎没有必要或没有帮助。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Related IETF and IEEE Work",
+      "section_title": true,
+      "zh-CHS": "5. 相关IETF和IEEE工作"
+    },
+    {
+      "indent": 3,
+      "text": "The following subsections discuss related IETF and IEEE work. These subsections are not meant to provide complete coverage of all IETF and IEEE work related to data centers, and the descriptions should not be considered comprehensive. Each area aims to address particular limitations of today's data center networks. In all areas, scaling is a common theme as are multi-tenancy and VM mobility. Comparing and evaluating the work result and progress of each work area listed is out of the scope of this document. The",
+      "zh-CHS": "以下小节讨论相关的IETF和IEEE工作。这些小节并不意味着提供与数据中心相关的所有IETF和IEEE工作的完整覆盖范围，并且这些描述不应被认为是全面的。每个领域都旨在解决当今数据中心网络的特定限制。在所有领域，扩展都是一个共同的主题，多租户和VM移动性也是如此。比较和评估列出的每个工作区域的工作结果和进度不在本文件范围内。这个"
+    },
+    {
+      "indent": 3,
+      "text": "intent of this section is to provide a reference to the interested readers. Note that NVO3 is scoped to running over an IP/L3 underlay network.",
+      "zh-CHS": "本节旨在为感兴趣的读者提供参考。请注意，NVO3的范围是通过IP/L3参考底图网络运行。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. BGP/MPLS IP VPNs",
+      "section_title": true,
+      "zh-CHS": "5.1. BGP/MPLS IP VPN"
+    },
+    {
+      "indent": 3,
+      "text": "BGP/MPLS IP VPNs [RFC4364] support multi-tenancy, VPN traffic isolation, address overlapping, and address separation between tenants and network infrastructure. The BGP/MPLS control plane is used to distribute the VPN labels and the tenant IP addresses that identify the tenants (or to be more specific, the particular VPN/ virtual network) and tenant IP addresses. Deployment of enterprise L3 VPNs has been shown to scale to thousands of VPNs and millions of VPN prefixes. BGP/MPLS IP VPNs are currently deployed in some large enterprise data centers. The potential limitation for deploying BGP/ MPLS IP VPNs in data center environments is the practicality of using BGP in the data center, especially reaching into the servers or hypervisors. There may be computing workforce skill set issues, equipment support issues, and potential new scaling challenges. A combination of BGP and lighter-weight IP signaling protocols, e.g., the Extensible Messaging and Presence Protocol (XMPP), has been proposed to extend the solutions into the data center environment [END-SYSTEM] while taking advantage of built-in VPN features with its rich policy support; it is especially useful for inter-tenant connectivity.",
+      "zh-CHS": "BGP/MPLS IP VPN[RFC4364]支持多租户、VPN流量隔离、地址重叠以及租户和网络基础设施之间的地址分离。BGP/MPLS控制平面用于分发VPN标签和租户IP地址，以标识租户（或者更具体地说，特定的VPN/虚拟网络）和租户IP地址。企业级L3 VPN的部署已显示可扩展到数千个VPN和数百万个VPN前缀。BGP/MPLS IP VPN目前部署在一些大型企业数据中心。在数据中心环境中部署BGP/MPLS IP VPN的潜在限制是在数据中心中使用BGP的实用性，尤其是在服务器或虚拟机监控程序中。可能存在计算人员技能集问题、设备支持问题和潜在的新扩展挑战。已提出BGP和轻量级IP信令协议的组合，例如可扩展消息和状态协议（XMPP），以将解决方案扩展到数据中心环境[终端系统]，同时利用内置VPN功能及其丰富的策略支持；它对于租户间的连接特别有用。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. BGP/MPLS Ethernet VPNs",
+      "section_title": true,
+      "zh-CHS": "5.2. BGP/MPLS以太网VPN"
+    },
+    {
+      "indent": 3,
+      "text": "Ethernet Virtual Private Networks (E-VPNs) [EVPN] provide an emulated L2 service in which each tenant has its own Ethernet network over a common IP or MPLS infrastructure. A BGP/MPLS control plane is used to distribute the tenant MAC addresses and the MPLS labels that identify the tenants and tenant MAC addresses. Within the BGP/MPLS control plane, a 32-bit Ethernet tag is used to identify the broadcast domains (VLANs) associated with a given L2 VLAN service instance, and these Ethernet tags are mapped to VLAN IDs understood by the tenant at the service edges. This means that any VLAN-based limitation on the customer site is associated with an individual tenant service edge, enabling a much higher level of scalability. Interconnection between tenants is also allowed in a controlled fashion.",
+      "zh-CHS": "以太网虚拟专用网络（E-VPN）[EVPN]提供模拟的二级服务，其中每个租户在公共IP或MPLS基础设施上拥有自己的以太网网络。BGP/MPLS控制平面用于分发租户MAC地址和标识租户和租户MAC地址的MPLS标签。在BGP/MPLS控制平面内，32位以太网标签用于标识与给定L2 VLAN服务实例相关联的广播域（VLAN），并且这些以太网标签映射到服务边缘的租户理解的VLAN ID。这意味着客户站点上任何基于VLAN的限制都与单个租户服务边缘相关联，从而实现更高级别的可伸缩性。租户之间的互联也允许以受控方式进行。"
+    },
+    {
+      "indent": 3,
+      "text": "VM mobility [MOBILITY] introduces the concept of a combined L2/L3 VPN service in order to support the mobility of individual virtual machines (VMs) between data centers connected over a common IP or MPLS infrastructure.",
+      "zh-CHS": "VM移动性[移动性]引入了L2/L3 VPN组合服务的概念，以支持通过公共IP或MPLS基础设施连接的数据中心之间单个虚拟机（VM）的移动性。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. 802.1 VLANs",
+      "section_title": true,
+      "zh-CHS": "5.3. 802.1虚拟局域网"
+    },
+    {
+      "indent": 3,
+      "text": "VLANs are a well-understood construct in the networking industry, providing an L2 service via a physical network in which tenant forwarding information is part of the physical network infrastructure. A VLAN is an L2 bridging construct that provides the semantics of virtual networks mentioned above: a MAC address can be kept unique within a VLAN, but it is not necessarily unique across VLANs. Traffic scoped within a VLAN (including broadcast and multicast traffic) can be kept within the VLAN it originates from. Traffic forwarded from one VLAN to another typically involves router (L3) processing. The forwarding table lookup operation may be keyed on {VLAN, MAC address} tuples.",
+      "zh-CHS": "VLAN是网络行业中一种众所周知的结构，通过物理网络提供L2服务，其中租户转发信息是物理网络基础设施的一部分。VLAN是一种L2桥接结构，提供上述虚拟网络的语义：MAC地址在VLAN内可以保持唯一，但在VLAN之间不一定是唯一的。VLAN内范围内的流量（包括广播和多播流量）可以保留在其来源的VLAN内。从一个VLAN转发到另一个VLAN的流量通常涉及路由器（L3）处理。转发表查找操作可以键入{VLAN，MAC地址}元组。"
+    },
+    {
+      "indent": 3,
+      "text": "VLANs are a pure L2 bridging construct, and VLAN identifiers are carried along with data frames to allow each forwarding point to know what VLAN the frame belongs to. Various types of VLANs are available today and can be used for network virtualization, even together. The C-VLAN, Service VLAN (S-VLAN), and Backbone VLAN (B-VLAN) IDs [IEEE-802.1Q] are 12 bits. The 24-bit I-SID [IEEE-802.1aq] allows the support of more than 16 million virtual networks.",
+      "zh-CHS": "VLAN是一种纯L2桥接结构，VLAN标识符与数据帧一起携带，以允许每个转发点知道帧所属的VLAN。现在有各种类型的VLAN可用，甚至可以一起用于网络虚拟化。C-VLAN、服务VLAN（S-VLAN）和主干VLAN（B-VLAN）ID[IEEE-802.1Q]为12位。24位I-SID[IEEE-802.1aq]允许支持1600多万个虚拟网络。"
+    },
+    {
+      "indent": 0,
+      "text": "5.4. IEEE 802.1aq -- Shortest Path Bridging",
+      "section_title": true,
+      "zh-CHS": "5.4. IEEE 802.1aq——最短路径桥接"
+    },
+    {
+      "indent": 3,
+      "text": "Shortest Path Bridging (SPB) [IEEE-802.1aq] is an overlay based on IS-IS that operates over L2 Ethernets. SPB supports multipathing and addresses a number of shortcomings in the original Ethernet Spanning Tree Protocol. Shortest Path Bridging Mac (SPBM) uses IEEE 802.1ah PBB (MAC-in-MAC) encapsulation and supports a 24-bit I-SID, which can be used to identify virtual network instances. SPBM provides multi-pathing and supports easy virtual network creation or update.",
+      "zh-CHS": "最短路径桥接（SPB）[IEEE-802.1aq]是一种基于在二级以太网上运行的is-is的覆盖。SPB支持多路径，并解决了原始以太网生成树协议中的许多缺点。最短路径桥接Mac（SPBM）使用IEEE 802.1ah PBB（Mac中的Mac）封装，并支持24位I-SID，可用于标识虚拟网络实例。SPBM提供多路径，并支持轻松创建或更新虚拟网络。"
+    },
+    {
+      "indent": 3,
+      "text": "SPBM extends IS-IS in order to perform link-state routing among core SPBM nodes, obviating the need for bridge learning for communication among core SPBM nodes. Learning is still used to build and maintain the mapping tables of edge nodes to encapsulate Tenant System traffic for transport across the SPBM core.",
+      "zh-CHS": "SPBM扩展IS-IS，以便在核心SPBM节点之间执行链路状态路由，从而避免了在核心SPBM节点之间进行通信时需要桥接学习。学习仍然用于构建和维护边缘节点的映射表，以封装租户系统流量，以便跨SPBM核心进行传输。"
+    },
+    {
+      "indent": 3,
+      "text": "SPB is compatible with all other 802.1 standards and thus allows leveraging of other features, e.g., VSI Discovery Protocol (VDP), Operations, Administration, and Maintenance (OAM), or scalability solutions.",
+      "zh-CHS": "SPB与所有其他802.1标准兼容，因此允许利用其他功能，例如VSI发现协议（VDP）、操作、管理和维护（OAM）或可扩展性解决方案。"
+    },
+    {
+      "indent": 0,
+      "text": "5.5. VDP",
+      "section_title": true,
+      "zh-CHS": "5.5. VDP"
+    },
+    {
+      "indent": 3,
+      "text": "VDP is the Virtual Station Interface (VSI) Discovery and Configuration Protocol specified by IEEE P802.1Qbg [IEEE-802.1Qbg]. VDP is a protocol that supports the association of a VSI with a port.",
+      "zh-CHS": "VDP是IEEE P802.1Qbg[IEEE-802.1Qbg]指定的虚拟站接口（VSI）发现和配置协议。VDP是一种支持VSI与端口关联的协议。"
+    },
+    {
+      "indent": 3,
+      "text": "VDP is run between the end station (e.g., a server running a hypervisor) and its adjacent switch (i.e., the device on the edge of the network). VDP is used, for example, to communicate to the switch that a virtual machine (virtual station) is moving, i.e., designed for VM migration.",
+      "zh-CHS": "VDP在终端站（例如，运行虚拟机监控程序的服务器）及其相邻交换机（即，网络边缘的设备）之间运行。例如，VDP用于与交换机通信，告知虚拟机（虚拟站）正在移动，即设计用于VM迁移。"
+    },
+    {
+      "indent": 0,
+      "text": "5.6. ARMD",
+      "section_title": true,
+      "zh-CHS": "5.6. 阿姆德"
+    },
+    {
+      "indent": 3,
+      "text": "The Address Resolution for Massive numbers of hosts in the Data center (ARMD) WG examined data center scaling issues with a focus on address resolution and developed a problem statement document [RFC6820]. While an overlay-based approach may address some of the \"pain points\" that were raised in ARMD (e.g., better support for multi-tenancy), analysis will be needed to understand the scaling trade-offs of an overlay-based approach compared with existing approaches. On the other hand, existing IP-based approaches such as proxy ARP may help mitigate some concerns.",
+      "zh-CHS": "数据中心（ARMD）工作组中大量主机的地址解析研究了数据中心的扩展问题，重点是地址解析，并开发了一份问题陈述文档[RFC6820]。虽然基于叠加的方法可能会解决ARMD中提出的一些“痛点”（例如，更好地支持多租户），但需要进行分析，以了解基于叠加的方法与现有方法相比的缩放权衡。另一方面，现有的基于IP的方法（如代理ARP）可能有助于缓解一些担忧。"
+    },
+    {
+      "indent": 0,
+      "text": "5.7. TRILL",
+      "section_title": true,
+      "zh-CHS": "5.7. 颤音"
+    },
+    {
+      "indent": 3,
+      "text": "TRILL is a network protocol that provides an Ethernet L2 service to end systems and is designed to operate over any L2 link type. TRILL establishes forwarding paths using IS-IS routing and encapsulates traffic within its own TRILL header. TRILL, as originally defined, supports only the standard (and limited) 12-bit C-VID identifier. Work to extend TRILL to support more than 4094 VLANs has recently completed and is defined in [RFC7172]",
+      "zh-CHS": "TRILL是一种向终端系统提供以太网L2服务的网络协议，设计用于在任何L2链路类型上运行。TRILL使用IS-IS路由建立转发路径，并将流量封装在自己的TRILL报头中。TRILL最初定义为仅支持标准（且有限）12位C-VID标识符。扩展TRILL以支持4094多个VLAN的工作最近已经完成，定义见[RFC7172]"
+    },
+    {
+      "indent": 0,
+      "text": "5.8. L2VPNs",
+      "section_title": true,
+      "zh-CHS": "5.8. L2VPN"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF has specified a number of approaches for connecting L2 domains together as part of the L2VPN Working Group. That group, however, has historically been focused on provider-provisioned L2 VPNs, where the service provider participates in management and provisioning of the VPN. In addition, much of the target environment for such deployments involves carrying L2 traffic over WANs. Overlay approaches as discussed in this document are intended be used within data centers where the overlay network is managed by the data center operator rather than by an outside party. While overlays can run across the Internet as well, they will extend well into the data center itself (e.g., up to and including hypervisors) and include large numbers of machines within the data center itself.",
+      "zh-CHS": "IETF已经指定了许多将L2域连接在一起的方法，作为L2VPN工作组的一部分。然而，该集团历来专注于由提供商提供的L2 VPN，其中服务提供商参与VPN的管理和提供。此外，此类部署的大部分目标环境都涉及通过WAN承载L2流量。本文件中讨论的覆盖方法旨在在数据中心内使用，其中覆盖网络由数据中心运营商管理，而不是由外部方管理。虽然覆盖也可以在互联网上运行，但它们将很好地扩展到数据中心本身（例如，高达并包括虚拟机监控程序），并包括数据中心本身内的大量计算机。"
+    },
+    {
+      "indent": 3,
+      "text": "Other L2VPN approaches, such as the Layer 2 Tunneling Protocol (L2TP) [RFC3931] require significant tunnel state at the encapsulating and decapsulating endpoints. Overlays require less tunnel state than other approaches, which is important to allow overlays to scale to hundreds of thousands of endpoints. It is assumed that smaller",
+      "zh-CHS": "其他L2VPN方法，如第2层隧道协议（L2TP）[RFC3931]要求在封装和解封装端点处具有显著的隧道状态。覆盖比其他方法需要更少的隧道状态，这对于允许覆盖扩展到数十万个端点非常重要。假设较小的"
+    },
+    {
+      "indent": 3,
+      "text": "switches (i.e., virtual switches in hypervisors or the adjacent devices to which VMs connect) will be part of the overlay network and be responsible for encapsulating and decapsulating packets.",
+      "zh-CHS": "交换机（即虚拟机监控程序中的虚拟交换机或虚拟机连接到的相邻设备）将是覆盖网络的一部分，并负责封装和解除封装数据包。"
+    },
+    {
+      "indent": 0,
+      "text": "5.9. Proxy Mobile IP",
+      "section_title": true,
+      "zh-CHS": "5.9. 代理移动IP"
+    },
+    {
+      "indent": 3,
+      "text": "Proxy Mobile IP [RFC5213] [RFC5844] makes use of the Generic Routing Encapsulation (GRE) Key Field [RFC5845] [RFC6245], but not in a way that supports multi-tenancy.",
+      "zh-CHS": "代理移动IP[RFC5213][RFC5844]使用通用路由封装（GRE）密钥字段[RFC5845][RFC6245]，但不支持多租户。"
+    },
+    {
+      "indent": 0,
+      "text": "5.10. LISP",
+      "section_title": true,
+      "zh-CHS": "5.10. 口齿不清"
+    },
+    {
+      "indent": 3,
+      "text": "LISP [RFC6830] essentially provides an IP-over-IP overlay where the internal addresses are end station identifiers and the outer IP addresses represent the location of the end station within the core IP network topology. The LISP overlay header uses a 24-bit Instance ID used to support overlapping inner IP addresses.",
+      "zh-CHS": "LISP[RFC6830]基本上提供了IP over IP覆盖，其中内部地址是终端站标识符，外部IP地址表示终端站在核心IP网络拓扑中的位置。LISP overlay标头使用24位实例ID，用于支持重叠的内部IP地址。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Summary",
+      "section_title": true,
+      "zh-CHS": "6. 总结"
+    },
+    {
+      "indent": 3,
+      "text": "This document has argued that network virtualization using overlays addresses a number of issues being faced as data centers scale in size. In addition, careful study of current data center problems is needed for development of proper requirements and standard solutions.",
+      "zh-CHS": "本文档认为，使用覆盖的网络虚拟化解决了随着数据中心规模的扩大而面临的许多问题。此外，需要仔细研究当前的数据中心问题，以制定适当的需求和标准解决方案。"
+    },
+    {
+      "indent": 3,
+      "text": "This document identifies three potential control protocol work areas. The first involves a back-end NVA and how it learns and distributes the mapping information NVEs use when processing tenant traffic. A second involves the protocol an NVE would use to communicate with the back-end NVA to obtain the mapping information. The third potential work concerns the interactions that take place when a VM attaches or detaches from a specific virtual network instance.",
+      "zh-CHS": "本文件确定了三个潜在的控制协议工作区域。第一个涉及后端NVA，以及它如何学习和分发NVE在处理租户流量时使用的映射信息。第二个涉及NVE将用于与后端NVA通信以获取映射信息的协议。第三个可能的工作涉及VM连接或从特定虚拟网络实例分离时发生的交互。"
+    },
+    {
+      "indent": 3,
+      "text": "There are a number of approaches that provide some, if not all, of the desired semantics of virtual networks. Each approach needs to be analyzed in detail to assess how well it satisfies the requirements.",
+      "zh-CHS": "有许多方法可以提供虚拟网络所需的部分（如果不是全部的话）语义。需要对每种方法进行详细分析，以评估其满足需求的程度。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Because this document describes the problem space associated with the need for virtualization of networks in complex, large-scale, data-center networks, it does not itself introduce any security risks. However, it is clear that security concerns need to be a consideration of any solutions proposed to address this problem space.",
+      "zh-CHS": "由于本文档描述了与复杂、大规模数据中心网络中的网络虚拟化需求相关的问题空间，因此本文档本身不会带来任何安全风险。然而，显然，安全问题需要成为解决这一问题的任何解决方案的考虑因素。"
+    },
+    {
+      "indent": 3,
+      "text": "Solutions will need to address both data-plane and control-plane security concerns.",
+      "zh-CHS": "解决方案需要解决数据平面和控制平面的安全问题。"
+    },
+    {
+      "indent": 3,
+      "text": "In the data plane, isolation of virtual network traffic from other virtual networks is a primary concern -- for NVO3, this isolation may be based on VN identifiers that are not involved in underlay network packet forwarding between overlay edges (NVEs). Use of a VN identifier in the overlay reduces the underlay network's role in isolating virtual networks by comparison to approaches where VN identifiers are involved in packet forwarding (e.g., 802.1 VLANs as described in Section 5.3).",
+      "zh-CHS": "在数据平面中，虚拟网络流量与其他虚拟网络的隔离是一个主要问题——对于NVO3，这种隔离可能基于不涉及覆盖边缘（NVE）之间的底层网络数据包转发的VN标识符。与包转发中涉及VN标识符的方法（如第5.3节所述的802.1 VLAN）相比，在覆盖中使用VN标识符减少了底层网络在隔离虚拟网络中的作用。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to isolation, assurances against spoofing, snooping, transit modification and denial of service are examples of other important data-plane considerations. Some limited environments may even require confidentiality.",
+      "zh-CHS": "除了隔离之外，防止欺骗、窥探、传输修改和拒绝服务的保证也是其他重要数据平面考虑事项的例子。某些有限的环境甚至可能需要保密。"
+    },
+    {
+      "indent": 3,
+      "text": "In the control plane, the primary security concern is ensuring that an unauthorized party does not compromise the control-plane protocol in ways that improperly impact the data plane. Some environments may also be concerned about confidentiality of the control plane.",
+      "zh-CHS": "在控制平面中，主要的安全问题是确保未经授权的一方不会以不当影响数据平面的方式破坏控制平面协议。某些环境可能还担心控制平面的机密性。"
+    },
+    {
+      "indent": 3,
+      "text": "More generally, denial-of-service concerns may also be a consideration. For example, a tenant on one virtual network could consume excessive network resources in a way that degrades services for other tenants on other virtual networks.",
+      "zh-CHS": "更一般地说，拒绝服务问题也可能是一个考虑因素。例如，一个虚拟网络上的租户可能会消耗过多的网络资源，从而降低其他虚拟网络上其他租户的服务质量。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative Reference",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7365] Lasserre, M., Balus, F., Morin, T., Bitar, N., and Y. Rekhter, \"Framework for Data Center (DC) Network Virtualization\", RFC 7365, October 2014, <http://www.rfc-editor.org/info/rfc7365>.",
+      "zh-CHS": "[RFC7365]Lasserre，M.，Balus，F.，Morin，T.，Bitar，N.，和Y.Rekhter，“数据中心（DC）网络虚拟化框架”，RFC 7365，2014年10月<http://www.rfc-editor.org/info/rfc7365>."
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[END-SYSTEM] Marques, P., Fang, L., Sheth, N., Napierala, M., and N. Bitar, \"BGP-signaled end-system IP/VPNs\", Work in Progress, draft-ietf-l3vpn-end-system-04, October 2014.",
+      "zh-CHS": "[终端系统]Marques，P.，Fang，L.，Sheth，N.，Napierala，M.，和N.Bitar，“BGP信号终端系统IP/VPN”，在建工程，草案-ietf-l3vpn-END-SYSTEM-042014年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[EVPN] Sajassi, A., Aggarwal, R., Bitar, N., Isaac, A., and J. Uttaro, \"BGP MPLS Based Ethernet VPN\", Work in Progress, draft-ietf-l2vpn-evpn-10, October 2014.",
+      "zh-CHS": "[EVPN]Sajassi，A.，Aggarwal，R.，Bitar，N.，Isaac，A.，和J.Uttaro，“基于BGP MPLS的以太网VPN”，正在进行的工作，草案-ietf-l2vpn-EVPN-10，2014年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IEEE-802.1Q] IEEE, \"IEEE Standard for Local and metropolitan area networks -- Media Access Control (MAC) Bridges and Virtual Bridged Local Area Networks\", IEEE 802.1Q-2011, August 2011, <http://standards.ieee.org/getieee802/ download/802.1Q-2011.pdf>.",
+      "zh-CHS": "[IEEE-802.1Q]IEEE，“局域网和城域网的IEEE标准——媒体访问控制（MAC）网桥和虚拟桥接局域网”，IEEE 802.1Q-2011，2011年8月<http://standards.ieee.org/getieee802/ 下载/802.1Q-2011.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[IEEE-802.1Qbg] IEEE, \"IEEE Standard for Local and metropolitan area networks -- Media Access Control (MAC) Bridges and Virtual Bridged Local Area Networks -- Amendment 21: Edge Virtual Bridging\", IEEE 802.1Qbg-2012, July 2012, <http://standards.ieee.org/getieee802/ download/802.1Qbg-2012.pdf>.",
+      "zh-CHS": "[IEEE-802.1Qbg]IEEE，“局域网和城域网IEEE标准——媒体访问控制（MAC）网桥和虚拟桥接局域网——修改件21：边缘虚拟桥接”，IEEE 802.1Qbg-2012，2012年7月<http://standards.ieee.org/getieee802/ 下载/802.1Qbg-2012.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[IEEE-802.1aq] IEEE, \"IEEE Standard for Local and metropolitan area networks -- Media Access Control (MAC) Bridges and Virtual Bridged Local Area Networks -- Amendment 20: Shortest Path Bridging\", IEEE 802.1aq, June 2012, <http://standards.ieee.org/getieee802/ download/802.1aq-2012.pdf>.",
+      "zh-CHS": "[IEEE-802.1aq]IEEE，“局域网和城域网IEEE标准——媒体访问控制（MAC）网桥和虚拟桥接局域网——修改件20：最短路径桥接”，IEEE 802.1aq，2012年6月<http://standards.ieee.org/getieee802/ 下载/802.1aq-2012.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[MOBILITY] Aggarwal, R., Rekhter, Y., Henderickx, W., Shekhar, R., Fang, L., and A. Sajassi, \"Data Center Mobility based on E-VPN, BGP/MPLS IP VPN, IP Routing and NHRP\", Work in Progress, draft-raggarwa-data-center-mobility-07, June 2014.",
+      "zh-CHS": "[移动]Aggarwal，R.，Rekhter，Y.，Henderickx，W.，Shekhar，R.，Fang，L.，和A.Sajassi，“基于E-VPN、BGP/MPLS IP VPN、IP路由和NHRP的数据中心移动”，正在进行中的工作，草稿-raggarwa-Data-Center-MOBILITY-07，2014年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3931] Lau, J., Townsley, M., and I. Goyret, \"Layer Two Tunneling Protocol - Version 3 (L2TPv3)\", RFC 3931, March 2005, <http://www.rfc-editor.org/info/rfc3931>.",
+      "zh-CHS": "[RFC3931]Lau，J.，Townsley，M.，和I.Goyret，“第二层隧道协议-版本3（L2TPv3）”，RFC 39312005年3月<http://www.rfc-editor.org/info/rfc3931>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4364] Rosen, E. and Y. Rekhter, \"BGP/MPLS IP Virtual Private Networks (VPNs)\", RFC 4364, February 2006, <http://www.rfc-editor.org/info/rfc4364>.",
+      "zh-CHS": "[RFC4364]Rosen，E.和Y.Rekhter，“BGP/MPLS IP虚拟专用网络（VPN）”，RFC 4364，2006年2月<http://www.rfc-editor.org/info/rfc4364>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5213] Gundavelli, S., Leung, K., Devarapalli, V., Chowdhury, K., and B. Patil, \"Proxy Mobile IPv6\", RFC 5213, August 2008, <http://www.rfc-editor.org/info/rfc5213>.",
+      "zh-CHS": "[RFC5213]Gundavelli，S.，Leung，K.，Devarapalli，V.，Chowdhury，K.，和B.Patil，“代理移动IPv6”，RFC 52132008年8月<http://www.rfc-editor.org/info/rfc5213>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5844] Wakikawa, R. and S. Gundavelli, \"IPv4 Support for Proxy Mobile IPv6\", RFC 5844, May 2010, <http://www.rfc-editor.org/info/rfc5844>.",
+      "zh-CHS": "[RFC5844]Wakikawa，R.和S.Gundavelli，“代理移动IPv6的IPv4支持”，RFC 5844，2010年5月<http://www.rfc-editor.org/info/rfc5844>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5845] Muhanna, A., Khalil, M., Gundavelli, S., and K. Leung, \"Generic Routing Encapsulation (GRE) Key Option for Proxy Mobile IPv6\", RFC 5845, June 2010, <http://www.rfc-editor.org/info/rfc5845>.",
+      "zh-CHS": "[RFC5845]Muhanna，A.，Khalil，M.，Gundavelli，S.，和K.Leung，“代理移动IPv6的通用路由封装（GRE）密钥选项”，RFC 58452010年6月<http://www.rfc-editor.org/info/rfc5845>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6245] Yegani, P., Leung, K., Lior, A., Chowdhury, K., and J. Navali, \"Generic Routing Encapsulation (GRE) Key Extension for Mobile IPv4\", RFC 6245, May 2011, <http://www.rfc-editor.org/info/rfc6245>.",
+      "zh-CHS": "[RFC6245]Yegani，P.，Leung，K.，Lior，A.，Chowdhury，K.，和J.Navali，“移动IPv4的通用路由封装（GRE）密钥扩展”，RFC 62452011年5月<http://www.rfc-editor.org/info/rfc6245>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6325] Perlman, R., Eastlake, D., Dutt, D., Gai, S., and A. Ghanwani, \"Routing Bridges (RBridges): Base Protocol Specification\", RFC 6325, July 2011, <http://www.rfc-editor.org/info/6325>.",
+      "zh-CHS": "[RFC6325]Perlman，R.，Eastlake，D.，Dutt，D.，Gai，S.，和A.Ghanwani，“路由桥（RBridges）：基本协议规范”，RFC 63252011年7月<http://www.rfc-editor.org/info/6325>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6820] Narten, T., Karir, M., and I. Foo, \"Address Resolution Problems in Large Data Center Networks\", RFC 6820, January 2013, <http://www.rfc-editor.org/info/rfc6820>.",
+      "zh-CHS": "[RFC6820]Narten，T.，Karir，M.，和I.Foo，“解决大型数据中心网络中的解决方案问题”，RFC 6820，2013年1月<http://www.rfc-editor.org/info/rfc6820>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6830] Farinacci, D., Fuller, V., Meyer, D., and D. Lewis, \"The Locator/ID Separation Protocol (LISP)\", RFC 6830, January 2013, <http://www.rfc-editor.org/info/rfc6830>.",
+      "zh-CHS": "[RFC6830]Farinaci，D.，Fuller，V.，Meyer，D.，和D.Lewis，“定位器/身份分离协议（LISP）”，RFC 6830，2013年1月<http://www.rfc-editor.org/info/rfc6830>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7172] Eastlake, D., Zhang, M., Agarwal, P., Perlman, R., and D. Dutt, \"Transparent Interconnection of Lots of Links (TRILL): Fine-Grained Labeling\", RFC 7172, May 2014, <http://www.rfc-editor.org/info/rfc7172>.",
+      "zh-CHS": "[RFC7172]Eastlake，D.，Zhang，M.，Agarwal，P.，Perlman，R.，和D.Dutt，“大量链路的透明互连（TRILL）：细粒度标记”，RFC 7172，2014年5月<http://www.rfc-editor.org/info/rfc7172>."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Helpful comments and improvements to this document have come from Lou Berger, John Drake, Ilango Ganga, Ariel Hendel, Vinit Jain, Petr Lapukhov, Thomas Morin, Benson Schliesser, Qin Wu, Xiaohu Xu, Lucy Yong, and many others on the NVO3 mailing list.",
+      "zh-CHS": "Lou Berger、John Drake、Ilango Ganga、Ariel Hendel、Vinit Jain、Petr Lapukhov、Thomas Morin、Benson Schliesser、Qin Wu、Xiaohu、Lucy Yong和NVO3邮件列表上的许多其他人对本文件提出了有益的意见和改进。"
+    },
+    {
+      "indent": 3,
+      "text": "Special thanks to Janos Farkas for his persistence and numerous detailed comments related to the lack of precision in the text relating to IEEE 802.1 technologies.",
+      "zh-CHS": "特别感谢Janos Farkas的坚持，以及与IEEE 802.1技术相关的文本中缺乏精确性相关的大量详细评论。"
+    },
+    {
+      "indent": 0,
+      "text": "Contributors",
+      "zh-CHS": "贡献者"
+    },
+    {
+      "indent": 3,
+      "text": "Dinesh Dutt and Murari Sridharin were original co-authors of the Internet-Draft that led to the BoF that formed the NVO3 WG. That original draft eventually became the basis for this document.",
+      "zh-CHS": "迪内什·杜特（Dinesh Dutt）和穆拉里·斯里德哈林（Murari Sridharin）是互联网草案的最初合著者，该草案导致了成立NVO3工作组的BoF。该原始草案最终成为本文件的基础。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Thomas Narten (editor) IBM Research Triangle Park, NC United States EMail: narten@us.ibm.com",
+      "zh-CHS": "Thomas Narten（编辑）美国北卡罗来纳州IBM三角研究园电子邮件：narten@us.ibm.com"
+    },
+    {
+      "indent": 3,
+      "text": "Eric Gray (editor) Ericsson EMail: eric.gray@ericsson.com",
+      "zh-CHS": "埃里克·格雷（编辑）爱立信电子邮件：埃里克。gray@ericsson.com"
+    },
+    {
+      "indent": 3,
+      "text": "David Black EMC Corporation 176 South Street Hopkinton, MA 01748 United States EMail: david.black@emc.com",
+      "zh-CHS": "David Black EMC Corporation 176 South Street Hopkinton，马萨诸塞州01748美国电子邮件：David。black@emc.com"
+    },
+    {
+      "indent": 3,
+      "text": "Luyuan Fang Microsoft 5600 148th Ave NE Redmond, WA 98052 United States EMail: lufang@microsoft.com",
+      "zh-CHS": "卢元芳微软5600美国华盛顿州雷德蒙东北第148大道，邮编：98052电子邮件：lufang@microsoft.com"
+    },
+    {
+      "indent": 3,
+      "text": "Lawrence Kreeger Cisco 170 W. Tasman Avenue San Jose, CA 95134 United States EMail: kreeger@cisco.com",
+      "zh-CHS": "Lawrence Kreeger Cisco 170 W.Tasman Avenue San Jose，CA 95134美国电子邮件：kreeger@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Maria Napierala AT&T 200 S. Laurel Avenue Middletown, NJ 07748 United States EMail: mnapierala@att.com",
+      "zh-CHS": "Maria Napierala AT&T美国新泽西州米德尔敦月桂大道200号07748电子邮件：mnapierala@att.com"
+    }
+  ]
+}

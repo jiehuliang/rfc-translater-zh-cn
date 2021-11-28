@@ -1,0 +1,733 @@
+{
+  "title": {
+    "text": "RFC 3155:  End-to-end Performance Implications of Links with Errors ",
+    "zh-CHS": "RFC 3155"
+  },
+  "number": 3155,
+  "created_at": "2021-10-26 03:20:24.831873+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                         S. Dawkins\nRequest for Comments: 3155                                 G. Montenegro\nBCP: 50                                                          M. Kojo\nCategory: Best Current Practice                                V. Magret\n                                                               N. Vaidya\n                                                             August 2001",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 8,
+      "text": "End-to-end Performance Implications of Links with Errors",
+      "zh-CHS": "有错误链接的端到端性能影响"
+    },
+    {
+      "indent": 0,
+      "text": "Status of this Memo",
+      "zh-CHS": "本备忘录的状况"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet Best Current Practices for the Internet Community, and requests discussion and suggestions for improvements. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的最佳现行做法，并要求进行讨论和提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2001). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2001年）。版权所有。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "This document discusses the specific TCP mechanisms that are problematic in environments with high uncorrected error rates, and discusses what can be done to mitigate the problems without introducing intermediate devices into the connection.",
+      "zh-CHS": "本文档讨论了在具有高未纠正错误率的环境中存在问题的特定TCP机制，并讨论了在不将中间设备引入连接的情况下可以采取哪些措施来缓解这些问题。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.0 Introduction .............................................    2\n   1.1 Should you be reading this recommendation?  ...........    3\n   1.2 Relationship of this recommendation to PEPs ...........    4\n   1.3 Relationship of this recommendation to Link Layer\n       Mechanisms.............................................    4\n2.0 Errors and Interactions with TCP Mechanisms ..............    5\n   2.1 Slow Start and Congestion Avoidance [RFC2581] .........    5\n   2.2 Fast Retransmit and Fast Recovery [RFC2581] ...........    6\n   2.3 Selective Acknowledgements [RFC2018, RFC2883] .........    7\n3.0 Summary of Recommendations ...............................    8\n4.0 Topics For Further Work ..................................    9\n   4.1 Achieving, and maintaining, large windows .............   10\n5.0 Security Considerations ..................................   11\n6.0 IANA Considerations ......................................   11\n7.0 Acknowledgements .........................................   11\nReferences ...................................................   11\nAuthors' Addresses ...........................................   14\nFull Copyright Statement .....................................   16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1.0 Introduction",
+      "section_title": true,
+      "zh-CHS": "1.0 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The rapidly-growing Internet is being accessed by an increasingly wide range of devices over an increasingly wide variety of links. At least some of these links do not provide the degree of reliability that hosts expect, and this expansion into unreliable links causes some Internet protocols, especially TCP [RFC793], to perform poorly.",
+      "zh-CHS": "快速增长的互联网正通过越来越广泛的链接被越来越多的设备访问。至少其中一些链路没有提供主机所期望的可靠性，这种扩展到不可靠链路的行为导致一些互联网协议，特别是TCP[RFC793]性能不佳。"
+    },
+    {
+      "indent": 3,
+      "text": "Specifically, TCP congestion control [RFC2581], while appropriate for connections that lose traffic primarily because of congestion and buffer exhaustion, interacts badly with uncorrected errors when TCP connections traverse links with high uncorrected error rates. The result is that sending TCPs may spend an excessive amount of time waiting for acknowledgement that do not arrive, and then, although these losses are not due to congestion-related buffer exhaustion, the sending TCP transmits at substantially reduced traffic levels as it probes the network to determine \"safe\" traffic levels.",
+      "zh-CHS": "具体而言，TCP拥塞控制[RFC2581]虽然适用于主要由于拥塞和缓冲区耗尽而丢失流量的连接，但当TCP连接以高未纠正错误率穿越链路时，会与未纠正错误发生严重交互。结果是，发送TCP可能会花费过多的时间等待未到达的确认，然后，尽管这些损失不是由于拥塞相关的缓冲区耗尽造成的，但发送TCP在探测网络以确定“安全”流量级别时，以显著降低的流量级别进行传输。"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not address issues with other transport protocols, for example, UDP.",
+      "zh-CHS": "本文档不涉及其他传输协议（例如UDP）的问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Congestion avoidance in the Internet is based on an assumption that most packet losses are due to congestion. TCP's congestion avoidance strategy treats the absence of acknowledgement as a congestion signal. This has worked well since it was introduced in 1988 [VJ-DCAC], because most links and subnets have relatively low error rates in normal operation, and congestion is the primary cause of loss in these environments. However, links and subnets that do not enjoy low uncorrected error rates are becoming more prevalent in parts of the Internet. In particular, these include terrestrial and satellite wireless links. Users relying on traffic traversing these links may see poor performance because their TCP connections are spending excessive time in congestion avoidance and/or slow start procedures triggered by packet losses due to transmission errors.",
+      "zh-CHS": "Internet中的拥塞避免是基于一个假设，即大多数数据包丢失都是由于拥塞造成的。TCP的拥塞避免策略将没有确认视为拥塞信号。自1988年引入[VJ-DCAC]以来，这种方法一直运行良好，因为大多数链路和子网在正常运行中的错误率相对较低，而拥塞是这些环境中丢失的主要原因。然而，未纠正错误率不低的链接和子网在互联网的某些部分变得越来越普遍。特别是，这些包括地面和卫星无线链路。依赖于通过这些链路的流量的用户可能会看到性能不佳，因为他们的TCP连接在避免拥塞和/或因传输错误导致的数据包丢失而触发的缓慢启动过程中花费了过多的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "The recommendations in this document aim at improving utilization of available path capacity over such high error-rate links in ways that do not threaten the stability of the Internet.",
+      "zh-CHS": "本文件中的建议旨在以不威胁互联网稳定性的方式，提高此类高错误率链路上可用路径容量的利用率。"
+    },
+    {
+      "indent": 3,
+      "text": "Applications use TCP in very different ways, and these have interactions with TCP's behavior [RFC2861]. Nevertheless, it is possible to make some basic assumptions about TCP flows. Accordingly, the mechanisms discussed here are applicable to all uses of TCP, albeit in varying degrees according to different scenarios (as noted where appropriate).",
+      "zh-CHS": "应用程序以非常不同的方式使用TCP，这些方式与TCP的行为有交互作用[RFC2861]。然而，可以对TCP流做出一些基本假设。因此，此处讨论的机制适用于TCP的所有使用，尽管根据不同的场景（如适当所述）程度不同。"
+    },
+    {
+      "indent": 3,
+      "text": "This recommendation is based on the explicit assumption that major changes to the entire installed base of routers and hosts are not a practical possibility. This constrains any changes to hosts that are directly affected by errored links.",
+      "zh-CHS": "本建议基于一个明确的假设，即不可能对路由器和主机的整个安装基础进行重大更改。这将限制对受错误链接直接影响的主机的任何更改。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1 Should you be reading this recommendation?",
+      "section_title": true,
+      "zh-CHS": "1.1 您是否应该阅读此建议？"
+    },
+    {
+      "indent": 3,
+      "text": "All known subnetwork technologies provide an \"imperfect\" subnetwork service - the bit error rate is non-zero. But there's no obvious way for end stations to tell the difference between packets discarded due to congestion and losses due to transmission errors.",
+      "zh-CHS": "所有已知的子网技术都提供“不完美”的子网服务——误比特率为非零。但是对于终端站来说，没有明显的方法来区分由于拥塞而丢弃的数据包和由于传输错误而丢失的数据包之间的区别。"
+    },
+    {
+      "indent": 3,
+      "text": "If a directly-attached subnetwork is reporting transmission errors to a host, these reports matter, but we can't rely on explicit transmission error reports to both hosts.",
+      "zh-CHS": "如果直接连接的子网向主机报告传输错误，这些报告很重要，但我们不能依赖向两台主机的显式传输错误报告。"
+    },
+    {
+      "indent": 3,
+      "text": "Another way of deciding if a subnetwork should be considered to have a \"high error rate\" is by appealing to mathematics.",
+      "zh-CHS": "另一种确定子网络是否应被视为具有“高错误率”的方法是诉诸数学。"
+    },
+    {
+      "indent": 3,
+      "text": "An approximate formula for the TCP Reno response function is given in [PFTK98]:",
+      "zh-CHS": "[PFTK98]中给出了TCP雷诺响应函数的近似公式："
+    },
+    {
+      "indent": 3,
+      "text": "                             s\nT = --------------------------------------------------\n    RTT*sqrt(2p/3) + tRTO*(3*sqrt(3p/8))*p*(1 + 32p**2)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "where",
+      "zh-CHS": "哪里"
+    },
+    {
+      "indent": 7,
+      "text": "T = the sending rate in bytes per second s = the packet size in bytes RTT = round-trip time in seconds tRTO = TCP retransmit timeout value in seconds p = steady-state packet loss rate",
+      "zh-CHS": "T=以字节/秒为单位的发送速率s=以字节为单位的数据包大小RTT=以秒为单位的往返时间tRTO=以秒为单位的TCP重新传输超时值p=稳态数据包丢失率"
+    },
+    {
+      "indent": 3,
+      "text": "If one plugs in an observed packet loss rate, does the math and then sees predicted bandwidth utilization that is greater than the link speed, the connection will not benefit from recommendations in this document, because the level of packet losses being encountered won't affect the ability of TCP to utilize the link. If, however, the predicted bandwidth is less than the link speed, packet losses are affecting the ability of TCP to utilize the link.",
+      "zh-CHS": "如果插入观察到的数据包丢失率，进行计算，然后看到预测的带宽利用率大于链路速度，则连接将不会受益于本文中的建议，因为遇到的数据包丢失水平不会影响TCP利用链路的能力。但是，如果预测带宽小于链路速度，则数据包丢失会影响TCP利用链路的能力。"
+    },
+    {
+      "indent": 3,
+      "text": "If further investigation reveals a subnetwork with significant transmission error rates, the recommendations in this document will improve the ability of TCP to utilize the link.",
+      "zh-CHS": "如果进一步调查发现子网具有显著的传输错误率，本文档中的建议将提高TCP利用链路的能力。"
+    },
+    {
+      "indent": 3,
+      "text": "A few caveats are in order, when doing this calculation:",
+      "zh-CHS": "进行此计算时，需要注意以下几点："
+    },
+    {
+      "indent": 3,
+      "text": "(1) the RTT is the end-to-end RTT, not the link RTT. (2) Max(1.0, 4*RTT) can be substituted as a simplification for tRTO. (3) losses may be bursty - a loss rate measured over an interval that includes multiple bursty loss events may understate the impact of these loss events on the sending rate.",
+      "zh-CHS": "(1) RTT是端到端RTT，而不是链路RTT。（2） 最大值（1.0，4*RTT）可作为tRTO的简化值。（3） 损失可能是突发性的-在包含多个突发性损失事件的时间间隔内测量的损失率可能低估了这些损失事件对发送速率的影响。"
+    },
+    {
+      "indent": 0,
+      "text": "1.2 Relationship of this recommendation to PEPs",
+      "section_title": true,
+      "zh-CHS": "1.2 本建议与政治公众人物的关系"
+    },
+    {
+      "indent": 3,
+      "text": "This document discusses end-to-end mechanisms that do not require TCP-level awareness by intermediate nodes. This places severe limitations on what the end nodes can know about the nature of losses that are occurring between the end nodes. Attempts to apply heuristics to distinguish between congestion and transmission error have not been successful [BV97, BV98, BV98a]. This restriction is relaxed in an informational document on Performance Enhancing Proxies (PEPs) [RFC3135]. Because PEPs can be placed on boundaries where network characteristics change dramatically, PEPs have an additional opportunity to improve performance over links with uncorrected errors.",
+      "zh-CHS": "本文档讨论不需要中间节点进行TCP级别感知的端到端机制。这严重限制了终端节点对终端节点之间发生的损失性质的了解。尝试应用启发式来区分拥塞和传输错误的尝试没有成功[BV97、BV98、BV98a]。关于性能增强代理（PEP）[RFC3135]的信息性文件放宽了这一限制。由于PEP可以放置在网络特性发生显著变化的边界上，因此PEP有额外的机会在存在未纠正错误的链路上提高性能。"
+    },
+    {
+      "indent": 3,
+      "text": "However, generalized use of PEPs contravenes the end-to-end principle and is highly undesirable given their deleterious implications, which include the following: lack of fate sharing (a PEP adds a third point of failure besides the endpoints themselves), end-to-end reliability and diagnostics, preventing end-to-end security (particularly network layer security such as IPsec), mobility (handoffs are much more complex because state must be transferred), asymmetric routing (PEPs typically require being on both the forward and reverse paths of a connection), scalability (PEPs add more state to maintain), QoS transparency and guarantees.",
+      "zh-CHS": "然而，PEP的普遍使用违反了端到端原则，并且考虑到其有害影响，这是非常不可取的，包括以下方面：缺乏命运共享（PEP除了端点本身之外，还增加了第三个故障点）、端到端可靠性和诊断，阻止端到端安全（特别是网络层安全性，如IPsec）、移动性（由于必须传输状态，切换更加复杂）、非对称路由（PEP通常要求在连接的正向和反向路径上）、可伸缩性（PEP添加更多状态以维护）、QoS透明性和保证。"
+    },
+    {
+      "indent": 3,
+      "text": "Not every type of PEP has all the drawbacks listed above. Nevertheless, the use of PEPs may have very serious consequences which must be weighed carefully.",
+      "zh-CHS": "并非每种政治公众人物都有上述所有缺点。然而，使用政治公众人物可能会产生非常严重的后果，必须仔细权衡。"
+    },
+    {
+      "indent": 0,
+      "text": "1.3 Relationship of this recommendation to Link Layer Mechanisms",
+      "section_title": true,
+      "zh-CHS": "1.3 本建议与链路层机制的关系"
+    },
+    {
+      "indent": 3,
+      "text": "This recommendation is for use with TCP over subnetwork technologies (link layers) that have already been deployed. Subnetworks that are intended to carry Internet protocols, but have not been completely specified are the subject of a best common practices (BCP) document which has been developed or is under development by the Performance",
+      "zh-CHS": "本建议适用于已部署的子网TCP技术（链路层）。拟承载互联网协议但尚未完全指定的子网是最佳通用做法（BCP）文件的主题，该文件已由绩效管理局制定或正在制定"
+    },
+    {
+      "indent": 3,
+      "text": "Implications of Link Characteristics WG (PILC) [PILC-WEB]. This last document is aimed at designers who still have the opportunity to reduce the number of uncorrected errors TCP will encounter.",
+      "zh-CHS": "链接特性的含义（PILC）[PILC-WEB]。最后一个文档针对的是仍然有机会减少TCP将遇到的未纠正错误数量的设计师。"
+    },
+    {
+      "indent": 0,
+      "text": "2.0 Errors and Interactions with TCP Mechanisms",
+      "section_title": true,
+      "zh-CHS": "2.0 错误和与TCP机制的交互"
+    },
+    {
+      "indent": 3,
+      "text": "A TCP sender adapts its use of network path capacity based on feedback from the TCP receiver. As TCP is not able to distinguish between losses due to congestion and losses due to uncorrected errors, it is not able to accurately determine available path capacity in the presence of significant uncorrected errors.",
+      "zh-CHS": "TCP发送方根据来自TCP接收方的反馈调整其对网络路径容量的使用。由于TCP无法区分拥塞造成的损失和未纠正错误造成的损失，因此无法在存在重大未纠正错误的情况下准确确定可用路径容量。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1 Slow Start and Congestion Avoidance [RFC2581]",
+      "section_title": true,
+      "zh-CHS": "2.1 慢启动和拥塞避免[RFC2581]"
+    },
+    {
+      "indent": 3,
+      "text": "Slow Start and Congestion Avoidance [RFC2581] are essential to the current stability of the Internet. These mechanisms were designed to accommodate networks that do not provide explicit congestion notification. Although experimental mechanisms such as [RFC2481] are moving in the direction of explicit congestion notification, the effect of ECN on ECN-aware TCPs is essentially the same as the effect of implicit congestion notification through congestion-related loss, except that ECN provides this notification before packets are lost, and must then be retransmitted.",
+      "zh-CHS": "慢速启动和避免拥塞[RFC2581]对于当前互联网的稳定性至关重要。这些机制旨在适应不提供显式拥塞通知的网络。尽管[RFC2481]等实验机制正朝着显式拥塞通知的方向发展，但ECN对ECN感知TCP的影响基本上与通过拥塞相关丢失进行隐式拥塞通知的效果相同，只是ECN在数据包丢失之前提供此通知，然后必须重新传输。"
+    },
+    {
+      "indent": 3,
+      "text": "TCP connections experiencing high error rates on their paths interact badly with Slow Start and with Congestion Avoidance, because high error rates make the interpretation of losses ambiguous - the sender cannot know whether detected losses are due to congestion or to data corruption. TCP makes the \"safe\" choice and assumes that the losses are due to congestion.",
+      "zh-CHS": "在其路径上遇到高错误率的TCP连接会与慢速启动和拥塞避免严重交互，因为高错误率会使丢失的解释变得模糊不清-发送方无法知道检测到的丢失是由于拥塞还是由于数据损坏。TCP做出了“安全”的选择，并假设损失是由于拥塞造成的。"
+    },
+    {
+      "indent": 6,
+      "text": "- Whenever sending TCPs receive three out-of-order acknowledgement, they assume the network is mildly congested and invoke fast retransmit/fast recovery (described below).",
+      "zh-CHS": "- 每当发送TCP收到三个无序确认时，它们都会假定网络轻度拥塞，并调用快速重传/快速恢复（如下所述）。"
+    },
+    {
+      "indent": 6,
+      "text": "- Whenever TCP's retransmission timer expires, the sender assumes that the network is congested and invokes slow start.",
+      "zh-CHS": "- 每当TCP的重传计时器过期时，发送方就会认为网络拥塞并调用慢速启动。"
+    },
+    {
+      "indent": 6,
+      "text": "- Less-reliable link layers often use small link MTUs. This slows the rate of increase in the sender's window size during slow start, because the sender's window is increased in units of segments. Small link MTUs alone don't improve reliability. Path MTU discovery [RFC1191] must also be used to prevent fragmentation. Path MTU discovery allows the most rapid opening of the sender's window size during slow start, but a number of round trips may still be required to open the window completely.",
+      "zh-CHS": "- 不太可靠的链路层通常使用小型链路MTU。这会减慢慢速启动期间发送方窗口大小的增加速率，因为发送方窗口以段为单位增加。单靠小链路MTU无法提高可靠性。还必须使用路径MTU发现[RFC1191]来防止碎片。Path MTU discovery允许在慢速启动期间以最快的速度打开发送方的窗口大小，但可能仍需要多次往返才能完全打开窗口。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: Any standards-conformant TCP will implement Slow Start and Congestion Avoidance, which are MUSTs in STD 3 [RFC1122]. Recommendations in this document will not interfere with these mechanisms.",
+      "zh-CHS": "建议：任何符合标准的TCP都将实现慢启动和拥塞避免，这是STD 3[RFC1122]中必须做到的。本文件中的建议不会干扰这些机制。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2 Fast Retransmit and Fast Recovery [RFC2581]",
+      "section_title": true,
+      "zh-CHS": "2.2 快速重传和快速恢复[RFC2581]"
+    },
+    {
+      "indent": 3,
+      "text": "TCP provides reliable delivery of data as a byte-stream to an application, so that when a segment is lost (whether due to either congestion or transmission loss), the receiver TCP implementation must wait to deliver data to the receiving application until the missing data is received. The receiver TCP implementation detects missing segments by segments arriving with out-of-order sequence numbers.",
+      "zh-CHS": "TCP以字节流的形式向应用程序提供可靠的数据传输，因此，当某个数据段丢失时（无论是由于拥塞还是传输丢失），接收方TCP实现必须等待向接收应用程序传输数据，直到接收到丢失的数据为止。接收方TCP实现通过带有无序序列号的段来检测缺失的段。"
+    },
+    {
+      "indent": 3,
+      "text": "TCPs should immediately send an acknowledgement when data is received out-of-order [RFC2581], providing the next expected sequence number with no delay, so that the sender can retransmit the required data as quickly as possible and the receiver can resume delivery of data to the receiving application. When an acknowledgement carries the same expected sequence number as an acknowledgement that has already been sent for the last in-order segment received, these acknowledgement are called \"duplicate ACKs\".",
+      "zh-CHS": "TCP应在收到无序数据时立即发送确认[RFC2581]，提供下一个预期序列号，无延迟，以便发送方可以尽快重新传输所需数据，接收方可以恢复向接收应用程序交付数据。当确认携带的预期序列号与已为接收到的最后一个顺序段发送的确认相同时，这些确认称为“重复确认”。"
+    },
+    {
+      "indent": 3,
+      "text": "Because IP networks are allowed to reorder packets, the receiver may send duplicate acknowledgments for segments that arrive out of order due to routing changes, link-level retransmission, etc. When a TCP sender receives three duplicate ACKs, fast retransmit [RFC2581] allows it to infer that a segment was lost. The sender retransmits what it considers to be this lost segment without waiting for the full retransmission timeout, thus saving time.",
+      "zh-CHS": "由于允许IP网络对数据包进行重新排序，因此接收方可能会对由于路由更改、链路级重传等原因而无序到达的数据段发送重复确认。当TCP发送方收到三个重复确认时，快速重传[RFC2581]允许其推断数据段丢失。发送方在不等待完全重新传输超时的情况下重新传输它认为丢失的数据段，从而节省时间。"
+    },
+    {
+      "indent": 3,
+      "text": "After a fast retransmit, a sender halves its congestion window and invokes the fast recovery [RFC2581] algorithm, whereby it invokes congestion avoidance from a halved congestion window, but does not invoke slow start from a one-segment congestion window as it would do after a retransmission timeout. As the sender is still receiving dupacks, it knows the receiver is receiving packets sent, so the full reduction after a timeout when no communication has been received is not called for. This relatively safe optimization also saves time.",
+      "zh-CHS": "在快速重新传输后，发送方将其拥塞窗口减半，并调用快速恢复[RFC2581]算法，从而从减半的拥塞窗口调用拥塞避免，但不会像在重新传输超时后那样从单段拥塞窗口调用慢速启动。由于发送方仍在接收DUPACK，它知道接收方正在接收发送的数据包，因此不需要在没有收到通信的情况下，在超时后进行完全缩减。这种相对安全的优化也节省了时间。"
+    },
+    {
+      "indent": 3,
+      "text": "It is important to be realistic about the maximum throughput that TCP can have over a connection that traverses a high error-rate link. In general, TCP will increase its congestion window beyond the delay-bandwidth product. TCP's congestion avoidance strategy is additive-increase, multiplicative-decrease, which means that if additional errors are encountered before the congestion window recovers completely from a 50-percent reduction, the effect can be a \"downward",
+      "zh-CHS": "重要的是要现实地了解TCP在穿越高错误率链路的连接上可以拥有的最大吞吐量。一般来说，TCP将增加其拥塞窗口，超出延迟带宽乘积。TCP的拥塞避免策略是加性增加，乘性减少，这意味着如果在拥塞窗口从50%的减少完全恢复之前遇到额外的错误，其影响可能是“向下的”"
+    },
+    {
+      "indent": 3,
+      "text": "spiral\" of the congestion window due to additional 50-percent reductions. Even using Fast Retransmit/Fast Recovery, the sender will halve the congestion window each time a window contains one or more segments that are lost, and will re-open the window by one additional segment for each congestion window's worth of acknowledgement received.",
+      "zh-CHS": "由于额外50%的减少，拥塞窗口的“螺旋式”减少。即使使用快速重传/快速恢复，发送方也会在每次窗口包含一个或多个丢失的段时将拥塞窗口减半，并会根据每个拥塞窗口收到的确认值再打开一个额外的段。"
+    },
+    {
+      "indent": 3,
+      "text": "If a connection's path traverses a link that loses one or more segments during this recovery period, the one-half reduction takes place again, this time on a reduced congestion window - and this downward spiral will continue to hold the congestion window below path capacity until the connection is able to recover completely by additive increase without experiencing loss.",
+      "zh-CHS": "如果一个连接的路径穿过一个链路，而该链路在此恢复期间丢失了一个或多个段，则会再次减少一半，这一次是在拥塞窗口减少的情况下——这种向下的螺旋将继续使拥塞窗口保持在路径容量以下，直到连接能够通过增加而完全恢复，而不会出现丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "Of course, no downward spiral occurs if the error rate is constantly high and the congestion window always remains small; the multiplicative-increase \"slow start\" will be exited early, and the congestion window remains low for the duration of the TCP connection. In links with high error rates, the TCP window may remain rather small for long periods of time.",
+      "zh-CHS": "当然，如果错误率一直很高，拥塞窗口始终很小，则不会出现向下螺旋；倍增的“慢启动”将提前退出，并且在TCP连接期间拥塞窗口保持较低。在错误率较高的链路中，TCP窗口可能会在很长一段时间内保持相当小。"
+    },
+    {
+      "indent": 3,
+      "text": "Not all causes of small windows are related to errors. For example, HTTP/1.0 commonly closes TCP connections to indicate boundaries between requested resources. This means that these applications are constantly closing \"trained\" TCP connections and opening \"untrained\" TCP connections which will execute slow start, beginning with one or two segments. This can happen even with HTTP/1.1, if webmasters configure their HTTP/1.1 servers to close connections instead of waiting to see if the connection will be useful again.",
+      "zh-CHS": "并非所有小窗口的原因都与错误有关。例如，HTTP/1.0通常关闭TCP连接以指示请求的资源之间的边界。这意味着这些应用程序不断地关闭“经过训练的”TCP连接，并打开“未经训练的”TCP连接，这将从一个或两个段开始执行慢速启动。如果网站管理员将其HTTP/1.1服务器配置为关闭连接，而不是等待连接是否再次有用，那么即使使用HTTP/1.1，也可能发生这种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "A small window - especially a window of less than four segments - effectively prevents the sender from taking advantage of Fast Retransmits. Moreover, efficient recovery from multiple losses within a single window requires adoption of new proposals (NewReno [RFC2582]).",
+      "zh-CHS": "一个小窗口——特别是少于四段的窗口——有效地防止发送方利用快速重传。此外，在一个窗口内从多个损失中有效恢复需要采用新方案（NewReno[RFC2582]）。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: Implement Fast Retransmit and Fast Recovery at this time. This is a widely-implemented optimization and is currently at Proposed Standard level. [RFC2488] recommends implementation of Fast Retransmit/Fast Recovery in satellite environments.",
+      "zh-CHS": "建议：此时实现快速重传和快速恢复。这是一个广泛实施的优化，目前处于建议的标准水平。[RFC2488]建议在卫星环境中实施快速重传/快速恢复。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3 Selective Acknowledgements [RFC2018, RFC2883]",
+      "section_title": true,
+      "zh-CHS": "2.3 选择性确认[RFC2018，RFC2883]"
+    },
+    {
+      "indent": 3,
+      "text": "Selective Acknowledgements [RFC2018] allow the repair of multiple segment losses per window without requiring one (or more) round-trips per loss.",
+      "zh-CHS": "选择性确认[RFC2018]允许修复每个窗口的多段丢失，而无需每次丢失一次（或多次）往返。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2883] proposes a minor extension to SACK that allows receiving TCPs to provide more information about the order of delivery of segments, allowing \"more robust operation in an environment of reordered packets, ACK loss, packet replication, and/or early retransmit timeouts\". Unless explicitly stated otherwise, in this document, \"Selective Acknowledgements\" (or \"SACK\") refers to the combination of [RFC2018] and [RFC2883].",
+      "zh-CHS": "[RFC2883]对SACK提出了一个较小的扩展，该扩展允许接收TCP提供有关段交付顺序的更多信息，允许“在重新排序的数据包、ACK丢失、数据包复制和/或早期重传超时的环境中进行更稳健的操作”。除非另有明确说明，否则在本文件中，“选择性确认”（或“SACK”）是指[RFC2018]和[RFC2883]的组合。"
+    },
+    {
+      "indent": 3,
+      "text": "Selective acknowledgments are most useful in LFNs (\"Long Fat Networks\") because of the long round trip times that may be encountered in these environments, according to Section 1.1 of [RFC1323], and are especially useful if large windows are required, because there is a higher probability of multiple segment losses per window.",
+      "zh-CHS": "根据[RFC1323]第1.1节，选择性确认在LFN（“长Fat网络”）中最有用，因为在这些环境中可能会遇到较长的往返时间，并且在需要大窗口的情况下特别有用，因为每个窗口有较高的多段丢失概率。"
+    },
+    {
+      "indent": 3,
+      "text": "On the other hand, if error rates are generally low but occasionally higher due to channel conditions, TCP will have the opportunity to increase its window to larger values during periods of improved channel conditions between bursts of errors. When bursts of errors occur, multiple losses within a window are likely to occur. In this case, SACK would provide benefits in speeding the recovery and preventing unnecessary reduction of the window size.",
+      "zh-CHS": "另一方面，如果由于信道条件的原因，错误率通常较低，但偶尔较高，则TCP将有机会在突发错误之间的信道条件改善期间将其窗口增大到更大的值。当发生突发错误时，可能会在一个窗口内发生多次损失。在这种情况下，SACK将在加快恢复和防止不必要地减小窗口大小方面提供好处。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendation: Implement SACK as specified in [RFC2018] and updated by [RFC2883], both Proposed Standards. In cases where SACK cannot be enabled for both sides of a connection, TCP senders may use NewReno [RFC2582] to better handle partial ACKs and multiple losses within a single window.",
+      "zh-CHS": "建议：按照[RFC2018]中的规定实施SACK，并由[RFC2883]更新，这两个标准都是建议的标准。在连接双方都无法启用SACK的情况下，TCP发送方可以使用NewReno[RFC2582]在单个窗口内更好地处理部分ACK和多个丢失。"
+    },
+    {
+      "indent": 0,
+      "text": "3.0 Summary of Recommendations",
+      "section_title": true,
+      "zh-CHS": "3.0 建议摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Internet does not provide a widely-available loss feedback mechanism that allows TCP to distinguish between congestion loss and transmission error. Because congestion affects all traffic on a path while transmission loss affects only the specific traffic encountering uncorrected errors, avoiding congestion has to take precedence over quickly repairing transmission errors. This means that the best that can be achieved without new feedback mechanisms is minimizing the amount of time that is spent unnecessarily in congestion avoidance.",
+      "zh-CHS": "互联网没有提供广泛使用的丢失反馈机制，使TCP能够区分拥塞丢失和传输错误。由于拥塞影响路径上的所有流量，而传输损耗只影响遇到未纠正错误的特定流量，因此避免拥塞必须优先于快速修复传输错误。这意味着，在没有新反馈机制的情况下可以实现的最佳效果是最大限度地减少不必要的拥塞避免时间。"
+    },
+    {
+      "indent": 3,
+      "text": "The Fast Retransmit/Fast Recovery mechanism allows quick repair of loss without giving up the safety of congestion avoidance. In order for Fast Retransmit/Fast Recovery to work, the window size must be large enough to force the receiver to send three duplicate acknowledgments before the retransmission timeout interval expires, forcing full TCP slow-start.",
+      "zh-CHS": "快速重传/快速恢复机制允许在不放弃拥塞避免安全性的情况下快速修复丢失。为了使快速重传/快速恢复工作，窗口大小必须足够大，以迫使接收器在重传超时时间间隔到期之前发送三个重复的确认，从而强制完全TCP慢速启动。"
+    },
+    {
+      "indent": 3,
+      "text": "Selective Acknowledgements (SACK) extend the benefit of Fast Retransmit/Fast Recovery to situations where multiple segment losses in the window need to be repaired more quickly than can be accomplished by executing Fast Retransmit for each segment loss, only to discover the next segment loss.",
+      "zh-CHS": "选择性确认（SACK）将快速重传/快速恢复的好处扩展到窗口中的多个段丢失需要修复的速度比通过对每个段丢失执行快速重传来实现的速度更快的情况，而只是为了发现下一个段丢失。"
+    },
+    {
+      "indent": 3,
+      "text": "These mechanisms are not limited to wireless environments. They are usable in all environments.",
+      "zh-CHS": "这些机制不限于无线环境。它们在所有环境中都可用。"
+    },
+    {
+      "indent": 0,
+      "text": "4.0 Topics For Further Work",
+      "section_title": true,
+      "zh-CHS": "4.0 进一步工作的主题"
+    },
+    {
+      "indent": 3,
+      "text": "\"Limited Transmit\" [RFC3042] has been specified as an optimization extending Fast Retransmit/Fast Recovery for TCP connections with small congestion windows that will not trigger three duplicate acknowledgments. This specification is deemed safe, and it also provides benefits for TCP connections that experience a large amount of packet (data or ACK) loss. Implementors should evaluate this standards track specification for TCP in loss environments.",
+      "zh-CHS": "“有限传输”[RFC3042]已被指定为一种优化，用于扩展TCP连接的快速重传/快速恢复，该连接具有较小的拥塞窗口，不会触发三次重复确认。该规范被认为是安全的，它还为经历大量数据包（数据或ACK）丢失的TCP连接提供了好处。实施者应评估丢失环境中TCP的本标准跟踪规范。"
+    },
+    {
+      "indent": 3,
+      "text": "Delayed Duplicate Acknowledgements [MV97, VMPM99] attempts to prevent TCP-level retransmission when link-level retransmission is still in progress, adding additional traffic to the network. This proposal is worthy of additional study, but is not recommended at this time, because we don't know how to calculate appropriate amounts of delay for an arbitrary network topology.",
+      "zh-CHS": "延迟重复确认[MV97，VMPM99]试图在链路级重传仍在进行时阻止TCP级重传，从而为网络增加额外流量。这个建议值得进一步研究，但目前不推荐，因为我们不知道如何计算任意网络拓扑的适当延迟量。"
+    },
+    {
+      "indent": 3,
+      "text": "It is not possible to use explicit congestion notification [RFC2481] as a surrogate for explicit transmission error notification (no matter how much we wish it was!). Some mechanism to provide explicit notification of transmission error would be very helpful. This might be more easily provided in a PEP environment, especially when the PEP is the \"first hop\" in a connection path, because current checksum mechanisms do not distinguish between transmission error to a payload and transmission error to the header. Furthermore, if the header is damaged, sending explicit transmission error notification to the right endpoint is problematic.",
+      "zh-CHS": "不可能使用显式拥塞通知[RFC2481]作为显式传输错误通知的代理（无论我们多么希望如此！）。一些提供传输错误显式通知的机制将非常有用。这在PEP环境中可能更容易提供，特别是当PEP是连接路径中的“第一跳”时，因为当前校验和机制不区分到有效负载的传输错误和到报头的传输错误。此外，如果报头损坏，则向正确的端点发送显式传输错误通知是有问题的。"
+    },
+    {
+      "indent": 3,
+      "text": "Losses that take place on the ACK stream, especially while a TCP is learning network characteristics, can make the data stream quite bursty (resulting in losses on the data stream, as well). Several ways of limiting this burstiness have been proposed, including TCP transmit pacing at the sender and ACK rate control within the network.",
+      "zh-CHS": "在ACK流上发生的丢失，特别是当TCP正在学习网络特性时，会使数据流变得非常突发（也会导致数据流上的丢失）。已经提出了几种限制这种突发性的方法，包括在发送方的TCP传输速度调整和网络内的ACK速率控制。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Appropriate Byte Counting\" (ABC) [ALL99], has been proposed as a way of opening the congestion window based on the number of bytes that have been successfully transfered to the receiver, giving more appropriate behavior for application protocols that initiate",
+      "zh-CHS": "“适当的字节计数”（ABC）[ALL99]，已被提议作为一种根据已成功传输到接收器的字节数打开拥塞窗口的方法，为启动的应用程序协议提供更适当的行为"
+    },
+    {
+      "indent": 3,
+      "text": "connections with relatively short packets. For SMTP [RFC2821], for instance, the client might send a short HELO packet, a short MAIL packet, one or more short RCPT packets, and a short DATA packet - followed by the entire mail body sent as maximum-length packets. An ABC TCP sender would not use ACKs for each of these short packets to increase the congestion window to allow additional full-length packets. ABC is worthy of additional study, but is not recommended at this time, because ABC can lead to increased burstiness when acknowledgments are lost.",
+      "zh-CHS": "具有相对较短数据包的连接。例如，对于SMTP[RFC2821]，客户端可能发送一个短HELO数据包、一个短邮件数据包、一个或多个短RCPT数据包和一个短数据包，然后将整个邮件正文作为最大长度数据包发送。ABC TCP发送方不会对每个短数据包使用ACK来增加拥塞窗口以允许额外的全长数据包。ABC值得进一步研究，但目前不推荐使用，因为ABC可能会导致确认丢失时的突发性增加。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1 Achieving, and maintaining, large windows",
+      "section_title": true,
+      "zh-CHS": "4.1 实现和维护大窗口"
+    },
+    {
+      "indent": 3,
+      "text": "The recommendations described in this document will aid TCPs in injecting packets into ERRORed connections as fast as possible without destabilizing the Internet, and so optimizing the use of available bandwidth.",
+      "zh-CHS": "本文档中描述的建议将帮助TCP在不破坏互联网稳定的情况下，尽快将数据包注入错误连接，从而优化可用带宽的使用。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to these TCP-level recommendations, there is still additional work to do at the application level, especially with the dominant application protocol on the World Wide Web, HTTP.",
+      "zh-CHS": "除了这些TCP级别的建议之外，在应用程序级别还需要做更多的工作，特别是在万维网上占主导地位的应用程序协议HTTP方面。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTP/1.0 (and earlier versions) closes TCP connections to signal a receiver that all of a requested resource had been transmitted. Because WWW objects tend to be small in size [MOGUL], TCPs carrying HTTP/1.0 traffic experience difficulty in \"training\" on available path capacity (a substantial portion of the transfer has already happened by the time TCP exits slow start).",
+      "zh-CHS": "HTTP/1.0（和早期版本）关闭TCP连接，向接收方发出所有请求的资源都已传输的信号。由于WWW对象往往较小[MOGUL]，承载HTTP/1.0流量的TCP在可用路径容量“培训”方面遇到困难（TCP退出慢启动时，传输的大部分已经发生）。"
+    },
+    {
+      "indent": 3,
+      "text": "Several HTTP modifications have been introduced to improve this interaction with TCP (\"persistent connections\" in HTTP/1.0, with improvements in HTTP/1.1 [RFC2616]). For a variety of reasons, many HTTP interactions are still HTTP/1.0-style - relatively short-lived.",
+      "zh-CHS": "为了改进与TCP的交互，引入了一些HTTP修改（HTTP/1.0中的“持久连接”，以及HTTP/1.1[RFC2616]中的改进）。由于各种原因，许多HTTP交互仍然是HTTP/1.0风格的—相对来说是短暂的。"
+    },
+    {
+      "indent": 3,
+      "text": "Proposals which reuse TCP congestion information across connections, like TCP Control Block Interdependence [RFC2140], or the more recent Congestion Manager [BS00] proposal, will have the effect of making multiple parallel connections impact the network as if they were a single connection, \"trained\" after a single startup transient. These proposals are critical to the long-term stability of the Internet, because today's users always have the choice of clicking on the \"reload\" button in their browsers and cutting off TCP's exponential backoff - replacing connections which are building knowledge of the available bandwidth with connections with no knowledge at all.",
+      "zh-CHS": "跨连接重用TCP拥塞信息的建议，如TCP控制块相互依赖[RFC2140]或最近的拥塞管理器[BS00]建议，将产生使多个并行连接影响网络的效果，就像它们是单个连接一样，在单个启动瞬态后“经过训练”。这些建议对互联网的长期稳定性至关重要，因为今天的用户总是可以选择点击浏览器中的“重新加载”按钮，切断TCP的指数退避——用完全不知道的连接取代正在建立可用带宽知识的连接。"
+    },
+    {
+      "indent": 0,
+      "text": "5.0 Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5.0 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "A potential vulnerability introduced by Fast Retransmit/Fast Recovery is (as pointed out in [RFC2581]) that an attacker may force TCP connections to grind to a halt, or, more dangerously, behave more aggressively. The latter possibility may lead to congestion collapse, at least in some regions of the network.",
+      "zh-CHS": "快速重传/快速恢复带来的一个潜在漏洞是（如[RFC2581]中指出的），攻击者可能会迫使TCP连接停止，或者更危险的是，其行为更具攻击性。后一种可能性可能导致拥塞崩溃，至少在网络的某些区域。"
+    },
+    {
+      "indent": 3,
+      "text": "Selective acknowledgments is believed to neither strengthen nor weaken TCP's current security properties [RFC2018].",
+      "zh-CHS": "选择性确认被认为既不会增强也不会削弱TCP当前的安全属性[RFC2018]。"
+    },
+    {
+      "indent": 3,
+      "text": "Given that the recommendations in this document are performed on an end-to-end basis, they continue working even in the presence of end-to-end IPsec. This is in direct contrast with mechanisms such as PEP's which are implemented in intermediate nodes (section 1.2).",
+      "zh-CHS": "鉴于本文档中的建议是在端到端的基础上执行的，因此即使在存在端到端IPsec的情况下，它们也会继续工作。这与在中间节点中实现的PEP等机制形成了直接对比（第1.2节）。"
+    },
+    {
+      "indent": 0,
+      "text": "6.0 IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6.0 IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a pointer to other, existing IETF standards. There are no new IANA considerations.",
+      "zh-CHS": "本文件是指向其他现有IETF标准的指针。没有新的IANA考虑因素。"
+    },
+    {
+      "indent": 0,
+      "text": "7.0 Acknowledgements",
+      "section_title": true,
+      "zh-CHS": "7.0 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "This recommendation has grown out of RFC 2757, \"Long Thin Networks\", which was in turn based on work done in the IETF TCPSAT working group. The authors are indebted to the active members of the PILC working group. In particular, Mark Allman and Lloyd Wood gave us copious and insightful feedback, and Dan Grossman and Jamshid Mahdavi provided text replacements.",
+      "zh-CHS": "本建议源于RFC 2757“长瘦网络”，它反过来又基于IETF TCPSAT工作组所做的工作。作者感谢PILC工作组的积极成员。特别是，马克·奥尔曼和劳埃德·伍德给了我们丰富而深刻的反馈，丹·格罗斯曼和贾姆希德·马赫达维提供了文本替换。"
+    },
+    {
+      "indent": 0,
+      "text": "References",
+      "zh-CHS": "工具书类"
+    },
+    {
+      "indent": 3,
+      "text": "[ALL99]    M. Allman, \"TCP Byte Counting Refinements,\" ACM Computer\n           Communication Review, Volume 29, Number 3, July 1999.\n           http://www.acm.org/sigcomm/ccr/archive/ccr-toc/ccr-toc-\n           99.html",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[BS00] Balakrishnan, H. and S. Seshan, \"The Congestion Manager\", RFC 3124, June 2001.",
+      "zh-CHS": "[BS00]Balakrishnan，H.和S.Seshan，“拥堵管理者”，RFC 31242001年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BV97] S. Biaz and N. Vaidya, \"Using End-to-end Statistics to Distinguish Congestion and Corruption Losses: A Negative Result,\" Texas A&M University, Technical Report 97-009, August 18, 1997.",
+      "zh-CHS": "[BV97]S.Biaz和N.Vaidya，“使用端到端统计数据区分拥堵和腐败损失：负面结果”，德克萨斯A&M大学，技术报告97-009，1997年8月18日。"
+    },
+    {
+      "indent": 3,
+      "text": "[BV98] S. Biaz and N. Vaidya, \"Sender-Based heuristics for Distinguishing Congestion Losses from Wireless Transmission Losses,\" Texas A&M University, Technical Report 98-013, June 1998.",
+      "zh-CHS": "[BV98]S.Biaz和N.Vaidya，“区分拥塞损失和无线传输损失的基于发送方的启发式方法”，德克萨斯A&M大学，技术报告98-013，1998年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BV98a] S. Biaz and N. Vaidya, \"Discriminating Congestion Losses from Wireless Losses using Inter-Arrival Times at the Receiver,\" Texas A&M University, Technical Report 98-014, June 1998.",
+      "zh-CHS": "[BV98a]S.Biaz和N.Vaidya，“利用接收机的到达时间区分拥塞损失和无线损失”，德克萨斯A&M大学，技术报告98-014，1998年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[MOGUL]    \"The Case for Persistent-Connection HTTP\", J. C. Mogul,\n           Research Report 95/4, May 1995. Available as\n           http://www.research.digital.com/wrl/techreports/abstracts/\n           95.4.html",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[MV97]     M. Mehta and N. Vaidya, \"Delayed Duplicate-\n           Acknowledgements:  A Proposal to Improve Performance of\n           TCP on Wireless Links,\" Texas A&M University, December 24,\n           1997.  Available at\n           http://www.cs.tamu.edu/faculty/vaidya/mobile.html",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[PILC-WEB] http://pilc.grc.nasa.gov/",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[PFTK98] Padhye, J., Firoiu, V., Towsley, D. and J.Kurose, \"TCP Throughput: A simple model and its empirical validation\", SIGCOMM Symposium on Communications Architectures and Protocols, August 1998.",
+      "zh-CHS": "[PFTK98]Padhye，J.，Firoiu，V.，Towsley，D.和J.Kurose，“TCP吞吐量：一个简单模型及其经验验证”，SIGCOM通信体系结构和协议研讨会，1998年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC793] Postel, J., \"Transmission Control Protocol\", STD 7, RFC 793, September 1981.",
+      "zh-CHS": "[RFC793]Postel，J.，“传输控制协议”，标准7，RFC 793，1981年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2821] Klensin, J., Editor, \"Simple Mail Transfer Protocol\", RFC 2821, April 2001.",
+      "zh-CHS": "[RFC2821]Klensin，J.，编辑，“简单邮件传输协议”，RFC 28212001年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1122] Braden, R., \"Requirements for Internet Hosts -- Communication Layers\", STD 3, RFC 1122, October 1989.",
+      "zh-CHS": "[RFC1122]Braden，R.，“互联网主机的要求——通信层”，标准3，RFC 1122，1989年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1191] Mogul J., and S. Deering, \"Path MTU Discovery\", RFC 1191, November 1990.",
+      "zh-CHS": "[RFC1191]Mogul J.和S.Deering，“MTU发现路径”，RFC1191，1990年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1323] Jacobson, V., Braden, R. and D. Borman. \"TCP Extensions for High Performance\", RFC 1323, May 1992.",
+      "zh-CHS": "[RFC1323]Jacobson，V.，Braden，R.和D.Borman。“高性能TCP扩展”，RFC 1323，1992年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2018] Mathis, M., Mahdavi, J., Floyd, S. and A. Romanow \"TCP Selective Acknowledgment Options\", RFC 2018, October 1996.",
+      "zh-CHS": "[RFC2018]Mathis，M.，Mahdavi，J.，Floyd，S.和A.Romanow“TCP选择性确认选项”，RFC 2018，1996年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2140] Touch, J., \"TCP Control Block Interdependence\", RFC 2140, April 1997.",
+      "zh-CHS": "[RFC2140]Touch，J.，“TCP控制块相互依赖”，RFC 2140，1997年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2309] Braden, B., Clark, D., Crowcrfot, J., Davie, B., Deering, S., Estrin, D., Floyd, S., Jacobson, V., Minshall, G., Partridge, C., Peterson, L., Ramakrishnan, K., Shecker, S., Wroclawski, J. and L, Zhang, \"Recommendations on Queue Management and Congestion Avoidance in the Internet\", RFC 2309, April 1998.",
+      "zh-CHS": "[RFC2309]Braden，B.，Clark，D.，Crowcrfot，J.，Davie，B.，Deering，S.，Estrin，D.，Floyd，S.，Jacobson，V.，Minshall，G.，Partridge，C.，Peterson，L.，Ramakrishnan，K.，Shecker，S.，Wroclawski，J.和L，Zhang，“互联网队列管理和拥塞避免建议”，RFC 2309，1998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2481] Ramakrishnan K. and S. Floyd, \"A Proposal to add Explicit Congestion Notification (ECN) to IP\", RFC 2481, January 1999.",
+      "zh-CHS": "[RFC2481]Ramakrishnan K.和S.Floyd，“向IP添加明确拥塞通知（ECN）的提案”，RFC 2481，1999年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2488] Allman, M., Glover, D. and L. Sanchez. \"Enhancing TCP Over Satellite Channels using Standard Mechanisms\", BCP 28, RFC 2488, January 1999.",
+      "zh-CHS": "[RFC2488]奥尔曼，M.，格洛弗，D.和L.桑切斯。“使用标准机制增强卫星信道上的TCP”，BCP 28，RFC 2488，1999年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2581] Allman, M., Paxson, V. and W. Stevens, \"TCP Congestion Control\", RFC 2581, April 1999.",
+      "zh-CHS": "[RFC2581]Allman，M.，Paxson，V.和W.Stevens，“TCP拥塞控制”，RFC 25811999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2582] Floyd, S. and T. Henderson, \"The NewReno Modification to TCP's Fast Recovery Algorithm\", RFC 2582, April 1999.",
+      "zh-CHS": "[RFC2582]Floyd，S.和T.Henderson，“TCP快速恢复算法的NewReno修改”，RFC 25821999年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2616] Fielding, R., Gettys, J., Mogul, J., Frystyk, H., Masinter, L., Leach P. and T. Berners-Lee, \"Hypertext Transfer Protocol -- HTTP/1.1\", RFC 2616, June 1999.",
+      "zh-CHS": "[RFC2616]菲尔丁，R.，盖蒂斯，J.，莫卧儿，J.，弗莱斯蒂克，H.，马辛特，L.，利奇P.和T.伯纳斯李，“超文本传输协议——HTTP/1.1”，RFC 2616，1999年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2861] Handley, H., Padhye, J. and S., Floyd, \"TCP Congestion Window Validation\", RFC 2861, June 2000.",
+      "zh-CHS": "[RFC2861]Handley，H.，Padhye，J.和S.，Floyd，“TCP拥塞窗口验证”，RFC 28612000年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2883] Floyd, S., Mahdavi, M., Mathis, M. and M. Podlosky, \"An Extension to the Selective Acknowledgement (SACK) Option for TCP\", RFC 2883, August 1999.",
+      "zh-CHS": "[RFC2883]Floyd，S.，Mahdavi，M.，Mathis，M.和M.Podlosky，“TCP选择性确认（SACK）选项的扩展”，RFC 28831999年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2923] Lahey, K., \"TCP Problems with Path MTU Discovery\", RFC 2923, September 2000.",
+      "zh-CHS": "[RFC2923]Lahey，K.，“路径MTU发现的TCP问题”，RFC 29232000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3042] Allman, M., Balakrishnan, H. and S. Floyd, \"Enhancing TCP's Loss Recovery Using Limited Transmit\", RFC 3042, January, 2001.",
+      "zh-CHS": "[RFC3042]Allman，M.，Balakrishnan，H.和S.Floyd，“使用有限传输增强TCP的丢失恢复”，RFC 3042，2001年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3135] Border, J., Kojo, M., Griner, J., Montenegro, G. and Z. Shelby, \"Performance Enhancing Proxies Intended to Mitigate Link-Related Degradations\", RFC 3135, June 2001.",
+      "zh-CHS": "[RFC3135]Border，J.，Kojo，M.，Griner，J.，黑山，G.和Z.Shelby，“旨在缓解链路相关降级的性能增强代理”，RFC 31352001年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[VJ-DCAC]  Jacobson, V., \"Dynamic Congestion Avoidance / Control\" e-\n           mail dated February 11, 1988, available from\n           http://www.kohala.com/~rstevens/vanj.88feb11.txt",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[VMPM99] N. Vaidya, M. Mehta, C. Perkins, and G. Montenegro, \"Delayed Duplicate Acknowledgements: A TCP-Unaware Approach to Improve Performance of TCP over Wireless,\" Technical Report 99-003, Computer Science Dept., Texas A&M University, February 1999. Also, to appear in Journal of Wireless Communications and Wireless Computing (Special Issue on Reliable Transport Protocols for Mobile Computing).",
+      "zh-CHS": "[VMPM99]N.Vaidya，M.Mehta，C.Perkins和G.Montegon，“延迟重复确认：改进无线TCP性能的TCP非意识方法”，技术报告99-003，德克萨斯A&M大学计算机科学系，1999年2月。此外，还将发表在《无线通信和无线计算杂志》（关于移动计算的可靠传输协议的特刊）上。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Questions about this document may be directed to:",
+      "zh-CHS": "有关本文件的问题，请联系："
+    },
+    {
+      "indent": 3,
+      "text": "Spencer Dawkins Fujitsu Network Communications 2801 Telecom Parkway Richardson, Texas 75082",
+      "zh-CHS": "德克萨斯州理查森电信大道2801号斯宾塞·道金斯富士通网络通信公司75082"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1-972-479-3782\nEMail: spencer.dawkins@fnc.fujitsu.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Gabriel E. Montenegro Sun Microsystems Laboratories, Europe 29, chemin du Vieux Chene 38240 Meylan FRANCE",
+      "zh-CHS": "加布里埃尔E.黑山太阳微系统实验室，欧洲29号，法国墨西哥chemin du Vieux Chene 38240"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +33 476 18 80 45\nEMail: gab@sun.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Markku Kojo Department of Computer Science University of Helsinki P.O. Box 26 (Teollisuuskatu 23) FIN-00014 HELSINKI Finland",
+      "zh-CHS": "马尔库科乔赫尔辛基大学计算机科学系P.O盒26（TeulLuuukkutu 23）FIF-000 014赫尔辛基芬兰"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +358-9-1914-4179\nEMail: kojo@cs.helsinki.fi",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Vincent Magret Alcatel Internetworking, Inc. 26801 W. Agoura road Calabasas, CA, 91301",
+      "zh-CHS": "Vincent Magret Alcatel Internetworking，Inc.加利福尼亚州卡拉巴斯市阿古拉路西26801号，邮编：91301"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 818 878 4485\nEMail: vincent.magret@alcatel.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Nitin H. Vaidya 458 Coodinated Science Laboratory, MC-228 1308 West Main Street Urbana, IL 61801",
+      "zh-CHS": "Nitin H.Vaidya 458协调科学实验室，伊利诺伊州乌尔巴纳西大街MC-228 1308号，邮编61801"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: 217-265-5414 E-mail: nhv@crhc.uiuc.edu",
+      "zh-CHS": "电话：217-265-5414电子邮件：nhv@crhc.uiuc.edu"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2001). All Rights Reserved.",
+      "zh-CHS": "版权所有（C）互联网协会（2001年）。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and translations of it may be copied and furnished to others, and derivative works that comment on or otherwise explain it or assist in its implementation may be prepared, copied, published and distributed, in whole or in part, without restriction of any kind, provided that the above copyright notice and this paragraph are included on all such copies and derivative works. However, this document itself may not be modified in any way, such as by removing the copyright notice or references to the Internet Society or other Internet organizations, except as needed for the purpose of developing Internet standards in which case the procedures for copyrights defined in the Internet Standards process must be followed, or as required to translate it into languages other than English.",
+      "zh-CHS": "本文件及其译本可复制并提供给他人，对其进行评论或解释或协助其实施的衍生作品可全部或部分编制、复制、出版和分发，不受任何限制，前提是上述版权声明和本段包含在所有此类副本和衍生作品中。但是，不得以任何方式修改本文件本身，例如删除版权通知或对互联网协会或其他互联网组织的引用，除非出于制定互联网标准的需要，在这种情况下，必须遵循互联网标准过程中定义的版权程序，或根据需要将其翻译成英语以外的其他语言。"
+    },
+    {
+      "indent": 3,
+      "text": "The limited permissions granted above are perpetual and will not be revoked by the Internet Society or its successors or assigns.",
+      "zh-CHS": "上述授予的有限许可是永久性的，互联网协会或其继承人或受让人不会撤销。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein is provided on an \"AS IS\" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件和其中包含的信息是按“原样”提供的，互联网协会和互联网工程任务组否认所有明示或暗示的保证，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

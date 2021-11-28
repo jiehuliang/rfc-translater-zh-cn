@@ -1,0 +1,880 @@
+{
+  "title": {
+    "text": "RFC 7829: SCTP-PF: A Quick Failover Algorithm for the Stream Control Transmission Protocol",
+    "zh-CHS": "RFC 7829"
+  },
+  "number": 7829,
+  "created_at": "2021-11-01 00:35:45.964409+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                        Y. Nishida\nRequest for Comments: 7829                            GE Global Research\nCategory: Standards Track                                   P. Natarajan\nISSN: 2070-1721                                            Cisco Systems\n                                                                 A. Caro\n                                                        BBN Technologies\n                                                                 P. Amer\n                                                  University of Delaware\n                                                              K. Nielsen\n                                                                Ericsson\n                                                              April 2016",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 14,
+      "text": "SCTP-PF: A Quick Failover Algorithm for the Stream Control Transmission Protocol",
+      "zh-CHS": "SCTP-PF：一种流控制传输协议的快速故障切换算法"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Stream Control Transmission Protocol (SCTP) supports multihoming. However, when the failover operation specified in RFC 4960 is followed, there can be significant delay and performance degradation in the data transfer path failover. This document specifies a quick failover algorithm and introduces the SCTP Potentially Failed (SCTP-PF) destination state in SCTP Path Management.",
+      "zh-CHS": "流控制传输协议（SCTP）支持多归属。但是，当遵循RFC 4960中指定的故障切换操作时，数据传输路径故障切换可能会出现严重延迟和性能下降。本文档指定了一种快速故障切换算法，并介绍了SCTP路径管理中的SCTP潜在故障（SCTP-PF）目标状态。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also specifies a dormant state operation of SCTP that is required to be followed by an SCTP-PF implementation, but it may equally well be applied by a standard SCTP implementation, as described in RFC 4960.",
+      "zh-CHS": "本文件还规定了SCTP的休眠状态操作，该操作需要在SCTP-PF实现之后进行，但也可以由标准SCTP实现应用，如RFC 4960所述。"
+    },
+    {
+      "indent": 3,
+      "text": "Additionally, this document introduces an alternative switchback operation mode called \"Primary Path Switchover\" that will be beneficial in certain situations. This mode of operation applies to both a standard SCTP implementation and an SCTP-PF implementation.",
+      "zh-CHS": "此外，本文件还介绍了一种称为“主路径切换”的备用切换操作模式，该模式在某些情况下会有所帮助。此操作模式适用于标准SCTP实现和SCTP-PF实现。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedures defined in the document require only minimal modifications to the specification in RFC 4960. The procedures are sender-side only and do not impact the SCTP receiver.",
+      "zh-CHS": "本文件中定义的程序只需对RFC 4960中的规范进行最低限度的修改。这些程序仅适用于发送方，不会影响SCTP接收器。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 5741.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 5741第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at http://www.rfc-editor.org/info/rfc7829.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问http://www.rfc-editor.org/info/rfc7829."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2016 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2016 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(http://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3\n2.  Conventions and Terminology . . . . . . . . . . . . . . . . .   5\n3.  SCTP with Potentially Failed (SCTP-PF) Destination State  . .   5\n  3.1.  Overview  . . . . . . . . . . . . . . . . . . . . . . . .   5\n  3.2.  Specification of the SCTP-PF Procedures . . . . . . . . .   6\n4.  Dormant State Operation . . . . . . . . . . . . . . . . . . .  10\n  4.1.  SCTP Dormant State Procedure  . . . . . . . . . . . . . .  11\n5.  Primary Path Switchover . . . . . . . . . . . . . . . . . . .  11\n6.  Suggested SCTP Protocol Parameter Values  . . . . . . . . . .  13\n7.  Socket API Considerations . . . . . . . . . . . . . . . . . .  13\n  7.1.  Support for the Potentially Failed Path State . . . . . .  14\n  7.2.  Peer Address Thresholds (SCTP_PEER_ADDR_THLDS) Socket\n        Option  . . . . . . . . . . . . . . . . . . . . . . . . .  15\n  7.3.  Exposing the Potentially Failed Path State\n        (SCTP_EXPOSE_POTENTIALLY_FAILED_STATE) Socket Option  . .  16\n8.  Security Considerations . . . . . . . . . . . . . . . . . . .  16\n9.  MIB Considerations  . . . . . . . . . . . . . . . . . . . . .  17\n10. References  . . . . . . . . . . . . . . . . . . . . . . . . .  17\n  10.1.  Normative References . . . . . . . . . . . . . . . . . .  17\n  10.2.  Informative References . . . . . . . . . . . . . . . . .  18\nAppendix A.  Discussion of Alternative Approaches . . . . . . . .  20\n  A.1.  Reduce PMR  . . . . . . . . . . . . . . . . . . . . . . .  20\n  A.2.  Adjust RTO-Related Parameters . . . . . . . . . . . . . .  21\nAppendix B.  Discussion of the Path-Bouncing Effect . . . . . . .  21\nAppendix C.  SCTP-PF for SCTP Single-Homed Operation  . . . . . .  22\nAcknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .  22\nAuthors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  23",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Stream Control Transmission Protocol (SCTP) specified in [RFC4960] supports multihoming at the transport layer. SCTP's multihoming features include failure detection and failover procedures to provide network interface redundancy and improved end-to-end fault tolerance. In SCTP's current failure detection procedure, the sender must experience Path.Max.Retrans (PMR) number of consecutive failed timer-based retransmissions on a destination address before detecting a path failure. Until detecting the path failure, the sender continues to transmit data on the failed path. The prolonged time in which SCTP as described in [RFC4960] continues to use a failed path severely degrades the performance of the protocol. To address this problem, this document specifies a quick failover algorithm called \"SCTP-PF\" based on the introduction of a new Potentially Failed (PF) path state in SCTP path management. The",
+      "zh-CHS": "[RFC4960]中指定的流控制传输协议（SCTP）支持传输层的多归属。SCTP的多主功能包括故障检测和故障切换过程，以提供网络接口冗余和改进的端到端容错能力。在SCTP的当前故障检测过程中，发送方必须在检测路径故障之前，在目标地址上经历Path.Max.Retrans（PMR）连续失败的基于计时器的重新传输次数。在检测到路径故障之前，发送方继续在故障路径上传输数据。[RFC4960]中所述的SCTP继续使用故障路径的时间过长，严重降低了协议的性能。为了解决这个问题，本文在SCTP路径管理中引入新的潜在故障（PF）路径状态的基础上，指定了一种称为“SCTP-PF”的快速故障切换算法。这个"
+    },
+    {
+      "indent": 3,
+      "text": "performance deficiencies of the failover operation described in RFC 4960, and the improvements obtainable from the introduction of a PF state in SCTP, were proposed and documented in [NATARAJAN09] for Concurrent Multipath Transfer SCTP [IYENGAR06].",
+      "zh-CHS": "RFC 4960中描述的故障切换操作的性能缺陷，以及通过在SCTP中引入PF状态而获得的改进，已在[NATARAJAN09]中针对并发多路径传输SCTP[IYENGAR06]提出并记录。"
+    },
+    {
+      "indent": 3,
+      "text": "While SCTP-PF can accelerate the failover process and improve performance, the risk that an SCTP endpoint might enter the dormant state where all destination addresses are inactive can be increased. [RFC4960] leaves the protocol operation during dormant state to implementations and encourages avoiding entering the state as much as possible by careful tuning of the PMR and Association.Max.Retrans (AMR) parameters. We specify a dormant state operation for SCTP-PF, which makes SCTP-PF provide the same disruption tolerance as [RFC4960] despite the fact that the dormant state may be entered more quickly. The dormant state operation may equally well be applied by an implementation of [RFC4960] and will serve here to provide added fault tolerance for situations where the tuning of the PMR and AMR parameters fail to provide adequate prevention of the entering of the dormant state.",
+      "zh-CHS": "虽然SCTP-PF可以加快故障切换过程并提高性能，但SCTP端点可能进入休眠状态（其中所有目标地址都处于非活动状态）的风险可能会增加。[RFC4960]将协议在休眠状态下的操作留给实现，并通过仔细调整PMR和Association.Max.Retrans（AMR）参数，鼓励尽可能避免进入该状态。我们为SCTP-PF指定了一个休眠状态操作，这使得SCTP-PF提供了与[RFC4960]相同的中断容忍度，尽管进入休眠状态的速度可能更快。休眠状态操作同样可以通过[RFC4960]的实现来应用，并在这里用于为PMR和AMR参数的调整无法充分防止进入休眠状态的情况提供额外的容错。"
+    },
+    {
+      "indent": 3,
+      "text": "The operation after the recovery of a failed path also impacts the performance of the protocol. With the procedures specified in [RFC4960], SCTP will (after a failover from the primary path) switch back to use the primary path for data transfer as soon as this path becomes available again. From a performance perspective, such a forced switchback of the data transmission path can be suboptimal as the Congestion Window (CWND) towards the original primary destination address has to be rebuilt once data transfer resumes, [CARO02]. As an optional alternative to the switchback operation of [RFC4960], this document specifies an alternative Primary Path Switchover procedure that avoids such forced switchbacks of the data transfer path. The Primary Path Switchover operation was originally proposed in [CARO02].",
+      "zh-CHS": "故障路径恢复后的操作也会影响协议的性能。按照[RFC4960]中规定的步骤，一旦主路径再次可用，SCTP将（在从主路径进行故障切换后）切换回使用主路径进行数据传输。从性能角度来看，这种数据传输路径的强制切换可能是次优的，因为一旦数据传输恢复，必须重建朝向原始主要目的地地址的拥塞窗口（CWND）[CARO02]。作为[RFC4960]切换操作的可选替代方案，本文件规定了替代主路径切换程序，以避免数据传输路径的此类强制切换。主要路径切换操作最初在[CARO02]中提出。"
+    },
+    {
+      "indent": 3,
+      "text": "While SCTP-PF is primarily motivated by a desire to improve the multihomed operation, the feature also applies to SCTP single-homed operation. Here the algorithm serves to provide increased failure detection on idle associations, whereas the failover or switchback aspects of the algorithm will not be activated. This is discussed in more detail in Appendix C.",
+      "zh-CHS": "虽然SCTP-PF主要是为了改进多宿操作，但该功能也适用于SCTP单宿操作。在这里，该算法用于增加对空闲关联的故障检测，而该算法的故障转移或切换方面将不会被激活。附录C对此进行了更详细的讨论。"
+    },
+    {
+      "indent": 3,
+      "text": "A brief description of the motivation for the introduction of the PF state, including a discussion of alternative approaches to mitigate the deficiencies of the failover operation in [RFC4960], are given in the appendices. Discussion of path-bouncing effects that might be caused by frequent switchovers are also provided there.",
+      "zh-CHS": "附录中简要描述了引入PF状态的动机，包括对缓解[RFC4960]中故障切换操作缺陷的替代方法的讨论。还讨论了频繁切换可能导致的路径反弹效应。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Conventions and Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 公约和术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. SCTP with Potentially Failed (SCTP-PF) Destination State",
+      "section_title": true,
+      "zh-CHS": "3. 具有潜在失败（SCTP-PF）目标状态的SCTP"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Overview",
+      "section_title": true,
+      "zh-CHS": "3.1. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "To minimize the performance impact during failover, the sender should avoid transmitting data to a failed destination address as early as possible. In the SCTP path management scheme described in [RFC4960], the sender stops transmitting data to a destination address only after the destination address is marked inactive. This process takes a significant amount of time as it requires the error counter of the destination address to exceed the PMR threshold. The issue cannot simply be mitigated by lowering the PMR threshold because this may result in spurious failure detection and unnecessary prevention of the usage of a preferred primary path. Also, due to the coupled tuning of the PMR and the AMR parameter values in [RFC4960], lowering the PMR threshold may result in lowering the AMR threshold, which would result in a decrease of the fault tolerance of SCTP.",
+      "zh-CHS": "为了将故障切换期间的性能影响降至最低，发送方应避免尽早将数据传输到失败的目标地址。在[RFC4960]中描述的SCTP路径管理方案中，发送方仅在目标地址被标记为非活动后才停止向目标地址发送数据。此过程需要大量时间，因为它需要目标地址的错误计数器超过PMR阈值。无法通过降低PMR阈值来缓解该问题，因为这可能导致虚假故障检测和不必要的首选主路径使用预防。此外，由于[RFC4960]中PMR和AMR参数值的耦合调谐，降低PMR阈值可能导致降低AMR阈值，这将导致SCTP的容错性降低。"
+    },
+    {
+      "indent": 3,
+      "text": "The solution provided in this document is to extend the SCTP path management scheme of [RFC4960] by the addition of the PF state as an intermediate state in between the active and inactive state of a destination address in the path management scheme of [RFC4960], and let the failover of data transfer away from a destination address be driven by the entering of the PF state instead of by the entering of the inactive state. Thereby, SCTP may perform quick failover without negatively impacting the overall fault tolerance of SCTP as described in [RFC4960]. At the same time, HEARTBEAT probing based on Retransmission Timeout (RTO) is initiated towards a destination address once it enters PF state. Thereby, SCTP may quickly ascertain whether network connectivity towards the destination address is broken or whether the failover was spurious. In the case where the failover was spurious, data transfer may quickly resume towards the original destination address.",
+      "zh-CHS": "本文档中提供的解决方案是通过在[RFC4960]的路径管理方案中添加PF状态作为目的地址的活动和非活动状态之间的中间状态来扩展[RFC4960]的SCTP路径管理方案，并且让数据传输从目标地址转移的故障转移通过进入PF状态而不是进入非活动状态来驱动。因此，SCTP可以执行快速故障切换，而不会对[RFC4960]中所述的SCTP的整体容错性产生负面影响。同时，一旦目标地址进入PF状态，基于重传超时（RTO）的心跳探测就向目标地址发起。因此，SCTP可以快速确定朝向目标地址的网络连接是否中断，或者故障转移是否是虚假的。在故障转移是虚假的情况下，数据传输可能会快速恢复到原始目标地址。"
+    },
+    {
+      "indent": 3,
+      "text": "The new failure detection algorithm assumes that loss detected by a timeout implies either severe congestion or network connectivity failure. It recommends that, by default, a destination address be classified as PF at the occurrence of the first timeout.",
+      "zh-CHS": "新的故障检测算法假设超时检测到的丢失意味着严重拥塞或网络连接故障。它建议，默认情况下，在发生第一次超时时，将目标地址分类为PF。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Specification of the SCTP-PF Procedures",
+      "section_title": true,
+      "zh-CHS": "3.2. SCTP-PF程序规范"
+    },
+    {
+      "indent": 3,
+      "text": "The SCTP-PF operation is specified as follows:",
+      "zh-CHS": "SCTP-PF操作规定如下："
+    },
+    {
+      "indent": 3,
+      "text": "1. The sender maintains a new tunable SCTP Protocol Parameter called PotentiallyFailed.Max.Retrans (PFMR). The PFMR defines the new intermediate PF threshold on the destination address error counter. When this threshold is exceeded, the destination address is classified as PF. The RECOMMENDED value of PFMR is 0. If PFMR is set to be greater than or equal to PMR, the resulting PF threshold will be so high that the destination address will reach the inactive state before it can be classified as PF.",
+      "zh-CHS": "1. 发送方维护一个名为PotentiallyFailed.Max.Retrans（PFMR）的新可调SCTP协议参数。PFMR在目标地址错误计数器上定义新的中间PF阈值。当超过此阈值时，目标地址被分类为PF。PFMR的建议值为0。如果PFMR设置为大于或等于PMR，则产生的PF阈值将非常高，以至于目标地址在被分类为PF之前将达到非活动状态。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The error counter of an active destination address is incremented or cleared as specified in [RFC4960]. This means that the error counter of the destination address in active state will be incremented each time the Timer T3 retransmission (T3-rtx) timer expires, or each time a HEARTBEAT chunk is sent when idle and not acknowledged within an RTO. When the value in the destination address error counter exceeds PFMR, the endpoint MUST mark the destination address as in the PF state.",
+      "zh-CHS": "2. 活动目标地址的错误计数器按照[RFC4960]中的规定递增或清除。这意味着，每次计时器T3重传（T3 rtx）计时器过期，或每次在RTO内空闲且未确认时发送心跳数据块时，处于活动状态的目标地址的错误计数器都将增加。当目标地址错误计数器中的值超过PFMR时，端点必须将目标地址标记为处于PF状态。"
+    },
+    {
+      "indent": 3,
+      "text": "3. An SCTP-PF sender SHOULD NOT send data to destination addresses in PF state when alternative destination addresses in active state are available. Specifically, this means that:",
+      "zh-CHS": "3. 当处于活动状态的备用目标地址可用时，SCTP-PF发送方不应向处于PF状态的目标地址发送数据。具体而言，这意味着："
+    },
+    {
+      "indent": 8,
+      "text": "i. When there is outbound data to send and the destination address presently used for data transmission is in PF state, the sender SHOULD choose a destination address in active state, if one exists, and use this destination address for data transmission.",
+      "zh-CHS": "i. 当存在要发送的出站数据且当前用于数据传输的目标地址处于PF状态时，发送方应选择处于活动状态的目标地址（如果存在），并使用此目标地址进行数据传输。"
+    },
+    {
+      "indent": 8,
+      "text": "ii. As specified in Section 6.4.1 of [RFC4960], when the sender retransmits data that has timed out, they should attempt to pick a new destination address for data retransmission. In this case, the sender SHOULD choose an alternate destination transport address in active state, if one exists.",
+      "zh-CHS": "二,。如[RFC4960]第6.4.1节所述，当发送方重新传输超时数据时，应尝试选择新的目标地址进行数据重新传输。在这种情况下，发送方应选择处于活动状态的备用目标传输地址（如果存在）。"
+    },
+    {
+      "indent": 8,
+      "text": "iii. When there is outbound data to send and the SCTP user explicitly requests to send data to a destination address in PF state, the sender SHOULD send the data to an alternate destination address in active state if one exists.",
+      "zh-CHS": "iii.当存在要发送的出站数据且SCTP用户明确请求将数据发送到PF状态下的目标地址时，发送方应将数据发送到活动状态下的备用目标地址（如果存在）。"
+    },
+    {
+      "indent": 8,
+      "text": "When choosing among multiple destination addresses in active state, an SCTP sender will follow the guiding principles of Section 6.4.1 of [RFC4960] by choosing the most divergent source-destination pairs compared with, for (the aforementioned points i and ii):",
+      "zh-CHS": "在多个处于活动状态的目的地地址中进行选择时，SCTP发送方将遵循[RFC4960]第6.4.1节的指导原则，通过与（上述第i点和第ii点）相比，选择差异最大的源-目的地对："
+    },
+    {
+      "indent": 8,
+      "text": "i. the destination address in PF state that it performs a failover from, and",
+      "zh-CHS": "i. 在PF状态下执行故障转移的目标地址，以及"
+    },
+    {
+      "indent": 8,
+      "text": "ii. the destination address towards which the data timed out.",
+      "zh-CHS": "二,。数据超时的目标地址。"
+    },
+    {
+      "indent": 8,
+      "text": "Rules for picking the most divergent source-destination pair are an implementation decision and are not specified within this document.",
+      "zh-CHS": "选择差异最大的源-目标对的规则是一项实施决策，本文档中未指定。"
+    },
+    {
+      "indent": 8,
+      "text": "In all cases, the sender MUST NOT change the state of the chosen destination address, whether this state be active or PF, and it MUST NOT clear the error counter of the destination address as a result of choosing the destination address for data transmission.",
+      "zh-CHS": "在所有情况下，发送方不得更改所选目的地地址的状态，无论该状态是活动状态还是PF状态，也不得清除因选择数据传输目的地地址而导致的目的地地址的错误计数器。"
+    },
+    {
+      "indent": 3,
+      "text": "4. When the destination addresses are all in PF state, or some are in PF state and some in inactive state, the sender MUST choose one destination address in PF state and SHOULD transmit or retransmit data to this destination address using the following rules:",
+      "zh-CHS": "4. 当目标地址全部处于PF状态时，或者有些处于PF状态，有些处于非活动状态时，发送方必须选择一个处于PF状态的目标地址，并应使用以下规则将数据传输或重新传输到此目标地址："
+    },
+    {
+      "indent": 8,
+      "text": "i. The sender SHOULD choose the destination in PF state with the lowest error count (fewest consecutive timeouts) for data transmission and transmit or retransmit data to this destination.",
+      "zh-CHS": "i. 发送方应选择PF状态下错误计数最低（连续超时最少）的目的地进行数据传输，并将数据传输或重新传输到此目的地。"
+    },
+    {
+      "indent": 8,
+      "text": "ii. When there are multiple destination addresses in PF state with same error count, the sender should let the choice among the multiple destination addresses in PF state with equal error count be based on the principles of choosing the most divergent source-destination pairs when executing (potentially consecutive) retransmission outlined in Section 6.4.1 of [RFC4960]. Rules for picking the most divergent source-destination pairs are an implementation decision and are not specified within this document.",
+      "zh-CHS": "二,。当PF状态下有多个目的地地址具有相同的错误计数时，发送方应根据在执行时选择差异最大的源-目的地对（可能是连续的）的原则，在PF状态下具有相同错误计数的多个目的地地址中进行选择[RFC4960]第6.4.1节中概述的重传。选择差异最大的源-目的地对的规则是一项实现决策，本文档中未指定。"
+    },
+    {
+      "indent": 8,
+      "text": "The sender MUST NOT change the state and the error counter of any destination addresses as the result of the selection.",
+      "zh-CHS": "发件人不得因选择而更改任何目标地址的状态和错误计数器。"
+    },
+    {
+      "indent": 3,
+      "text": "5. The HB.Interval of the Path Heartbeat function of [RFC4960] MUST be ignored for destination addresses in PF state. Instead, HEARTBEAT chunks are sent to destination addresses in PF state",
+      "zh-CHS": "5. 对于处于PF状态的目标地址，必须忽略[RFC4960]的路径检测信号函数的HB.Interval。相反，心跳块被发送到PF状态下的目标地址"
+    },
+    {
+      "indent": 8,
+      "text": "once per RTO. HEARTBEAT chunks SHOULD be sent to destination addresses in PF state, but the sending of HEARTBEATs MUST honor whether or not the Path Heartbeat function (Section 8.3 of [RFC4960]) is enabled for the destination address. That is, if the Path Heartbeat function is disabled for the destination address in question, HEARTBEATs MUST NOT be sent. Note that when the Path Heartbeat function is disabled, it may take longer to transition a destination address in PF state back to active state.",
+      "zh-CHS": "每个RTO一次。心跳数据块应在PF状态下发送到目标地址，但心跳的发送必须考虑是否为目标地址启用了路径心跳功能（RFC4960的第8.3节）。也就是说，如果对所讨论的目标地址禁用了Path Heartbeat函数，则不得发送心跳。请注意，当禁用Path Heartbeat函数时，可能需要更长的时间才能将PF状态下的目标地址转换回活动状态。"
+    },
+    {
+      "indent": 3,
+      "text": "6. HEARTBEATs are sent when a destination address reaches the PF state. When a HEARTBEAT chunk is not acknowledged within the RTO, the sender increments the error counter and exponentially backs off the RTO value. If the error counter is less than PMR, the sender transmits another packet containing the HEARTBEAT chunk immediately after timeout expiration on the previous HEARTBEAT. When data is being transmitted to a destination address in the PF state, the transmission of a HEARTBEAT chunk MAY be omitted in the case where the receipt of a Selective Acknowledgment (SACK) of the data or a T3-rtx timer expiration on the data can provide equivalent information, such as the case where the data chunk has been transmitted to a single destination address only. Likewise, the timeout of a HEARTBEAT chunk MAY be ignored if data is outstanding towards the destination address.",
+      "zh-CHS": "6. 当目标地址达到PF状态时发送心跳。当RTO内未确认心跳数据块时，发送方会增加错误计数器，并以指数方式回退RTO值。如果错误计数器小于PMR，则发送方在前一个心跳超时过期后立即发送另一个包含心跳块的数据包。当数据在PF状态下被传输到目的地地址时，在接收到数据的选择性确认（SACK）或数据上的T3 rtx定时器到期可以提供等效信息的情况下，可以省略心跳块的传输，例如，数据块仅被发送到单个目的地地址的情况。同样，如果目标地址的数据未完成，则心跳块的超时可能会被忽略。"
+    },
+    {
+      "indent": 3,
+      "text": "7. When the sender receives a HEARTBEAT ACK from a HEARTBEAT sent to a destination address in PF state, the sender SHOULD clear the error counter of the destination address and transition the destination address back to active state. However, there may be a situation where HEARTBEAT chunks can go through while DATA chunks cannot. Hence, in a situation where a HEARTBEAT ACK arrives while there is data outstanding towards the destination address to which the HEARTBEAT was sent, then an implementation MAY choose to not have the HEARTBEAT ACK reset the error counter, but have the error counter reset await the fate of the outstanding data transmission. This situation can happen when data is sent to a destination address in PF state. When the sender resumes data transmission on a destination address after a transition of the destination address from PF to active state, it MUST do this following the prescriptions of Section 7.2 of [RFC4960].",
+      "zh-CHS": "7. 当发送方从PF状态下发送到目标地址的心跳接收到心跳确认时，发送方应清除目标地址的错误计数器，并将目标地址转换回活动状态。然而，可能存在心跳块可以通过而数据块不能通过的情况。因此，在心跳ACK到达而心跳被发送到的目的地地址存在未完成数据的情况下，实现可以选择不让心跳ACK重置错误计数器，而是让错误计数器重置等待未完成数据传输的命运。当数据以PF状态发送到目标地址时，可能会发生这种情况。当目标地址从PF转换为活动状态后，发送方在目标地址上恢复数据传输时，必须按照[RFC4960]第7.2节的规定进行。"
+    },
+    {
+      "indent": 3,
+      "text": "8. Additional PMR - PFMR consecutive timeouts on a destination address in PF state confirm the path failure, upon which the destination address transitions to the inactive state. As described in [RFC4960], the sender SHOULD (i) notify the Upper Layer Protocol (ULP) about this state transition, and (ii)",
+      "zh-CHS": "8. 在PF状态下，目标地址上的其他PMR-PFMR连续超时会确认路径故障，在此故障后，目标地址将转换为非活动状态。如[RFC4960]中所述，发送方应（i）将此状态转换通知上层协议（ULP），以及（ii）"
+    },
+    {
+      "indent": 8,
+      "text": "transmit HEARTBEAT chunks to the inactive destination address at a lower HB.Interval frequency as described in Section 8.3 of [RFC4960] (when the Path Heartbeat function is enabled for the destination address).",
+      "zh-CHS": "以[RFC4960]第8.3节所述的较低HB.间隔频率（当目标地址启用路径心跳功能时）将心跳块传输到非活动目标地址。"
+    },
+    {
+      "indent": 3,
+      "text": "9. Acknowledgments for chunks that have been transmitted to multiple destinations (i.e., a chunk that has been retransmitted to a different destination address than the destination address to which the chunk was first transmitted) SHOULD NOT clear the error count for an inactive destination address and SHOULD NOT move a destination address in PF state back to active state, since a sender cannot disambiguate whether the ACK was for the original transmission or the retransmission(s). An SCTP sender MAY clear the error counter and move a destination address back to active state by information other than acknowledgments, when it can uniquely determine which destination, among multiple destination addresses, the chunk reached. This document makes no reference to what such information could consist of, nor how such information could be obtained.",
+      "zh-CHS": "9. 已发送到多个目的地的区块的确认（即，已重新发送到与区块首次发送到的目的地地址不同的目的地地址的区块）不应清除非活动目标地址的错误计数，也不应将PF状态下的目标地址移回活动状态，因为发送方无法消除ACK是用于原始传输还是用于重新传输的歧义。当SCTP发送方能够唯一地确定区块到达多个目的地地址中的哪个目的地时，它可以清除错误计数器，并通过确认以外的信息将目的地地址移回活动状态。本文件未提及此类信息可能包含哪些内容，也未提及如何获取此类信息。"
+    },
+    {
+      "indent": 3,
+      "text": "10. Acknowledgments for data chunks that have been transmitted to one destination address only MUST clear the error counter for the destination address and MUST transition a destination address in PF state back to active state. This situation can happen when new data is sent to a destination address in the PF state. It can also happen in situations where the destination address is in the PF state due to the occurrence of a spurious T3-rtx timer and acknowledgments start to arrive for data sent prior to occurrence of the spurious T3-rtx and data has not yet been retransmitted towards other destinations. This document does not specify special handling for detection of, or reaction to, spurious T3-rtx timeouts, e.g., for special operation vis-a-vis the congestion control handling or data retransmission operation towards a destination address that undergoes a transition from active to PF to active state due to a spurious T3-rtx timeout. But it is noted that this is an area that would benefit from additional attention, experimentation, and specification for single-homed SCTP as well as for multihomed SCTP protocol operation.",
+      "zh-CHS": "10. 已发送到一个目标地址的数据块的确认必须清除目标地址的错误计数器，并且必须将处于PF状态的目标地址转换回活动状态。当在PF状态下向目标地址发送新数据时，可能会发生这种情况。在由于虚假T3 rtx计时器的发生而目的地地址处于PF状态，并且在虚假T3 rtx发生之前发送的数据的确认开始到达，并且数据尚未重新传输到其他目的地的情况下，也可能发生这种情况。本文件未规定用于检测虚假T3 rtx超时或对虚假T3 rtx超时作出反应的特殊处理，例如，针对因虚假T3 rtx超时而从活动状态转换为PF状态的目标地址的拥塞控制处理或数据重传操作的特殊操作。但值得注意的是，这一领域将受益于对单宿SCTP以及多宿SCTP协议操作的额外关注、实验和规范。"
+    },
+    {
+      "indent": 3,
+      "text": "11. When all destination addresses are in inactive state, and SCTP protocol operation thus is said to be in dormant state, the prescriptions given in Section 4 shall be followed.",
+      "zh-CHS": "11. 当所有目的地地址都处于非活动状态，并且SCTP协议操作因此被称为处于休眠状态时，应遵循第4节中给出的规定。"
+    },
+    {
+      "indent": 3,
+      "text": "12. The SCTP stack SHOULD expose the PF state of its destination addresses to the ULP as well as provide the means to notify the ULP of state transitions of its destination addresses from active to PF, and vice versa. However, it is recommended that",
+      "zh-CHS": "12. SCTP堆栈应向ULP公开其目标地址的PF状态，并提供通知ULP其目标地址从活动到PF的状态转换的方法，反之亦然。但是，建议："
+    },
+    {
+      "indent": 8,
+      "text": "an SCTP stack implementing SCTP-PF also allows for the ULP to be kept ignorant of the PF state of its destinations and the associated state transitions, thus allowing for retention of the simpler state transition model of [RFC4960] in the ULP. For this reason, it is recommended that an SCTP stack implementing SCTP-PF also provide the ULP with the means to suppress exposure of the PF state and the associated state transitions.",
+      "zh-CHS": "实现SCTP-PF的SCTP堆栈还允许ULP不知道其目的地的PF状态和相关的状态转换，从而允许在ULP中保留更简单的状态转换模型[RFC4960]。因此，建议实现SCTP-PF的SCTP堆栈也为ULP提供抑制PF状态暴露和相关状态转换的方法。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Dormant State Operation",
+      "section_title": true,
+      "zh-CHS": "4. 休眠状态操作"
+    },
+    {
+      "indent": 3,
+      "text": "In a situation with complete disruption of the communication in between the SCTP endpoints, the aggressive HEARTBEAT transmissions of SCTP-PF on destination addresses in PF state may make the association enter dormant state faster than a standard SCTP implementation of [RFC4960] given the same setting of PMR and AMR. For example, an SCTP association with two destination addresses would typically reach dormant state in half the time of an SCTP implementation of [RFC4960] in such situations. This is because an SCTP PF sender will send HEARTBEATs and data retransmissions in parallel with RTO intervals when there are multiple destinations addresses in PF state. This argument presumes that RTO << HB.Interval of [RFC4960]. With the design goal that SCTP-PF shall provide the same level of disruption tolerance as a standard SCTP implementation with the same PMR and AMR setting, we prescribe that an SCTP-PF implementation SHOULD operate as described in Section 4.1 during dormant state.",
+      "zh-CHS": "在SCTP端点之间的通信完全中断的情况下，在PF状态下，SCTP-PF在目标地址上的主动心跳传输可能使关联进入休眠状态的速度比[RFC4960]的标准SCTP实现更快，因为PMR和AMR的设置相同。例如，在这种情况下，具有两个目标地址的SCTP关联通常会在[RFC4960]的SCTP实现的一半时间内达到休眠状态。这是因为当PF状态下有多个目的地地址时，SCTP PF发送方将与RTO间隔并行发送心跳和数据重传。此参数假定RTO<HB.间隔[RFC4960]。基于SCTP-PF应提供与具有相同PMR和AMR设置的标准SCTP实施相同水平的中断容忍度的设计目标，我们规定SCTP-PF实施应在休眠状态下按照第4.1节所述运行。"
+    },
+    {
+      "indent": 3,
+      "text": "An SCTP-PF implementation MAY choose a different dormant state operation than the one described in Section 4.1 provided that the solution chosen does not decrease the fault tolerance of the SCTP-PF operation.",
+      "zh-CHS": "SCTP-PF实施可选择与第4.1节所述不同的休眠状态操作，前提是所选择的解决方案不会降低SCTP-PF操作的容错性。"
+    },
+    {
+      "indent": 3,
+      "text": "The prescription below for SCTP-PF dormant state handling MUST NOT be coupled to the value of the PFMR, but solely to the activation of SCTP-PF logic in an SCTP implementation.",
+      "zh-CHS": "以下关于SCTP-PF休眠状态处理的规定不得与PFMR的值耦合，而应仅与SCTP实现中SCTP-PF逻辑的激活耦合。"
+    },
+    {
+      "indent": 3,
+      "text": "It is noted that the below dormant state operation can also provide enhanced disruption tolerance to a standard SCTP implementation that doesn't support SCTP-PF. Thus, it can be sensible for a standard SCTP implementation to follow this mode of operation. For a standard SCTP implementation, the continuation of data transmission during dormant state makes the fault tolerance of SCTP be more robust towards situations where some, or all, alternative paths of an SCTP association approach, or reach, inactive state before the primary path used for data transmission observes trouble.",
+      "zh-CHS": "需要注意的是，以下休眠状态操作还可以为不支持SCTP-PF的标准SCTP实现提供增强的中断容忍度。因此，标准SCTP实现遵循这种操作模式是明智的。对于标准SCTP实现，在休眠状态下继续数据传输使得SCTP的容错性在SCTP关联方法的部分或全部替代路径出现故障之前，或在用于数据传输的主路径出现故障之前达到非活动状态的情况下，更具鲁棒性。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. SCTP Dormant State Procedure",
+      "section_title": true,
+      "zh-CHS": "4.1. 休眠状态过程"
+    },
+    {
+      "indent": 3,
+      "text": "1. When the destination addresses are all in inactive state and data is available for transfer, the sender MUST choose one destination and transmit data to this destination address.",
+      "zh-CHS": "1. 当目标地址都处于非活动状态且数据可用于传输时，发送方必须选择一个目标并将数据传输到此目标地址。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The sender MUST NOT change the state of the chosen destination address (it remains in inactive state) and MUST NOT clear the error counter of the destination address as a result of choosing the destination address for data transmission.",
+      "zh-CHS": "2. 发送方不得更改所选目标地址的状态（它仍处于非活动状态），也不得清除由于选择数据传输的目标地址而导致的目标地址的错误计数器。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The sender SHOULD choose the destination in inactive state with the lowest error count (fewest consecutive timeouts) for data transmission. When there are multiple destinations with the same error count in inactive state, the sender SHOULD attempt to pick the most divergent source -- destination pair from the last source -- destination pair where failure was observed. Rules for picking the most divergent source-destination pair are an implementation decision and are not specified within this document. To support differentiation of inactive destination addresses based on their error count, SCTP will need to allow for incrementing of the destination address error counters up to some reasonable limit above PMR+1, thus changing the prescriptions of Section 8.3 of [RFC4960] in this respect. The exact limit to apply is not specified in this document, but it is considered reasonable enough to require that the limit be an order of magnitude higher than the PMR value. A sender MAY choose to deploy other strategies than the strategy defined here. The strategy to prioritize the last active destination address, i.e., the destination address with the fewest error counts is optimal when some paths are permanently inactive, but suboptimal when path instability is transient.",
+      "zh-CHS": "3. 发送方应选择错误计数最少（连续超时最少）且处于非活动状态的目的地进行数据传输。当有多个目标在非活动状态下具有相同的错误计数时，发送方应尝试从观察到故障的最后一个源-目标对中选取差异最大的源-目标对。选择差异最大的源-目标对的规则是一项实施决策，本文档中未指定。为了支持根据错误计数区分非活动目标地址，SCTP需要允许目标地址错误计数器的增量达到PMR+1以上的合理限制，从而改变[RFC4960]第8.3节在这方面的规定。本文件未规定适用的确切限值，但认为要求限值高于PMR值一个数量级是合理的。发送方可以选择部署此处定义的策略以外的其他策略。当某些路径永久不活动时，对最后一个活动目标地址（即错误计数最少的目标地址）进行优先级排序的策略是最优的，但当路径不稳定是暂时的时，该策略是次优的。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Primary Path Switchover",
+      "section_title": true,
+      "zh-CHS": "5. 主路径切换"
+    },
+    {
+      "indent": 3,
+      "text": "The objective of the Primary Path Switchover operation is to allow the SCTP sender to continue data transmission on a new working path even when the old primary destination address becomes active again. This is achieved by having SCTP perform a switchover of the primary path to the new working path if the error counter of the primary path exceeds a certain threshold. This mode of operation can be applied not only to SCTP-PF implementations, but also to implementations of [RFC4960].",
+      "zh-CHS": "主路径切换操作的目标是允许SCTP发送方在新的工作路径上继续数据传输，即使旧的主目的地地址再次变为活动状态。这是通过让SCTP在主路径的错误计数器超过某个阈值时执行主路径到新工作路径的切换来实现的。这种操作模式不仅适用于SCTP-PF实现，也适用于[RFC4960]的实现。"
+    },
+    {
+      "indent": 3,
+      "text": "The Primary Path Switchover operation requires only sender-side changes. The details are:",
+      "zh-CHS": "主路径切换操作只需要更改发送方。详情如下:"
+    },
+    {
+      "indent": 3,
+      "text": "1. The sender maintains a new tunable parameter, called Primary.Switchover.Max.Retrans (PSMR). For SCTP-PF implementations, the PSMR MUST be set greater than or equal to the PFMR value. For implementations of [RFC4960], the PSMR MUST be set greater than or equal to the PMR value. Implementations MUST reject any other values of PSMR.",
+      "zh-CHS": "1. 发送方维护一个新的可调参数，称为Primary.Switchover.Max.Retrans（PSMR）。对于SCTP-PF实施，PSMR必须设置为大于或等于PFMR值。对于[RFC4960]的实现，PSMR必须设置为大于或等于PMR值。实现必须拒绝PSMR的任何其他值。"
+    },
+    {
+      "indent": 3,
+      "text": "2. When the path error counter on a set primary path exceeds PSMR, the SCTP implementation MUST autonomously select and set a new primary path.",
+      "zh-CHS": "2. 当设置的主路径上的路径错误计数器超过PSMR时，SCTP实现必须自动选择并设置新的主路径。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The primary path selected by the SCTP implementation MUST be the path that, at the given time, would be chosen for data transfer. A previously failed primary path can be used as a data transfer path as per normal path selection when the present data transfer path fails.",
+      "zh-CHS": "3. SCTP实现选择的主路径必须是在给定时间选择用于数据传输的路径。当当前数据传输路径发生故障时，根据正常路径选择，以前发生故障的主路径可以用作数据传输路径。"
+    },
+    {
+      "indent": 3,
+      "text": "4. For SCTP-PF, the recommended value of PSMR is PFMR when Primary Path Switchover operation mode is used. This means that no forced switchback to a previously failed primary path is performed. An SCTP-PF implementation of Primary Path Switchover MUST support the setting of PSMR = PFMR. An SCTP-PF implementation of Primary Path Switchover MAY support setting of PSMR > PFMR.",
+      "zh-CHS": "4. 对于SCTP-PF，当使用主路径切换操作模式时，PSMR的建议值为PFMR。这意味着不会执行强制切换到以前失败的主路径。主路径切换的SCTP-PF实现必须支持PSMR=PFMR的设置。主路径切换的SCTP-PF实现可支持PSMR>PFMR的设置。"
+    },
+    {
+      "indent": 3,
+      "text": "5. For standard SCTP, the recommended value of PSMR is PMR when Primary Path Switchover is used. This means that no forced switchback to a previously failed primary path is performed. A standard SCTP implementation of Primary Path Switchover MUST support the setting of PSMR = PMR. A standard SCTP implementation of Primary Path Switchover MAY support larger settings of PSMR > PMR.",
+      "zh-CHS": "5. 对于标准SCTP，当使用主路径切换时，PSMR的建议值为PMR。这意味着不会执行强制切换到以前失败的主路径。主路径切换的标准SCTP实现必须支持PSMR=PMR的设置。主路径切换的标准SCTP实现可支持更大的PSMR>PMR设置。"
+    },
+    {
+      "indent": 3,
+      "text": "6. It MUST be possible to disable the Primary Path Switchover operation and obtain the standard switchback operation of [RFC4960].",
+      "zh-CHS": "6. 必须能够禁用主路径切换操作并获得[RFC4960]的标准切换操作。"
+    },
+    {
+      "indent": 3,
+      "text": "The manner of switchover operation that is most optimal in a given scenario depends on the relative quality of a set primary path versus the quality of alternative paths available as well as on the extent to which it is desired for the mode of operation to enforce traffic distribution over a number of network paths. That is, load distribution of traffic from multiple SCTP associations may be enforced by distribution of the set primary paths with the switchback operation of [RFC4960]. However, as switchback behavior of [RFC4960]",
+      "zh-CHS": "在给定场景中最优化的切换操作方式取决于一组主路径的相对质量与可用替代路径的质量，以及操作模式在多个网络路径上强制流量分配的期望程度。也就是说，来自多个SCTP关联的业务的负载分配可以通过使用[RFC4960]的切换操作分配所设置的主路径来实施。但是，作为[RFC4960]的切换行为"
+    },
+    {
+      "indent": 3,
+      "text": "is suboptimal in certain situations, especially in scenarios where a number of equally good paths are available, an SCTP implementation MAY support also, as alternative behavior, the Primary Path Switchover mode of operation and MAY enable it based on applications' requests.",
+      "zh-CHS": "在某些情况下是次优的，特别是在有许多同样好的路径可用的情况下，SCTP实现还可以支持主路径切换操作模式，作为替代行为，并且可以根据应用程序的请求启用主路径切换操作模式。"
+    },
+    {
+      "indent": 3,
+      "text": "For an SCTP implementation that implements the Primary Path Switchover operation, this specification RECOMMENDS that the standard switchback operation of [RFC4960] be retained as the default operation.",
+      "zh-CHS": "对于实现主路径切换操作的SCTP实现，本规范建议将[RFC4960]的标准切换操作保留为默认操作。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Suggested SCTP Protocol Parameter Values",
+      "section_title": true,
+      "zh-CHS": "6. 建议的SCTP协议参数值"
+    },
+    {
+      "indent": 3,
+      "text": "This document does not alter the value recommendation for the SCTP Protocol Parameters defined in [RFC4960].",
+      "zh-CHS": "本文件不改变[RFC4960]中定义的SCTP协议参数的建议值。"
+    },
+    {
+      "indent": 3,
+      "text": "The following protocol parameter is RECOMMENDED:",
+      "zh-CHS": "建议使用以下协议参数："
+    },
+    {
+      "indent": 6,
+      "text": "PotentiallyFailed.Max.Retrans (PFMR) - 0",
+      "zh-CHS": "潜在失败。最大重新传输（PFMR）-0"
+    },
+    {
+      "indent": 0,
+      "text": "7. Socket API Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 套接字API注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "This section describes how the socket API defined in [RFC6458] is extended to provide a way for the application to control and observe the SCTP-PF behavior as well as the Primary Path Switchover function.",
+      "zh-CHS": "本节介绍如何扩展[RFC6458]中定义的套接字API，以提供应用程序控制和观察SCTP-PF行为以及主路径切换功能的方法。"
+    },
+    {
+      "indent": 3,
+      "text": "Please note that this section is informational only.",
+      "zh-CHS": "请注意，本节仅供参考。"
+    },
+    {
+      "indent": 3,
+      "text": "A socket API implementation based on [RFC6458] is, by means of the existing SCTP_PEER_ADDR_CHANGE event, extended to provide the event notification when a peer address enters or leaves the PF state as well as the socket API implementation is extended to expose the PF state of a peer address in the existing SCTP_GET_PEER_ADDR_INFO structure.",
+      "zh-CHS": "基于[RFC6458]的套接字API实现通过现有SCTP_PEER_ADDR_CHANGE事件进行扩展，以在对等地址进入或离开PF状态时提供事件通知，并且套接字API实现进行扩展，以在现有SCTP_GET_PEER_ADDR_INFO结构中公开对等地址的PF状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, two new read/write socket options for the level IPPROTO_SCTP and the name SCTP_PEER_ADDR_THLDS and SCTP_EXPOSE_POTENTIALLY_FAILED_STATE are defined as described below. The first socket option is used to control the values of the PFMR and PSMR parameters described in Sections 3 and 5. The second one controls the exposition of the PF path state.",
+      "zh-CHS": "此外，级别IPPROTO_SCTP的两个新读/写套接字选项以及名称SCTP_PEER_ADDR_THLDS和SCTP_EXPOSE_potentialy_FAILED_STATE定义如下。第一个插座选项用于控制第3节和第5节中描述的PFMR和PSMR参数值。第二个控制PF路径状态的显示。"
+    },
+    {
+      "indent": 3,
+      "text": "Support for the SCTP_PEER_ADDR_THLDS and SCTP_EXPOSE_POTENTIALLY_FAILED_STATE socket options also needs to be added to the function sctp_opt_info().",
+      "zh-CHS": "还需要在函数SCTP_opt_info（）中添加对SCTP_PEER_ADDR_THLDS和SCTP_EXPOSE_潜在地_FAILED_状态套接字选项的支持。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Support for the Potentially Failed Path State",
+      "section_title": true,
+      "zh-CHS": "7.1. 支持可能出现故障的路径状态"
+    },
+    {
+      "indent": 3,
+      "text": "As defined in [RFC6458], the SCTP_PEER_ADDR_CHANGE event is provided if the status of a peer address changes. In addition to the state changes described in [RFC6458], this event is also provided if a peer address enters or leaves the PF state. The notification as defined in [RFC6458] uses the following structure:",
+      "zh-CHS": "如[RFC6458]中所定义，如果对等地址的状态发生变化，则会提供SCTP_PEER_ADDR_CHANGE事件。除了[RFC6458]中描述的状态更改外，如果对等地址进入或离开PF状态，也会提供此事件。[RFC6458]中定义的通知使用以下结构："
+    },
+    {
+      "indent": 3,
+      "text": "struct sctp_paddr_change {\n  uint16_t spc_type;\n  uint16_t spc_flags;\n  uint32_t spc_length;\n  struct sockaddr_storage spc_aaddr;\n  uint32_t spc_state;\n  uint32_t spc_error;\n  sctp_assoc_t spc_assoc_id;\n}",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6458] defines the constants SCTP_ADDR_AVAILABLE, SCTP_ADDR_UNREACHABLE, SCTP_ADDR_REMOVED, SCTP_ADDR_ADDED, and SCTP_ADDR_MADE_PRIM to be provided in the spc_state field. This document defines the new additional constant SCTP_ADDR_POTENTIALLY_FAILED, which is reported if the affected address becomes PF.",
+      "zh-CHS": "[RFC6458]定义要在spc_状态字段中提供的常数SCTP_ADDR_AVAILABLE、SCTP_ADDR_unreable、SCTP_ADDR_REMOVED、SCTP_ADDR_ADDR_ADDR_ADDED和SCTP_ADDR_make_PRIM。本文档定义了新的附加常量SCTP_ADDR_潜在地_FAILED，如果受影响的地址变为PF，则会报告该常量。"
+    },
+    {
+      "indent": 3,
+      "text": "The SCTP_GET_PEER_ADDR_INFO socket option defined in [RFC6458] can be used to query the state of a peer address. It uses the following structure:",
+      "zh-CHS": "[RFC6458]中定义的SCTP_GET_PEER_ADDR_INFO socket选项可用于查询对等地址的状态。它使用以下结构："
+    },
+    {
+      "indent": 3,
+      "text": "struct sctp_paddrinfo {\n  sctp_assoc_t spinfo_assoc_id;\n  struct sockaddr_storage spinfo_address;\n  int32_t spinfo_state;\n  uint32_t spinfo_cwnd;\n  uint32_t spinfo_srtt;\n  uint32_t spinfo_rto;\n  uint32_t spinfo_mtu;\n};",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6458] defines the constants SCTP_UNCONFIRMED, SCTP_ACTIVE, and SCTP_INACTIVE to be provided in the spinfo_state field. This document defines the new additional constant SCTP_POTENTIALLY_FAILED, which is reported if the peer address is PF.",
+      "zh-CHS": "[RFC6458]定义要在spinfo_状态字段中提供的常数SCTP_unconfirm、SCTP_ACTIVE和SCTP_INACTIVE。本文档定义了新的附加常量SCTP_，该常量可能会失败，如果对等地址为PF，则会报告该常量。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Peer Address Thresholds (SCTP_PEER_ADDR_THLDS) Socket Option",
+      "section_title": true,
+      "zh-CHS": "7.2. 对等地址阈值（SCTP\\u Peer\\u ADDR\\u THLDS）套接字选项"
+    },
+    {
+      "indent": 3,
+      "text": "Applications can control the SCTP-PF behavior by getting or setting the number of consecutive timeouts before a peer address is considered PF or unreachable. The same socket option is used by applications to set and get the number of timeouts before the primary path is changed automatically by the Primary Path Switchover function. This socket option uses the level IPPROTO_SCTP and the name SCTP_PEER_ADDR_THLDS.",
+      "zh-CHS": "应用程序可以通过在对等地址被视为PF或不可访问之前获取或设置连续超时的次数来控制SCTP-PF行为。在主路径切换功能自动更改主路径之前，应用程序使用相同的套接字选项设置和获取超时数。此套接字选项使用IPPROTO_SCTP级别和名称SCTP_PEER_ADDR_THLDS。"
+    },
+    {
+      "indent": 3,
+      "text": "The following structure is used to access and modify the thresholds:",
+      "zh-CHS": "以下结构用于访问和修改阈值："
+    },
+    {
+      "indent": 3,
+      "text": "struct sctp_paddrthlds {\n  sctp_assoc_t spt_assoc_id;\n  struct sockaddr_storage spt_address;\n  uint16_t spt_pathmaxrxt;\n  uint16_t spt_pathpfthld;\n  uint16_t spt_pathcpthld;\n};",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "spt_assoc_id: This parameter is ignored for one-to-one style sockets. For one-to-many style sockets, the application may fill in an association identifier or SCTP_FUTURE_ASSOC. It is an error to use SCTP_{CURRENT|ALL}_ASSOC in spt_assoc_id.",
+      "zh-CHS": "spt_assoc_id：对于一对一样式的套接字，此参数被忽略。对于一对多样式套接字，应用程序可能会填写关联标识符或SCTP_FUTURE_ASSOC。在spt_ASSOC_id中使用SCTP_{CURRENT | ALL}_ASSOC是错误的。"
+    },
+    {
+      "indent": 3,
+      "text": "spt_address: This specifies which peer address is of interest. If a wildcard address is provided, this socket option applies to all current and future peer addresses.",
+      "zh-CHS": "spt_地址：指定感兴趣的对等地址。如果提供了通配符地址，则此套接字选项适用于所有当前和将来的对等地址。"
+    },
+    {
+      "indent": 3,
+      "text": "spt_pathmaxrxt: Each peer address of interest is considered unreachable, if its path error counter exceeds spt_pathmaxrxt.",
+      "zh-CHS": "spt_pathmaxrxt：如果每个感兴趣的对等地址的路径错误计数器超过spt_pathmaxrxt，则认为其不可访问。"
+    },
+    {
+      "indent": 3,
+      "text": "spt_pathpfthld: Each peer address of interest is considered PF, if its path error counter exceeds spt_pathpfthld.",
+      "zh-CHS": "spt_pathpfthld：如果每个感兴趣的对等地址的路径错误计数器超过spt_pathpfthld，则将其视为PF。"
+    },
+    {
+      "indent": 3,
+      "text": "spt_pathcpthld: Each peer address of interest is not considered the primary remote address anymore, if its path error counter exceeds spt_pathcpthld. Using a value of 0xffff disables the selection of a new primary peer address. If an implementation does not support the automatic selection of a new primary address, it should indicate an error with errno set to EINVAL if a value different from 0xffff is used in spt_pathcpthld. For SCTP-PF, the setting of spt_pathcpthld < spt_pathpfthld should be rejected with errno set to EINVAL. For standard SCTP, the setting of spt_pathcpthld < spt_pathmaxrxt should be rejected with errno set to EINVAL. An SCTP-PF implementation may support only setting of spt_pathcpthld = spt_pathpfthld and spt_pathcpthld = 0xffff and a standard SCTP",
+      "zh-CHS": "spt_pathcpthld：如果每个感兴趣的对等地址的路径错误计数器超过spt_pathcpthld，则不再将其视为主要远程地址。使用0xffff值将禁用选择新的主对等地址。如果实现不支持自动选择新主地址，则如果在spt_pathcpthld中使用了不同于0xffff的值，则应指示错误，并将errno设置为EINVAL。对于SCTP-PF，应拒绝设置spt_路径CPTHLD<spt_路径PFTHLD，并将errno设置为EINVAL。对于标准SCTP，应拒绝spt_pathcpthld<spt_pathmaxrxt的设置，并将errno设置为EINVAL。SCTP-PF实现可能仅支持设置spt_pathcpthld=spt_pathpfthld和spt_pathcpthld=0xffff以及标准SCTP"
+    },
+    {
+      "indent": 6,
+      "text": "implementation may support only setting of spt_pathcpthld = spt_pathmaxrxt and spt_pathcpthld = 0xffff. In these cases, SCTP shall reject setting of other values with errno set to EINVAL.",
+      "zh-CHS": "实现可能仅支持设置spt_pathcpthld=spt_pathmaxrxt和spt_pathcpthld=0xffff。在这些情况下，SCTP应拒绝将errno设置为EINVAL的其他值的设置。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Exposing the Potentially Failed Path State (SCTP_EXPOSE_POTENTIALLY_FAILED_STATE) Socket Option",
+      "zh-CHS": "7.3. 公开潜在失败的路径状态（SCTP\\u公开\\u潜在失败的\\u状态）套接字选项"
+    },
+    {
+      "indent": 3,
+      "text": "Applications can control the exposure of the PF path state in the SCTP_PEER_ADDR_CHANGE event and the SCTP_GET_PEER_ADDR_INFO as described in Section 7.1. The default value is implementation specific.",
+      "zh-CHS": "应用程序可以控制SCTP_PEER_ADDR_更改事件和SCTP_GET_PEER_ADDR_信息中PF路径状态的公开，如第7.1节所述。默认值是特定于实现的。"
+    },
+    {
+      "indent": 3,
+      "text": "This socket option uses the level IPPROTO_SCTP and the name SCTP_EXPOSE_POTENTIALLY_FAILED_STATE.",
+      "zh-CHS": "此套接字选项使用IPPROTO_SCTP级别和名称SCTP_EXPOSE_潜在的失败状态。"
+    },
+    {
+      "indent": 3,
+      "text": "The following structure is used to control the exposition of the PF path state:",
+      "zh-CHS": "以下结构用于控制PF路径状态的显示："
+    },
+    {
+      "indent": 3,
+      "text": "struct sctp_assoc_value {\n  sctp_assoc_t assoc_id;\n  uint32_t assoc_value;\n};",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "assoc_id: This parameter is ignored for one-to-one style sockets. For one-to-many style sockets, the application may fill in an association identifier or SCTP_FUTURE_ASSOC. It is an error to use SCTP_{CURRENT|ALL}_ASSOC in assoc_id.",
+      "zh-CHS": "assoc_id：对于一对一样式的套接字，此参数被忽略。对于一对多样式套接字，应用程序可能会填写关联标识符或SCTP_FUTURE_ASSOC。在ASSOC_id中使用SCTP_{CURRENT | ALL}_ASSOC是错误的。"
+    },
+    {
+      "indent": 3,
+      "text": "assoc_value: The PF path state is exposed if, and only if, this parameter is non-zero.",
+      "zh-CHS": "assoc_值：当且仅当此参数非零时，PF path状态才会显示。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations for the use of SCTP and its APIs are discussed in [RFC4960] and [RFC6458].",
+      "zh-CHS": "[RFC4960]和[RFC6458]中讨论了使用SCTP及其API的安全注意事项。"
+    },
+    {
+      "indent": 3,
+      "text": "The logic introduced by this document does not impact existing SCTP messages on the wire. Also, this document does not introduce any new SCTP messages on the wire that require new security considerations.",
+      "zh-CHS": "本文档引入的逻辑不会影响线路上现有的SCTP消息。此外，本文档不会在线路上引入任何需要新安全注意事项的新SCTP消息。"
+    },
+    {
+      "indent": 3,
+      "text": "SCTP-PF makes SCTP not only more robust during primary path failure/ congestion, but also more vulnerable to network connectivity/ congestion attacks on the primary path. SCTP-PF makes it easier for an attacker to trick SCTP into changing the data transfer path, since the duration of time that an attacker needs to negatively influence the network connectivity is much shorter than used in [RFC4960]. However, SCTP-PF does not constitute a significant change in the duration of time and effort an attacker needs to keep SCTP away from",
+      "zh-CHS": "SCTP-PF使SCTP不仅在主路径故障/拥塞期间更加健壮，而且在主路径上更容易受到网络连接/拥塞攻击。SCTP-PF使攻击者更容易欺骗SCTP改变数据传输路径，因为攻击者对网络连接产生负面影响所需的时间比[RFC4960]中使用的时间要短得多。但是，SCTP-PF不会对攻击者使SCTP远离的持续时间和精力造成重大变化"
+    },
+    {
+      "indent": 3,
+      "text": "the primary path. With the standard switchback operation in [RFC4960], SCTP resumes data transfer on its primary path as soon as the next HEARTBEAT succeeds.",
+      "zh-CHS": "主路径。通过[RFC4960]中的标准切换操作，一旦下一次心跳成功，SCTP将在其主路径上恢复数据传输。"
+    },
+    {
+      "indent": 3,
+      "text": "On the other hand, usage of the Primary Path Switchover mechanism, does change the threat analysis. This is because on-path attackers can force a permanent change of the data transfer path by blocking the primary path until the switchover of the primary path is triggered by the Primary Path Switchover algorithm. This will especially be the case when the Primary Path Switchover is used together with SCTP-PF with the particular setting of PSMR = PFMR = 0, as Primary Path Switchover here happens already at the first RTO timeout experienced. Users of the Primary Path Switchover mechanism should be aware of this fact.",
+      "zh-CHS": "另一方面，使用主路径切换机制确实会改变威胁分析。这是因为在主路径切换算法触发主路径切换之前，路径上攻击者可以通过阻止主路径来强制永久更改数据传输路径。当主路径切换与SCTP-PF一起使用时，尤其是在PSMR=PFMR=0的特定设置下，因为这里的主路径切换已经在经历的第一个RTO超时时发生。主路径切换机制的用户应该知道这一事实。"
+    },
+    {
+      "indent": 3,
+      "text": "The event notification of path state transfer from active to PF state and vice versa gives attackers an increased possibility to generate more local events. However, it is assumed that event notifications are rate-limited in the implementation to address this threat.",
+      "zh-CHS": "路径状态从活动状态转移到PF状态（反之亦然）的事件通知增加了攻击者生成更多本地事件的可能性。但是，我们假设在解决此威胁的实现中，事件通知的速率是有限的。"
+    },
+    {
+      "indent": 0,
+      "text": "9. MIB Considerations",
+      "section_title": true,
+      "zh-CHS": "9. MIB注意事项"
+    },
+    {
+      "indent": 3,
+      "text": "SCTP-PF introduces new SCTP algorithms for failover and switchback with associated new state parameters. It is recommended that the SCTP-MIB defined in [RFC3873] is updated to support the management of the SCTP-PF implementation. This can be done by extending the sctpAssocRemAddrActive field of the SCTPAssocRemAddrTable to include information of the PF state of the destination address and by adding new fields to the SCTPAssocRemAddrTable supporting PotentiallyFailed.Max.Retrans (PFMR) and Primary.Switchover.Max.Retrans (PSMR) parameters.",
+      "zh-CHS": "SCTP-PF为故障切换和切换引入了新的SCTP算法，并提供了相关的新状态参数。建议更新[RFC3873]中定义的SCTP-MIB，以支持SCTP-PF实施的管理。这可以通过扩展SCTPAssocRemAddrTable的sctpAssocRemAddrActive字段来实现，以包括目标地址的PF状态信息，并通过向SCTPAssocRemAddrTable添加新字段来实现，该表支持潜在失败的.Max.Retrans（PFMR）和Primary.Switchover.Max.Retrans（PSMR）参数。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <http://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<http://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4960] Stewart, R., Ed., \"Stream Control Transmission Protocol\", RFC 4960, DOI 10.17487/RFC4960, September 2007, <http://www.rfc-editor.org/info/rfc4960>.",
+      "zh-CHS": "[RFC4960]Stewart，R.，Ed.“流控制传输协议”，RFC 4960，DOI 10.17487/RFC4960，2007年9月<http://www.rfc-editor.org/info/rfc4960>."
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[CARO02] Caro, A., Iyengar, J., Amer, P., Heinz, G., and R. Stewart, \"A Two-level Threshold Recovery Mechanism for SCTP\", Tech report, CIS Dept., University of Delaware, July 2002.",
+      "zh-CHS": "[CARO02] Caro，A. Iyangar，J.，阿梅尔，P.，海因茨，G和R. Stewart，“SCTP的两级阈值恢复机制”，技术报告，CIS系，德拉瓦大学，2002年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CARO04] Caro, A., Amer, P., and R. Stewart, \"End-to-End Failover Thresholds for Transport Layer Multihoming\", MILCOM 2004, DOI 10.1109/MILCOM.2004.1493253, November 2004.",
+      "zh-CHS": "[CARO04]Caro，A.，Amer，P.，和R.Stewart，“传输层多主的端到端故障切换阈值”，MILCOM 2004，DOI 10.1109/MILCOM.2004.1493253，2004年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CARO05] Caro, A., \"End-to-End Fault Tolerance using Transport Layer Multihoming\", Ph.D. Thesis, University of Delaware, DOI 10.1007/BF03219970, January 2005.",
+      "zh-CHS": "[CARO05]Caro，A.，“使用传输层多宿主的端到端容错”，博士。毕业论文，德拉瓦大学，DOI 101007/BF032 1970，2005年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[FALLON08] Fallon, S., Jacob, P., Qiao, Y., Murphy, L., Fallon, E., and A. Hanley, \"SCTP Switchover Performance Issues in WLAN Environments\", IEEE CCNC, DOI 10.1109/ccnc08.2007.131, January 2008.",
+      "zh-CHS": "[Fallon 08]Fallon，S.，Jacob，P.，Qiao，Y.，Murphy，L.，Fallon，E.，和A.Hanley，“WLAN环境中的SCTP切换性能问题”，IEEE CCNC，DOI 10.1109/ccnc08.2007.131，2008年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[GRINNEMO04] Grinnemo, K-J. and A. Brunstrom, \"Performance of SCTP-controlled failovers in M3UA-based SIGTRAN networks\", Advanced Simulation Technologies Conference, April 2004.",
+      "zh-CHS": "[GRINNEMO04]Grinnemo，K-J.和A.Brunstrom，“基于M3UA的SIGTRAN网络中SCTP控制故障切换的性能”，高级仿真技术会议，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[IYENGAR06] Iyengar, J., Amer, P., and R. Stewart, \"Concurrent Multipath Transfer using SCTP Multihoming over Independent End-to-end Paths\", IEEE/ACM Transactions on Networking, DOI 10.1109/TNET.2006.882843, October 2006.",
+      "zh-CHS": "[IYENGAR06]Iyengar，J.，Amer，P.，和R.Stewart，“在独立端到端路径上使用SCTP多主的并发多路径传输”，IEEE/ACM网络事务，DOI 10.1109/TNET.2006.882843，2006年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[JUNGMAIER02] Jungmaier, A., Rathgeb, E., and M. Tuexen, \"On the use of SCTP in failover scenarios\", World Multiconference on Systemics, Cybernetics and Informatics, July 2002.",
+      "zh-CHS": "[JUNGMAIER02]Jungmaier，A.，Rathgeb，E.，和M.Tuexen，“关于SCTP在故障转移场景中的使用”，系统学、控制论和信息学世界多学科研讨会，2002年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NATARAJAN09] Natarajan, P., Ekiz, N., Amer, P., and R. Stewart, \"Concurrent Multipath Transfer during Path Failure\", Computer Communications, DOI 10.1016/j.comcom.2009.05.001, May 2009.",
+      "zh-CHS": "[NATARAJAN09]Natarajan，P.，Ekiz，N.，Amer，P.，和R.Stewart，“路径故障期间的并发多路径传输”，计算机通信，DOI 10.1016/j.comcom.2009.05.001，2009年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3873] Pastor, J. and M. Belinchon, \"Stream Control Transmission Protocol (SCTP) Management Information Base (MIB)\", RFC 3873, DOI 10.17487/RFC3873, September 2004, <http://www.rfc-editor.org/info/rfc3873>.",
+      "zh-CHS": "[RFC3873]Pastor，J.和M.Belinchon，“流控制传输协议（SCTP）管理信息库（MIB）”，RFC 3873，DOI 10.17487/RFC3873，2004年9月<http://www.rfc-editor.org/info/rfc3873>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC6458] Stewart, R., Tuexen, M., Poon, K., Lei, P., and V. Yasevich, \"Sockets API Extensions for the Stream Control Transmission Protocol (SCTP)\", RFC 6458, DOI 10.17487/RFC6458, December 2011, <http://www.rfc-editor.org/info/rfc6458>.",
+      "zh-CHS": "[RFC6458]Stewart，R.，Tuexen，M.，Poon，K.，Lei，P.，和V.Yasevich，“流控制传输协议（SCTP）的套接字API扩展”，RFC 6458，DOI 10.17487/RFC6458，2011年12月<http://www.rfc-editor.org/info/rfc6458>."
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Discussion of Alternative Approaches",
+      "section_title": true,
+      "zh-CHS": "附录A.关于替代办法的讨论"
+    },
+    {
+      "indent": 3,
+      "text": "This section lists alternative approaches for the issues described in this document. Although these approaches do not require updating RFC 4960, we do not recommend them for the reasons described below.",
+      "zh-CHS": "本节列出了本文件中所述问题的替代方法。尽管这些方法不需要更新RFC 4960，但出于下述原因，我们不推荐它们。"
+    },
+    {
+      "indent": 0,
+      "text": "A.1. Reduce PMR",
+      "section_title": true,
+      "zh-CHS": "A.1. 降低PMR"
+    },
+    {
+      "indent": 3,
+      "text": "Smaller values for Path.Max.Retrans shorten the failover duration and in fact, this is recommended in some research results [JUNGMAIER02], [GRINNEMO04], and [FALLON08]. However, to significantly reduce the failover time, it is required to go down (as with PFMR) to Path.Max.Retrans=0 and, with this setting, SCTP switches to another destination address already on a single timeout that may result in spurious failover. Spurious failover is a problem in standard SCTP as the transmission of HEARTBEATs on the left primary path, unlike in SCTP-PF, is governed by HB.Interval also during the failover process. HB.Interval is usually set in the order of seconds (recommended value is 30 seconds) and when the primary path becomes inactive, the next HEARTBEAT may be transmitted only many seconds later: as recommended, only 30 seconds later. Meanwhile, the primary path may have long since recovered, if it needed recovery at all (indeed the failover could be truly spurious). In such situations, post failover, an endpoint is forced to wait in the order of many seconds before the endpoint can resume transmission on the primary path and furthermore, once it returns on the primary path, the CWND needs to be rebuilt anew -- a process that the throughput already had to suffer from on the alternate path. Using a smaller value for HB.Interval might help this situation, but it would result in a general waste of bandwidth as such more frequent HEARTBEATING would take place also when there are no observed troubles. The bandwidth overhead may be diminished by having the ULP use a smaller HB.Interval only on the path that, at any given time, is set to be the primary path; however, this adds complication in the ULP.",
+      "zh-CHS": "Path.Max.Retrans的较小值会缩短故障切换持续时间，事实上，一些研究结果[JUNGMAIER02]、[GRINNEMO04]和[FALLON08]建议这样做。但是，为了显著缩短故障切换时间，需要（与PFMR一样）将路径设置为Path.Max.Retrans=0，并且使用此设置，SCTP会在一次超时时切换到另一个目标地址，这可能会导致虚假故障切换。在标准SCTP中，虚假故障切换是一个问题，因为与SCTP-PF不同，左侧主路径上的心跳传输由HB.Interval控制，故障切换过程中也是如此。HB.Interval通常以秒为单位设置（建议值为30秒），当主路径变为非活动状态时，下一个心跳信号可能只在几秒后传输：根据建议，仅在30秒后传输。同时，如果主路径需要恢复，那么它可能早就恢复了（事实上，故障切换可能是虚假的）。在这种情况下，在故障转移后，端点必须等待几秒钟才能恢复主路径上的传输，而且，一旦它返回主路径，就需要重新构建CWND——这是一个吞吐量已经在备用路径上受到影响的过程。使用较小的HB.Interval值可能有助于这种情况，但它会导致带宽的一般浪费，因为在没有观察到故障的情况下，也会发生更频繁的心跳。通过让ULP仅在任何给定时间设置为主路径的路径上使用较小的HB.间隔，可以减少带宽开销；然而，这增加了ULP的并发症。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition, smaller Path.Max.Retrans values also affect the Association.Max.Retrans value. When the SCTP association's error count exceeds Association.Max.Retrans threshold, the SCTP sender considers the peer endpoint unreachable and terminates the association. Section 8.2 in [RFC4960] recommends that the Association.Max.Retrans value should not be larger than the summation of the Path.Max.Retrans of each of the destination addresses.",
+      "zh-CHS": "此外，较小的Path.Max.Retrans值也会影响Association.Max.Retrans值。当SCTP关联的错误计数超过association.Max.Retrans阈值时，SCTP发送方将认为对等端点不可访问并终止关联。[RFC4960]中的第8.2节建议Association.Max.Retrans值不应大于每个目标地址的Path.Max.Retrans之和。"
+    },
+    {
+      "indent": 3,
+      "text": "Otherwise, the SCTP sender considers its peer reachable even when all destinations are INACTIVE. To avoid this dormant state operation, standard SCTP implementation SHOULD reduce Association.Max.Retrans accordingly whenever it reduces Path.Max.Retrans. However, smaller Association.Max.Retrans value decreases the fault tolerance of SCTP as it increases the chances of association termination during minor congestion events.",
+      "zh-CHS": "否则，即使所有目的地都处于非活动状态，SCTP发送方也会认为其对等方是可访问的。为了避免这种休眠状态操作，标准SCTP实现应该在减少Path.Max.Retrans时相应地减少Association.Max.Retrans。但是，较小的Association.Max.Retrans值会降低SCTP的容错性，因为它会增加在较小拥塞事件期间关联终止的机会。"
+    },
+    {
+      "indent": 0,
+      "text": "A.2. Adjust RTO-Related Parameters",
+      "section_title": true,
+      "zh-CHS": "A.2. 调整RTO相关参数"
+    },
+    {
+      "indent": 3,
+      "text": "As several research results indicate, we can also shorten the duration of the failover process by adjusting the RTO-related parameters [JUNGMAIER02] and [FALLON08]. During the failover process, RTO keeps being doubled. However, if we can choose a smaller value for RTO.max, we can stop the exponential growth of RTO at some point. Also, choosing smaller values for RTO.initial or RTO.min can contribute to keeping the RTO value small.",
+      "zh-CHS": "正如一些研究结果所表明的，我们还可以通过调整RTO相关参数[JUNGMAIER02]和[FALLON08]来缩短故障切换过程的持续时间。在故障切换过程中，RTO不断翻倍。但是，如果我们可以为RTO.max选择一个较小的值，我们可以在某个点停止RTO的指数增长。此外，为RTO.initial或RTO.min选择较小的值有助于保持RTO值较小。"
+    },
+    {
+      "indent": 3,
+      "text": "Similar to reducing Path.Max.Retrans, the advantage of this approach is that it requires no modification to the current specification, although it needs to ignore several recommendations described in Section 15 of [RFC4960]. However, this approach requires having enough knowledge about the network characteristics between endpoints. Otherwise, it can introduce adverse side effects such as spurious timeouts.",
+      "zh-CHS": "与减少Path.Max.Retrans类似，这种方法的优点是不需要修改当前规范，尽管它需要忽略[RFC4960]第15节中描述的几个建议。然而，这种方法需要对端点之间的网络特性有足够的了解。否则，它可能会带来不良副作用，如虚假超时。"
+    },
+    {
+      "indent": 3,
+      "text": "The significant issue with this approach, however, is that even if the RTO.max is lowered to an optimal low value, as long as the Path.Max.Retrans is kept at the recommended value from [RFC4960], the reduction of the RTO.max doesn't reduce the failover time sufficiently enough to prevent severe performance degradation during failover.",
+      "zh-CHS": "然而，这种方法的一个重要问题是，即使将RTO.max降低到一个最佳的低值，只要Path.max.Retrans保持在[RFC4960]中的推荐值，减少RTO.max也不能充分减少故障切换时间，以防止故障切换期间的严重性能下降。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix B. Discussion of the Path-Bouncing Effect",
+      "section_title": true,
+      "zh-CHS": "附录B.关于路径反弹效应的讨论"
+    },
+    {
+      "indent": 3,
+      "text": "The methods described in the document can accelerate the failover process. Hence, they might introduce a path-bouncing effect in which the sender keeps changing the data transmission path frequently. This sounds harmful to the data transfer; however, several research results indicate that there is no serious problem with SCTP in terms of the path-bouncing effect (see [CARO04] and [CARO05]).",
+      "zh-CHS": "文档中描述的方法可以加快故障切换过程。因此，它们可能会引入路径反弹效应，其中发送方不断频繁地更改数据传输路径。这听起来对数据传输有害；然而，一些研究结果表明，就路径反弹效应而言，SCTP不存在严重问题（参见[CARO04]和[CARO05]）。"
+    },
+    {
+      "indent": 3,
+      "text": "There are two main reasons for this. First, SCTP is basically designed for multipath communication, which means SCTP maintains all path-related parameters (CWND, ssthresh, RTT, error count, etc.) per each destination address. These parameters cannot be affected by",
+      "zh-CHS": "这主要有两个原因。首先，SCTP基本上是为多路径通信设计的，这意味着SCTP维护每个目标地址的所有路径相关参数（CWND、ssthresh、RTT、错误计数等）。这些参数不受以下因素的影响："
+    },
+    {
+      "indent": 3,
+      "text": "path bouncing. In addition, when SCTP migrates the data transfer to another path, it starts with the minimal or the initial CWND. Hence, there is little chance for packet reordering or duplicating.",
+      "zh-CHS": "路径跳跃。此外，当SCTP将数据传输迁移到另一个路径时，它从最小或初始CWND开始。因此，数据包重新排序或复制的机会很小。"
+    },
+    {
+      "indent": 3,
+      "text": "Second, even if all communication paths between the end nodes share the same bottleneck, the SCTP-PF results in a behavior already allowed by [RFC4960].",
+      "zh-CHS": "其次，即使终端节点之间的所有通信路径共享相同的瓶颈，SCTP-PF也会导致[RFC4960]已经允许的行为。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix C. SCTP-PF for SCTP Single-Homed Operation",
+      "section_title": true,
+      "zh-CHS": "附录C.SCTP单宿运行的SCTP-PF"
+    },
+    {
+      "indent": 3,
+      "text": "For a single-homed SCTP association, the only tangible effect of the activation of SCTP-PF operation is enhanced failure detection in terms of potential notification of the PF state of the sole destination address as well as, for idle associations, more rapid entering, and notification, of inactive state of the destination address and more rapid endpoint failure detection. It is believed that neither of these effects are harmful, provided adequate dormant state operation is implemented. Furthermore, it is believed that they may be particularly useful for applications that deploy multiple SCTP associations for load-balancing purposes. The early notification of the PF state may be used for preventive measures as the entering of the PF state can be used as a warning of potential congestion. Depending on the PMR value, the aggressive HEARTBEAT transmission in PF state may speed up the endpoint failure detection (exceed of AMR threshold on the sole path error counter) on idle associations in the case with a relatively large HB.Interval value compared to RTO (e.g., 30 seconds) is used.",
+      "zh-CHS": "对于单宿SCTP关联，激活SCTP-PF操作的唯一实际效果是增强故障检测，即可能通知唯一目的地地址的PF状态，以及对于空闲关联，更快速地进入和通知，目标地址的非活动状态和更快的端点故障检测。人们认为，只要实施了充分的休眠状态操作，这两种影响都不会有害。此外，人们认为它们对于部署多个SCTP关联以实现负载平衡的应用程序可能特别有用。PF状态的早期通知可用于预防措施，因为进入PF状态可作为潜在拥堵的警告。根据PMR值，PF状态下的主动心跳传输可能会在HB相对较大的情况下加速空闲关联上的端点故障检测（超过唯一路径错误计数器上的AMR阈值）。使用与RTO相比的间隔值（例如，30秒）。"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to acknowledge members of the IETF Transport Area Working Group (tsvwg) for continuing discussions on this document and insightful feedback, and we appreciate continuous encouragement and suggestions from the Chairs of the tsvwg. We especially wish to thank Michael Tuexen for his many invaluable comments and for his substantial supports with the making of the document.",
+      "zh-CHS": "作者要感谢IETF运输区工作组（tsvwg）成员继续讨论本文件并提供有见地的反馈意见，我们感谢tsvwg主席的不断鼓励和建议。我们特别要感谢迈克尔·图克森提出了许多宝贵的意见，并对文件的编写给予了大力支持。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Yoshifumi Nishida GE Global Research 2623 Camino Ramon San Ramon, CA 94583 United States",
+      "zh-CHS": "西田佳文GE全球研究2623卡米诺·拉蒙美国加利福尼亚州圣拉蒙94583"
+    },
+    {
+      "indent": 3,
+      "text": "Email: nishida@wide.ad.jp",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Preethi Natarajan Cisco Systems 510 McCarthy Blvd. Milpitas, CA 95035 United States",
+      "zh-CHS": "Preethi Natarajan思科系统公司，麦卡锡大道510号。美国加利福尼亚州米尔皮塔斯95035"
+    },
+    {
+      "indent": 3,
+      "text": "Email: prenatar@cisco.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Armando Caro BBN Technologies 10 Moulton St. Cambridge, MA 02138 United States",
+      "zh-CHS": "Armando Caro BBN Technologies 10美国马萨诸塞州剑桥莫尔顿街02138号"
+    },
+    {
+      "indent": 3,
+      "text": "Email: acaro@bbn.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Paul D. Amer University of Delaware Computer Science Department - 434 Smith Hall Newark, DE 19716-2586 United States",
+      "zh-CHS": "保罗D.阿默德拉瓦大学计算机科学系- 434史密斯霍尔纽瓦克，19716-2586.美国"
+    },
+    {
+      "indent": 3,
+      "text": "Email: amer@udel.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Karen E. E. Nielsen Ericsson Kistavaegen 25 Stockholm 164 80 Sweden",
+      "zh-CHS": "Karen E.E.Nielsen Ericsson Kistavaegen 25斯德哥尔摩164 80瑞典"
+    },
+    {
+      "indent": 3,
+      "text": "Email: karen.nielsen@tieto.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}

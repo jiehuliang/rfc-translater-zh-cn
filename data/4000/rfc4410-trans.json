@@ -1,0 +1,1453 @@
+{
+  "title": {
+    "text": "RFC 4410: Selectively Reliable Multicast Protocol (SRMP)",
+    "zh-CHS": "RFC 4410"
+  },
+  "number": 4410,
+  "created_at": "2021-11-13 20:07:05.412908+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          M. Pullen\nRequest for Comments: 4410                                       F. Zhao\nCategory: Experimental                                 George Mason Univ\n                                                                D. Cohen\n                                                        Sun Microsystems\n                                                           February 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 13,
+      "text": "Selectively Reliable Multicast Protocol (SRMP)",
+      "zh-CHS": "选择性可靠多播协议（SRMP）"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo defines an Experimental Protocol for the Internet community. It does not specify an Internet standard of any kind. Discussion and suggestions for improvement are requested. Distribution of this memo is unlimited.",
+      "zh-CHS": "这份备忘录为互联网社区定义了一个实验性协议。它没有规定任何类型的互联网标准。要求进行讨论并提出改进建议。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Selectively Reliable Multicast Protocol (SRMP) is a transport protocol, intended to deliver a mix of reliable and best-effort messages in an any-to-any multicast environment, where the best-effort traffic occurs in significantly greater volume than the reliable traffic and therefore can carry sequence numbers of reliable messages for loss detection. SRMP is intended for use in a distributed simulation application environment, where only the latest value of reliable transmission for any particular data identifier requires delivery. SRMP has two sublayers: a bundling sublayer handling message aggregation and congestion control, and a Selectively Reliable Transport (SRT) sublayer. Selection between reliable and best-effort messages is performed by the application.",
+      "zh-CHS": "选择性可靠多播协议（SRMP）是一种传输协议，旨在在任意对任意多播环境中提供可靠消息和尽力而为消息的混合，在这种情况下，尽力而为的通信量比可靠的通信量大得多，因此可以携带可靠消息的序列号进行丢失检测。SRMP旨在用于分布式仿真应用程序环境，在该环境中，只有任何特定数据标识符的最新可靠传输值需要交付。SRMP有两个子层：处理消息聚合和拥塞控制的捆绑子层和选择性可靠传输（SRT）子层。可靠消息和尽力而为消息之间的选择由应用程序执行。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Terminology ................................................3\n2. Protocol Description ............................................4\n3. Message Formats .................................................6\n   3.1. Bundle Message Format: .....................................6\n   3.2. Bundle Header Format .......................................7\n   3.3. Feedback Message Format ....................................9\n   3.4. SRT Mode 0 Header Format ..................................10\n   3.5. SRT Mode 1 Header Format ..................................11\n   3.6. SRT Mode 2 Header Format ..................................11\n   3.7. SRT NACK Format ...........................................12\n   3.8. User-Configurable Parameters ..............................13\n4. TFMCC Operation ................................................13\n   4.1. TCP Rate Prediction Equation for TFMCC ....................13\n   4.2. Bundling ..................................................13\n   4.3. Congestion Control ........................................14\n   4.4. Any-Source Multicast ......................................14\n   4.5. Multiple Sources ..........................................14\n   4.6. Bundle Size ...............................................15\n   4.7. Data Rate Control .........................................15\n   4.8. Mode 1 Loss Detection .....................................16\n        4.8.1. Sending a Negative Acknowledgement .................16\n   4.9. Unbundling ................................................17\n   4.10. Heartbeat Bundle .........................................17\n5. SRT Operation ..................................................17\n   5.1. Mode 0 Operation ..........................................18\n        5.1.1. Sending Mode 0 Messages ............................18\n        5.1.2. Receiving Mode 0 Messages ..........................18\n   5.2. Mode 1 Operation ..........................................18\n        5.2.1. Sending Mode 1 Data Messages .......................19\n        5.2.2. Receiving Mode 1 Data Messages .....................19\n        5.2.3. Sending a Negative Acknowledgement .................20\n        5.2.4. Receiving a Negative Acknowledgement ...............21\n   5.3. Mode 2 Operation ..........................................21\n        5.3.1. Sending Mode 2 Data Messages .......................21\n        5.3.2. Receiving Mode 2 Data Messages .....................22\n        5.3.3. Sending a Positive Acknowledgement .................23\n        5.3.4. Receiving a Positive Acknowledgement ...............23\n6. RFC 2357 Analysis ..............................................23\n   6.1. Scalability ...............................................23\n   6.2. Congestion ................................................24\n7. Security Considerations ........................................25\n8. List of Acronyms Used ..........................................26\n9. Contributions ..................................................27\n10. References ....................................................27",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "There is no viable generic approach to achieving reliable transport over multicast networks. Existing successful approaches require that the transport protocol take advantage of special properties of the traffic in a way originally proposed by Cohen [10]. The protocol described here is applicable to real-time traffic containing a mix of two categories of messages: a small fraction requiring reliable delivery, mixed with a predominating flow of best-effort messages. This sort of traffic is associated with distributed virtual simulation (RFC 2502 [4]) and also with some forms of distributed multimedia conferencing. These applications typically have some data that changes rarely, or not at all, so the best efficiency will be achieved by transmitting that data reliably (the external appearance of a simulated vehicle is an excellent example). They also require real-time transmission of a best-effort stream (for example, the position and orientation of the vehicle). There is no value to reliable transmission of this stream because typically new updates arrive faster than loss identification and retransmission could take place. By piggy-backing the sequence number (SN) of the latest reliable transmission on each bundle of traffic, the reliable and best-effort traffic can co-exist synergistically. This approach is implemented in the Selectively Reliable Multicast Protocol (SRMP).",
+      "zh-CHS": "在多播网络上实现可靠传输没有可行的通用方法。现有的成功方法要求传输协议以Cohen最初提出的方式利用流量的特殊特性[10]。这里描述的协议适用于包含两类消息混合的实时通信：一小部分需要可靠传递，另一部分是主要的尽力而为消息流。这种流量与分布式虚拟仿真（RFC 2502[4]）以及某些形式的分布式多媒体会议有关。这些应用程序通常具有一些很少更改或根本不更改的数据，因此可以通过可靠地传输这些数据来实现最佳效率（模拟车辆的外观就是一个很好的例子）。它们还需要实时传输最大努力流（例如，车辆的位置和方向）。该流的可靠传输没有任何价值，因为通常新的更新到达的速度比丢失识别和重新传输的速度要快。通过在每个业务束上背驮最新可靠传输的序列号（SN），可靠和尽力而为的业务可以协同共存。该方法在选择性可靠多播协议（SRMP）中实现。"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF has conducted a successful working group on Reliable Multicast Transport (RMT) that has produced RFCs 2357 [6], 2887 [11], and 3450 through 3453 [12 - 15], which define building block protocols for reliable multicast. Selectively reliable multicast is similar in spirit to these protocols and in fact uses one of them, TCP-Friendly Multicast Congestion Control (TFMCC). This document provides the basis for specifying SRMP with TFMCC for use on an experimental basis. Key requirements of the RMT process that is carried forward here are specified in RFC 2357 [6]. These generally relate to scalability and congestion control, and are addressed in section 6 of this document.",
+      "zh-CHS": "IETF成功地成立了一个可靠多播传输（RMT）工作组，该工作组产生了RFC 2357[6]、2887[11]和3450到3453[12-15]，它们定义了可靠多播的构建块协议。选择性可靠多播在精神上与这些协议类似，实际上使用其中一种协议，即TCP友好多播拥塞控制（TFMCC）。本文件提供了在实验基础上使用TFMCC指定SRMP的依据。RFC 2357[6]中规定了在此进行的RMT过程的关键要求。这些通常与可伸缩性和拥塞控制有关，本文档第6节对此进行了讨论。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Terminology",
+      "section_title": true,
+      "zh-CHS": "1.1. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "In this document, the key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" are to be interpreted as described in RFC 2119 [1] and indicate requirement levels for compliant implementations.",
+      "zh-CHS": "在本文件中，关键词“必须”、“不得”、“要求”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照RFC 2119[1]中所述进行解释，并指出符合性实施的要求级别。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Protocol Description",
+      "section_title": true,
+      "zh-CHS": "2. 协议描述"
+    },
+    {
+      "indent": 3,
+      "text": "The Selectively Reliable Multicast Protocol (SRMP) has two major components: Selectively Reliable Transport (SRT) and a \"bundling sublayer\" that implements TCP-Friendly Multicast Congestion Control (TFMCC), as proposed by Widmer and Handley [2], in order to meet the requirements of RFC 2357 [6] for congestion avoidance.",
+      "zh-CHS": "选择性可靠多播协议（SRMP）有两个主要组成部分：选择性可靠传输（SRT）和一个“捆绑子层”，它实现了Widmer和Handley[2]提出的TCP友好多播拥塞控制（TFMCC），以满足RFC 2357[6]对拥塞避免的要求。"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP is capable of reliable message delivery over multicast networks, when the messages to be delivered reliably represent a fraction of a larger, associated best-effort flow and only the latest reliable message must be delivered. The basic strategy for SRMP is to trade as little network capacity as possible for reliability by buffering the most recently sent reliable message at each sender and piggy-backing its sequence number on associated best-effort messages. For this purpose, three modes of sending are defined:",
+      "zh-CHS": "SRMP能够在多播网络上可靠地传递消息，当要可靠地传递的消息只代表较大的相关尽力而为流的一小部分时，并且仅必须传递最新的可靠消息。SRMP的基本策略是通过在每个发送方缓冲最近发送的可靠消息，并将其序列号背驮在相关的尽力而为消息上，以尽可能少的网络容量换取可靠性。为此，定义了三种发送模式："
+    },
+    {
+      "indent": 3,
+      "text": "o Mode 0 messages. These will be delivered best-effort; if lost, no retransmission will be done.",
+      "zh-CHS": "o 模式0消息。这些将尽最大努力提供；如果丢失，将不会进行重新传输。"
+    },
+    {
+      "indent": 3,
+      "text": "o Mode 1 messages. When a Mode 1 message loss is detected, the receiver will send back a NACK to the sender, where SRMP will retransmit the latest reliable message from that sender. Senders define data identifiers (dataIDs), allowing multiple reliable message streams to be supported. Mode 1 messages may be up to 131,071 bytes long; SRMP provides for segmentation and reassembly, but only for the latest Mode 1 message for any given <sourceAddress, multicastAddress, dataID>.",
+      "zh-CHS": "o 模式1消息。当检测到模式1消息丢失时，接收方将向发送方发回NACK，其中SRMP将重新传输来自该发送方的最新可靠消息。发送者定义数据标识符（dataid），允许支持多个可靠的消息流。模式1消息的长度可能高达131071字节；SRMP提供分段和重新组装，但仅适用于任何给定<sourceAddress，multicastAddress，dataID>的最新模式1消息。"
+    },
+    {
+      "indent": 3,
+      "text": "o Mode 2 messages. Through Mode 2 messages, SRMP provides for a lightweight, reliable, connectionless peer-to-peer unicast transaction exchange between any two members of the multicast group. This is a unicast message requiring positive acknowledgement (ACK).",
+      "zh-CHS": "o 模式2消息。通过模式2消息，SRMP在多播组的任意两个成员之间提供轻量级、可靠、无连接的对等单播事务交换。这是需要肯定确认（ACK）的单播消息。"
+    },
+    {
+      "indent": 6,
+      "text": "| Application   |\n-----------------       ----------\n|      SRT      |\n-----------------   ->     SRMP\n|Bundling(TFMCC)|\n-----------------       ----------\n|      UDP      |",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The bundling sublayer is transparent to the Selectively Reliable Transport (SRT) sublayer. It implements congestion control both by dropping Mode 0 messages at the source when needed and by bundling multiple short messages that are presented by applications within a short time window. It also performs NACK suppression.",
+      "zh-CHS": "捆绑子层对选择性可靠传输（SRT）子层是透明的。它通过在需要时在源位置丢弃模式0消息和在短时间窗口内捆绑应用程序显示的多条短消息来实现拥塞控制。它还执行NACK抑制。"
+    },
+    {
+      "indent": 3,
+      "text": "A bundling sublayer data unit is called a bundle. A bundle is made up of a bundle header and one or more Mode 0 and Mode 1 SRMP messages. Retransmission of Mode 1 messages does not imply retransmission of the original bundle; the retransmitted message becomes part of a new bundle.",
+      "zh-CHS": "捆绑子层数据单元称为捆绑。捆绑包由一个捆绑头和一个或多个模式0和模式1 SRMP消息组成。模式1消息的重新传输并不意味着原始捆绑包的重新传输；重新传输的消息将成为新捆绑包的一部分。"
+    },
+    {
+      "indent": 3,
+      "text": "The TFMCC layer's behavior follows the mechanism described by Widmer and Handley. This is an equation-based multicast congestion control mechanism: in a multicast group, each receiver determines its loss rate with regard to the sender, and calculates a desired source sending rate based on an equation that models the steady-state sending rate of TCP. A distributed feedback suppression mechanism restricts feedback to those receivers likely to report the lowest desired rates. Congestion control is achieved by dropping best-effort (Mode 0) messages at random. For example, in distributed simulation, Mode 0 messages are part of a stream of state updates for dynamic data such as geographic location; therefore, the application can continue to function (with lower fidelity) when they are dropped.",
+      "zh-CHS": "TFMCC层的行为遵循Widmer和Handley描述的机制。这是一种基于等式的多播拥塞控制机制：在多播组中，每个接收方确定其相对于发送方的丢失率，并根据模拟TCP稳态发送速率的等式计算所需的源发送速率。分布式反馈抑制机制限制对可能报告最低期望速率的接收器的反馈。拥塞控制是通过随机丢弃尽力而为（模式0）消息来实现的。例如，在分布式仿真中，模式0消息是动态数据（如地理位置）的状态更新流的一部分；因此，应用程序在被删除时可以继续运行（保真度较低）。"
+    },
+    {
+      "indent": 3,
+      "text": "As described by its authors, TFMCC's congestion control mechanism works as follows:",
+      "zh-CHS": "正如作者所述，TFMCC的拥塞控制机制的工作原理如下："
+    },
+    {
+      "indent": 3,
+      "text": "o Each receiver measures the loss event rate and its Round-Trip Time (RTT) to the sender.",
+      "zh-CHS": "o 每个接收者测量丢失事件率及其到发送者的往返时间（RTT）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Each receiver then uses this information, together with an equation for TCP throughput, to derive a TCP-friendly sending rate.",
+      "zh-CHS": "o 然后，每个接收器使用此信息以及TCP吞吐量的等式来推导TCP友好的发送速率。"
+    },
+    {
+      "indent": 3,
+      "text": "o Through a distributed feedback suppression mechanism, only a subset of the receivers is allowed to give feedback to prevent a feedback implosion at the sender. The feedback mechanism ensures that receivers reporting a low desired transmission rate have a high probability of sending feedback.",
+      "zh-CHS": "o 通过分布式反馈抑制机制，仅允许接收机的子集提供反馈，以防止反馈在发送方内爆。反馈机制确保报告低期望传输速率的接收机具有发送反馈的高概率。"
+    },
+    {
+      "indent": 3,
+      "text": "o Receivers whose feedback is not suppressed report the calculated transmission rate back to the sender in so-called receiver reports. The receiver reports serve two purposes: they inform the sender about the appropriate transmit rate, and they allow the receivers to measure their RTT.",
+      "zh-CHS": "o 反馈未被抑制的接收器在所谓的接收器报告中向发送者报告计算出的传输速率。接收方报告有两个目的：它们通知发送方适当的传输速率，并允许接收方测量其RTT。"
+    },
+    {
+      "indent": 3,
+      "text": "o The sender selects the receiver that reports the lowest rate as the current limiting receiver (CLR). Whenever feedback with an even lower rate reaches the sender, the corresponding receiver becomes the CLR and the sending rate is reduced to match that receiver's calculated rate. The sending rate increases when the CLR reports a calculated rate higher than the current sending rate.",
+      "zh-CHS": "o 发送方选择报告最低速率的接收器作为限流接收器（CLR）。每当具有更低速率的反馈到达发送方时，相应的接收方成为CLR，并且发送速率降低以匹配该接收方的计算速率。当CLR报告的计算速率高于当前发送速率时，发送速率将增加。"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC was intended for fixed-size packets with variable rate. SRMP applies it to variable-size SRMP messages that are mostly the same size because the best-effort updates typically all represent the same sort of simulation information and are grouped into bundles of size just under one MTU during periods of heavy network activity. Future developments in TFMCC for variable-size messages will be of high value for inclusion in SRMP if, as expected, they prove to be appropriate for the types of traffic SRMP is intended to support.",
+      "zh-CHS": "TFMCC用于具有可变速率的固定大小数据包。SRMP将其应用于大小基本相同的可变大小SRMP消息，因为尽力而为的更新通常都表示相同类型的模拟信息，并且在网络活动频繁期间被分组为大小不超过一个MTU的捆绑包。TFMCC中针对可变大小消息的未来发展将具有很高的价值，如果如预期的那样，它们被证明适合SRMP打算支持的流量类型，则将其包含在SRMP中。"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP is intended for general use under applications that need its services and may exist in parallel instances on the same host. The UDP port is therefore established ad hoc from available application ports; accordingly, it would not be appropriate to have a well-known port for SRMP.",
+      "zh-CHS": "SRMP用于需要其服务的应用程序下的一般用途，并且可能存在于同一主机上的并行实例中。因此，UDP端口是从可用的应用程序端口临时建立的；因此，为SRMP提供一个众所周知的端口是不合适的。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Message Formats",
+      "section_title": true,
+      "zh-CHS": "3. 消息格式"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Bundle Message Format:",
+      "zh-CHS": "3.1. 捆绑消息格式："
+    },
+    {
+      "indent": 3,
+      "text": "--------------------------------------------------------------------\n| bundle header | SRT Message 0 | SRT message 1 | SRT message 2 |...\n--------------------------------------------------------------------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "A bundle is an aggregation of multiple SRMP messages destined for the same multicast address. A bundle can contain only Mode 0 and Mode 1 messages; Mode 2 messages are exchanged using unicast addresses.",
+      "zh-CHS": "捆绑包是多个SRMP消息的聚合，这些消息的目的地是同一个多播地址。捆绑包只能包含模式0和模式1消息；模式2消息使用单播地址交换。"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP identifies the sender and receiver using their 32-bit Sender_ID, which may be an IPv4 address. For use with IPv6, a user group will need to establish a unique identifier per host. There is no requirement for this identifier to be unique in the Internet; it only needs to be unique in the communicating group.",
+      "zh-CHS": "SRMP使用其32位发送方ID（可能是IPv4地址）标识发送方和接收方。要与IPv6一起使用，用户组需要为每个主机建立唯一标识符。该标识符在互联网上不要求是唯一的；它只需要在通信组中是唯一的。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Bundle Header Format",
+      "section_title": true,
+      "zh-CHS": "3.2. 包头格式"
+    },
+    {
+      "indent": 6,
+      "text": "0              8              16             24             32\n+--------------+--------------+--------------+--------------+\n|Version| Type |fb_nr | flag  |        bundle_SN            |\n+--------------+--------------+--------------+--------------+\n|                       Sender_ID                           |\n+--------------+--------------+--------------+--------------+\n|                       Receiver_ID                         |\n+--------------+--------------+--------------+--------------+\n|       Sender_Timestamp      |    Receiver_Timestamp       |\n+--------------+--------------+--------------+--------------+\n|            x_supp           |            R_max            |\n+--------------+--------------+--------------+--------------+\n|  DSN_count   |   padding    |           Length            |\n+--------------+--------------+--------------+--------------+\n|     0 to 255 DSN: <dataID, SN, NoSegs> of this sender     |\n+-----------------------------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version: 4 bits currently 0010",
+      "zh-CHS": "版本：4位当前为0010"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 4 bits 0000 - indicates bundle",
+      "zh-CHS": "类型：4位0000-表示捆绑"
+    },
+    {
+      "indent": 3,
+      "text": "fb_nr: 4 bits feedback round, range 0-15",
+      "zh-CHS": "fb_nr:4位反馈轮，范围0-15"
+    },
+    {
+      "indent": 3,
+      "text": "flag: 4 bits 0001 Is_CLR other bits reserved",
+      "zh-CHS": "标志：4位0001为\\u CLR其他保留位"
+    },
+    {
+      "indent": 3,
+      "text": "bundle_SN: 16 bits range 0-65535",
+      "zh-CHS": "束序列号：16位范围0-65535"
+    },
+    {
+      "indent": 3,
+      "text": "Sender_Timestamp: 16 bits Representing the time that the bundle was sent out (in milliseconds) based on the sender's local clock.",
+      "zh-CHS": "Sender_Timestamp：16位表示根据发送方的本地时钟发送包的时间（以毫秒为单位）。"
+    },
+    {
+      "indent": 3,
+      "text": "Receiver_Timestamp: 16 bits Echo of the Receiver_Time_Stamp field (in milliseconds) of the receiver feedback message. If the sender has time delay between receiving the feedback and echoing the timestamp, it MUST adjust the Receiver_Timestamp value to compensate.",
+      "zh-CHS": "Receiver_Timestamp：接收器反馈消息的Receiver_Time_Stamp字段（以毫秒为单位）的16位回波。如果发送方在接收反馈和回显时间戳之间存在时间延迟，则必须调整接收方的时间戳值以进行补偿。"
+    },
+    {
+      "indent": 3,
+      "text": "Receiver_ID 32 bits Unique identifier for the receiver within the multicast group. IPv4 addresses may be used.",
+      "zh-CHS": "Receiver_ID多播组内接收器的32位唯一标识符。可以使用IPv4地址。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender_ID: 32 bits Unique identifier for the sender within the multicast group. IPv4 addresses may be used.",
+      "zh-CHS": "发送方ID：多播组中发送方的32位唯一标识符。可以使用IPv4地址。"
+    },
+    {
+      "indent": 3,
+      "text": "X_supp: 16 bits The suppression rate corresponding to the sender, in bits/s. Only those receivers whose desired rate is less than the suppression rate, or whose RTT is larger than R_max, may send feedback information to the sender. The suppression rate is represented as a 16-bit floating point value with 8 bits for the unsigned exponent and 8 bits for the unsigned mantissa.",
+      "zh-CHS": "发送端的抑制率为16位，对应于U/s。只有那些期望速率小于抑制速率或RTT大于R_max的接收机可以向发送方发送反馈信息。抑制率表示为16位浮点值，其中8位表示无符号指数，8位表示无符号尾数。"
+    },
+    {
+      "indent": 3,
+      "text": "R_max: 16 bits The maximum of the RTTs of all receivers, in milliseconds. The Maximum RTT should be represented as a 16-bit floating point value with 8 bits for the unsigned exponent and 8 bits for the unsigned mantissa.",
+      "zh-CHS": "R_max:16位所有接收器的RTT的最大值，以毫秒为单位。最大RTT应表示为16位浮点值，其中8位表示无符号指数，8位表示无符号尾数。"
+    },
+    {
+      "indent": 3,
+      "text": "DSN_count: 8 bits The count of DSN blocks following the header.",
+      "zh-CHS": "DSN_计数：8位标头后DSN块的计数。"
+    },
+    {
+      "indent": 3,
+      "text": "Length: 16 bits Range from 0~65535. The total length of the bundle in octets (including the header).",
+      "zh-CHS": "长度：16位范围为0~65535。束的总长度（以八位字节为单位）（包括标头）。"
+    },
+    {
+      "indent": 3,
+      "text": "DSN: 32 bits There can be up to 256 of these in a header. An SRMP implementation MUST support a minimum of 1. Each DSN consists of three fields:",
+      "zh-CHS": "DSN:32位在一个报头中最多可以有256位。SRMP实现必须至少支持1。每个DSN由三个字段组成："
+    },
+    {
+      "indent": 6,
+      "text": "dataID: 16 bits A unique number associated with a particular data element on the sending host, used to identify a Mode 1 message. SN: 9 bits Sequence number associated with a particular Mode 1 transmission of a particular dataID. NoSegs: 7 bits Number of segments, if the dataID was long enough to require segmentation; otherwise 0x0.",
+      "zh-CHS": "dataID:16位与发送主机上的特定数据元素关联的唯一数字，用于标识模式1消息。SN：与特定数据标识的特定模式1传输相关联的9位序列号。NoSegs：如果数据ID足够长，需要分段，则分段数为7位；否则为0x0。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the number of DSNs reflects the number of different Mode 1 DataIDs being supported at this time by this instance of SRMP, and is not the count of SRMP messages bundled in this transmission.",
+      "zh-CHS": "请注意，DSN的数量反映了此SRMP实例此时支持的不同模式1数据ID的数量，而不是此传输中捆绑的SRMP消息的计数。"
+    },
+    {
+      "indent": 3,
+      "text": "Note also that 16-bit timestamps will wrap around in 65536 milliseconds. This should not be a problem unless an RTT is greater than 65 seconds. If a timestamp is less than its predecessor (treating the 16 bits as an unsigned integer), its value must be increased by 65536 for comparisons against the predecessor.",
+      "zh-CHS": "还请注意，16位时间戳将在65536毫秒内结束。除非RTT大于65秒，否则这不应该是问题。如果时间戳小于其前一个时间戳（将16位视为无符号整数），则必须将其值增加65536，以便与前一个时间戳进行比较。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Feedback Message Format",
+      "section_title": true,
+      "zh-CHS": "3.3. 反馈信息格式"
+    },
+    {
+      "indent": 6,
+      "text": "0              8              16             24             32\n+--------------+--------------+--------------+--------------+\n|Version| Type | fb_nr| flag  |             X_r             |\n+--------------+--------------+--------------+--------------+\n|       Sender_Timestamp      |    Receiver_Timestamp       |\n+--------------+--------------+--------------+--------------+\n|                       Sender_ID                           |\n+--------------+--------------+--------------+--------------+\n|                      Receiver_ID                          |\n+--------------+--------------+--------------+--------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version: 4 bits currently 0010",
+      "zh-CHS": "版本：4位当前为0010"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 4 bits value 0001",
+      "zh-CHS": "类型：4位值0001"
+    },
+    {
+      "indent": 3,
+      "text": "fb_nr: 4 bits current feedback round of the sender",
+      "zh-CHS": "fb_nr：发送器的4位电流反馈回合"
+    },
+    {
+      "indent": 3,
+      "text": "flag: 4 bits 0001 - have_RTT 0010 - have_loss 0100 - receiver_leave other values reserved",
+      "zh-CHS": "标志：4位0001-有\\u RTT 0010-有\\u损失0100-接收器\\u保留其他值"
+    },
+    {
+      "indent": 3,
+      "text": "X_r: 16 bits desired sending rate X_r in bits/s, calculated by the receiver to be TCP-friendly, 16 bit floating point value with 8 bits for the unsigned exponent and 8 bits for the unsigned mantissa.",
+      "zh-CHS": "X_r：16位期望发送速率X_r，以位/秒为单位，由接收器计算为TCP友好型，16位浮点值，8位表示无符号指数，8位表示无符号尾数。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender_Timestamp: 16 bits Echo of the Sender_Timestamp in bundle header. If the receiver has time delay between receiving the bundle and echoing the timestamp, it MUST adjust the Sender_Timestamp value correspondently.",
+      "zh-CHS": "发送方\\u时间戳：包头中发送方\\u时间戳的16位回音。如果接收方在接收包和回显时间戳之间存在时间延迟，则必须相应地调整发送方的时间戳值。"
+    },
+    {
+      "indent": 3,
+      "text": "Receiver_Timestamp: 16 bits The time when the feedback message was sent out from the receiver.",
+      "zh-CHS": "Receiver_Timestamp：16位从接收器发送反馈消息的时间。"
+    },
+    {
+      "indent": 3,
+      "text": "Receiver_ID: 32 bits Unique identifier for the receiver within the multicast group. IPv4 addresses may be used. (Identifies the receiver that sends the feedback message).",
+      "zh-CHS": "Receiver_ID：多播组内接收器的32位唯一标识符。可以使用IPv4地址。（标识发送反馈消息的接收器）。"
+    },
+    {
+      "indent": 3,
+      "text": "Sender_ID: 32 bits Unique identifier for the sender within the multicast group. IPv4 addresses may be used. (Identifies the sender that is the destination of the current feedback message.)",
+      "zh-CHS": "发送方ID：多播组中发送方的32位唯一标识符。可以使用IPv4地址。（标识当前反馈消息的目标发件人。）"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. SRT Mode 0 Header Format",
+      "section_title": true,
+      "zh-CHS": "3.4. SRT模式0标头格式"
+    },
+    {
+      "indent": 6,
+      "text": "0              8              16             24             32\n+--------------+--------------+--------------+--------------+\n|Version| Type | 000 |  00000000  |        Length           |\n+--------------+--------------+--------------+--------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version: 4 bits currently 0010",
+      "zh-CHS": "版本：4位当前为0010"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 4 bits 0000",
+      "zh-CHS": "类型：4位0000"
+    },
+    {
+      "indent": 3,
+      "text": "Mode: 3 bits 000",
+      "zh-CHS": "模式：3位000"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 8 bits 00000000",
+      "zh-CHS": "填充：8位00000000"
+    },
+    {
+      "indent": 3,
+      "text": "Length: 11 bits Length of the payload data in octets (does not include the header).",
+      "zh-CHS": "长度：有效负载数据的11位长度，以八位字节为单位（不包括标头）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. SRT Mode 1 Header Format",
+      "section_title": true,
+      "zh-CHS": "3.5. SRT模式1报头格式"
+    },
+    {
+      "indent": 6,
+      "text": "0              8              16             24             32\n+--------------+--------------+--------------+--------------+\n|Version| Type | 001 |  SegNo    |            Length        |\n+--------------+--------------+--------------+--------------+\n|                            DSN                            |\n+--------------+--------------+--------------+--------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version: 4 bits currently 0010",
+      "zh-CHS": "版本：4位当前为0010"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 4 bits 0000",
+      "zh-CHS": "类型：4位0000"
+    },
+    {
+      "indent": 3,
+      "text": "Mode: 3 bits 001",
+      "zh-CHS": "模式：3位001"
+    },
+    {
+      "indent": 3,
+      "text": "SegNo: 7 bits The index number of this segment.",
+      "zh-CHS": "SegNo:7位此段的索引号。"
+    },
+    {
+      "indent": 3,
+      "text": "Length: 14 bits Length of the payload data in octets (does not include the header).",
+      "zh-CHS": "长度：有效负载数据的14位长度，以八位字节为单位（不包括标头）。"
+    },
+    {
+      "indent": 3,
+      "text": "DSN: 32 bits Same as in the bundle header. Note that this contains NoSegs, whereas SegNo is a separate element.",
+      "zh-CHS": "DSN:32位，与包头中的相同。请注意，它包含NoSegs，而SegNo是一个单独的元素。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. SRT Mode 2 Header Format",
+      "section_title": true,
+      "zh-CHS": "3.6. SRT模式2报头格式"
+    },
+    {
+      "indent": 6,
+      "text": "0              8              16             24             32\n+--------------+--------------+--------------+--------------+\n|Version| Type |010 |  00000  |            Length           |\n+--------------+--------------+--------------+--------------+\n|                            SN                             |\n+--------------+--------------+--------------+--------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version: 4 bits currently 0010",
+      "zh-CHS": "版本：4位当前为0010"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 4 bits 0010",
+      "zh-CHS": "类型：4位0010"
+    },
+    {
+      "indent": 3,
+      "text": "Mode: 3 bits 010",
+      "zh-CHS": "模式：3位010"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 5 bits 00000",
+      "zh-CHS": "填充：5位00000"
+    },
+    {
+      "indent": 3,
+      "text": "Length: 16 bits Length of the payload data in octets (does not the include header).",
+      "zh-CHS": "长度：以八位字节为单位的有效负载数据的16位长度（不包括标头）。"
+    },
+    {
+      "indent": 3,
+      "text": "SN: 32 bits Same as in bundle header.",
+      "zh-CHS": "序列号：32位，与捆绑头中的相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. SRT NACK Format",
+      "section_title": true,
+      "zh-CHS": "3.7. SRT NACK格式"
+    },
+    {
+      "indent": 6,
+      "text": "0              8              16             24             32\n+--------------+--------------+--------------+--------------+\n|Version| Type |111 |  00000  |          reserved           |\n+--------------+--------------+--------------+--------------+\n|                            DSN                            |\n+--------------+--------------+--------------+--------------+\n|                      Sender Address                       |\n+--------------+--------------+--------------+--------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Version: 4 bits currently 0010",
+      "zh-CHS": "版本：4位当前为0010"
+    },
+    {
+      "indent": 3,
+      "text": "Type: 4 bits 0010",
+      "zh-CHS": "类型：4位0010"
+    },
+    {
+      "indent": 3,
+      "text": "Mode: 3 bits 111",
+      "zh-CHS": "模式：3位111"
+    },
+    {
+      "indent": 3,
+      "text": "Padding: 5 bits 00000",
+      "zh-CHS": "填充：5位00000"
+    },
+    {
+      "indent": 3,
+      "text": "Reserved: 16 bits",
+      "zh-CHS": "保留：16位"
+    },
+    {
+      "indent": 3,
+      "text": "DSN: 32 bits sequence number",
+      "zh-CHS": "DSN:32位序列号"
+    },
+    {
+      "indent": 3,
+      "text": "Sender Address: The IP address of the sender of the message being NACKed.",
+      "zh-CHS": "发送者地址：被NACKed消息的发送者的IP地址。"
+    },
+    {
+      "indent": 0,
+      "text": "3.8. User-Configurable Parameters",
+      "section_title": true,
+      "zh-CHS": "3.8. 用户可配置参数"
+    },
+    {
+      "indent": 3,
+      "text": "Name Minimum Value Recommended Value Units",
+      "zh-CHS": "名称最小值推荐值单位"
+    },
+    {
+      "indent": 3,
+      "text": "DSN_Max 1 32 messages dataID_Timeout none none ms Segment_Timeout 50 250 ms Bundle_Timeout 1 10 ms Heartbeat_Interval 1 none s Mode2_Max 1 none messages ACK_Threshold none worst RTT in group ms",
+      "zh-CHS": "DSN_最大值1 32消息数据ID_超时无ms段超时50 250毫秒捆绑超时1 10毫秒心跳间隔1无s调制解调器2_最大值1无消息确认\\u阈值无ms组中最差RTT"
+    },
+    {
+      "indent": 0,
+      "text": "4. TFMCC Operation",
+      "section_title": true,
+      "zh-CHS": "4. TFMCC操作"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. TCP Rate Prediction Equation for TFMCC",
+      "section_title": true,
+      "zh-CHS": "4.1. TFMCC的TCP速率预测方程"
+    },
+    {
+      "indent": 3,
+      "text": "The RECOMMENDED throughput equation for SRMP is a slightly simplified version of the throughput equation for Reno TCP from [5]:",
+      "zh-CHS": "推荐的SRMP吞吐量方程是[5]中雷诺TCP吞吐量方程的稍微简化版本："
+    },
+    {
+      "indent": 6,
+      "text": "                                8*s\nX = ------------------------------------------------------   (1)\n      R * (sqrt(2*p/3) + (3*sqrt(6*p) * p * (1+32*p^2)))",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "(the formula may be simplified for implementation), where",
+      "zh-CHS": "（可简化公式以便于实施），其中"
+    },
+    {
+      "indent": 6,
+      "text": "X is the transmit rate in bits/second.",
+      "zh-CHS": "X是以位/秒为单位的传输速率。"
+    },
+    {
+      "indent": 6,
+      "text": "s is the message size in bytes.",
+      "zh-CHS": "s是以字节为单位的消息大小。"
+    },
+    {
+      "indent": 6,
+      "text": "R is the round-trip time in seconds.",
+      "zh-CHS": "R是以秒为单位的往返时间。"
+    },
+    {
+      "indent": 6,
+      "text": "p is the loss event rate, between 0.0 and 1.0, of the number of loss events as a fraction of the number of messages transmitted.",
+      "zh-CHS": "p是丢失事件数的丢失事件率，介于0.0和1.0之间，占传输消息数的一小部分。"
+    },
+    {
+      "indent": 3,
+      "text": "In the future, different TCP formulas may be substituted for this equation. The requirement is that the throughput equation be a reasonable approximation of the sending rate of TCP for conformant TCP congestion control.",
+      "zh-CHS": "将来，可以用不同的TCP公式来代替该等式。要求吞吐量方程是一致TCP拥塞控制的TCP发送速率的合理近似值。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Bundling",
+      "section_title": true,
+      "zh-CHS": "4.2. 捆绑"
+    },
+    {
+      "indent": 3,
+      "text": "Multiple SRMP messages will be encapsulated into a bundle. When a new SRMP message (Mode 0 or Mode 1) arrives, the SRMP daemon will try to add the new message into the current bundle.",
+      "zh-CHS": "多个SRMP消息将封装到一个包中。当新的SRMP消息（模式0或模式1）到达时，SRMP守护进程将尝试将新消息添加到当前捆绑包中。"
+    },
+    {
+      "indent": 3,
+      "text": "The SRMP daemon MUST keep a timer, which will be reset when the first SRMP message is added into the bundle. After Bundle_Timeout, the timer will time out, and the current bundle should be transmitted",
+      "zh-CHS": "SRMP守护进程必须保留一个计时器，当第一条SRMP消息添加到包中时，该计时器将被重置。Bundle_超时后，计时器将超时，并且应传输当前Bundle"
+    },
+    {
+      "indent": 3,
+      "text": "immediately. A new bundle will then be initialized to hold new SRMP messages. Bundle_Timeout SHALL NOT be less than 1 ms. The recommended value is 10 ms.",
+      "zh-CHS": "立即然后将初始化一个新的捆绑包以保存新的SRMP消息。Bundle_超时不得小于1 ms。建议值为10 ms。"
+    },
+    {
+      "indent": 3,
+      "text": "Also, the bundle length MUST NOT exceed LENGTH_MAX. If adding a new SRMP message will produce a greater length, the SRMP daemon MUST initialize a new bundle for the new SRMP messages, and the current bundle should be transmitted immediately. The recommended value for LENGTH_MAX is 1454 bytes (Ethernet MTU minus IP and UDP header lengths).",
+      "zh-CHS": "此外，捆绑长度不得超过length_MAX。如果添加新的SRMP消息将产生更大的长度，则SRMP守护程序必须为新的SRMP消息初始化新捆绑，并且应立即传输当前捆绑。长度_MAX的建议值为1454字节（以太网MTU减去IP和UDP报头长度）。"
+    },
+    {
+      "indent": 3,
+      "text": "In a bundle, there may exist multiple SRMP messages with the same dataID. In this case, only the latest version of that dataID is useful. SRMP may check for duplicate dataIDs in the same bundle and delete all but the latest one. If a Mode 1 message appears in the outgoing bundle, then the corresponding DSN should not appear in the bundle header.",
+      "zh-CHS": "在捆绑包中，可能存在多个具有相同数据ID的SRMP消息。在这种情况下，只有该数据ID的最新版本才有用。SRMP可以检查同一捆绑包中的重复数据标识，并删除除最新数据标识以外的所有数据标识。如果传出捆绑中出现模式1消息，则相应的DSN不应出现在捆绑头中。"
+    },
+    {
+      "indent": 3,
+      "text": "The bundle header contains the DSN <dataID,SN,NoSegs> for Mode 1 messages from this sender. The absolute maximum number of DSN is 255; however, an implementation may apply a user-specified DSN_Max, no smaller than 1. An implementation may support a user-defined dataID_Timeout, after which a given dataID will not be announced in the bundle header unless a new Mode 1 message has been sent. If the sender has more dataIDs sent (and not timed out) than will fit in the bundle header, the DSNs MUST be announced on a round-robin basis, with the exception that no bundle header will announce a DSN for a Mode 1 message contained within that bundle. If a duplicate DSN is received, it may be silently discarded.",
+      "zh-CHS": "bundle头包含来自此发送方的模式1消息的DSN<dataID，SN，NoSegs>。DSN的绝对最大数量为255；但是，实现可以应用用户指定的DSN_Max，不小于1。实现可能支持用户定义的dataID_超时，在此超时之后，除非发送了新的模式1消息，否则不会在包头中宣布给定的dataID。如果发送方发送的数据标识数（且未超时）超过捆绑包头中的数据标识数，则必须以循环方式通知DSN，但没有捆绑包头会为该捆绑包中包含的模式1消息通知DSN。如果接收到重复的DSN，它可能会被悄悄地丢弃。"
+    },
+    {
+      "indent": 0,
+      "text": "4.3. Congestion Control",
+      "section_title": true,
+      "zh-CHS": "4.3. 拥塞控制"
+    },
+    {
+      "indent": 3,
+      "text": "The congestion control mechanism operates as described in [7].",
+      "zh-CHS": "拥塞控制机制的操作如[7]所述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.4. Any-Source Multicast",
+      "section_title": true,
+      "zh-CHS": "4.4. 任意源多播"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP uses the Any-Source Multicast Mode. Each sender will determine its maximum RTT, suppression data rate, and sending rate with respect to each sender. Each receiver will measure its RTT and desired rate to each sender in the group, and send feedback to every sender by sending to the multicast group.",
+      "zh-CHS": "SRMP使用任意源多播模式。每个发送方将确定其最大RTT、抑制数据速率和每个发送方的发送速率。每个接收者将测量其RTT和期望的速率到组中的每个发送者，并通过发送到多播组向每个发送者发送反馈。"
+    },
+    {
+      "indent": 0,
+      "text": "4.5. Multiple Sources",
+      "section_title": true,
+      "zh-CHS": "4.5. 多源"
+    },
+    {
+      "indent": 3,
+      "text": "Under SRMP, each group member in a multicast group is a sender as well as a receiver. Each receiver may need to participate in TFMCC information exchange with all senders. Thus, when a receiver sends a",
+      "zh-CHS": "在SRMP下，多播组中的每个组成员既是发送方也是接收方。每个接收者可能需要参与TFMCC与所有发送者的信息交换。因此，当接收器发送"
+    },
+    {
+      "indent": 3,
+      "text": "feedback message, it must identify to which source the message should be sent using the \"Sender ID\" field in the header.",
+      "zh-CHS": "反馈消息，它必须使用标头中的“发件人ID”字段标识消息应发送到哪个来源。"
+    },
+    {
+      "indent": 3,
+      "text": "The feedback is multicast to the group. Depending on the network situation, senders may select different receivers to provide feedback. Feedback messages from receivers that are not among those selected by the local TFMCC to provide feedback should be silently discarded.",
+      "zh-CHS": "反馈是多播到组的。根据网络情况，发送者可能会选择不同的接收器来提供反馈。不属于本地TFMCC选择提供反馈的接收者的反馈消息应被静默丢弃。"
+    },
+    {
+      "indent": 0,
+      "text": "4.6. Bundle Size",
+      "section_title": true,
+      "zh-CHS": "4.6. 束大小"
+    },
+    {
+      "indent": 3,
+      "text": "TFMCC is designed for traffic with a fixed message size. The maximum bundle size (including header) for SRMP is set to a configurable maximum, typically 1454 bytes (Ethernet MTU minus IP and UDP header lengths). The bundle size will be used in a TCP throughput equation, to get a desired source rate. However, in SRMP, the message size is variable because:",
+      "zh-CHS": "TFMCC专为具有固定消息大小的通信量而设计。通常，UDP头的最大长度为1454字节（包括SRMP头的最大长度）。捆绑大小将用于TCP吞吐量等式中，以获得所需的源速率。但是，在SRMP中，消息大小是可变的，因为："
+    },
+    {
+      "indent": 3,
+      "text": "1. After bundle time out, the current bundle will not wait for new SRMP messages. This happens with sources sending at a slow rate.",
+      "zh-CHS": "1. 包超时后，当前包将不会等待新的SRMP消息。这种情况发生在源以慢速发送的情况下。"
+    },
+    {
+      "indent": 3,
+      "text": "2. In long messages, there is no further space in the current bundle for new SRMP messages. This will happen with sources sending at a high rate or sending messages with a length over half of the bundle payload size.",
+      "zh-CHS": "2. 在长消息中，当前捆绑包中没有更多空间容纳新的SRMP消息。这将发生在源以高速率发送或发送长度超过捆绑负载大小一半的消息时。"
+    },
+    {
+      "indent": 3,
+      "text": "The case 1 bundle size is likely to be much smaller than that of case 2.",
+      "zh-CHS": "案例1的束大小可能比案例2小得多。"
+    },
+    {
+      "indent": 3,
+      "text": "Therefore, in SRMP, the mean value of the 10 most recent bundles' sizes will be used as the bundle size in the TCP throughput equation. This mean value is independent from the network condition and reflects current activity of the source.",
+      "zh-CHS": "因此，在SRMP中，最近10个捆绑包大小的平均值将用作TCP吞吐量方程中的捆绑包大小。该平均值独立于网络条件，并反映源的当前活动。"
+    },
+    {
+      "indent": 0,
+      "text": "4.7. Data Rate Control",
+      "section_title": true,
+      "zh-CHS": "4.7. 数据速率控制"
+    },
+    {
+      "indent": 3,
+      "text": "Each host will have a single instance of SRMP supporting all of its applications. Thus, the sender's source rate is the sum of the rates of all the clients of the same multicast group.",
+      "zh-CHS": "每个主机将有一个支持其所有应用程序的SRMP实例。因此，发送方的源速率是同一多播组的所有客户端的速率之和。"
+    },
+    {
+      "indent": 3,
+      "text": "If the source rate is larger than the sender's desired transmission rate, it is the sender's responsibility to do traffic shaping. Any method that conforms to the target sending rate may be used. The RECOMMENDED method is to randomly discard enough Mode 0 messages to meet the target rate.",
+      "zh-CHS": "如果源速率大于发送方期望的传输速率，则发送方负责进行流量整形。可以使用符合目标发送速率的任何方法。建议的方法是随机丢弃足够多的模式0消息以满足目标速率。"
+    },
+    {
+      "indent": 0,
+      "text": "4.8. Mode 1 Loss Detection",
+      "section_title": true,
+      "zh-CHS": "4.8. 模式1损耗检测"
+    },
+    {
+      "indent": 3,
+      "text": "Bundle header processing includes checking each DSN in the bundle header and scheduling a NACK for each DSN bearing a dataID for which some application has indicated interest, if the SN/SegNo in that DSN indicates that a NACK is needed. NACKs are sent in bundles and may be bundled with data messages. A NACK is required if:",
+      "zh-CHS": "捆绑头处理包括检查捆绑头中的每个DSN，如果该DSN中的SN/SegNo指示需要NACK，则为每个带有某个应用程序已表示感兴趣的数据ID的DSN调度NACK。NACK以捆绑方式发送，并可能与数据消息捆绑在一起。如果出现以下情况，则需要NACK："
+    },
+    {
+      "indent": 3,
+      "text": "o the SN is one or more greater (mod 512) than the latest received Mode 1 message for that dataID, or",
+      "zh-CHS": "o SN比该数据ID的最新接收的模式1消息大一个或多个（mod 512），或"
+    },
+    {
+      "indent": 3,
+      "text": "o the SegNo has not been received, some segment of the <dataID,SN> has been received, and a user-defined Segment_Timeout, which SHALL NOT be less than 50 ms, has expired since receipt of the first SegNo for the <dataID,SN>.",
+      "zh-CHS": "o 未收到SegNo，已收到<dataID，SN>的某些段，且自收到<dataID，SN>的第一个SegNo后，用户定义的段_超时（不应小于50 ms）已过期。"
+    },
+    {
+      "indent": 3,
+      "text": "The bundling sublayer will pass the DSN list in any received bundle header to the SRT sublayer. It also will suppress NACKs in outgoing bundles, as described in the next section.",
+      "zh-CHS": "捆绑子层将任何接收到的捆绑头中的DSN列表传递给SRT子层。它还将抑制传出捆绑包中的NACK，如下一节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "4.8.1. Sending a Negative Acknowledgement",
+      "section_title": true,
+      "zh-CHS": "4.8.1. 发送否定的确认"
+    },
+    {
+      "indent": 3,
+      "text": "Negative acknowledgements are used by SRMP for multicast messages in order to avoid the congestion of an \"ACK implosion\" at the original sender that would likely occur if positive acknowledgements were used instead. However, with a large multicast group spread out over a congested wide-area network, there is the potential for enough members of the multicast group to fail to receive the message and generate NACKs to cause considerable congestion at the original sender despite the use of negative acknowledgements instead of positive acknowledgements. For this reason, SRMP uses a NACK suppression mechanism to reduce the number of NACKs generated in response to any single lost message.",
+      "zh-CHS": "SRMP对多播消息使用否定确认，以避免在使用肯定确认时可能发生的原始发送方的“确认内爆”拥塞。然而，由于大型多播组分布在拥挤的广域网上，因此多播组中有足够多的成员可能无法接收消息并生成nack，从而在原始发送方造成相当大的拥塞，尽管使用了否定确认而不是肯定确认。因此，SRMP使用NACK抑制机制来减少响应任何单个丢失消息而生成的NACK数量。"
+    },
+    {
+      "indent": 3,
+      "text": "The NACK suppression mechanism uses the Bundle_Timeout to distribute NACKs over an appropriate time window. This assumes that the user has selected a bundle timeout appropriate for the needs of the application for real-time responsiveness.",
+      "zh-CHS": "NACK抑制机制使用Bundle_超时在适当的时间窗口内分发NACK。这假设用户选择了适合应用程序实时响应需要的包超时。"
+    },
+    {
+      "indent": 3,
+      "text": "When the bundling sublayer is ready to send a bundle, it removes from the bundle any NACKs for which a response has been sent by another member of the multicast group within the NACK_Repeat_Timeout window. If the original Bundle_Timeout has not expired, transmission of the bundle may then be delayed until the original Bundle_Timeout expires or the bundle is full, whichever happens first.",
+      "zh-CHS": "当捆绑子层准备好发送捆绑包时，它将从捆绑包中删除任何NACK，其中多播组的另一个成员已在NACK_Repeat_超时窗口内发送了响应。如果原始Bundle_超时未过期，则可能会延迟该Bundle的传输，直到原始Bundle_超时过期或Bundle已满，以先发生的为准。"
+    },
+    {
+      "indent": 0,
+      "text": "4.9. Unbundling",
+      "section_title": true,
+      "zh-CHS": "4.9. 分拆"
+    },
+    {
+      "indent": 3,
+      "text": "After a receiver completes congestion control processing on a bundle, it parses the bundle into SRT messages and sends these to the SRT sublayer.",
+      "zh-CHS": "在接收方完成捆绑包上的拥塞控制处理后，它将捆绑包解析为SRT消息，并将这些消息发送到SRT子层。"
+    },
+    {
+      "indent": 0,
+      "text": "4.10. Heartbeat Bundle",
+      "section_title": true,
+      "zh-CHS": "4.10. 心跳束"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP implementations may support a user-defined Heartbeat_Interval, which SHALL NOT be less than one second. At the end of each heartbeat interval, if the sender has not sent any bundle, an empty bundle will be sent in order to trigger Mode 1 loss detection.",
+      "zh-CHS": "SRMP实现可支持用户定义的心跳间隔，该间隔不得小于1秒。在每个心跳间隔结束时，如果发送方未发送任何包，将发送一个空包以触发模式1丢失检测。"
+    },
+    {
+      "indent": 0,
+      "text": "5. SRT Operation",
+      "section_title": true,
+      "zh-CHS": "5. SRT操作"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP operates in three distinct transmission modes in order to deliver varying levels of reliability: Mode 0 for multicast data that does not require reliable transmission, Mode 1 for data that must be received reliably by all members of a multicast group, and Mode 2 for data that must be received reliably by a single dynamically determined member of a multicast group.",
+      "zh-CHS": "SRMP以三种不同的传输模式运行，以提供不同级别的可靠性：模式0用于不需要可靠传输的多播数据，模式1用于必须由多播组的所有成员可靠接收的数据，以及模式2，用于必须由多播组的单个动态确定的成员可靠地接收的数据。"
+    },
+    {
+      "indent": 3,
+      "text": "Mode 0 operates as a pure best-effort service. Mode 1 operates with negative acknowledgements only, triggered by bundle arrivals that indicate loss of a Mode 1 message. Mode 2 uses a positive acknowledgement for each message to provide reliability and low latency. Mode 2 is used where a transaction between two members of a multicast group is needed. Because there can be many members in such a group, use of a transaction protocol, with reliability achieved by SRMP retransmission, avoids the potentially large amount of connection setup and associated state that would be required if each pair of hosts in the group established a separate TCP connection.",
+      "zh-CHS": "模式0作为纯尽力而为的服务运行。模式1仅在负面确认下运行，由指示模式1消息丢失的捆绑到达触发。模式2对每条消息使用肯定确认，以提供可靠性和低延迟。模式2用于需要多播组的两个成员之间的事务的情况。由于这样一个组中可能有许多成员，使用事务协议（通过SRMP重传实现可靠性）可以避免在组中的每对主机建立单独的TCP连接时可能需要的大量连接设置和关联状态。"
+    },
+    {
+      "indent": 3,
+      "text": "Use of SRMP anticipates that only a small fraction of messages will require reliable multicast, and a comparably small fraction will require reliable unicast. This is due to a property of distributed virtual simulation: the preponderance of messages consist of state update streams for object attributes such as position and orientation. SRMP is unlikely to provide effective reliable multicast if the traffic does not have this property.",
+      "zh-CHS": "SRMP的使用预期只有一小部分消息需要可靠的多播，而相对较小的一部分消息需要可靠的单播。这是由于分布式虚拟仿真的一个特性：消息的优势在于对象属性（如位置和方向）的状态更新流。如果流量没有此属性，SRMP不可能提供有效的可靠多播。"
+    },
+    {
+      "indent": 3,
+      "text": "In SRMP, \"dataID\" is used to associate related messages with each other. Typically, all messages with the same dataID are associated with the same application entity. All the messages with the same dataID must be transmitted in the same mode. Among all the messages with the same dataID, the latest version will obsolete all older messages.",
+      "zh-CHS": "在SRMP中，“dataID”用于将相关消息相互关联。通常，具有相同dataID的所有消息都与相同的应用程序实体相关联。具有相同数据标识的所有消息必须以相同的模式传输。在所有具有相同dataID的邮件中，最新版本将淘汰所有旧邮件。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Mode 0 Operation",
+      "section_title": true,
+      "zh-CHS": "5.1. 模式0操作"
+    },
+    {
+      "indent": 3,
+      "text": "Mode 0 is for multicast messages that do not require reliable transmission because they are part of a real-time stream of data that is periodically updated with high frequency. Any such message is very likely to have been superceded by a more recent update before retransmission could be completed.",
+      "zh-CHS": "模式0适用于不需要可靠传输的多播消息，因为它们是实时数据流的一部分，定期以高频率更新。在完成重新传输之前，任何此类消息都很可能已被较新的更新所取代。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.1. Sending Mode 0 Messages",
+      "section_title": true,
+      "zh-CHS": "5.1.1. 发送模式0消息"
+    },
+    {
+      "indent": 3,
+      "text": "When an application requests transmission of Mode 0 data, a destination multicast group must be provided to SRMP along with the data to be sent. After verifying the data length and multicast group, the following steps MUST be performed by the SRT sublayer:",
+      "zh-CHS": "当应用程序请求传输模式0数据时，必须向SRMP提供目标多播组以及要发送的数据。在验证数据长度和多播组后，SRT子层必须执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. An SRT message MUST be generated with the following characteristics:",
+      "zh-CHS": "1. 生成的SRT消息必须具有以下特征："
+    },
+    {
+      "indent": 6,
+      "text": "the version is set to the current version, the message type is set to 0x0, the mode is set to 0x0. User data is included after the message header. If the message cannot be generated as described above, the user data is discarded and the error MUST be reported to the application.",
+      "zh-CHS": "版本设置为当前版本，消息类型设置为0x0，模式设置为0x0。用户数据包含在消息头之后。如果无法如上所述生成消息，则丢弃用户数据，并且必须向应用程序报告错误。"
+    },
+    {
+      "indent": 3,
+      "text": "2. If step 1 was completed without error, the newly generated message MUST be sent to the bundling sublayer. The implementation MUST report to the application whether the message was ultimately accepted by UDP.",
+      "zh-CHS": "2. 如果步骤1没有错误地完成，则必须将新生成的消息发送到绑定子层。实现必须向应用程序报告消息是否最终被UDP接受。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1.2. Receiving Mode 0 Messages",
+      "section_title": true,
+      "zh-CHS": "5.1.2. 接收模式0消息"
+    },
+    {
+      "indent": 3,
+      "text": "When a Mode 0 message is received by SRMP, it MUST be processed as follows: after verifying the version, message type, and destination multicast address fields, the user data MUST be delivered to all applications that are associated with the multicast group in the message. If the SRMP receiver has never received any Mode 1 messages before the Mode 0 message is received, the Mode 0 message should be silently discarded.",
+      "zh-CHS": "当SRMP接收到模式0消息时，必须按如下方式处理：在验证版本、消息类型和目标多播地址字段后，必须将用户数据发送到与消息中的多播组关联的所有应用程序。如果SRMP接收器在收到模式0消息之前从未收到过任何模式1消息，则模式0消息应以静默方式丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "It is RECOMMENDED that the following information be provided to the receiving applications: message body, multicast address.",
+      "zh-CHS": "建议向接收应用程序提供以下信息：消息正文、多播地址。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Mode 1 Operation",
+      "section_title": true,
+      "zh-CHS": "5.2. 模式1操作"
+    },
+    {
+      "indent": 3,
+      "text": "Mode 1 is for multicast data that requires reliable transmission. A Mode 1 message can be either a data message or a NACK. Mode 1 data messages are expected to be part of a data stream. This data stream is likely to contain Mode 0 messages as well (see section 5.1.1), but",
+      "zh-CHS": "模式1适用于需要可靠传输的多播数据。模式1消息可以是数据消息或NACK。模式1数据消息应为数据流的一部分。该数据流可能也包含模式0消息（见第5.1.1节），但"
+    },
+    {
+      "indent": 3,
+      "text": "it is possible for a data stream to be comprised solely of Mode 1 messages.",
+      "zh-CHS": "数据流可能仅由模式1消息组成。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2.1. Sending Mode 1 Data Messages",
+      "section_title": true,
+      "zh-CHS": "5.2.1. 发送模式1数据消息"
+    },
+    {
+      "indent": 3,
+      "text": "After the data length, dataID, and destination multicast group are verified, SRT MUST take the following steps:",
+      "zh-CHS": "验证数据长度、数据ID和目标多播组后，SRT必须采取以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. If the message will not fit in an empty bundle with DSN_Max DSN in the header, the message MUST be segmented. The remaining steps pertain to each segment of the message. Each segment receives a unique SegNo, starting with 0 and ending with (NoSegs-1).",
+      "zh-CHS": "1. 如果消息不适合在标头中包含DSN_Max DSN的空包中，则必须对消息进行分段。其余步骤与消息的每个部分相关。每个段接收一个唯一的SegNo，从0开始，以（NoSegs-1）结束。"
+    },
+    {
+      "indent": 3,
+      "text": "2. An SRT message is generated with the following characteristics: the version is set to 0x02, the message type is set to 0x0, the transmission mode is set to 0x01, the SN is set equal to the SN of the most recently sent Mode 1 complete message of the same dataID, incremented by 1 modulo 512. If no such Mode 1 message exists, the SN is set to 0x0.",
+      "zh-CHS": "2. 生成具有以下特征的SRT消息：版本设置为0x02，消息类型设置为0x0，传输模式设置为0x01，SN设置为等于相同数据ID的最近发送的模式1完整消息的SN，以1模512递增。如果不存在此类模式1消息，则SN设置为0x0。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The newly generated message (all segments) must then be buffered, replacing any formerly buffered Mode 1 message of the same dataID, destination multicast address. If the message cannot be buffered, the user data is discarded and the error is reported to the application.",
+      "zh-CHS": "3. 然后必须对新生成的消息（所有段）进行缓冲，以替换具有相同数据标识（目标多播地址）的任何先前缓冲的模式1消息。如果消息无法缓冲，则丢弃用户数据并向应用程序报告错误。"
+    },
+    {
+      "indent": 3,
+      "text": "4. If step 2 was completed without error, the newly generated message is sent to the TFMCC sublayer.",
+      "zh-CHS": "4. 如果步骤2没有错误地完成，则新生成的消息将发送到TFMCC子层。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2.2. Receiving Mode 1 Data Messages",
+      "section_title": true,
+      "zh-CHS": "5.2.2. 接收模式1数据电文"
+    },
+    {
+      "indent": 3,
+      "text": "When a Mode 1 data message is received by SRT, it will be processed as follows (assuming that the version field has already been verified to be 0x02):",
+      "zh-CHS": "当SRT接收到模式1数据消息时，将按如下方式处理（假设已验证版本字段为0x02）："
+    },
+    {
+      "indent": 3,
+      "text": "1. The destination address MUST be verified to be a valid IP multicast address on which this instance of SRMP is a member. If this is not the case, the message should be silently discarded.",
+      "zh-CHS": "1. 必须验证目标地址是否为SRMP实例所属的有效IP多播地址。如果情况并非如此，则应以静默方式丢弃消息。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The destination address MUST be verified to be one for which some application has indicated interest. Otherwise, the message should be silently discarded.",
+      "zh-CHS": "2. 必须验证目标地址是否是某个应用程序表示感兴趣的地址。否则，该消息应以静默方式丢弃。"
+    },
+    {
+      "indent": 3,
+      "text": "3. The SN, SegNo, source_ip_address, and the body of the received message MUST be buffered, and the user data MUST then be delivered to all applications that have indicated interest in the multicast group of the received message.",
+      "zh-CHS": "3. SN、SegNo、source_ip_地址和接收到的消息体必须进行缓冲，然后必须将用户数据发送到已表示对接收到的消息的多播组感兴趣的所有应用程序。"
+    },
+    {
+      "indent": 3,
+      "text": "4. When a new DSN value is received with NoSegs greater than zero, a timer should be set for Segment_Timeout, after which a NACK should be sent to the bundling sublayer and the timer should be restarted for Segment_Timeout.",
+      "zh-CHS": "4. 当接收到新的DSN值且NoSegs大于零时，应为Segment_Timeout设置计时器，之后应向捆绑子层发送NACK，并应为Segment_Timeout重新启动计时器。"
+    },
+    {
+      "indent": 3,
+      "text": "5. If NoSegs in the received message is not 0, a reassembly process MUST be started. Each segment MUST be buffered. If receipt of the current message completes the segment, the reassembled message MUST be released to the application and the Segment_Timeout timer cancelled.",
+      "zh-CHS": "5. 如果收到的消息中的NoSegs不是0，则必须开始重新组装过程。每个段都必须缓冲。如果当前消息的接收完成了段，则重新组装的消息必须释放到应用程序，并且段超时计时器被取消。"
+    },
+    {
+      "indent": 3,
+      "text": "6. If a new DSN is received before all segments of the previous DSN are received, the segments that have been received should be dropped silently.",
+      "zh-CHS": "6. 如果在接收前一个DSN的所有段之前接收到新的DSN，则应无声地删除已接收的段。"
+    },
+    {
+      "indent": 3,
+      "text": "7. It is RECOMMENDED that the following information be provided to the receiving applications: message body, dataID, source_ip_address, multicast_group address.",
+      "zh-CHS": "7. 建议向接收应用程序提供以下信息：消息正文、数据ID、源ip地址、多播组地址。"
+    },
+    {
+      "indent": 3,
+      "text": "8. When a client signs on to a new multicast group, all locally buffered Mode 1 messages related to that multicast group should be delivered to the client immediately.",
+      "zh-CHS": "8. 当客户端登录到新的多播组时，所有与该多播组相关的本地缓冲模式1消息都应立即发送到客户端。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2.3. Sending a Negative Acknowledgement",
+      "section_title": true,
+      "zh-CHS": "5.2.3. 发送否定的确认"
+    },
+    {
+      "indent": 3,
+      "text": "Whenever a bundle is received, the bundling sublayer will forward the DSN list from the bundle header to the SRT sublayer. The SRT sublayer will examine buffered values of <SenderID,dataID,SN,SegNo> to determine whether a NACK is required. If so, it will generate a NACK message and send it to the bundling sublayer. The NACK message will have version set to 0x2, message type set to 0x2, and transmission mode set to 0x7. dataID, SN, and destination address are set to that of the Mode 1 message for which the NACK is being sent. If a NACK has been received from any member of the destination multicast group for the Mode 1 message in question within the NACK threshold, no NACK is generated.",
+      "zh-CHS": "每当收到捆绑包时，捆绑子层都会将DSN列表从捆绑包头转发到SRT子层。SRT子层将检查<SenderID，dataID，SN，SegNo>的缓冲值，以确定是否需要NACK。如果是，它将生成NACK消息并将其发送到绑定子层。NACK消息的版本设置为0x2，消息类型设置为0x2，传输模式设置为0x7。dataID、SN和目的地地址被设置为正在为其发送NACK的模式1消息的地址。如果在NACK阈值内从目标多播组的任何成员接收到关于模式1消息的NACK，则不生成NACK。"
+    },
+    {
+      "indent": 3,
+      "text": "For segmented messages, there are two possible types of NACKs:",
+      "zh-CHS": "对于分段消息，有两种可能的NACK类型："
+    },
+    {
+      "indent": 3,
+      "text": "o Based on the DSN list in the bundle header, the SRT implementation may determine that an entire segmented Mode 1 message was lost. In this case, the NACK MUST carry SegNo=0x7F (all in one field).",
+      "zh-CHS": "o 根据捆绑头中的DSN列表，SRT实现可能会确定整个分段模式1消息丢失。在这种情况下，NACK必须携带SegNo=0x7F（全部在一个字段中）。"
+    },
+    {
+      "indent": 3,
+      "text": "o Based on the Segment Timeout, the SRT implementation may determine that one or more segments of a message have not been delivered. In this case, a NACK will be sent for each missing segment.",
+      "zh-CHS": "o 基于段超时，SRT实现可以确定消息的一个或多个段尚未被传递。在这种情况下，将为每个缺失的段发送NACK。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2.4. Receiving a Negative Acknowledgement",
+      "section_title": true,
+      "zh-CHS": "5.2.4. 收到否定的确认"
+    },
+    {
+      "indent": 3,
+      "text": "When a NACK is received by SRT, it MUST be processed as follows, after verifying the multicast address, dataID, source IP address, and transmission mode:",
+      "zh-CHS": "当SRT接收到NACK时，在验证多播地址、数据ID、源IP地址和传输模式后，必须按照以下方式处理："
+    },
+    {
+      "indent": 3,
+      "text": "1. If this instance of SRT's most recent Mode 1 message of the dataID indicated in the NACK has an SN newer than the SN in the NACK, that message (which is buffered) should be immediately retransmitted to the multicast address indicated in the received NACK. If the most recent Mode 1 message has an SN equal to the SN indicated in the NACK, and if the SegNo field in the NACK contains 0x7F, all segments of the buffered Mode 1 message MUST be retransmitted; if the SegNo has some other value, only the indicated segment should be retransmitted.",
+      "zh-CHS": "1. 如果在NACK中指示的dataID的SRT的最新模式1消息的该实例具有比NACK中的SN新的SN，则该消息（被缓冲）应立即重新传输到在接收到的NACK中指示的多播地址。如果最近的模式1消息的SN等于NACK中指示的SN，并且如果NACK中的SegNo字段包含0x7F，则必须重新传输缓冲模式1消息的所有段；如果SegNo有其他值，则只应重新传输指定的段。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Whether or not step 1 results in the retransmission of a message, the event of receiving the NACK and the (local machine) time at which the NACK was received should be buffered. Each instance of SRT MUST buffer the number of NACKs that have been received for each dataID-multicast address pair, since the most recent Mode 1 message of the same pair was received and the time at which the most recent of these NACKs was received.",
+      "zh-CHS": "2. 无论步骤1是否导致消息的重新传输，都应缓冲接收NACK的事件和接收NACK的（本地机器）时间。SRT的每个实例都必须缓冲每个dataID多播地址对已接收的NACK数量，因为已接收到同一对的最新模式1消息以及接收到这些NACK中最新NACK的时间。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3. Mode 2 Operation",
+      "section_title": true,
+      "zh-CHS": "5.3. 模式2操作"
+    },
+    {
+      "indent": 3,
+      "text": "Mode 2 is for infrequent reliable transaction-oriented communication between two dynamically determined members of a multicast group. TCP could be used for such communication, but there would be unnecessary overhead and delay in establishing a stream-oriented connection for a single exchange of data, whereas there is already an ongoing stream of best-effort data between the hosts that require Mode 2 transmission. An example is a Distributed Interactive Simulation (DIS) collision PDU.",
+      "zh-CHS": "模式2用于在多播组的两个动态确定的成员之间进行不频繁的面向事务的可靠通信。TCP可用于此类通信，但在为单个数据交换建立面向流的连接时会有不必要的开销和延迟，而主机之间已经存在需要模式2传输的最大努力数据流。一个例子是分布式交互仿真（DIS）碰撞PDU。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.1. Sending Mode 2 Data Messages",
+      "section_title": true,
+      "zh-CHS": "5.3.1. 发送模式2数据消息"
+    },
+    {
+      "indent": 3,
+      "text": "When an application requests transmission of Mode 2 data, a dataID and a destination unicast IP address MUST be provided to SRT along with the data to be sent. After verifying the data length, dataID, and destination address, SRT MUST perform the following steps:",
+      "zh-CHS": "当应用程序请求传输模式2数据时，必须向SRT提供数据ID和目标单播IP地址以及要发送的数据。在验证数据长度、数据ID和目标地址后，SRT必须执行以下步骤："
+    },
+    {
+      "indent": 3,
+      "text": "1. An SRT message is generated with the following characteristics: the version is set to 0x02, the message type is set to 0x02, the transmission mode is set to 0x2, the dataID is set to the application-provided value, and the destination address is set to the application-provided IP address. The SN is set equal to the SN of the most recently sent Mode 2 message of the same dataID",
+      "zh-CHS": "1. 生成具有以下特征的SRT消息：版本设置为0x02，消息类型设置为0x02，传输模式设置为0x2，数据ID设置为应用程序提供的值，目标地址设置为应用程序提供的IP地址。SN设置为与最近发送的具有相同数据ID的模式2消息的SN相同"
+    },
+    {
+      "indent": 6,
+      "text": "incremented by 1 modulo 65536. If no such Mode 1 message exists, it is set to 0x0.",
+      "zh-CHS": "以1的模65536递增。如果不存在此类模式1消息，则将其设置为0x0。"
+    },
+    {
+      "indent": 3,
+      "text": "2. The newly generated message is buffered. This new message does not replace any formerly buffered Mode 2 messages. An implementation MUST provide a Mode 2 message buffer that can hold one or more Mode 2 messages. Mode 2 messages are expected to be infrequent (less than 1 percent of total traffic), but it is still strongly RECOMMENDED that an implementation provide a buffer of user-configurable size Mode2_Max that can hold more than a single Mode 2 message. If the message cannot be buffered, the user data is discarded and the error MUST be reported to the application. If the message can be buffered, it should be sent to UDP immediately after being buffered.",
+      "zh-CHS": "2. 新生成的消息被缓冲。此新消息不替换任何以前缓冲的模式2消息。一个实现必须提供一个模式2消息缓冲区，该缓冲区可以容纳一个或多个模式2消息。模式2消息预计不太频繁（不到总流量的1%），但仍然强烈建议实现提供一个用户可配置大小为Mode2_Max的缓冲区，该缓冲区可容纳多个单一模式2消息。如果消息无法缓冲，则丢弃用户数据，并且必须向应用程序报告错误。如果消息可以缓冲，则应在缓冲后立即将其发送到UDP。"
+    },
+    {
+      "indent": 3,
+      "text": "3. If step 2 was completed without error, the newly generated message MUST be sent to the IP address contained in its destination address field, encapsulated within a UDP datagram. If the UDP interface on the sending system reports an error to SRT when the attempt to send the SRT message is made, an implementation may attempt to resend the message any finite number of times. However, every implementation MUST provide a mode in which no retries are attempted. Implementations should default to this latter mode of operation. The implementation MUST report to the application whether the message was ultimately accepted by UDP.",
+      "zh-CHS": "3. 如果步骤2没有错误地完成，则必须将新生成的消息发送到其目标地址字段中包含的IP地址，该地址封装在UDP数据报中。如果发送系统上的UDP接口在尝试发送SRT消息时向SRT报告错误，则实现可能会尝试重新发送消息任意有限次。但是，每个实现都必须提供一种不尝试重试的模式。实现应该默认为后一种操作模式。实现必须向应用程序报告消息是否最终被UDP接受。"
+    },
+    {
+      "indent": 3,
+      "text": "4. If some user-configurable \"ACK_Threshold\" (which should be greater than the worst-case round-trip time for the multicast group) elapses without receipt of an ACK for the Mode 2 message, it is retransmitted. An implementation may define a maximum number of retransmissions to be attempted before the Mode 2 message is removed from the buffer.",
+      "zh-CHS": "4. 如果某个用户可配置的“ACK_阈值”（应大于多播组的最坏情况往返时间）在没有收到模式2消息的ACK的情况下消失，则会重新传输该消息。实现可以定义在从缓冲器中移除模式2消息之前要尝试的最大重传次数。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.2. Receiving Mode 2 Data Messages",
+      "section_title": true,
+      "zh-CHS": "5.3.2. 接收模式2数据电文"
+    },
+    {
+      "indent": 3,
+      "text": "When a Mode 2 data message is received by SRT, it should be processed as follows after verifying version, dataID, sender address, and SN:",
+      "zh-CHS": "当SRT接收到模式2数据报文时，在验证版本、数据ID、发送方地址和SN后，应按如下方式处理："
+    },
+    {
+      "indent": 3,
+      "text": "1. For Mode 2 messages, the sequence number field is used to associate the required positive acknowledgement with a specific Mode 2 message. If the message passes verification, the encapsulated user data is delivered to all applications that have indicated interest in the dataID and multicast address of the received message, regardless of the value of the SN field.",
+      "zh-CHS": "1. 对于模式2消息，序列号字段用于将所需的肯定确认与特定模式2消息相关联。如果消息通过验证，则不管SN字段的值如何，封装的用户数据都将被传递到已表示对所接收消息的dataID和多播地址感兴趣的所有应用程序。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Additionally, an ACK MUST be sent to the host from which the Mode 2 data message originated. See section 5.3.3. below for details.",
+      "zh-CHS": "2. 此外，必须向产生模式2数据消息的主机发送ACK。见第5.3.3节。详情见下文。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.3. Sending a Positive Acknowledgement",
+      "section_title": true,
+      "zh-CHS": "5.3.3. 发送肯定的确认"
+    },
+    {
+      "indent": 3,
+      "text": "A positive acknowledgement (ACK) is triggered by the receipt of a Mode 2 data message. To send an ACK, a new SRT message is generated with version set to 0x02, message type set to 0x2, and transmission mode set to 0x2. The dataID and SN are those of the Mode 2 data message being acknowledged. The destination address field is set to the source IP address from which the data message was received. Since Mode 2 data messages are unicast, there is little concern about an ACK implosion causing excessive congestion at the original sender, so no suppression mechanism is necessary.",
+      "zh-CHS": "通过接收模式2数据消息触发肯定确认（ACK）。要发送ACK，将生成一条新的SRT消息，版本设置为0x02，消息类型设置为0x2，传输模式设置为0x2。数据ID和SN是正在确认的模式2数据消息的数据ID和SN。目标地址字段设置为从中接收数据消息的源IP地址。由于模式2数据消息是单播的，因此很少有人担心ACK内爆会导致原始发送方过度拥塞，因此不需要使用抑制机制。"
+    },
+    {
+      "indent": 0,
+      "text": "5.3.4. Receiving a Positive Acknowledgement",
+      "section_title": true,
+      "zh-CHS": "5.3.4. 收到肯定的答复"
+    },
+    {
+      "indent": 3,
+      "text": "When an ACK is received by SRT, after verifying the transmission mode, dataID, and source IP address against outstanding Mode 2 transmission, SRT MUST remove the pending transmission from its buffer.",
+      "zh-CHS": "当SRT收到ACK时，在根据未完成的模式2传输验证传输模式、数据ID和源IP地址后，SRT必须从其缓冲区中删除未完成的传输。"
+    },
+    {
+      "indent": 0,
+      "text": "6. RFC 2357 Analysis",
+      "section_title": true,
+      "zh-CHS": "6. RFC2357分析"
+    },
+    {
+      "indent": 3,
+      "text": "This section provides answers to the questions posed by RFC 2357 for reliable multicast protocols, which are quoted.",
+      "zh-CHS": "本节回答了RFC 2357提出的有关可靠多播协议的问题，这些问题已被引用。"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Scalability",
+      "section_title": true,
+      "zh-CHS": "6.1. 可伸缩性"
+    },
+    {
+      "indent": 3,
+      "text": "\"How scalable is the protocol to the number of senders or receivers in a group, the number of groups, and wide dispersion of group members?\"",
+      "zh-CHS": "协议对组中发送方或接收方的数量、组的数量以及组成员的广泛分布的可伸缩性如何"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP is intended to scale at least to hundreds of group members. It has been designed not to impose limitations on the scalability of the underlying multicast network. No problems have been identified in its mechanisms that would preclude this on uncongested networks.",
+      "zh-CHS": "SRMP旨在扩展到至少数百个组成员。它的设计不限制底层多播网络的可伸缩性。在其机制中未发现任何问题，这些问题将排除在未拥挤的网络上。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Identify the mechanisms which limit scalability and estimate those limits.\"",
+      "zh-CHS": "“确定限制可扩展性的机制并估计这些限制。”"
+    },
+    {
+      "indent": 3,
+      "text": "There is a practical concern with use of TFMCC, in that the receiver with the most congested path constrains delivery to the entire group. Distributed virtual simulation requires data delivery at rates perceived as continuous by humans. Therefore, it may prove necessary to assign such receivers to different, lower-fidelity groups as a practical means of sustaining performance to the majority of participating hosts. SRMP does not have a mechanism to support such pruning at this time.",
+      "zh-CHS": "TFMCC的使用存在一个实际问题，即具有最拥挤路径的接收器限制向整个组的传送。分布式虚拟仿真需要以人类认为是连续的速率交付数据。因此，可能有必要将此类接收机分配给不同的、保真度较低的组，作为维持大多数参与主机性能的实际方法。SRMP目前没有支持这种修剪的机制。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Congestion",
+      "section_title": true,
+      "zh-CHS": "6.2. 拥塞"
+    },
+    {
+      "indent": 3,
+      "text": "\"How does the protocol protect the Internet from congestion? How well does it perform? When does it fail? Under what circumstances will the protocol fail to perform the functions needed by the applications it serves? Is there a congestion control mechanism? How well does it perform? When does it fail?\"",
+      "zh-CHS": "“协议如何保护互联网免受拥塞？性能如何？何时失效？在何种情况下，协议将无法执行其服务的应用程序所需的功能？是否存在拥塞控制机制？性能如何？何时失效？”"
+    },
+    {
+      "indent": 3,
+      "text": "Both simulations and tests indicate that SRMP with TFMCC displays backoff comparable to that of TCP under conditions of significant packet loss. The mechanism fails in a network-friendly way, in that under severe congestion, it reduces sending of the best-effort traffic to a very small rate that typically is unsatisfactory to support a virtual simulation. This is possible because the reliable traffic typically is a small percentage of the overall traffic and SRMP is NACK oriented, with NACK suppression, so that reliable traffic loss adds little traffic to the total. If the traffic mix assumption is not met, the reliable traffic (which does not back off under increased RTT) could produce a higher level of traffic than a comparable TCP connection. However, levels of reliable traffic this large are not in the intended application domain of SRMP.",
+      "zh-CHS": "仿真和测试都表明，带有TFMCC的SRMP在严重丢包的情况下显示出与TCP相当的回退。在一个非常友好的网络中，以一种不令人满意的方式将流量发送到一个最不友好的网络。这是可能的，因为可靠通信量通常占总通信量的一小部分，并且SRMP面向NACK，具有NACK抑制，因此可靠通信量损失几乎不会增加总通信量。如果不满足流量混合假设，可靠流量（在RTT增加时不会后退）可能会产生比可比TCP连接更高级别的流量。然而，如此大的可靠通信量水平并不在SRMP的预期应用领域内。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Include a description of trials and/or simulations which support the development of the protocol and the answers to the above questions.\"",
+      "zh-CHS": "“包括对支持制定方案的试验和/或模拟的描述以及对上述问题的回答。”"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP has been simulated using a discrete event simulator developed for academic use [8]. The design assumptions were validated by the results. It also has been emulated in a LAN-based cluster and application-tested in a wide-area testbed under its intended traffic mix (distributed virtual simulation) and using a traffic generator with losses emulated by random dropping of packets [9].",
+      "zh-CHS": "SRMP使用为学术用途开发的离散事件模拟器进行模拟[8]。结果验证了设计假设。它也已经在基于LAN的集群中进行了仿真，并在广域试验台上测试了应用程序，在其预期流量混合（分布式虚拟仿真）下，使用流量生成器，通过随机丢弃数据包模拟损失[9]。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Include an analysis of whether the protocol has congestion avoidance mechanisms strong enough to cope with deployment in the Global Internet, and if not, clearly document the circumstances in which congestion harm can occur. How are these circumstances to be prevented?\"",
+      "zh-CHS": "“包括对协议是否具有足够强大的拥塞避免机制以应对在全球互联网上的部署的分析，如果没有，则明确记录可能发生拥塞损害的情况。如何防止这些情况？”"
+    },
+    {
+      "indent": 3,
+      "text": "Because it provides sending backoff comparable to TCP, SRMP is able to function as well as TCP for congestion avoidance, even in the Global Internet. The only way an SRMP sender can generate congestion is to use the protocol for unintended purposes, for example, reliable transmission of a large fraction of the traffic. Doing this would produce unsatisfactory results for the application, as SRMP's mechanism for providing reliability will not function well if the best-effort traffic does not constitute the majority of the total traffic.",
+      "zh-CHS": "因为SRMP提供了与TCP相当的发送回退，所以即使在全球互联网上，SRMP也能够像TCP一样避免拥塞。SRMP发送方产生拥塞的唯一方法是将该协议用于非预期目的，例如，大部分流量的可靠传输。这样做会对应用程序产生不满意的结果，因为如果尽力而为的流量不占总流量的大多数，SRMP提供可靠性的机制将无法正常工作。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Include a description of any mechanisms which contain the traffic within limited network environments.\"",
+      "zh-CHS": "“包括在有限的网络环境中包含流量的任何机制的说明。”"
+    },
+    {
+      "indent": 3,
+      "text": "SRMP has no such mechanisms, as it is intended for use over the open Internet.",
+      "zh-CHS": "SRMP没有这样的机制，因为它旨在通过开放互联网使用。"
+    },
+    {
+      "indent": 3,
+      "text": "\"Reliable multicast protocols must include an analysis of how they address a number of security and privacy concerns.\"",
+      "zh-CHS": "“可靠的多播协议必须包括对它们如何解决许多安全和隐私问题的分析。”"
+    },
+    {
+      "indent": 3,
+      "text": "See section 7 below.",
+      "zh-CHS": "见下文第7节。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "7. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "As a transport protocol, SRMP is subject to denial of service by hostile third parties sending conflicting values of its parameters on the multicast address. SRMP could attempt to protect itself from this sort of behavior. However, it can be shielded from such attacks by traffic authentication at the network layer, as described below. A comparable level of authentication also could be obtained by a message using MD5, or a similar message hash in each bundle, and using the SRMP bundle header to detect duplicate transmissions from a given host. However, this would duplicate the function of existing network layer authentication protocols.",
+      "zh-CHS": "作为一种传输协议，SRMP会受到恶意第三方的拒绝服务，这些第三方在多播地址上发送与其参数值冲突的数据。SRMP可以尝试保护自己不受这种行为的影响。然而，如下文所述，它可以通过网络层的流量认证来防止此类攻击。通过在每个包中使用MD5或类似的消息散列，并使用SRMP包头检测来自给定主机的重复传输，也可以获得类似级别的身份验证。但是，这将重复现有网络层身份验证协议的功能。"
+    },
+    {
+      "indent": 3,
+      "text": "Specific threats that can be eliminated by packet-level authentication are as follows:",
+      "zh-CHS": "可通过数据包级身份验证消除的特定威胁如下："
+    },
+    {
+      "indent": 3,
+      "text": "a. Amplification attack: SRMP receivers could be manipulated into sending large amounts of NACK traffic, which could cause network congestion or overwhelm the processing capabilities of a sender. This could be done by sending them faked traffic indicating that a reliable transmission has been lost. SRMP's NACK suppression limits the effect of such manipulation. However, true protection requires authentication of each bundle.",
+      "zh-CHS": "a. 放大攻击：SRMP接收器可能被操纵发送大量NACK流量，这可能导致网络拥塞或使发送方的处理能力无法承受。这可以通过向他们发送伪造的流量来实现，表明可靠的传输已经丢失。SRMP的NACK抑制限制了这种操纵的效果。但是，真正的保护需要对每个包进行身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "b. Denial-of-service attack: If an SRMP sender accepts a large number of forged NACKs, it will flood the multicast group with repair messages. This attack also is stopped by per-bundle authentication.",
+      "zh-CHS": "b. 拒绝服务攻击：如果SRMP发送方接受大量伪造的NACK，它将用修复消息淹没多播组。此攻击也可通过每包身份验证来阻止。"
+    },
+    {
+      "indent": 3,
+      "text": "c. Replay attack: The attacker could copy a valid, authenticated bundle containing a NACK and send it repeatedly to the original sender of the NACKed data. Protection against this attack requires a sequence number per transmission per source host. The SRMP bundle header sequence number would satisfy this need. However, the SN also can be applied at a lower layer.",
+      "zh-CHS": "c. 重播攻击：攻击者可以复制包含NACK的有效、经过身份验证的捆绑包，并将其重复发送给NACK数据的原始发件人。针对此攻击的保护要求每个源主机的每个传输都有一个序列号。SRMP束头序列号将满足这一需求。然而，SN也可应用于较低层。"
+    },
+    {
+      "indent": 3,
+      "text": "d. Reverse path forwarding attack (spoofing): If checks are not enabled in all network routers and switches along the path from each sender to all receivers, forged packets can be injected into the multicast tree data path to manipulate the protocol into sending a large volume of repairs. Packet-level authentication can eliminate this possibility.",
+      "zh-CHS": "d. 反向路径转发攻击（欺骗）：如果在从每个发送方到所有接收方的路径上的所有网络路由器和交换机中未启用检查，则可以将伪造数据包注入多播树数据路径，以操纵协议发送大量修复。数据包级身份验证可以消除这种可能性。"
+    },
+    {
+      "indent": 3,
+      "text": "e. Inadvertent errors: A receiver with an incorrect or corrupted implementation of TFMCC could respond with values of RTT that might stimulate a TFMCC sender to create or increase congestion in the path to that sender. It is therefore RECOMMENDED that receivers be required to identify themselves as legitimate before they receive the Session Description needed to join the session. How receivers identify themselves as legitimate is outside the scope of this document.",
+      "zh-CHS": "e. 意外错误：TFMCC实现不正确或已损坏的接收器可能会使用RTT值进行响应，这可能会刺激TFMCC发送器在通往该发送器的路径中创建或增加拥塞。因此，建议要求接收者在接收加入会话所需的会话描述之前将自己标识为合法。接收人如何认定自己合法不在本文件范围内。"
+    },
+    {
+      "indent": 3,
+      "text": "The required authentication could become part of SRMP or could be accomplished by a lower layer protocol. In any case, it needs to be (1) scalable and (2) not very computationally demanding so it can be performed with minimal delay on a real-time virtual simulation stream. Public-key encryption meets the first requirement but not the second. Using the IPsec Authentication Header (AH) (RFC 4302 [3]) meets the second requirement using symmetric-key cryptography. See RFC 4302 [3] for guidance on multicast per-packet authentication. In practice, users of distributed simulation are likely to work over a (possibly virtual) private network and thus will not need special authentication for SRMP.",
+      "zh-CHS": "所需的身份验证可以成为SRMP的一部分，也可以通过较低层协议完成。在任何情况下，它都需要（1）可伸缩性和（2）计算要求不高，以便能够在实时虚拟仿真流上以最小的延迟执行。公钥加密满足第一个要求，但不满足第二个要求。使用IPsec身份验证头（AH）（RFC 4302[3]）满足使用对称密钥加密的第二个要求。请参阅RFC 4302[3]，了解关于每包多播身份验证的指导。在实践中，分布式仿真的用户可能在（可能是虚拟的）专用网络上工作，因此不需要对SRMP进行特殊身份验证。"
+    },
+    {
+      "indent": 0,
+      "text": "8. List of Acronyms Used",
+      "section_title": true,
+      "zh-CHS": "8. 使用的首字母缩略词列表"
+    },
+    {
+      "indent": 3,
+      "text": "ACK - positive acknowledgement AH - Authentication Header CLR - current limiting receiver IPSEC - Internet Protocol Security MTU - maximum transmission unit NACK - negative acknowledgement RTT - round-trip time SA - security association SRMP - Selectively Reliable Multicast Protocol SRT - Selectively Reliable Transport TFMCC - TCP-Friendly Multicast Congestion Control",
+      "zh-CHS": "ACK-肯定确认AH-认证头CLR-限流接收器IPSEC-互联网协议安全MTU-最大传输单元NACK-否定确认RTT-往返时间SA-安全关联SRMP-选择性可靠多播协议SRT-选择性可靠传输TFMCC-TCP友好多播拥塞控制"
+    },
+    {
+      "indent": 0,
+      "text": "9. Contributions",
+      "section_title": true,
+      "zh-CHS": "9. 贡献"
+    },
+    {
+      "indent": 3,
+      "text": "We gratefully acknowledge the significant contributions of two people without whom this RFC would not have been developed. Vincent Laviano created the first specification and implementation of SRMP (at that time called SRTP). Babu Shanmugam employed SRMP in a sizable distributed virtual simulation environment, where he revised the implementation and helped revise the design to support distributed virtual simulation workload effectively.",
+      "zh-CHS": "我们衷心感谢两位人士的重大贡献，没有他们，本RFC将无法发展。Vincent Laviano创建了SRMP的第一个规范和实现（当时称为SRTP）。Babu Shanmugam在一个相当大的分布式虚拟仿真环境中使用了SRMP，他在该环境中修改了实现并帮助修改了设计，以有效地支持分布式虚拟仿真工作负载。"
+    },
+    {
+      "indent": 0,
+      "text": "10. References",
+      "section_title": true,
+      "zh-CHS": "10. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "10.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[1] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[1] Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[2]  J. Widmer, M. Handley, Extending Equation-Based Congestion\n     Control to Multicast Applications, ACM SIGCOMM Conference, San\n     Diego, August 2001.  <http://www.sigcomm.org/sigcomm2001/p22-\n     widmer.pdf>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "[3] Kent, S., \"IP Authentication Header\", RFC 4302, December 2005.",
+      "zh-CHS": "[3] Kent，S.，“IP认证头”，RFC 4302，2005年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "10.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "10.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[4] Pullen, M., Myjak, M., and C. Bouwens, \"Limitations of Internet Protocol Suite for Distributed Simulation the Large Multicast Environment\", RFC 2502, February 1999.",
+      "zh-CHS": "[4] Pullen，M.，Myjak，M.，和C.Bouwens，“大型多播环境中分布式模拟的互联网协议套件的局限性”，RFC 2502，1999年2月。"
+    },
+    {
+      "indent": 3,
+      "text": "[5] J. Padhye, V. Firoiu, D. Towsley and J. Kurose, \"Modeling TCP Throughput: A Simple Model and its Empirical Validation\", Proceedings of ACM SIGCOMM 1998.",
+      "zh-CHS": "[5] J.Padhye，V.Firoiu，D.Towsley和J.Kurose，“TCP吞吐量建模：一个简单模型及其经验验证”，ACM SIGCOMM 1998年论文集。"
+    },
+    {
+      "indent": 3,
+      "text": "[6] Mankin, A., Romanow, A., Bradner, S., and V. Paxson, \"IETF Criteria for Evaluating Reliable Multicast Transport and Application Protocols\", RFC 2357, June 1998.",
+      "zh-CHS": "[6] Mankin，A.，Romanow，A.，Bradner，S.，和V.Paxson，“评估可靠多播传输和应用协议的IETF标准”，RFC 2357，1998年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[7] Floyd, S., \"Congestion Control Principles\", BCP 41, RFC 2914, September 2000.",
+      "zh-CHS": "[7] Floyd，S.，“拥塞控制原则”，BCP 41，RFC 2914，2000年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[8] J. M. Pullen, \"The Network Workbench: Network Simulation Software for Academic Investigation of Internet Concepts,\" Computer Networks Vol 32 No 3 pp 365-378, March 2000.",
+      "zh-CHS": "[8] J.M.Pullen，“网络工作台：互联网概念学术研究的网络模拟软件”，《计算机网络》第32卷第3期，第365-378页，2000年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[9] J. M. Pullen, R. Simon, F. Zhao and W. Chang, \"NGI-FOM over RTI-NG and SRMP: Lessons Learned,\" Proceedings of the IEEE Fall Simulation Interoperability Workshop, paper 03F-SIW-111, Orlando, FL, September 2003.",
+      "zh-CHS": "[9] J.M.Pullen，R.Simon，F.Zhao和W.Chang，“RTI-NG和SRMP上的NGI-FOM：经验教训”，IEEE秋季模拟互操作性研讨会论文集，论文03F-SIW-111，佛罗里达州奥兰多，2003年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[10] D. Cohen, \"NG-DIS-PDU: The Next Generation of DIS-PDU (IEEE-P1278)\", 10th Workshop on Standards for Interoperability of Distributed Simulations, March 1994.",
+      "zh-CHS": "[10] D.Cohen，“NG-DIS-PDU：下一代DIS-PDU（IEEE-P1278）”，第十届分布式仿真互操作性标准研讨会，1994年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[11] Handley, M., Floyd, S., Whetten, B., Kermode, R., Vicisano, L., and M. Luby, \"The Reliable Multicast Design Space for Bulk Data Transfer\", RFC 2887, August 2000.",
+      "zh-CHS": "[11] Handley，M.，Floyd，S.，Whetten，B.，Kermode，R.，Vicisano，L.，和M.Luby，“批量数据传输的可靠多播设计空间”，RFC 2887，2000年8月。"
+    },
+    {
+      "indent": 3,
+      "text": "[12] Luby, M., Gemmell, J., Vicisano, L., Rizzo, L., and J. Crowcroft, \"Asynchronous Layered Coding (ALC) Protocol Instantiation\", RFC 3450, December 2002.",
+      "zh-CHS": "[12] Luby，M.，Gemmell，J.，Vicisano，L.，Rizzo，L.，和J.Crowcroft，“异步分层编码（ALC）协议实例化”，RFC 3450，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[13] Luby, M., Gemmell, J., Vicisano, L., Rizzo, L., Handley, M., and J. Crowcroft, \"Layered Coding Transport (LCT) Building Block\", RFC 3451, December 2002.",
+      "zh-CHS": "[13] Luby，M.，Gemmell，J.，Vicisano，L.，Rizzo，L.，Handley，M.，和J.Crowcroft，“分层编码传输（LCT）构建块”，RFC 34512002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[14] Luby, M., Vicisano, L., Gemmell, J., Rizzo, L., Handley, M., and J. Crowcroft, \"Forward Error Correction (FEC) Building Block\", RFC 3452, December 2002.",
+      "zh-CHS": "[14] 卢比，M.，维西萨诺，L.，杰梅尔，J.，里佐，L.，汉德利，M.，和J.克罗夫特，“前向纠错（FEC）构建块”，RFC 3452，2002年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[15] Luby, M., Vicisano, L., Gemmell, J., Rizzo, L., Handley, M., and J. Crowcroft, \"The Use of Forward Error Correction (FEC) in Reliable Multicast\", RFC 3453, December 2002.",
+      "zh-CHS": "[15] Luby，M.，Vicisano，L.，Gemmell，J.，Rizzo，L.，Handley，M.，和J.Crowcroft，“在可靠多播中使用前向纠错（FEC）”，RFC 3453，2002年12月。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "J. Mark Pullen C4I Center George Mason University Fairfax, VA 22030 USA",
+      "zh-CHS": "美国弗吉尼亚州费尔法克斯乔治·梅森大学马克·普伦C4I中心，邮编：22030"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: mpullen@gmu.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Fei Zhao C4I Center George Mason University Fairfax, VA 22030 USA",
+      "zh-CHS": "费赵C4I中心乔治梅森大学费尔法克斯，弗吉尼亚州22030"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: fzhao@netlab.gmu.edu",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Danny Cohen Sun Microsystems M/S UMPK16-160 16 Network Circle Menlo Park, CA 94025 USA",
+      "zh-CHS": "Danny Cohen Sun Microsystems M/S UMPK16-160美国加利福尼亚州门罗公园16号网络圈94025"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: danny.cohen@sun.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The Internet Society (2006).",
+      "zh-CHS": "版权所有（C）互联网协会（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息是按“原样”提供的，贡献者、他/她所代表或赞助的组织（如有）、互联网协会和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is provided by the IETF Administrative Support Activity (IASA).",
+      "zh-CHS": "RFC编辑器功能的资金由IETF行政支持活动（IASA）提供。"
+    }
+  ]
+}

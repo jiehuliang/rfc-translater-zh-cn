@@ -1,0 +1,880 @@
+{
+  "title": {
+    "text": "RFC 4738: MIKEY-RSA-R: An Additional Mode of Key Distribution in Multimedia Internet KEYing (MIKEY)",
+    "zh-CHS": "RFC 4738"
+  },
+  "number": 4738,
+  "created_at": "2021-11-14 21:16:41.548923+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        D. Ignjatic\nRequest for Comments: 4738                                       Polycom\nUpdates: 3830                                                 L. Dondeti\nCategory: Standards Track                                       QUALCOMM\n                                                                F. Audet\n                                                                  P. Lin\n                                                                  Nortel\n                                                           November 2006",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "MIKEY-RSA-R: An Additional Mode of Key Distribution in Multimedia Internet KEYing (MIKEY)",
+      "zh-CHS": "MIKEY-RSA-R：多媒体互联网密钥分配（MIKEY）中的一种附加密钥分配模式"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The Multimedia Internet Keying (MIKEY) specification describes several modes of key distribution solution that address multimedia scenarios (e.g., SIP calls and Real Time Streaming Protocol (RTSP) sessions) using pre-shared keys, public keys, and optionally a Diffie-Hellman key exchange. In the public-key mode, the Initiator encrypts a random key with the Responder's public key and sends it to the Responder. In many communication scenarios, the Initiator may not know the Responder's public key, or in some cases the Responder's ID (e.g., call forwarding) in advance. We propose a new MIKEY mode that works well in such scenarios. This mode also enhances the group key management support in MIKEY; it supports member-initiated group key download (in contrast to group manager pushing the group keys to all members). This document updates RFC 3830 with the RSA-R mode.",
+      "zh-CHS": "多媒体互联网密钥（MIKEY）规范描述了几种密钥分发解决方案模式，这些解决方案使用预共享密钥、公钥和Diffie-Hellman密钥交换来解决多媒体场景（例如，SIP呼叫和实时流协议（RTSP）会话）。在公钥模式下，发起方使用响应方的公钥加密随机密钥，并将其发送给响应方。在许多通信场景中，发起者可能事先不知道响应者的公钥，或者在某些情况下不知道响应者的ID（例如，呼叫转移）。我们提出了一种新的MIKEY模式，在这种情况下效果很好。该模式还增强了MIKEY对组密钥管理的支持；它支持成员发起的组密钥下载（与group manager将组密钥推送到所有成员不同）。本文档使用RSA-R模式更新RFC 3830。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Terminology Used in This Document ..........................3\n2. Motivation ......................................................3\n   2.1. Description of the MIKEY Modes .............................3\n   2.2. Use Case Motivating the Proposed Mode ......................5\n3. A New MIKEY-RSA Mode: MIKEY-RSA-R ...............................5\n   3.1. Outline ....................................................5\n   3.2. Group Communication Using the MIKEY RSA-R Mode .............6\n   3.3. Preparing RSA-R Messages ...................................6\n   3.4. Components of the I_MESSAGE ................................6\n   3.5. Processing the I_MESSAGE ...................................8\n   3.6. Components of the R_MESSAGE ................................9\n   3.7. Processing the R_MESSAGE ..................................10\n   3.8. Certificate Handling ......................................10\n   3.9. Additions to RFC 3830 Message Types and Other Values ......11\n        3.9.1. Modified Table 6.1a from RFC 3830 ..................11\n        3.9.2. Modified Table 6.12 from RFC 3830 ..................12\n        3.9.3. Modified Table 6.15 from RFC 3830 ..................12\n4. Applicability of the RSA-R and RSA Modes .......................13\n   4.1. Limitations ...............................................13\n5. Security Considerations ........................................14\n   5.1. Impact of the Responder Choosing the TGK ..................15\n   5.2. Updates to Security Considerations in RFC 3830 ............15\n6. IANA Considerations ............................................15\n7. Acknowledgments ................................................16\n8. References .....................................................16\n   8.1. Normative References ......................................16\n   8.2. Informative References ....................................16",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The MIKEY protocol [RFC3830] has three different methods for key transport or exchange: a pre-shared key mode (PSK), a public-key (RSA) mode, and an optional Diffie-Hellman exchange (DHE) mode. In addition, there is also an optional DH-HMAC mode [RFC4650], bringing the total number of modes to four. The primary motivation for the MIKEY protocol design is low-latency requirements of real-time communication, and thus all the exchanges finish in one-half to 1 roundtrip; note that this offers no room for security parameter negotiation of the key management protocol itself. In this document, we note that the MIKEY modes defined in [RFC3830] and [RFC4650] are insufficient to address some deployment scenarios and common use cases, and we propose a new mode called MIKEY-RSA in Reverse mode, or simply MIKEY-RSA-R. This document updates RFC 3830 with the addition of this new mode to that specification.",
+      "zh-CHS": "MIKEY协议[RFC3830]有三种不同的密钥传输或交换方法：预共享密钥模式（PSK）、公钥（RSA）模式和可选的Diffie-Hellman交换（DHE）模式。此外，还有一个可选的DH-HMAC模式[RFC4650]，使模式总数达到四个。MIKEY协议设计的主要动机是实时通信的低延迟要求，因此所有交换都在1/2的往返行程中完成；注意，这并没有为密钥管理协议本身的安全参数协商提供空间。在本文档中，我们注意到[RFC3830]和[RFC4650]中定义的MIKEY模式不足以解决某些部署场景和常见用例，我们提出了一种称为MIKEY-RSA的反向模式，或简称为MIKEY-RSA-R的新模式。本文档将此新模式添加到该规范中，以更新RFC 3830。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Terminology Used in This Document",
+      "section_title": true,
+      "zh-CHS": "1.1. 本文件中使用的术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14, RFC 2119 [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照BCP 14、RFC 2119[RFC2119]中的说明进行解释。"
+    },
+    {
+      "indent": 3,
+      "text": "Furthermore, this document reuses the terminology of the MIKEY specification [RFC3830].",
+      "zh-CHS": "此外，本文件重用了MIKEY规范[RFC3830]的术语。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Motivation",
+      "section_title": true,
+      "zh-CHS": "2. 动机"
+    },
+    {
+      "indent": 3,
+      "text": "As noted in the introduction, the MIKEY specification and other proposals define four different modes of efficient key management for real-time applications. Those modes differ from each other in either the authentication method of choice (public-key, or symmetric shared key-based), or the key establishment method of choice (key download, or key agreement using a Diffie-Hellman exchange). We summarize these modes below, including their advantages and shortcomings. We then discuss the use cases where these modes are unusable or inefficient.",
+      "zh-CHS": "如引言中所述，MIKEY规范和其他建议为实时应用程序定义了四种不同的高效密钥管理模式。这些模式在选择的身份验证方法（公钥或基于对称共享密钥）或选择的密钥建立方法（密钥下载或使用Diffie-Hellman交换的密钥协议）上彼此不同。我们将这些模式总结如下，包括它们的优点和缺点。然后我们讨论这些模式不可用或效率低下的用例。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Description of the MIKEY Modes",
+      "section_title": true,
+      "zh-CHS": "2.1. MIKEY模式的描述"
+    },
+    {
+      "indent": 3,
+      "text": "The PSK mode requires that the Initiator and the Responder have a common secret key established offline. In this mode, the Initiator selects a TEK Generation Key (TGK), encrypts it with a key derived from the PSK, and sends it to the Responder as part of the first message, namely, I_MESSAGE. The I_MESSAGE is replay protected with timestamps, and integrity protected with another key derived from the PSK. An optional Verification message from the Responder to the",
+      "zh-CHS": "PSK模式要求发起方和响应方离线建立公共密钥。在此模式下，发起方选择TEK生成密钥（TGK），使用从PSK派生的密钥对其进行加密，并将其作为第一条消息（即I_消息）的一部分发送给响应方。I_消息使用时间戳进行重播保护，并使用从PSK派生的另一个密钥进行完整性保护。从响应程序发送到服务器的可选验证消息"
+    },
+    {
+      "indent": 3,
+      "text": "Initiator provides mutual authentication. This mode does not scale well as it requires pre-establishment of a shared key between communicating parties; for example, consider the use cases where any user may want to communicate to any other user in an Enterprise or the Internet at large. The RSA mode might be more suitable for such applications.",
+      "zh-CHS": "启动器提供相互身份验证。这种模式不能很好地扩展，因为它需要在通信方之间预先建立共享密钥；例如，考虑用户可能希望与企业或互联网中的任何其他用户进行通信的用例。RSA模式可能更适合此类应用。"
+    },
+    {
+      "indent": 3,
+      "text": "In the RSA mode, the Initiator selects a TGK, encrypts and authenticates it with an envelope key, and sends it to the Responder as part of the I_MESSAGE. The Initiator includes the envelope key, encrypted with the Responder's public key, in the I_MESSAGE. The I_MESSAGE is replay protected with timestamps, and signed with the Initiator's public key. The Initiator's ID, Certificate (CERT), and the Responder's ID may be included in the I_MESSAGE. If the Initiator knows several public keys of the Responder, it can indicate the key used in the optional CHASH payload. An optional Verification message from the Responder to the Initiator provides mutual authentication. The RSA mode works well if the Initiator knows the Responder's ID and the corresponding CERT (or can obtain the CERT independent of the MIKEY protocol). RFC 3830 suggests that an Initiator, in the event that it does not have the Responder's CERT, may obtain the CERT from a directory agent using one or more roundtrips. However, in some cases, the Initiator may not even know the Responder's ID in advance, and because of that or for other reasons cannot obtain the Responder's CERT.",
+      "zh-CHS": "在RSA模式下，发起方选择TGK，使用信封密钥对其进行加密和身份验证，并将其作为I_消息的一部分发送给响应方。发起者在I_消息中包含用响应者的公钥加密的信封密钥。I_消息使用时间戳进行重播保护，并使用启动器的公钥进行签名。I_消息中可能包括发起方的ID、证书（CERT）和响应方的ID。如果发起者知道响应者的多个公钥，那么它可以指示可选CHASH有效负载中使用的密钥。从响应者到启动器的可选验证消息提供了相互身份验证。如果发起者知道响应者的ID和相应的证书（或者可以获得独立于MIKEY协议的证书），RSA模式可以很好地工作。RFC 3830建议发起者在没有响应者证书的情况下，可以使用一个或多个往返从目录代理获取证书。但是，在某些情况下，发起者甚至可能事先不知道响应者的ID，因此或由于其他原因，无法获得响应者的证书。"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the case where the Responder may have several IDs, some applications may allow for the Responder's ID to change unilaterally, as is typical in telephony (e.g., forwarding). In those cases and in others, the Initiator might be willing to let the other party establish identity and prove it via an Initiator-trusted third party (e.g., a Certification Authority (CA)).",
+      "zh-CHS": "除了响应者可能具有多个ID的情况之外，一些应用程序可能允许响应者的ID单方面改变，这在电话中是典型的（例如，转发）。在这些情况和其他情况下，发起人可能愿意让另一方建立身份，并通过发起人信任的第三方（例如，证书颁发机构（CA））证明身份。"
+    },
+    {
+      "indent": 3,
+      "text": "The DH mode or the DH-HMAC mode of MIKEY might be useful in cases where the Initiator does not have access to the Responder's exact identity and/or CERT. In these modes, the two parties engage in an authenticated DH exchange to derive the TGK. On the downside, the DH modes have higher computational and communication overhead compared to the RSA and the PSK modes. More importantly, these modes are unsuitable for group key distribution. The DH-HMAC mode also requires establishment of PSKs between all possible communicating entities and thus has similar scaling issues as any PSK-based key management protocol.",
+      "zh-CHS": "在发起者无法访问响应者的确切身份和/或证书的情况下，MIKEY的DH模式或DH-HMAC模式可能有用。在这些模式下，双方进行经验证的DH交换以获得TGK。另一方面，与RSA和PSK模式相比，DH模式具有更高的计算和通信开销。更重要的是，这些模式不适用于组密钥分发。DH-HMAC模式还需要在所有可能的通信实体之间建立PSK，因此具有与任何基于PSK的密钥管理协议类似的扩展问题。"
+    },
+    {
+      "indent": 3,
+      "text": "In summary, in some communication scenarios -- where the Initiator might not have the correct ID and/or the CERT of the Responder -- none of the MIKEY modes described in [RFC3830] or [RFC4650] are suitable and efficient for multimedia session key establishment.",
+      "zh-CHS": "总之，在某些通信场景中，[RFC3830]或[RFC4650]中所述的MIKEY模式都不适用于多媒体会话密钥的建立，其中启动器可能没有正确的ID和/或响应者的证书。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Use Case Motivating the Proposed Mode",
+      "section_title": true,
+      "zh-CHS": "2.2. 激发建议模式的用例"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the issues listed above, there are some types of applications that motivate the new MIKEY mode design proposed in this document.",
+      "zh-CHS": "除了上面列出的问题外，还有一些类型的应用激发了本文件中提出的新MIKEY模式设计。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that in the MIKEY-RSA mode (as in case of the PSK mode), the Initiator proposes the session security policy and chooses the TGK. However, it is also possible that the Initiator wants to allow the Responder to specify the security policy and send the TGK. Consider for example, the case of a conferencing scenario where the convener sends an invitation to a group of people to attend a meeting. The procedure then might be for the invitees to request group key material from the convener by sending a MIKEY I_MESSAGE. Thus, in the MIKEY definition of initiators and responders, the Initiator is asking the Responder for keying material. Note that this mode of operation is in line with the MSEC group key management architecture [RFC4046].",
+      "zh-CHS": "请注意，在MIKEY-RSA模式下（与PSK模式相同），发起方提出会话安全策略并选择TGK。但是，发起方也可能希望允许响应方指定安全策略并发送TGK。例如，会议召开的情况下，召集人向一群人发出邀请参加会议。然后，程序可能是被邀请者通过发送MIKEY I_消息向召集人请求组密钥材料。因此，在MIKEY对发起者和响应者的定义中，发起者要求响应者提供键控材料。请注意，此操作模式符合MSEC组密钥管理体系结构[RFC4046]。"
+    },
+    {
+      "indent": 0,
+      "text": "3. A New MIKEY-RSA Mode: MIKEY-RSA-R",
+      "section_title": true,
+      "zh-CHS": "3. 一种新的MIKEY-RSA模式：MIKEY-RSA-R"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. Outline",
+      "section_title": true,
+      "zh-CHS": "3.1. 概述"
+    },
+    {
+      "indent": 3,
+      "text": "The proposed MIKEY mode requires 1 full roundtrip. The Initiator sends a signed I_MESSAGE to the intended Responder requesting the Responder to send the traffic keying material. The I_MESSAGE MAY contain the Initiator's CERT or a link (URL) to the CERT, and similarly the Responder's reply, R_MESSAGE, MAY contain the Responder's CERT or a link to it. The Responder can use the Initiator's public key from the CERT in the I_MESSAGE to send the encrypted TGK in the R_MESSAGE. Upon receiving the R_MESSAGE, the Initiator can use the CERT in the R_MESSAGE to verify whether the Responder is in fact the party that it wants to communicate to, and accept the TGK. We refer to this protocol as MIKEY-RSA in the reverse mode, or simply as MIKEY-RSA-R.",
+      "zh-CHS": "建议的MIKEY模式需要1次完整往返。发起者向预期响应者发送签名I_消息，请求响应者发送流量键控材料。I_消息可能包含发起者的证书或指向证书的链接（URL），同样，响应者的回复R_消息可能包含响应者的证书或指向证书的链接。响应者可以使用I_消息中证书的启动器公钥发送R_消息中加密的TGK。在收到R_消息后，发起方可以使用R_消息中的证书来验证响应方是否实际上是它想要与之通信的一方，并接受TGK。我们在反向模式中将此协议称为MIKEY-RSA，或者简称为MIKEY-RSA-R。"
+    },
+    {
+      "indent": 3,
+      "text": "The MIKEY-RSA-R mode exchange is defined as follows:",
+      "zh-CHS": "MIKEY-RSA-R模式交换定义如下："
+    },
+    {
+      "indent": 3,
+      "text": "Initiator                                            Responder\n---------                                            ---------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "I_MESSAGE = HDR, T, [RAND], [IDi|CERTi], [IDr], {SP}, SIGNi",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "R_MESSAGE = HDR, [GenExt(CSB_ID)], T, [RAND], [IDr|CERTr], [SP], KEMAC, PKE, SIGNr",
+      "zh-CHS": "R|u MESSAGE=HDR、[GenExt（CSB|U ID）]、T、[RAND]、[IDr|CERTr]、[SP]、KEMAC、PKE、SIGNr"
+    },
+    {
+      "indent": 20,
+      "text": "Figure 1: MIKEY-RSA-R Unicast Mode",
+      "zh-CHS": "图1:MIKEY-RSA-R单播模式"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. Group Communication Using the MIKEY RSA-R Mode",
+      "section_title": true,
+      "zh-CHS": "3.2. 使用MIKEY RSA-R模式的组通信"
+    },
+    {
+      "indent": 3,
+      "text": "For group conferencing using MIKEY RSA-R mode, the members receive an invitation to initiate MIKEY with the group key server to download the secure session information. In this case, the Responder is either the group sender or group key server. Group members request group policy and keying material as MIKEY RSA-R Initiators. Initiators MUST NOT send the SP payload. The Responder sends all the payloads necessary to distribute the secure group policy as well as payloads used in the group key derivation: specifically, the SP payload is used to convey the session policy, and the GenExt(CSB-ID), TGK, and the RAND payloads selected by the Responder and included in the R_Message are used to compute the Secure Realtime Transport Protocol (SRTP) session keys.",
+      "zh-CHS": "对于使用MIKEY RSA-R模式的组会议，成员将收到邀请，邀请他们使用组密钥服务器启动MIKEY，以下载安全会话信息。在这种情况下，响应者是组发送者或组密钥服务器。组成员作为MIKEY RSA-R启动器请求组策略和密钥材料。启动器不得发送SP有效负载。响应者发送分发安全组策略所需的所有有效负载以及组密钥派生中使用的有效负载：具体而言，SP有效负载用于传递会话策略，GenExt（CSB-ID）、TGK、，响应者选择并包含在R_消息中的RAND有效载荷用于计算安全实时传输协议（SRTP）会话密钥。"
+    },
+    {
+      "indent": 3,
+      "text": "MIKEY RSA-R for group communication:",
+      "zh-CHS": "MIKEY RSA-R用于集团通信："
+    },
+    {
+      "indent": 3,
+      "text": "Initiator                                            Responder\n---------                                            ---------",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "I_MESSAGE = HDR, T, [RAND], [IDi|CERTi], [IDr], SIGNi",
+      "zh-CHS": "I|u MESSAGE=HDR，T，[RAND]，[IDi | CERTi]，[IDr]，SIGNi"
+    },
+    {
+      "indent": 3,
+      "text": "R_MESSAGE = HDR, GenExt(CSB_ID), T, RAND, [IDr|CERTr], SP, KEMAC, PKE, SIGNr",
+      "zh-CHS": "R|u MESSAGE=HDR、GenExt（CSB|U ID）、T、RAND、[IDr|CERTr]、SP、KEMAC、PKE、SIGNr"
+    },
+    {
+      "indent": 20,
+      "text": "Figure 2: MIKEY-RSA-R in Group Mode",
+      "zh-CHS": "图2：组模式下的MIKEY-RSA-R"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the SP payload in the I_MESSAGE is not present. In the R_MESSAGE, the CSB_ID, RAND, and SP payloads are not optional.",
+      "zh-CHS": "请注意，I_消息中不存在SP有效负载。在R_消息中，CSB_ID、RAND和SP有效负载不是可选的。"
+    },
+    {
+      "indent": 0,
+      "text": "3.3. Preparing RSA-R Messages",
+      "section_title": true,
+      "zh-CHS": "3.3. 准备RSA-R消息"
+    },
+    {
+      "indent": 3,
+      "text": "Preparation and parsing of RSA-R messages are as described in Sections 5.2 and 5.3 of RFC 3830. Error handling is described in Section 5.1.2 and replay protection guidelines are in Section 5.4 of RFC 3830. In the following, we describe the components of RSA-R messages and specify message processing and parsing rules in addition to those in RFC 3830.",
+      "zh-CHS": "RSA-R消息的准备和解析如RFC 3830第5.2节和第5.3节所述。第5.1.2节介绍了错误处理，RFC 3830第5.4节介绍了重播保护指南。在下文中，我们将描述RSA-R消息的组件，并指定RFC 3830之外的消息处理和解析规则。"
+    },
+    {
+      "indent": 0,
+      "text": "3.4. Components of the I_MESSAGE",
+      "section_title": true,
+      "zh-CHS": "3.4. I_消息的组件"
+    },
+    {
+      "indent": 3,
+      "text": "MIKEY-RSA-R requires a full roundtrip to download the TGKs. The I_MESSAGE MUST have the MIKEY HDR and the timestamp payload for replay protection. The HDR field contains a CSB_ID (Crypto Session Bundle ID) randomly selected by the Initiator. The V bit MUST be set to '1' and ignored by the Responder, as a response is MANDATORY in this mode. The Initiator SHOULD indicate the number of CSs supported, and SHOULD fill in the CS ID map type and CS ID info",
+      "zh-CHS": "MIKEY-RSA-R需要完整的往返才能下载TGKs。I_消息必须具有MIKEY HDR和时间戳有效负载，以实现重播保护。HDR字段包含启动器随机选择的CSB_ID（加密会话束ID）。V位必须设置为“1”，并由响应程序忽略，因为在此模式下响应是必需的。发起者应指明支持的CSs数量，并应填写CS ID映射类型和CS ID信息"
+    },
+    {
+      "indent": 3,
+      "text": "fields for the RTP/RTCP streams it originates. This is because the sender of the streams chooses the SSRC that is carried in the CS ID info field; see Section 6.1.1 of RFC 3830. The exception to Initiators not specifying SSRC values is to allow the Responder to pick them to avoid SSRC collisions. Initiators of MIKEY messages that do not originate RTP streams MUST specify a '0' as the number of CSs supported. This typically applies to group communication and to the entities in the listen-only mode.",
+      "zh-CHS": "它发起的RTP/RTCP流的字段。这是因为流的发送方选择在CS ID info字段中携带的SSRC；见RFC 3830第6.1.1节。不指定SSRC值的启动器的例外情况是允许响应者拾取它们以避免SSRC冲突。不发起RTP流的MIKEY消息的启动器必须指定“0”作为支持的CSs数。这通常适用于组通信和仅侦听模式下的实体。"
+    },
+    {
+      "indent": 3,
+      "text": "The I_MESSAGE MUST be signed by the Initiator following the procedure to sign MIKEY messages specified in RFC 3830. The SIGNi payload contains this signature. Thus, the I_MESSAGE is integrity and replay protected.",
+      "zh-CHS": "发起者必须按照RFC 3830中指定的对MIKEY消息进行签名的过程对I_消息进行签名。sign有效载荷包含此签名。因此，I_消息具有完整性和重播保护。"
+    },
+    {
+      "indent": 3,
+      "text": "The RAND payload SHOULD be included in the I_MESSAGE when MIKEY-RSA-R mode is used for unicast communication. The reason for recommending the inclusion of the RAND payload in the I_MESSAGE for unicast communication is to allow the Initiator to contribute entropy to the key derivation process (in addition to the CSB_ID). When the RAND payload is not included, the Initiator will be relying on the Responder to supply all the entropy for SRTP key generation, which is in fact similar (but with the reversal of roles) to the MIKEY-RSA mode, where the Responder supplies all the entropy.",
+      "zh-CHS": "当MIKEY-RSA-R模式用于单播通信时，RAND有效载荷应包含在I_消息中。建议在单播通信的I_消息中包含RAND有效载荷的原因是允许发起方为密钥导出过程贡献熵（除了CSB_ID）。如果不包括RAND有效负载，则发起方将依赖响应方提供SRTP密钥生成的所有熵，这实际上与MIKEY-RSA模式类似（但角色颠倒），其中响应方提供所有熵。"
+    },
+    {
+      "indent": 3,
+      "text": "The RAND payload MAY be included when MIKEY-RSA-R is used to establish group keys. However, the RAND payload in the I_MESSAGE MUST NOT be used for MIKEY key generation, in case of group communication. The Responder MUST include a RAND payload in the R_MESSAGE for TEK generation from a TGK when MIKEY-RSA-R is used for group communication.",
+      "zh-CHS": "当使用MIKEY-RSA-R建立组密钥时，可以包括RAND有效载荷。但是，在组通信的情况下，I_消息中的RAND有效载荷不得用于MIKEY密钥生成。当MIKEY-RSA-R用于组通信时，响应者必须在R_消息中包含RAND有效载荷，以便从TGK生成TEK。"
+    },
+    {
+      "indent": 3,
+      "text": "IDi and CERTi SHOULD be included, but they MAY be left out when it is expected that the peer already knows the Initiating party's ID (or can obtain the certificate in some other manner). For example, this could be the case if the ID is extracted from SIP. For certificate handling, authorization, and policies, see Sections 4.3 and 6.7 of RFC 3830. If CERTi is included, it MUST correspond to the private key used to sign the I_MESSAGE.",
+      "zh-CHS": "IDi和CERTi应该包括在内，但当预期对等方已经知道发起方的ID（或者可以通过其他方式获得证书）时，它们可能被忽略。例如，如果从SIP中提取ID，则可能会出现这种情况。有关证书处理、授权和策略，请参阅RFC 3830第4.3节和第6.7节。如果包含CERTi，则它必须与用于签名I_消息的私钥相对应。"
+    },
+    {
+      "indent": 3,
+      "text": "If the Responder has multiple identities, the Initiator MAY also include the specific identity, IDr, of the Responder with whom communication is desired. If the Initiator's policy does not allow acceptance of an R_MESSAGE from any entity other than one that can assert a specific identity, the Initiator MUST include that specific identity in an IDr payload in the I_MESSAGE.",
+      "zh-CHS": "如果响应者具有多个标识，则发起方还可以包括期望与之通信的响应者的特定标识IDr。如果发起者的策略不允许接受来自任何实体的R_消息（可断言特定标识的实体除外），则发起者必须在I_消息的IDr有效负载中包含该特定标识。"
+    },
+    {
+      "indent": 3,
+      "text": "The Initiator MAY also send security policy (SP) payload(s) containing all the security policies that it supports. If the Responder does not support any of the policies included, it SHOULD reply with an Error message of type \"Invalid SPpar\" (Error no. 10). The Responder has the option not to send the Error message in MIKEY if a generic session establishment failure indication is deemed appropriate and communicated via other means (see Section 4.1.2 of [RFC4567] for additional guidance).",
+      "zh-CHS": "启动器还可以发送包含其支持的所有安全策略的安全策略（SP）有效负载。如果响应程序不支持包含的任何策略，则应使用类型为“Invalid SPpar”的错误消息（错误号10）进行响应。如果通用会话建立失败指示被认为是合适的，并且通过其他方式进行通信，则响应者可以选择不发送MIKEY中的错误消息（更多指南，请参见[RFC4567]第4.1.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "SIGNi is a signature covering the Initiator's MIKEY message, I_MESSAGE, using the Initiator's signature key (see Section 5.2 of RFC 3830 for the exact definition). The signature assures the Responder that the claimed Initiator has indeed generated the message. This automatically provides message integrity as well.",
+      "zh-CHS": "SIGNi是使用发起人的签名密钥覆盖发起人的MIKEY消息、I_消息的签名（有关确切定义，请参阅RFC 3830第5.2节）。签名向响应者保证声明的发起人确实生成了消息。这也会自动提供消息完整性。"
+    },
+    {
+      "indent": 0,
+      "text": "3.5. Processing the I_MESSAGE",
+      "section_title": true,
+      "zh-CHS": "3.5. 处理I_消息"
+    },
+    {
+      "indent": 3,
+      "text": "Upon receiving an I_MESSAGE of the RSA-R format, the Responder MUST respond with one of the following messages:",
+      "zh-CHS": "收到RSA-R格式的I_消息后，响应者必须使用以下消息之一进行响应："
+    },
+    {
+      "indent": 3,
+      "text": "o The Responder SHOULD send an Error message \"Message type not supported\" (Error no. 13), if it cannot correctly parse the received MIKEY message. Error message format is as specified in Section 5.1.2 of RFC 3830. Error no. 13 is not defined in RFC 3830, and so RFC 3830 compliant implementations MAY return \"an unspecified error occurred\" (Error no. 12).",
+      "zh-CHS": "o 如果响应者无法正确解析收到的MIKEY消息，则应发送错误消息“消息类型不受支持”（错误号13）。错误消息格式如RFC 3830第5.1.2节所规定。RFC3830中没有定义错误13，因此符合RFC3830的实现可能会返回“发生了未指定的错误”（错误12）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The Responder MUST send an R_MESSAGE, if SIGNi can be correctly verified and the timestamp is current; if an SP payload is present in the I_MESSAGE the Responder MUST return one of the proposed security policies that matches the Responder's local policy.",
+      "zh-CHS": "o 如果SIGNi可以正确验证且时间戳是当前的，则响应者必须发送R_消息；如果I_消息中存在SP有效负载，则响应者必须返回与响应者的本地策略匹配的建议安全策略之一。"
+    },
+    {
+      "indent": 3,
+      "text": "o If a RAND payload is present in the I_MESSAGE, both sides use that RAND payload as the RAND value in the MIKEY key computation. In case of multicast, if a RAND payload is present in the I_MESSAGE, the Responder SHOULD ignore the payload. In any case, the R_MESSAGE for multicast communication MUST contain a RAND payload and that RAND payload is used for key computation.",
+      "zh-CHS": "o 如果I_消息中存在RAND有效载荷，则双方都将该RAND有效载荷用作MIKEY密钥计算中的RAND值。在多播情况下，如果I_消息中存在RAND有效负载，则响应者应忽略该有效负载。在任何情况下，用于多播通信的R_消息必须包含RAND有效载荷，并且该RAND有效载荷用于密钥计算。"
+    },
+    {
+      "indent": 3,
+      "text": "o The rest of the error message rules are as described in Section 5.1.2 of RFC 3830, and message processing rules are as described in Section 5.3 of RFC 3830.",
+      "zh-CHS": "o 其余错误消息规则如RFC 3830第5.1.2节所述，消息处理规则如RFC 3830第5.3节所述。"
+    },
+    {
+      "indent": 0,
+      "text": "3.6. Components of the R_MESSAGE",
+      "section_title": true,
+      "zh-CHS": "3.6. R_消息的组件"
+    },
+    {
+      "indent": 3,
+      "text": "The HDR payload in the R_MESSAGE is formed following the procedure described in RFC 3830. Specifically, the CSB_ID in the HDR payload MUST be the same as the one in the HDR of the I_MESSAGE. The Responder MUST fill in the number of CSs and the CS ID map type and CS ID info fields of the HDR payload.",
+      "zh-CHS": "R_消息中的HDR有效载荷按照RFC 3830中描述的步骤形成。具体而言，HDR有效负载中的CSB_ID必须与I_消息的HDR中的CSB_ID相同。响应者必须填写HDR有效负载的CSs数量、CS ID映射类型和CS ID信息字段。"
+    },
+    {
+      "indent": 3,
+      "text": "For group communication, all the members MUST use the same CSB_ID and CS ID in computing the traffic keying material. Therefore, for group key establishment, the Responder MUST include a General Extension Payload containing a new CSB_ID in the R_MESSAGE. If a new CSB_ID is present in the R_MESSAGE, the Initiator and the Responder MUST use that value in key material computation. Furthermore, the CS ID map type and CS ID map info MUST be populated by the Responder. The General Extension Payload carrying a CSB_ID MUST NOT be present in case of unicast communication.",
+      "zh-CHS": "对于组通信，所有成员在计算流量键控材料时必须使用相同的CSB_ID和CS ID。因此，对于组密钥建立，响应者必须在R_消息中包含包含新CSB_ID的通用扩展有效载荷。如果R_消息中存在新的CSB_ID，则发起方和响应方必须在关键材料计算中使用该值。此外，CS ID映射类型和CS ID映射信息必须由响应者填充。在单播通信的情况下，携带CSB_ID的通用扩展有效负载不得存在。"
+    },
+    {
+      "indent": 3,
+      "text": "The T payload is exactly the same as that received in the I_MESSAGE.",
+      "zh-CHS": "T有效载荷与I_消息中接收到的完全相同。"
+    },
+    {
+      "indent": 3,
+      "text": "If the I_MESSAGE did not include the RAND payload, it MUST be present in the R_MESSAGE. In case it has been included in the I_MESSAGE, it MUST NOT be present in the R_MESSAGE. In group communication, the Responder always sends the RAND payload and in unicast communication, either the Initiator or the Responder (but not both) generate and send the RAND payload.",
+      "zh-CHS": "如果I_消息不包括RAND有效负载，则它必须出现在R_消息中。如果它已包含在I_消息中，则它不得出现在R_消息中。在组通信中，响应者始终发送RAND有效负载，在单播通信中，发起方或响应者（但不是两者）生成并发送RAND有效负载。"
+    },
+    {
+      "indent": 3,
+      "text": "IDr and CERTr SHOULD be included, but they MAY be left out when it can be expected that the peer already knows the other party's ID (or can obtain the certificate in some other manner). For example, this could be the case if the ID is extracted from SIP. For certificate handling, authorization, and policies, see Section 4.3. of RFC 3830. If CERTr is included, it MUST correspond to the private key used to sign the R_MESSAGE.",
+      "zh-CHS": "IDr和CERTr应该包括在内，但是当可以预期对等方已经知道另一方的ID（或者可以通过其他方式获得证书）时，它们可能被忽略。例如，如果从SIP中提取ID，则可能会出现这种情况。有关证书处理、授权和策略，请参阅第4.3节。RFC3830的一部分。如果包含CERTr，则它必须与用于签署R_消息的私钥相对应。"
+    },
+    {
+      "indent": 3,
+      "text": "An SP payload MAY be included in the R_MESSAGE. If an SP payload was in the I_MESSAGE, then the R_MESSAGE MUST contain an SP payload specifying the security policies of the secure RTP session being negotiated. More specifically, the Initiator may have provided multiple options, but the Responder MUST choose one option per Security Policy Parameter.",
+      "zh-CHS": "SP有效负载可能包含在R_消息中。如果I_消息中包含SP有效负载，则R_消息必须包含指定正在协商的安全RTP会话的安全策略的SP有效负载。更具体地说，发起方可能提供了多个选项，但响应方必须为每个安全策略参数选择一个选项。"
+    },
+    {
+      "indent": 3,
+      "text": "The KEMAC payload contains a set of encrypted sub-payloads and a MAC: KEMAC = E(encr_key, IDr || {TGK}) || MAC. The first payload (IDr) in KEMAC is the identity of the Responder (not a certificate, but generally the same ID as the one specified in the certificate). Each of the following payloads (TGK) includes a TGK randomly and independently chosen by the Responder (and possible other related",
+      "zh-CHS": "KEMAC有效载荷包含一组加密的子有效载荷和一个MAC:KEMAC=E（encr|u key，IDr |{TGK}）| MAC。KEMAC中的第一个有效载荷（IDr）是响应者的身份（不是证书，但通常与证书中指定的ID相同）。以下每个有效载荷（TGK）包括由响应者随机独立选择的TGK（以及可能的其他相关载荷）"
+    },
+    {
+      "indent": 3,
+      "text": "parameters, e.g., the key lifetime). The encrypted part is then followed by a MAC, which is calculated over the KEMAC payload. The encr_key and the auth_key are derived from the envelope key, env_key, as specified in Section 4.1.4. of RFC 3830. The payload definitions are specified in Section 6.2 of RFC 3830.",
+      "zh-CHS": "参数，例如密钥寿命）。加密部分之后是MAC，该MAC通过KEMAC有效载荷进行计算。根据第4.1.4节的规定，encr_密钥和auth_密钥源自信封密钥env_密钥。RFC3830的一部分。RFC 3830第6.2节规定了有效载荷定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The Responder encrypts and integrity protects the TGK with keys derived from a randomly or pseudo-randomly chosen envelope key, and encrypts the envelope key itself with the public key of the Initiator. The PKE payload contains the encrypted envelope key, env_key: PKE = E(PKi, env_key). PKi denotes the Initiator's public key. Note that, as suggested in RFC 3830, the envelope key MAY be cached and used as the PSK for re-keying.",
+      "zh-CHS": "响应者使用从随机或伪随机选择的信封密钥派生的密钥对TGK进行加密和完整性保护，并使用启动器的公钥对信封密钥本身进行加密。PKE负载包含加密的信封密钥env_key:PKE=E（PKi，env_key）。PKi表示发起方的公钥。注意，如RFC 3830中所建议的，信封密钥可以被高速缓存并用作用于重设密钥的PSK。"
+    },
+    {
+      "indent": 3,
+      "text": "To compute the signature that goes in the SIGNr payload, the Responder MUST sign:",
+      "zh-CHS": "要计算SIGNr有效负载中的签名，响应者必须签名："
+    },
+    {
+      "indent": 3,
+      "text": "R_MESSAGE (excluding the SIGNr payload itself) || IDi || IDr || T.",
+      "zh-CHS": "R|u消息（不包括SIGNr有效负载本身）| IDi | IDr | T。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the added identities and timestamp are identical to those transported in the ID and T payloads.",
+      "zh-CHS": "请注意，添加的标识和时间戳与ID和T有效负载中传输的标识和时间戳相同。"
+    },
+    {
+      "indent": 0,
+      "text": "3.7. Processing the R_MESSAGE",
+      "section_title": true,
+      "zh-CHS": "3.7. 处理R_消息"
+    },
+    {
+      "indent": 3,
+      "text": "In addition to the processing rules in RFC 3830, the following rules apply to processing of the R_MESSAGE of MIKEY RSA-R mode.",
+      "zh-CHS": "除RFC 3830中的处理规则外，以下规则适用于MIKEY RSA-R模式的R_消息的处理。"
+    },
+    {
+      "indent": 6,
+      "text": "If the I_MESSAGE contained a RAND payload, the Initiator MUST silently discard an R_MESSAGE that contains a RAND payload. Similarly, if the I_MESSAGE did not contain a RAND payload, the Initiator MUST silently discard an R_MESSAGE that does not contain a RAND payload.",
+      "zh-CHS": "如果I_消息包含RAND负载，则发起方必须以静默方式丢弃包含RAND负载的R_消息。类似地，如果I_消息不包含RAND负载，则发起程序必须以静默方式丢弃不包含RAND负载的R_消息。"
+    },
+    {
+      "indent": 6,
+      "text": "If the SP payload contains a policy not specified in the SP message, if present, in the I_MESSAGE, such an R_MESSAGE MUST be discarded silently.",
+      "zh-CHS": "如果SP有效负载包含SP消息中未指定的策略（如果存在），则I_消息中必须以静默方式丢弃此类R_消息。"
+    },
+    {
+      "indent": 0,
+      "text": "3.8. Certificate Handling",
+      "section_title": true,
+      "zh-CHS": "3.8. 证书处理"
+    },
+    {
+      "indent": 3,
+      "text": "If a Certificate payload is present, the X.509v3 URL Cert type from Table 6.7.b [RFC3830] is the default method in RSA-R mode and MUST be implemented. The HTTP URL to fetch a certificate as specified in RFC 2585 [RFC2585] MUST be supported. Devices are not required to support the FTP URLs. When retrieving data from the URL, application/pkix-cert MIME type with X.509 certificates DER-encoded MUST be supported.",
+      "zh-CHS": "如果存在证书有效负载，则表6.7.b[RFC3830]中的X.509v3 URL证书类型是RSA-R模式下的默认方法，必须实现。必须支持RFC 2585[RFC2585]中指定的获取证书的HTTP URL。设备不需要支持FTP URL。从URL检索数据时，必须支持使用DER编码的X.509证书的应用程序/pkix证书MIME类型。"
+    },
+    {
+      "indent": 3,
+      "text": "The RECOMMENDED way of doing certificate validation is by using OCSP as specified by RFC 2560 [RFC2560]. When OCSP is used and nextUpdate time is present in the response, it defines how long the certificate can be considered valid and cached. If OCSP is not supported or nextUpdate time is not present in the response, the certificate cache timeout is a matter of local policy.",
+      "zh-CHS": "建议使用RFC 2560[RFC2560]指定的OCSP进行证书验证。当使用OCSP且响应中存在nextUpdate time时，它定义证书的有效期和缓存时间。如果不支持OCSP或响应中不存在nextUpdate时间，则证书缓存超时取决于本地策略。"
+    },
+    {
+      "indent": 3,
+      "text": "The communicating peers (such as SIP User Agents for instance) MAY choose to create a URL pointing to certificate files residing on themselves or by appending their ID and a \".cer\" extension to a provisioned root path to the certificate. Other methods MAY also be used, subject to local policy.",
+      "zh-CHS": "通信对等方（例如SIP用户代理）可以选择创建指向驻留在其自身上的证书文件的URL，或者通过将其ID和“.cer”扩展名附加到证书的配置根路径。根据当地政策，也可使用其他方法。"
+    },
+    {
+      "indent": 0,
+      "text": "3.9. Additions to RFC 3830 Message Types and Other Values",
+      "section_title": true,
+      "zh-CHS": "3.9. 添加到RFC 3830消息类型和其他值"
+    },
+    {
+      "indent": 3,
+      "text": "This document introduces two new message types (Table 6.1a of RFC 3830), an Error no (Table 6.12 of RFC 3830), and a general extension payload (Table 6.15 of RFC 3830). This section specifies those additions.",
+      "zh-CHS": "本文档介绍了两种新的消息类型（RFC 3830的表6.1a）、错误号（RFC 3830的表6.12）和通用扩展有效负载（RFC 3830的表6.15）。本节规定了这些补充内容。"
+    },
+    {
+      "indent": 0,
+      "text": "3.9.1. Modified Table 6.1a from RFC 3830",
+      "section_title": true,
+      "zh-CHS": "3.9.1. 修改RFC 3830中的表6.1a"
+    },
+    {
+      "indent": 3,
+      "text": "Modified Table 6.1a from RFC 3830:",
+      "zh-CHS": "修改RFC 3830中的表6.1a："
+    },
+    {
+      "indent": 3,
+      "text": "Data type   | Value |                           Comment\n------------------------------------------------------------------\nPre-shared  |   0   | Initiator's pre-shared key message\nPSK ver msg |   1   | Verification message of a Pre-shared key msg\nPublic key  |   2   | Initiator's public-key transport message\nPK ver msg  |   3   | Verification message of a public-key message\nD-H init    |   4   | Initiator's DH exchange message\nD-H resp    |   5   | Responder's DH exchange message\nError       |   6   | Error message\nDHHMAC init |   7   | DH HMAC message 1\nDHHMAC resp |   8   | DH HMAC message 2\nRSA-R I_MSG |   9   | Initiator's RSA-R public-key message (NEW)\nRSA-R R_MSG |   10  | Responder's RSA-R public-key message (NEW)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "Figure 3: Table 6.1a from RFC 3830 (Revised)",
+      "zh-CHS": "图3:RFC 3830（修订版）中的表6.1a"
+    },
+    {
+      "indent": 0,
+      "text": "3.9.2. Modified Table 6.12 from RFC 3830",
+      "section_title": true,
+      "zh-CHS": "3.9.2. 修改RFC 3830中的表6.12"
+    },
+    {
+      "indent": 3,
+      "text": "Modified Table 6.12 from RFC 3830:",
+      "zh-CHS": "修改RFC 3830中的表6.12："
+    },
+    {
+      "indent": 9,
+      "text": "Error no          | Value | Comment\n-------------------------------------------------------\nAuth failure      |     0 | Authentication failure\nInvalid TS        |     1 | Invalid timestamp\nInvalid PRF       |     2 | PRF function not supported\nInvalid MAC       |     3 | MAC algorithm not supported\nInvalid EA        |     4 | Encryption algorithm not supported\nInvalid HA        |     5 | Hash function not supported\nInvalid DH        |     6 | DH group not supported\nInvalid ID        |     7 | ID not supported\nInvalid Cert      |     8 | Certificate not supported\nInvalid SP        |     9 | SP type not supported\nInvalid SPpar     |    10 | SP parameters not supported\nInvalid DT        |    11 | not supported Data type\nUnspecified error |    12 | an unspecified error occurred\nUnsupported       |       |\n message type     |    13 | unparseable MIKEY message (NEW)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "Figure 4: Table 6.12 from RFC 3830 (Revised)",
+      "zh-CHS": "图4:RFC 3830（修订版）中的表6.12"
+    },
+    {
+      "indent": 0,
+      "text": "3.9.3. Modified Table 6.15 from RFC 3830",
+      "section_title": true,
+      "zh-CHS": "3.9.3. 修改RFC 3830中的表6.15"
+    },
+    {
+      "indent": 3,
+      "text": "Modified Table 6.15 from RFC 3830:",
+      "zh-CHS": "修改RFC 3830中的表6.15："
+    },
+    {
+      "indent": 5,
+      "text": "Type       | Value | Comments\n---------------------------------------\nVendor ID  |     0 | Vendor specific byte string\nSDP IDs    |     1 | List of SDP key mgmt IDs (allocated for use in\n           |       |   [RFC4567])\nTESLA I-Key|     2 |   [RFC4442]\nKey ID     |     3 | information on type and identity of keys\n           |       |   [RFC4563])\nCSB_ID     |     4 | Responder's modified CSB_ID (group mode)",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 15,
+      "text": "Figure 5: Table 6.15 from RFC 3830 (Revised)",
+      "zh-CHS": "图5:RFC 3830（修订版）中的表6.15"
+    },
+    {
+      "indent": 0,
+      "text": "4. Applicability of the RSA-R and RSA Modes",
+      "section_title": true,
+      "zh-CHS": "4. RSA-R模式的适用性"
+    },
+    {
+      "indent": 3,
+      "text": "MIKEY-RSA-R mode and RSA mode are both very useful: deciding on which mode to use depends on the application.",
+      "zh-CHS": "MIKEY-RSA-R模式和RSA模式都非常有用：决定使用哪种模式取决于应用程序。"
+    },
+    {
+      "indent": 3,
+      "text": "The RSA-R mode is useful when you have reasons to believe that the Responder may be a different party than the one to which the MIKEY I_MESSAGE was sent. This is quite common in telephony and multimedia applications where the session or the call can be retargeted or forwarded. When the security policy allows it, leaving some flexibility for the Initiator to see who the Responder may turn out to be, before making the decision to continue or discontinue the session, may be appropriate. In such cases, the main objective of the Initiator's RSA-R message is to present its public key/ certificate to the Responder, and wait for a Responder to present its identity.",
+      "zh-CHS": "当您有理由相信响应者可能与发送MIKEY I_消息的对象不同时，RSA-R模式非常有用。这在电话和多媒体应用程序中非常常见，在这些应用程序中，会话或呼叫可以重定目标或转发。当安全策略允许时，在做出继续或中断会话的决定之前，为发起方留出一定的灵活性，让其了解响应方可能是谁，这可能是合适的。在这种情况下，发起方的RSA-R消息的主要目的是向响应方提供其公钥/证书，并等待响应方提供其身份。"
+    },
+    {
+      "indent": 3,
+      "text": "The second scenario is when the Initiator already has the Responder's certificate but wants to allow the Responder to come up with all the keying material. This is applicable in conferences where the Responder is the key distributor and the Initiators contact the Responder to initiate key download. Notice that this is quite similar to the group key download model as specified in GDOI [RFC3547], GSAKMP [RFC4535], and GKDP [GKDP] protocols (also see [RFC4046]). The catch, however, is that the participating entities must know that they need to contact a well-known address as far as that conferencing group is concerned. Note that they only need the Responder's address, not necessarily its CERT. If the group members have the Responder's CERT, there is no harm; they simply do not need the CERT to compose the I_MESSAGE.",
+      "zh-CHS": "第二种情况是，发起人已经拥有响应者的证书，但希望允许响应者提供所有密钥材料。这适用于响应者是密钥分发者且启动器联系响应者以启动密钥下载的会议。请注意，这与GDOI[RFC3547]、GSAKMP[RFC4535]和GKDP[GKDP]协议中指定的组密钥下载模型非常相似（另请参见[RFC4046]）。然而，问题是，参与实体必须知道，就会议组而言，他们需要联系一个众所周知的地址。请注意，他们只需要回复者的地址，不一定需要其证书。如果小组成员拥有回复者的证书，则没有任何伤害；他们根本不需要证书来撰写I_消息。"
+    },
+    {
+      "indent": 3,
+      "text": "The RSA mode is useful when the Initiator knows the Responder's identity and CERT. This mode is also useful when the key exchange is happening in an established session with a Responder (for example, when switching from a non-secure mode to a secure mode), and when the policy is such that it is only appropriate to establish a MIKEY session with the Responder that is targeted by the Initiator.",
+      "zh-CHS": "当发起者知道响应者的身份和证书时，RSA模式很有用。当密钥交换在与响应者建立的会话中进行时（例如，从非安全模式切换到安全模式时），此模式也很有用，并且当策略是这样的时，只适合与发起方所针对的响应方建立MIKEY会话。"
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Limitations",
+      "section_title": true,
+      "zh-CHS": "4.1. 局限性"
+    },
+    {
+      "indent": 3,
+      "text": "The RSA-R mode may not easily support 3-way calling, under the assumptions that motivated the design. An extra message may be required compared to the MIKEY-RSA mode specified in RFC 3830. Consider that A wants to talk to B and C, but does not have B's or C's CERT. A might contact B and request that B supply a key for a 3-way call. Now if B knows C's CERT, then B can simply use the MIKEY-RSA mode (as defined in RFC 3830) to send the TGK to C. If not, then the solution is not straightforward. For instance, A might",
+      "zh-CHS": "在设计动机的假设下，RSA-R模式可能不容易支持3路调用。与RFC 3830中指定的MIKEY-RSA模式相比，可能需要额外的消息。考虑A想与B和C对话，但没有B或C的证书。A可能与B联系，并要求B提供3路呼叫的密钥。现在，如果B知道C的证书，那么B可以简单地使用MIKEY-RSA模式（如RFC3830中定义的）将TGK发送给C。如果不知道，那么解决方案就不简单了。例如，一种可能"
+    },
+    {
+      "indent": 3,
+      "text": "ask C to contact B or itself to get the TGK, in effect initiating a 3-way exchange. It should be noted that 3-way calling is typically implemented using a bridge, in which case there are no issues (it looks like 3 point-to-point sessions, where one end of each session is a bridge mixing the traffic into a single stream).",
+      "zh-CHS": "要求C联系B或其自身以获得TGK，实际上启动了一个三方交换。应该注意的是，3路调用通常使用网桥实现，在这种情况下没有问题（看起来像3个点对点会话，其中每个会话的一端是将流量混合到单个流中的网桥）。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "5. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "We offer a brief overview of the security properties of the exchange. There are two messages: the I_MESSAGE and the R_MESSAGE. The I_MESSAGE is a signed request by an Initiator requesting the Responder to select a TGK to be used to protect multimedia (e.g., Secure RTP or SRTP [RFC3711]) sessions.",
+      "zh-CHS": "我们简要概述了exchange的安全属性。有两条消息：I_消息和R_消息。I_消息是发起方发出的签名请求，请求响应方选择用于保护多媒体（例如，安全RTP或SRTP[RFC3711]）会话的TGK。"
+    },
+    {
+      "indent": 3,
+      "text": "The message is signed, which assures the Responder that the claimed Initiator has indeed generated the message. This automatically provides message integrity as well.",
+      "zh-CHS": "消息被签名，这确保响应者声明的发起人确实生成了消息。这也会自动提供消息完整性。"
+    },
+    {
+      "indent": 3,
+      "text": "There is a timestamp in the I_MESSAGE, which when generated and interpreted in the context of the MIKEY specification assures the Responder that the request is live and not a replay. Indirectly, this also provides protection against a denial of service (DoS) attack in that the I_MESSAGE must itself be signed. The Responder, however, would have to verify the Initiator's signature and the timestamp, and thus would spend significant computing resources. It is possible to mitigate this by caching recently received and verified requests.",
+      "zh-CHS": "I_消息中有一个时间戳，当在MIKEY规范的上下文中生成和解释时，它可以确保响应者请求是实时的，而不是重播。这还间接地提供了针对拒绝服务（DoS）攻击的保护，因为I_消息本身必须签名。然而，响应者必须验证发起者的签名和时间戳，因此将花费大量的计算资源。可以通过缓存最近接收和验证的请求来缓解这种情况。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the I_MESSAGE in this method basically equals DoS protection properties of the DH method and not the public-key method as there are no payloads encrypted by the Responder's public key in the I_MESSAGE. If IDr is not included in the I_MESSAGE, the Responder will accept the message and a response (and state) would be created for the malicious request.",
+      "zh-CHS": "请注意，此方法中的I_消息基本上等于DH方法的DoS保护属性，而不是公钥方法，因为I_消息中没有由响应者的公钥加密的有效负载。如果I_消息中未包含IDr，响应者将接受该消息，并为恶意请求创建响应（和状态）。"
+    },
+    {
+      "indent": 3,
+      "text": "The R_MESSAGE is quite similar to the I_MESSAGE in the MIKEY-RSA mode and has all the same security properties.",
+      "zh-CHS": "R_消息与MIKEY-RSA模式下的I_消息非常相似，具有所有相同的安全属性。"
+    },
+    {
+      "indent": 3,
+      "text": "When using the RSA-R mode, the Responder may be a different party than the one to which the MIKEY I_MESSAGE was sent. It is the responsibility of the Initiator to verify that the identity of the Responder is acceptable (based on its local policy) if it changes from the party to which the MIKEY I_MESSAGE was sent, and to take appropriate action based on the outcome. In some cases, it could be appropriate to accept a Responder's identity if it can be strongly authenticated; in other cases, a blacklist or a whitelist may be appropriate.",
+      "zh-CHS": "当使用RSA-R模式时，响应方可能与发送MIKEY I_消息的另一方不同。发起者有责任验证响应者的身份是否可接受（根据其当地政策），如果其与发送MIKEY I_消息的一方发生变化，并根据结果采取适当措施。在某些情况下，如果可以对响应者的身份进行强身份验证，则可以接受响应者的身份；在其他情况下，黑名单或白名单可能是合适的。"
+    },
+    {
+      "indent": 3,
+      "text": "When both unicast and multicast streams need to be negotiated, it is RECOMMENDED to use multiple instances of MIKEY-RSA-R rather than a single instance in group mode. This is to avoid potential key reuse with counter mode.",
+      "zh-CHS": "当单播和多播流都需要协商时，建议使用多个MIKEY-RSA-R实例，而不是在组模式下使用单个实例。这是为了避免计数器模式下可能的密钥重用。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Impact of the Responder Choosing the TGK",
+      "section_title": true,
+      "zh-CHS": "5.1. 响应者选择TGK的影响"
+    },
+    {
+      "indent": 3,
+      "text": "In the MIKEY-RSA or PSK modes, the Initiator chooses the TGK, and the Responder has the option to accept the key or not. In the RSA-R mode for unicast communication, the RECOMMENDED mode of operation is for the Initiator and the Responder to contribute random information in generating the TEK (RAND from the Initiator and the TGK from the Responder). For group communication, the sender (MIKEY Responder) will choose the TGK and the RAND; note that it is in the interest of the sender to provide sufficient entropy to TEK generation since the TEK protects data sent by the Responder.",
+      "zh-CHS": "在MIKEY-RSA或PSK模式下，发起方选择TGK，响应方可以选择是否接受密钥。在单播通信的RSA-R模式中，建议的操作模式是，发起方和响应方在生成TEK时提供随机信息（发起方的RAND和响应方的TGK）。对于组通信，发送方（MIKEY Responder）将选择TGK和RAND；请注意，由于TEK保护响应方发送的数据，因此为TEK生成提供足够的熵符合发送方的利益。"
+    },
+    {
+      "indent": 3,
+      "text": "Thus, in case of unicast communication, the RSA-R mode is slightly better than the RSA mode in that it allows the Initiator as well as the Responder to contribute entropy to the TEK generation process. This comes at the expense of the additional message. However, as noted earlier, the new mode needs the additional message to allow simpler provisioning.",
+      "zh-CHS": "因此，在单播通信的情况下，RSA-R模式略优于RSA模式，因为它允许发起方和响应方为TEK生成过程贡献熵。这是以牺牲附加消息为代价的。但是，如前所述，新模式需要额外的消息以允许更简单的配置。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Updates to Security Considerations in RFC 3830",
+      "section_title": true,
+      "zh-CHS": "5.2. RFC 3830中的安全注意事项更新"
+    },
+    {
+      "indent": 3,
+      "text": "MIKEY requires clock synchronization, and a secure network clock synchronization protocol SHOULD be used, e.g., [ISO3] or secure NTP [NTPv4].",
+      "zh-CHS": "MIKEY需要时钟同步，应使用安全的网络时钟同步协议，例如[ISO3]或安全NTP[NTPv4]。"
+    },
+    {
+      "indent": 3,
+      "text": "RFC 3830 has additional notes on the security properties of the MIKEY protocol, key derivation functions, and other components.",
+      "zh-CHS": "RFC3830对MIKEY协议的安全属性、密钥派生函数和其他组件有附加说明。"
+    },
+    {
+      "indent": 0,
+      "text": "6. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "6. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The following IANA assignments were added to the MIKEY registry:",
+      "zh-CHS": "以下IANA分配已添加到MIKEY注册表："
+    },
+    {
+      "indent": 6,
+      "text": "Added to \"Error payload name spaces:\"",
+      "zh-CHS": "添加到“错误有效负载名称空间：”"
+    },
+    {
+      "indent": 9,
+      "text": "Unsupported message type ------- 13",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Added to \"Common Header payload name spaces:\"",
+      "zh-CHS": "添加到“公共标头有效负载名称空间：”"
+    },
+    {
+      "indent": 9,
+      "text": "RSA-R I_MSG ------------- 9\nRSA-R R_MSG ------------- 10",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 6,
+      "text": "Added to \"General Extensions payload name spaces:\"",
+      "zh-CHS": "添加到“常规扩展有效负载名称空间：”"
+    },
+    {
+      "indent": 9,
+      "text": "CSB_ID ----------------- 4",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "7. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "7. 致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Many thanks to Mark Baugher, Steffen Fries, Russ Housley, Cullen Jennings, and Vesa Lehtovirta for their reviews of earlier version of this document.",
+      "zh-CHS": "非常感谢Mark Baugher、Steffen Fries、Russ Housley、Cullen Jennings和Vesa Lehtovirta对本文件早期版本的审查。"
+    },
+    {
+      "indent": 0,
+      "text": "8. References",
+      "section_title": true,
+      "zh-CHS": "8. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "8.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2560] Myers, M., Ankney, R., Malpani, A., Galperin, S., and C. Adams, \"X.509 Internet Public Key Infrastructure Online Certificate Status Protocol - OCSP\", RFC 2560, June 1999.",
+      "zh-CHS": "[RFC2560]Myers，M.，Ankney，R.，Malpani，A.，Galperin，S.，和C.Adams，“X.509互联网公钥基础设施在线证书状态协议-OCSP”，RFC 25601999年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2585] Housley, R. and P. Hoffman, \"Internet X.509 Public Key Infrastructure Operational Protocols: FTP and HTTP\", RFC 2585, May 1999.",
+      "zh-CHS": "[RFC2585]Housley，R.和P.Hoffman，“Internet X.509公钥基础设施操作协议：FTP和HTTP”，RFC 25851999年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3830] Arkko, J., Carrara, E., Lindholm, F., Naslund, M., and K. Norrman, \"MIKEY: Multimedia Internet KEYing\", RFC 3830, August 2004.",
+      "zh-CHS": "[RFC3830]Arkko，J.，Carrara，E.，Lindholm，F.，Naslund，M.，和K.Norrman，“米奇：多媒体互联网键控”，RFC 3830，2004年8月。"
+    },
+    {
+      "indent": 0,
+      "text": "8.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "8.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3547] Baugher, M., Weis, B., Hardjono, T., and H. Harney, \"The Group Domain of Interpretation\", RFC 3547, July 2003.",
+      "zh-CHS": "[RFC3547]Baugher，M.，Weis，B.，Hardjono，T.，和H.Harney，“解释的集团领域”，RFC 3547，2003年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3711] Baugher, M., McGrew, D., Naslund, M., Carrara, E., and K. Norrman, \"The Secure Real-time Transport Protocol (SRTP)\", RFC 3711, March 2004.",
+      "zh-CHS": "[RFC3711]Baugher，M.，McGrew，D.，Naslund，M.，Carrara，E.，和K.Norrman，“安全实时传输协议（SRTP）”，RFC 37112004年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4046] Baugher, M., Canetti, R., Dondeti, L., and F. Lindholm, \"Multicast Security (MSEC) Group Key Management Architecture\", RFC 4046, April 2005.",
+      "zh-CHS": "[RFC4046]Baugher，M.，Canetti，R.，Dondeti，L.，和F.Lindholm，“多播安全（MSEC）组密钥管理体系结构”，RFC 4046，2005年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4650] Euchner, M., \"HMAC-Authenticated Diffie-Hellman for Multimedia Internet KEYing (MIKEY)\", RFC 4650, September 2006.",
+      "zh-CHS": "[RFC4650]Euchner，M.“HMAC认证的Diffie Hellman多媒体互联网密钥（MIKEY）”，RFC 46502006年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4535] Harney, H., Meth, U., Colegrove, A., and G. Gross, \"GSAKMP: Group Secure Association Key Management Protocol\", RFC 4535, June 2006.",
+      "zh-CHS": "[RFC4535]Harney，H.，Meth，U.，Colegrove，A.，和G.Gross，“GSAKMP：组安全关联密钥管理协议”，RFC 45352006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[GKDP] Dondeti, L., \"GKDP: Group Key Distribution Protocol\", Work in Progress, March 2006.",
+      "zh-CHS": "[GKDP]Dondeti，L.，“GKDP：组密钥分发协议”，正在进行的工作，2006年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4567] Arkko, J., Lindholm, F., Naslund, M., Norrman, K., and E. Carrara, \"Key Management Extensions for Session Description Protocol (SDP) and Real Time Streaming Protocol (RTSP)\", RFC 4567, July 2006.",
+      "zh-CHS": "[RFC4567]Arkko，J.，Lindholm，F.，Naslund，M.，Norrman，K.，和E.Carrara，“会话描述协议（SDP）和实时流协议（RTSP）的密钥管理扩展”，RFC 4567，2006年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4442] Fries, S. and H. Tschofenig, \"Bootstrapping Timed Efficient Stream Loss-Tolerant Authentication (TESLA)\", RFC 4442, March 2006.",
+      "zh-CHS": "[RFC4442]Fries，S.和H.Tschofenig，“自举定时高效流丢失容忍认证（TESLA）”，RFC 4442，2006年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4563] Carrara, E., Lehtovirta, V., and K. Norrman, \"The Key ID Information Type for the General Extension Payload in Multimedia Internet KEYing (MIKEY)\", RFC 4563, June 2006.",
+      "zh-CHS": "[RFC4563]Carrara，E.，Lehtovirta，V.，和K.Norrman，“多媒体互联网键控（MIKEY）中通用扩展有效载荷的密钥ID信息类型”，RFC 4563，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NTPv4] Burbank, J., \"The Network Time Protocol Version 4 Protocol Specification\", Work in Progress, May 2006.",
+      "zh-CHS": "[NTPv4]Burbank，J.，“网络时间协议版本4协议规范”，正在进行的工作，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[ISO3] ISO, \"ISO/IEC 18014 Information technology - Security techniques - Time-stamping services, Part 1-3\", 2002.",
+      "zh-CHS": "[ISO3]ISO，“ISO/IEC 18014信息技术-安全技术-时间戳服务，第1-3部分”，2002年。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Dragan Ignjatic Polycom 1000 W. 14th Street North Vancouver, BC V7P 3P3 Canada",
+      "zh-CHS": "加拿大不列颠哥伦比亚省温哥华北区第14街西1000号德拉根伊格纳蒂克Polycom V7P 3P3"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 604 982 3424\nEMail: dignjatic@polycom.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Lakshminath Dondeti QUALCOMM 5775 Morehouse drive San Diego, CA 92121 US",
+      "zh-CHS": "美国加利福尼亚州圣地亚哥莫尔豪斯大道5775号Lakshminath Dondeti高通公司92121"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 858 845 1267\nEMail: ldondeti@qualcomm.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Francois Audet Nortel 4655 Great America Parkway Santa Clara, CA 95054 US",
+      "zh-CHS": "弗朗索瓦·奥德特北电4655美国加利福尼亚州圣克拉拉大美洲大道95054号"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 408 495 3756\nEMail: audet@nortel.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Ping Lin Nortel 250 Sidney St. Belleville, Ontario K8P3Z3 Canada",
+      "zh-CHS": "平林北电250加拿大安大略省悉尼圣贝勒维尔K8P3Z3"
+    },
+    {
+      "indent": 3,
+      "text": "Phone: +1 613 967 5343\nEMail: linping@nortel.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2006).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2006年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST, AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

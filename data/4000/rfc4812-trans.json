@@ -1,0 +1,322 @@
+{
+  "title": {
+    "text": "RFC 4812: OSPF Restart Signaling",
+    "zh-CHS": "RFC 4812"
+  },
+  "number": 4812,
+  "created_at": "2021-11-15 03:47:48.496965+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                          L. Nguyen\nRequest for Comments: 4812                                        A. Roy\nCategory: Informational                                    Cisco Systems\n                                                                A. Zinin\n                                                          Alcatel-Lucent\n                                                              March 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 25,
+      "text": "OSPF Restart Signaling",
+      "zh-CHS": "OSPF重启信令"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This memo provides information for the Internet community. It does not specify an Internet standard of any kind. Distribution of this memo is unlimited.",
+      "zh-CHS": "本备忘录为互联网社区提供信息。它没有规定任何类型的互联网标准。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "OSPF is a link-state intra-domain routing protocol used in IP networks. Routers find new and detect unreachable neighbors via the Hello subprotocol. Hello OSPF packets are also used to ensure two-way connectivity within time. When a router restarts its OSPF software, it may not know its neighbors. If such a router sends a Hello packet on an interface, its neighbors are going to reset the adjacency, which may not be desirable in certain conditions.",
+      "zh-CHS": "OSPF是IP网络中使用的链路状态域内路由协议。路由器通过Hello子目录查找新的和检测不可到达的邻居。Hello OSPF数据包还用于确保时间内的双向连接。当路由器重新启动其OSPF软件时，它可能不知道它的邻居。如果这样一个路由器在一个接口上发送一个Hello包，它的邻居将重置邻接，这在某些情况下可能是不可取的。"
+    },
+    {
+      "indent": 3,
+      "text": "This memo describes a vendor-specific mechanism that allows OSPF routers to inform their neighbors about the restart process. Note that this mechanism requires support from neighboring routers. The mechanism described in this document was proposed before Graceful OSPF Restart, as described in RFC 3623, came into existence. It is implemented/supported by at least one major vendor and is currently deployed in the field. The purpose of this document is to capture the details of this mechanism for public use. This mechanism is not an IETF standard.",
+      "zh-CHS": "此备忘录描述了一种特定于供应商的机制，允许OSPF路由器将重启过程通知其邻居。请注意，此机制需要相邻路由器的支持。本文件中描述的机制是在RFC 3623中描述的OSPF正常重启之前提出的。它至少由一家主要供应商实施/支持，目前已部署在现场。本文件旨在获取该机制的详细信息，供公众使用。该机制不是IETF标准。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Proposed Solution ...............................................2\n   2.1. Sending Hello Packets with the RS-bit Set ..................3\n   2.2. Receiving Hello Packets with the RS-Bit Set ................3\n   2.3. Ensuring Topology Stability ................................4\n3. Backward Compatibility ..........................................4\n4. Security Considerations .........................................4\n5. IANA Considerations .............................................4\n6. References ......................................................5\n   6.1. Normative References .......................................5\n   6.2. Informative References .....................................5\nAppendix A.  Acknowledgements ......................................6",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "While performing a graceful restart of OSPF software [RFC3623], routers need to prevent their neighbors from resetting their adjacencies. However, after a reload, routers may not be aware of the neighbors they had adjacencies with in their previous incarnations. If such a router sends a Hello packet on an interface and this packet does not list some neighbors, those neighbors will reset the adjacency with the restarting router.",
+      "zh-CHS": "当执行OSPF软件[RFC3623]的优雅重启时，路由器需要防止其邻居重置其邻接。然而，在重新加载后，路由器可能不知道他们在前一个版本中与之相邻的邻居。如果这样一个路由器在一个接口上发送一个Hello包，而这个包没有列出一些邻居，那么这些邻居将通过重新启动的路由器重置邻接。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a technique that allows restarting routers to inform their neighbors that they may not know about some neighbors yet and the absence of some router IDs in the Hello packets should be ignored.",
+      "zh-CHS": "本文档描述了一种技术，该技术允许重新启动路由器，以通知其邻居他们可能还不知道某些邻居，并且应忽略Hello数据包中缺少某些路由器ID。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Proposed Solution",
+      "section_title": true,
+      "zh-CHS": "2. 提议的解决办法"
+    },
+    {
+      "indent": 3,
+      "text": "With this Restart Signaling Solution, a new bit, called RS (restart signal), is introduced into the Extended Options (EO) TLV in the Link-Local Signaling (LLS) block (see [RFC4813]). The value of this bit is 0x00000002; see Figure 1 below.",
+      "zh-CHS": "通过这种重启信令解决方案，在链路本地信令（LLS）块中的扩展选项（EO）TLV中引入了一个称为RS（重启信号）的新位（参见[RFC4813]）。该位的值为0x00000002；参见下面的图1。"
+    },
+    {
+      "indent": 3,
+      "text": "+---+---+---+---+---+---+---+- -+---+---+---+---+---+---+---+---+\n| * | * | * | * | * | * | * |...| * | * | * | * | * | * | RS| LR|\n+---+---+---+---+---+---+---+- -+---+---+---+---+---+---+---+---+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 18,
+      "text": "Figure 1. Bits in Extended Options TLV",
+      "zh-CHS": "图1。扩展选项TLV中的位"
+    },
+    {
+      "indent": 3,
+      "text": "For a definition of the LR-bit, see [RFC4811].",
+      "zh-CHS": "有关LR位的定义，请参阅[RFC4811]。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Sending Hello Packets with the RS-bit Set",
+      "section_title": true,
+      "zh-CHS": "2.1. 使用RS位集发送Hello数据包"
+    },
+    {
+      "indent": 3,
+      "text": "OSPF routers should set the RS-bit in the EO-TLV attached to a Hello packet when it is not known that all neighbors are listed in this packet, but the restarting router wants them to preserve their adjacencies. The RS-bit must not be set in Hello packets longer than RouterDeadInterval seconds.",
+      "zh-CHS": "OSPF路由器应在EO-TLV中设置RS位，该EO-TLV连接到Hello数据包，但不知道该数据包中列出了所有邻居，但重新启动的路由器希望这些邻居保持其邻接。在Hello数据包中设置的RS位不得超过RouterReadInterval秒。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. Receiving Hello Packets with the RS-Bit Set",
+      "section_title": true,
+      "zh-CHS": "2.2. 使用RS位集接收Hello数据包"
+    },
+    {
+      "indent": 3,
+      "text": "When an OSPF router receives a Hello packet containing the LLS block with the EO-TLV that has the RS-bit set, the router should skip the two-way connectivity check with the announcing neighbor (i.e., the router should not generate a 1-WayReceived event for the neighbor if it does not find its own router ID in the list of neighbors as described in Section 10.5 of [RFC2328]), provided that the neighbor Finite State Machine (FSM) for this neighbor is in the Full state.",
+      "zh-CHS": "当OSPF路由器接收到包含LLS块的Hello数据包，且EO-TLV已设置RS位时，路由器应跳过与邻居的双向连接检查（即，如果在[RFC2328]第10.5节所述的邻居列表中未找到自己的路由器ID，则路由器不应为邻居生成单向接收事件），前提是该邻居的邻居有限状态机（FSM）处于完全状态。"
+    },
+    {
+      "indent": 3,
+      "text": "The router should also send a unicast Hello back to the sender in reply to a Hello packet with RS-bit set. This is to speed up learning of previously known neighbors. When sending such a reply packet, care must be taken to ensure that the RS-bit is clear in it.",
+      "zh-CHS": "路由器还应将单播Hello发送回发送方，以回复设置了RS位的Hello数据包。这是为了加速学习以前已知的邻居。当发送这样的应答包时，必须注意确保RS位在其中是清晰的。"
+    },
+    {
+      "indent": 3,
+      "text": "Two additional fields are introduced in the neighbor data structure: RestartState flag and ResyncTimeout timer. RestartState flag indicates that a Hello packet with the RS-bit set has been received and the local router expects its neighbor to go through the Link State Database (LSDB) resynchronization procedure using [RFC4811]. ResyncTimeout is a single-shot timer limiting the delay between the first seen Hello packet with the RS-bit set and initialization of the LSDB resynchronization procedure. The length of ResyncTimeout timer is RouterDeadInterval seconds.",
+      "zh-CHS": "邻居数据结构中引入了两个附加字段：RestartState标志和ResyncTimeout计时器。RestartState标志表示已接收到设置了RS位的Hello数据包，并且本地路由器期望其邻居使用[RFC4811]通过链路状态数据库（LSDB）重新同步过程。ResyncTimeout是一个单发计时器，用于限制设置RS位的第一个Hello数据包与LSDB重新同步过程初始化之间的延迟。重新同步超时计时器的长度为RouterDeadInterval秒。"
+    },
+    {
+      "indent": 3,
+      "text": "When a Hello packet with the RS-bit set is received and RestartState flag is not set for the neighbor, the router sets RestartState flag and starts ResyncTimeout timer. If ResyncTimeout expires, RestartState flag is cleared and a 1-WayReceived event is generated for the neighbor. If, while ResyncTimeout timer is running, the neighbor starts LSDB resynchronization procedure using [RFC4811], ResyncTimeout timer is canceled. The router also clears RestartState flag on completion of the LSDB resynchronization process.",
+      "zh-CHS": "当接收到设置了RS位的Hello数据包且未为邻居设置RestartState标志时，路由器将设置RestartState标志并启动ResyncTimeout计时器。如果ResyncTimeout过期，则清除RestartState标志，并为邻居生成一个单向接收事件。如果在重新同步超时计时器运行时，邻居使用[RFC4811]启动LSDB重新同步过程，则取消重新同步超时计时器。路由器还将在LSDB重新同步过程完成时清除RestartState标志。"
+    },
+    {
+      "indent": 3,
+      "text": "Two or more routers on the same segment cannot have Hello packets with the RS-bit set at the same time, as can be the case when two or more routers restart at about the same time. In such a scenario, the routers should clear the RestartState flag, cancel the ResyncTimeout timer, and generate a 1-WayReceived event.",
+      "zh-CHS": "同一段上的两个或多个路由器不能同时具有设置了RS位的Hello数据包，当两个或多个路由器大约同时重新启动时可能会出现这种情况。在这种情况下，路由器应该清除RestartState标志，取消ResyncTimeout计时器，并生成一个单向接收事件。"
+    },
+    {
+      "indent": 0,
+      "text": "2.3. Ensuring Topology Stability",
+      "section_title": true,
+      "zh-CHS": "2.3. 确保拓扑稳定性"
+    },
+    {
+      "indent": 3,
+      "text": "Under certain circumstances, it might be desirable to stop announcing the restarting router as fully adjacent if this may lead to possible routing loops. In order to provide this functionality, a configurable option is provided on the neighboring routers that instructs the OSPF process to follow the logics described below.",
+      "zh-CHS": "在某些情况下，如果这可能导致可能的路由循环，可能需要停止宣布重新启动的路由器完全相邻。为了提供此功能，在相邻路由器上提供了一个可配置选项，指示OSPF进程遵循下面描述的逻辑。"
+    },
+    {
+      "indent": 3,
+      "text": "When an OSPF router schedules a routing table calculation due to a change in the contents of its LSDB, it should also reset all adjacencies with restarting routers (those with RestartState set to TRUE) by clearing the RestartState neighbor flags, canceling ResyncTimeout timers (if running), and generating the 1-WayReceived events for the neighbor FSMs.",
+      "zh-CHS": "当OSPF路由器因其LSDB的内容发生变化而安排路由表计算时，它还应通过清除RestartState邻居标志、取消ResyncTimeout计时器（如果正在运行）来重置重启路由器（RestartState设置为TRUE的路由器）的所有邻接，以及为相邻fsm生成单向接收事件。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Backward Compatibility",
+      "section_title": true,
+      "zh-CHS": "3. 向后兼容性"
+    },
+    {
+      "indent": 3,
+      "text": "The described technique requires cooperation from neighboring routers. However, if neighbors do not support this technique, they will just reset the adjacency.",
+      "zh-CHS": "所描述的技术需要来自相邻路由器的合作。但是，如果邻居不支持这种技术，他们只会重置邻接。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "4. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "The described technique does not introduce any new security issues into the OSPF protocol.",
+      "zh-CHS": "所述技术不会在OSPF协议中引入任何新的安全问题。"
+    },
+    {
+      "indent": 0,
+      "text": "5. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "5. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Please refer to the \"IANA Considerations\" section of [RFC4813] for more information on the Extended Options bit definitions.",
+      "zh-CHS": "有关扩展选项位定义的更多信息，请参阅[RFC4813]的“IANA注意事项”部分。"
+    },
+    {
+      "indent": 0,
+      "text": "6. References",
+      "section_title": true,
+      "zh-CHS": "6. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "6.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "6.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2328] Moy, J., \"OSPF Version 2\", STD 54, RFC 2328, April 1998.",
+      "zh-CHS": "[RFC2328]Moy，J.，“OSPF版本2”，STD 54，RFC 2328，1998年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3623] Moy, J., Pillay-Esnault, P., and A. Lindem, \"Graceful OSPF Restart\", RFC 3623, November 2003.",
+      "zh-CHS": "[RFC3623]Moy，J.，Pillay Esnault，P.，和A.Lindem，“OSPF的优雅重启”，RFC 36232003年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "6.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "6.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4813] Friedman, B., Nguyen, L., Roy, A., Yeung, D., and A. Zinin, \"OSPF Link-Local Signaling\", RFC 4813, March 2007.",
+      "zh-CHS": "[RFC4813]Friedman，B.，Nguyen，L.，Roy，A.，Yeung，D.，和A.Zinin，“OSPF链路本地信令”，RFC 48132007年3月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4811] Nguyen, L., Roy, A., and A. Zinin, \"OSPF Out-of-Band Link State Database (LSDB) Resynchronization\", RFC 4811, March 2007.",
+      "zh-CHS": "[RFC4811]Nguyen，L.，Roy，A.，和A.Zinin，“OSPF带外链路状态数据库（LSDB）再同步”，RFC 4811，2007年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "The authors would like to thank John Moy, Russ White, Don Slice, and Alvaro Retana for their valuable comments.",
+      "zh-CHS": "作者要感谢John Moy、Russ White、Don Slice和Alvaro Retana的宝贵评论。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Liem Nguyen Cisco Systems 225 West Tasman Drive San Jose, CA 95134 USA EMail: lhnguyen@cisco.com",
+      "zh-CHS": "Liem Nguyen Cisco Systems 225 West Tasman Drive San Jose，CA 95134美国电子邮件：lhnguyen@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Abhay Roy Cisco Systems 225 West Tasman Drive San Jose, CA 95134 USA EMail: akr@cisco.com",
+      "zh-CHS": "Abhay Roy Cisco Systems 225西塔斯曼大道圣何塞，加利福尼亚州95134美国电子邮件：akr@cisco.com"
+    },
+    {
+      "indent": 3,
+      "text": "Alex Zinin Alcatel-Lucent Mountain View, CA USA EMail: alex.zinin@alcatel-lucent.com",
+      "zh-CHS": "Alex Zinin Alcatel-Lucent Mountain View，CA美国电子邮件：Alex。zinin@alcatel-朗讯网"
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgement",
+      "zh-CHS": "确认"
+    },
+    {
+      "indent": 3,
+      "text": "Funding for the RFC Editor function is currently provided by the Internet Society.",
+      "zh-CHS": "RFC编辑功能的资金目前由互联网协会提供。"
+    }
+  ]
+}

@@ -1,0 +1,1110 @@
+{
+  "title": {
+    "text": "RFC 5056: On the Use of Channel Bindings to Secure Channels",
+    "zh-CHS": "RFC 5056"
+  },
+  "number": 5056,
+  "created_at": "2021-11-10 01:00:55.328393+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Network Working Group                                        N. Williams\nRequest for Comments: 5056                                           Sun\nCategory: Standards Track                                  November 2007",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 11,
+      "text": "On the Use of Channel Bindings to Secure Channels",
+      "zh-CHS": "关于使用通道绑定保护通道"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies an Internet standards track protocol for the Internet community, and requests discussion and suggestions for improvements. Please refer to the current edition of the \"Internet Official Protocol Standards\" (STD 1) for the standardization state and status of this protocol. Distribution of this memo is unlimited.",
+      "zh-CHS": "本文件规定了互联网社区的互联网标准跟踪协议，并要求进行讨论和提出改进建议。有关本协议的标准化状态和状态，请参考当前版本的“互联网官方协议标准”（STD 1）。本备忘录的分发不受限制。"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "The concept of channel binding allows applications to establish that the two end-points of a secure channel at one network layer are the same as at a higher layer by binding authentication at the higher layer to the channel at the lower layer. This allows applications to delegate session protection to lower layers, which has various performance benefits.",
+      "zh-CHS": "通道绑定的概念允许应用程序通过将较高层的身份验证绑定到较低层的通道，来确定一个网络层的安全通道的两个端点与较高层的端点相同。这允许应用程序将会话保护委托给较低的层，这具有各种性能优势。"
+    },
+    {
+      "indent": 3,
+      "text": "This document discusses and formalizes the concept of channel binding to secure channels.",
+      "zh-CHS": "本文档讨论并形式化了通道绑定到安全通道的概念。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................3\n   1.1. Conventions Used in This Document ..........................4\n2. Definitions .....................................................4\n   2.1. Properties of Channel Binding ..............................6\n   2.2. EAP Channel Binding ........................................9\n3. Authentication and Channel Binding Semantics ...................10\n   3.1. The GSS-API and Channel Binding ...........................10\n   3.2. SASL and Channel Binding ..................................11\n4. Channel Bindings Specifications ................................11\n   4.1. Examples of Unique Channel Bindings .......................11\n   4.2. Examples of End-Point Channel Bindings ....................12\n5. Uses of Channel Binding ........................................12\n6. Benefits of Channel Binding to Secure Channels .................14\n7. IANA Considerations ............................................15\n   7.1. Registration Procedure ....................................15\n   7.2. Comments on Channel Bindings Registrations ................16\n   7.3. Change Control ............................................17\n8. Security Considerations ........................................17\n   8.1. Non-Unique Channel Bindings and Channel Binding\n        Re-Establishment ..........................................18\n9. References .....................................................19\n   9.1. Normative References ......................................19\n   9.2. Informative References ....................................19\nAppendix A. Acknowledgments .......................................22",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "In a number of situations, it is useful for an application to be able to handle authentication within the application layer, while simultaneously being able to utilize session or transport security at a lower network layer. For example, IPsec [RFC4301] [RFC4303] [RFC4302] is amenable to being accelerated in hardware to handle very high link speeds, but IPsec key exchange protocols and the IPsec architecture are not as amenable to use as a security mechanism within applications, particularly applications that have users as clients. A method of combining security at both layers is therefore attractive. To enable this to be done securely, it is necessary to \"bind\" the mechanisms together -- so as to avoid man-in-the-middle vulnerabilities and enable the mechanisms to be integrated in a seamless way. This is the objective of \"Channel Bindings\".",
+      "zh-CHS": "在许多情况下，应用程序能够在应用层内处理身份验证，同时能够在较低的网络层上利用会话或传输安全性是有用的。例如，IPsec[RFC4301][RFC4303][RFC4302]易于在硬件上加速以处理非常高的链路速度，但IPsec密钥交换协议和IPsec体系结构不适于用作应用程序内的安全机制，特别是具有用户作为客户端的应用程序。因此，在两个层上结合安全性的方法是很有吸引力的。为了安全地实现这一点，有必要将这些机制“绑定”在一起，以避免中间人漏洞，并使这些机制能够无缝集成。这就是“通道绑定”的目标。"
+    },
+    {
+      "indent": 3,
+      "text": "The term \"channel binding\", as used in this document, derives from the Generic Security Service Application Program Interface (GSS-API) [RFC2743], which has a channel binding facility that was intended for binding GSS-API authentication to secure channels at lower network layers. The purpose and benefits of the GSS-API channel binding facility were not discussed at length, and some details were left unspecified. Now we find that this concept can be very useful, therefore we begin with a generalization and formalization of \"channel binding\" independent of the GSS-API.",
+      "zh-CHS": "本文件中使用的术语“通道绑定”源自通用安全服务应用程序接口（GSS-API）[RFC2743]，该接口具有通道绑定功能，用于绑定GSS-API身份验证以保护较低网络层的通道。GSS-API通道绑定设施的目的和好处没有详细讨论，一些细节没有具体说明。现在我们发现这个概念非常有用，因此我们从一个独立于GSS-API的“通道绑定”的泛化和形式化开始。"
+    },
+    {
+      "indent": 3,
+      "text": "Although inspired by and derived from the GSS-API, the notion of channel binding described herein is not at all limited to use by GSS-API applications. We envision use of channel binding by applications that utilize other security frameworks, such as Simple Authentication and Security Layer (SASL) [RFC4422] and even protocols that provide their own authentication mechanisms (e.g., the Key Distribution Center (KDC) exchanges of Kerberos V [RFC4120]). We also envision use of the notion of channel binding in the analysis of security protocols.",
+      "zh-CHS": "尽管受到GSS-API的启发并源于GSS-API，但本文描述的通道绑定的概念并不局限于GSS-API应用程序的使用。我们设想，利用其他安全框架的应用程序可以使用通道绑定，例如简单身份验证和安全层（SASL）[RFC4422]，甚至提供自己身份验证机制的协议（例如，Kerberos V[RFC4120]的密钥分发中心（KDC）交换）。我们还设想在安全协议分析中使用通道绑定的概念。"
+    },
+    {
+      "indent": 3,
+      "text": "The main goal of channel binding is to be able to delegate cryptographic session protection to network layers below the application in hopes of being able to better leverage hardware implementations of cryptographic protocols. Section 5 describes some intended uses of channel binding. Also, some applications may benefit by reducing the amount of active cryptographic state, thus reducing overhead in accessing such state and, therefore, the impact of security on latency.",
+      "zh-CHS": "通道绑定的主要目标是能够将加密会话保护委托给应用程序下面的网络层，以期能够更好地利用加密协议的硬件实现。第5节描述了通道绑定的一些预期用途。此外，一些应用程序可以通过减少活动加密状态的数量而受益，从而减少访问此类状态的开销，从而减少安全性对延迟的影响。"
+    },
+    {
+      "indent": 3,
+      "text": "The critical security problem to solve in order to achieve such delegation of session protection is ensuring that there is no man-in-the-middle (MITM), from the point of view the application, at the lower network layer to which session protection is to be delegated.",
+      "zh-CHS": "为了实现会话保护的这种委托，需要解决的关键安全问题是，从应用程序的角度来看，确保会话保护委托给的较低网络层没有中间人（MITM）。"
+    },
+    {
+      "indent": 3,
+      "text": "There may well be an MITM, particularly if either the lower network layer provides no authentication or there is no strong connection between the authentication or principals used at the application and those used at the lower network layer.",
+      "zh-CHS": "很可能存在MITM，特别是如果较低网络层不提供认证，或者在应用程序中使用的认证或主体与较低网络层中使用的认证或主体之间没有强连接。"
+    },
+    {
+      "indent": 3,
+      "text": "Even if such MITM attacks seem particularly difficult to effect, the attacks must be prevented for certain applications to be able to make effective use of technologies such as IPsec [RFC2401] [RFC4301] or HTTP with TLS [RFC4346] in certain contexts (e.g., when there is no authentication to speak of, or when one node's set of trust anchors is too weak to believe that it can authenticate its peers). Additionally, secure channels that are susceptible to MITM attacks because they provide no useful end-point authentication are useful when combined with application-layer authentication (otherwise they are only somewhat \"better than nothing\" -- see Better Than Nothing Security (BTNS) [BTNS-AS]).",
+      "zh-CHS": "即使此类MITM攻击似乎特别难以实施，也必须防止此类攻击，以使某些应用程序能够在某些上下文中有效地使用IPsec[RFC2401][RFC4301]或HTTP with TLS[RFC4346]等技术（例如，当没有认证可言时，或者当一个节点的信任锚点集太弱以至于无法相信它可以对其对等方进行认证时）。此外，当与应用层认证结合使用时，容易受到MITM攻击的安全通道是有用的，因为它们不提供有用的端点认证（否则，它们只是在某种程度上“比什么都好”——请参阅比什么都好的安全性（BTN）[BTN-AS]）。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, Internet Small Computer Systems Interface (iSCSI) [RFC3720] provides for application-layer authentication (e.g., using Kerberos V), but relies on IPsec for transport protection; iSCSI does not provide a binding between the two. iSCSI initiators have to be careful to make sure that the name of the server authenticated at the application layer and the name of the peer at the IPsec layer match -- an informal form of channel binding.",
+      "zh-CHS": "例如，Internet小型计算机系统接口（iSCSI）[RFC3720]提供应用层身份验证（例如，使用Kerberos V），但依赖IPsec进行传输保护；iSCSI不提供两者之间的绑定。iSCSI启动器必须小心确保在应用层经过身份验证的服务器的名称与在IPsec层经过身份验证的对等方的名称匹配——这是一种非正式的通道绑定形式。"
+    },
+    {
+      "indent": 3,
+      "text": "This document describes a solution: the use of \"channel binding\" to bind authentication at application layers to secure sessions at lower layers in the network stack.",
+      "zh-CHS": "本文档描述了一种解决方案：使用“通道绑定”在应用程序层绑定身份验证，以保护网络堆栈较低层的会话。"
+    },
+    {
+      "indent": 0,
+      "text": "1.1. Conventions Used in This Document",
+      "section_title": true,
+      "zh-CHS": "1.1. 本文件中使用的公约"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in [RFC2119].",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“应”、“不应”、“建议”、“可”和“可选”应按照[RFC2119]中所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Definitions",
+      "section_title": true,
+      "zh-CHS": "2. 定义"
+    },
+    {
+      "indent": 3,
+      "text": "o Secure channel: a packet, datagram, octet stream connection, or sequence of connections between two end-points that affords cryptographic integrity and, optionally, confidentiality to data exchanged over it. We assume that the channel is secure -- if an attacker can successfully cryptanalyze a channel's session keys, for example, then the channel is not secure.",
+      "zh-CHS": "o 安全通道：两个端点之间的数据包、数据报、八位组流连接或连接序列，可提供密码完整性，并可选择性地为通过其交换的数据保密。我们假设该通道是安全的——例如，如果攻击者能够成功地对通道的会话密钥进行加密分析，则该通道不安全。"
+    },
+    {
+      "indent": 3,
+      "text": "o Channel binding: the process of establishing that no man-in-the-middle exists between two end-points that have been authenticated at one network layer but are using a secure channel at a lower network layer. This term is used as a noun.",
+      "zh-CHS": "o 通道绑定：确定两个端点之间不存在中间人的过程，这两个端点已在一个网络层进行了身份验证，但正在较低的网络层使用安全通道。这个词用作名词。"
+    },
+    {
+      "indent": 3,
+      "text": "o Channel bindings: [See historical note below.]",
+      "zh-CHS": "o 通道绑定：[请参阅下面的历史注释。]"
+    },
+    {
+      "indent": 9,
+      "text": "Generally, some data that \"names\" a channel or one or both of its end-points such that if this data can be shown, at a higher network layer, to be the same at both ends of a channel, then there are no MITMs between the two end-points at that higher network layer. This term is used as a noun.",
+      "zh-CHS": "通常，一些数据“命名”了一个通道或其一个或两个端点，因此如果该数据在较高的网络层显示为在通道两端相同，则在该较高的网络层的两个端点之间不存在MITM。这个词用作名词。"
+    },
+    {
+      "indent": 9,
+      "text": "More formally, there are two types of channel bindings:",
+      "zh-CHS": "更正式地说，有两种类型的通道绑定："
+    },
+    {
+      "indent": 9,
+      "text": "+ unique channel bindings:",
+      "zh-CHS": "+ 唯一通道绑定："
+    },
+    {
+      "indent": 12,
+      "text": "channel bindings that name a channel in a cryptographically secure manner and uniquely in time;",
+      "zh-CHS": "通道绑定，以加密安全的方式命名通道，并在时间上唯一；"
+    },
+    {
+      "indent": 9,
+      "text": "+ end-point channel bindings:",
+      "zh-CHS": "+ end-point channel bindings:translate error, please retry"
+    },
+    {
+      "indent": 12,
+      "text": "channel bindings that name the authenticated end-points, or even a single end-point, of a channel which are, in turn, securely bound to the channel, but which do not identify a channel uniquely in time.",
+      "zh-CHS": "命名通道的已验证端点（甚至单个端点）的通道绑定，这些端点依次安全绑定到通道，但在时间上不唯一标识通道。"
+    },
+    {
+      "indent": 3,
+      "text": "o Cryptographic binding: (e.g., \"cryptographically bound\") a cryptographic operation that causes an object, such as a private encryption or signing key, or an established secure channel, to \"speak for\" [Lampson91] some principal, such as a user, a computer, etcetera. For example, a Public Key Infrastructure for X.509 Certificates (PKIX) certificate binds a private key to the name of a principal in the trust domain of the certificate's issuer such that a possessor of said private key can act on behalf of the user (or other entity) named by the certificate.",
+      "zh-CHS": "o 加密绑定：（例如，“加密绑定”）一种加密操作，使对象（如私有加密或签名密钥或已建立的安全通道）为某个主体（如用户、计算机等）说话。例如，用于X.509证书（PKIX）证书的公钥基础设施将私钥绑定到证书颁发者的信任域中的主体名称，以便所述私钥的拥有者可以代表由证书命名的用户（或其他实体）行事。"
+    },
+    {
+      "indent": 6,
+      "text": "Cryptographic bindings are generally asymmetric in nature (not to be confused with symmetric or asymmetric key cryptography) in that an object is rendered capable of standing for another, but the reverse is not usually the case (we don't say that a user speaks for their private keys, but we do say that the user's private keys speak for the user).",
+      "zh-CHS": "加密绑定在本质上通常是不对称的（不要与对称或非对称密钥加密混淆），因为一个对象能够代表另一个对象，但情况通常并非如此（我们不说用户代表他们的私钥说话，但我们说用户的私钥代表用户说话）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that there may be many instances of \"cryptographic binding\" in an application of channel binding. The credentials that authenticate principals at the application layer bind private or secret keys to the identities of those principals, such that said keys speak for",
+      "zh-CHS": "请注意，在通道绑定的应用程序中可能有许多“加密绑定”实例。在应用层对主体进行身份验证的凭证将私钥或秘密密钥绑定到这些主体的身份，以便所述密钥代表身份"
+    },
+    {
+      "indent": 3,
+      "text": "them. A secure channel typically consists of symmetric session keys used to provide confidentiality and integrity protection to data sent over the channel; each end-point's session keys speak for that end-point of the channel. Finally, each end-point of a channel bound to authentication at the application layer speaks for the principal authenticated at the application layer on the same side of the channel.",
+      "zh-CHS": "他们安全通道通常由对称会话密钥组成，用于为通过通道发送的数据提供机密性和完整性保护；每个端点的会话密钥代表通道的该端点。最后，绑定到应用层身份验证的通道的每个端点代表在通道同一侧的应用层身份验证的主体。"
+    },
+    {
+      "indent": 3,
+      "text": "The terms defined above have been in use for many years and have been taken to mean, at least in some contexts, what is stated below. Unfortunately this means that \"channel binding\" can refer to the channel binding operation and, sometimes to the name of a channel, and \"channel bindings\" -- a difference of only one letter -- generally refers to the name of a channel.",
+      "zh-CHS": "以上定义的术语已使用多年，至少在某些情况下，其含义如下所述。不幸的是，这意味着“通道绑定”可以指通道绑定操作，有时指通道的名称，“通道绑定”（只有一个字母的差异）通常指通道的名称。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that the Extensible Authentication Protocol (EAP) [RFC3748] uses \"channel binding\" to refer to a facility that may appear to be similar to the one decribed here, but it is, in fact, quite different. See Section 2.2 for mode details.",
+      "zh-CHS": "请注意，可扩展身份验证协议（EAP）[RFC3748]使用“通道绑定”来指代可能看起来与此处描述的功能类似的功能，但事实上，它完全不同。模式详情见第2.2节。"
+    },
+    {
+      "indent": 0,
+      "text": "2.1. Properties of Channel Binding",
+      "section_title": true,
+      "zh-CHS": "2.1. 通道绑定的性质"
+    },
+    {
+      "indent": 3,
+      "text": "Applications, authentication frameworks (e.g., the GSS-API, SASL), security mechanisms (e.g., the Kerberos V GSS-API mechanism [RFC1964]), and secure channels must meet the requirements and should follow the recommendations that are listed below.",
+      "zh-CHS": "应用程序、身份验证框架（如GSS-API、SASL）、安全机制（如Kerberos V GSS-API机制[RFC1964]）和安全通道必须满足要求，并应遵循下面列出的建议。"
+    },
+    {
+      "indent": 3,
+      "text": "Requirements:",
+      "zh-CHS": "要求："
+    },
+    {
+      "indent": 3,
+      "text": "o In order to use channel binding, applications MUST verify that the same channel bindings are observed at either side of the channel. To do this, the application MUST use an authentication protocol at the application layer to authenticate one, the other, or both application peers (one at each end of the channel).",
+      "zh-CHS": "o 为了使用通道绑定，应用程序必须验证在通道的任一侧观察到相同的通道绑定。要做到这一点，应用程序必须在应用程序层使用身份验证协议对一个、另一个或两个应用程序对等方（通道两端各一个）进行身份验证。"
+    },
+    {
+      "indent": 6,
+      "text": "* If the authentication protocol used by the application supports channel binding, the application SHOULD use it.",
+      "zh-CHS": "* 如果应用程序使用的身份验证协议支持通道绑定，则应用程序应使用它。"
+    },
+    {
+      "indent": 6,
+      "text": "* An authentication protocol that supports channel binding MUST provide an input slot in its API for a \"handle\" to the channel, or its channel bindings.",
+      "zh-CHS": "* 支持通道绑定的身份验证协议必须在其API中为通道或其通道绑定的“句柄”提供输入槽。"
+    },
+    {
+      "indent": 6,
+      "text": "* If the authentication protocol does not support a channel binding operation, but provides a \"security layer\" with at least integrity protection, then the application MUST use the authentication protocol's integrity protection facilities to exchange channel bindings, or cryptographic hashes thereof.",
+      "zh-CHS": "* 如果认证协议不支持通道绑定操作，但提供至少具有完整性保护的“安全层”，则应用程序必须使用认证协议的完整性保护设施来交换通道绑定或其加密哈希。"
+    },
+    {
+      "indent": 6,
+      "text": "* The name of the type of channel binding MUST be used by the application and/or authentication protocol to avoid ambiguity about which of several possible types of channels is being bound. If nested instances of the same type of channel are available, then the innermost channel MUST be used.",
+      "zh-CHS": "* 应用程序和/或身份验证协议必须使用通道绑定类型的名称，以避免在绑定几种可能的通道类型时出现歧义。如果相同类型通道的嵌套实例可用，则必须使用最里面的通道。"
+    },
+    {
+      "indent": 3,
+      "text": "o Specifications of channel bindings for any secure channels MUST provide for a single, canonical octet string encoding of the channel bindings. Under this framework, channel bindings MUST start with the channel binding unique prefix followed by a colon (ASCII 0x3A).",
+      "zh-CHS": "o 任何安全通道的通道绑定规范都必须提供通道绑定的单个规范八位字节字符串编码。在此框架下，通道绑定必须以通道绑定唯一前缀开头，后跟冒号（ASCII 0x3A）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The channel bindings for a given type of secure channel MUST be constructed in such a way that an MITM could not easily force the channel bindings of a given channel to match those of another.",
+      "zh-CHS": "o 给定类型的安全通道的通道绑定必须以这样的方式构造：MITM不能轻易地强制给定通道的通道绑定与另一个通道的通道绑定相匹配。"
+    },
+    {
+      "indent": 3,
+      "text": "o Unique channel bindings MUST bind not only the key exchange for the secure channel, but also any negotiations and authentication that may have taken place to establish the channel.",
+      "zh-CHS": "o 唯一通道绑定不仅必须绑定安全通道的密钥交换，还必须绑定为建立通道而进行的任何协商和身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "o End-point channel bindings MUST be bound into the secure channel and all its negotiations. For example, a public key as an end-point channel binding should be used to verify a signature of such negotiations (or to encrypt them), including the initial key exchange and negotiation messages for that channel -- such a key would then be bound into the channel. A certificate name as end-point channel binding could also be bound into the channel in a similar way, though in the case of a certificate name, the binding also depends on the strength of the authentication of that name (that is, the validation of the certificate, the trust anchors, the algorithms used in the certificate path construction and validation, etcetera).",
+      "zh-CHS": "o 端点通道绑定必须绑定到安全通道及其所有协商中。例如，作为端点通道绑定的公钥应用于验证此类协商的签名（或对其进行加密），包括该通道的初始密钥交换和协商消息，然后将此类密钥绑定到通道中。作为端点通道绑定的证书名称也可以以类似的方式绑定到通道中，不过对于证书名称，绑定也取决于该名称的身份验证强度（即，证书的验证、信任锚、证书路径构造和验证中使用的算法等）。"
+    },
+    {
+      "indent": 3,
+      "text": "o End-point channel bindings MAY be identifiers (e.g., certificate names) that must be authenticated through some infrastructure, such as a public key infrastructure (PKI). In such cases, applications MUST ensure that the channel provides adequate authentication of such identifiers (e.g., that the certificate validation policy and trust anchors used by the channel satisfy the application's requirements). To avoid implementation difficulties in addressing this requirement, applications SHOULD use cryptographic quantities as end-point channel bindings, such as certificate-subject public keys.",
+      "zh-CHS": "o 端点通道绑定可能是必须通过某些基础设施（如公钥基础设施（PKI））进行身份验证的标识符（例如，证书名称）。在这种情况下，应用程序必须确保通道提供此类标识符的充分身份验证（例如，通道使用的证书验证策略和信任锚满足应用程序的要求）。为了避免在满足此要求时遇到实现困难，应用程序应该使用加密量作为端点通道绑定，例如证书主体公钥。"
+    },
+    {
+      "indent": 3,
+      "text": "o Applications that desire confidentiality protection MUST use application-layer session protection services for confidentiality protection when the bound channel does not provide confidentiality protection.",
+      "zh-CHS": "o 当绑定通道不提供保密保护时，需要保密保护的应用程序必须使用应用程序层会话保护服务进行保密保护。"
+    },
+    {
+      "indent": 3,
+      "text": "o The integrity of a secure channel MUST NOT be weakened should their channel bindings be revealed to an attacker. That is, the construction of the channel bindings for any type of secure channel MUST NOT leak secret information about the channel. End-point channel bindings, however, MAY leak information about the end-points of the channel (e.g., their names).",
+      "zh-CHS": "o 如果安全通道的通道绑定泄露给攻击者，则不得削弱其完整性。也就是说，任何类型的安全通道的通道绑定构造都不得泄漏有关通道的机密信息。但是，端点通道绑定可能会泄漏有关通道端点的信息（例如，它们的名称）。"
+    },
+    {
+      "indent": 3,
+      "text": "o The channel binding operation MUST be at least integrity protected in the security mechanism used at the application layer.",
+      "zh-CHS": "o 通道绑定操作必须至少在应用层使用的安全机制中受到完整性保护。"
+    },
+    {
+      "indent": 3,
+      "text": "o Authentication frameworks and mechanisms that support channel binding MUST communicate channel binding failure to applications.",
+      "zh-CHS": "o 支持通道绑定的身份验证框架和机制必须将通道绑定故障告知应用程序。"
+    },
+    {
+      "indent": 3,
+      "text": "o Applications MUST NOT send sensitive information, requiring confidentiality protection, over the underlying channel prior to completing the channel binding operation.",
+      "zh-CHS": "o 在完成通道绑定操作之前，应用程序不得通过底层通道发送需要保密保护的敏感信息。"
+    },
+    {
+      "indent": 3,
+      "text": "Recommendations:",
+      "zh-CHS": "建议："
+    },
+    {
+      "indent": 3,
+      "text": "o End-point channel bindings where the end-points are meaningful names SHOULD NOT be used when the channel does not provide confidentiality protection and privacy protection is desired. Alternatively, channels that export such channel bindings SHOULD provide for the use of a digest and SHOULD NOT introduce new digest/hash agility problems as a result.",
+      "zh-CHS": "o 当通道不提供机密性保护且需要隐私保护时，不应使用端点为有意义名称的端点通道绑定。或者，导出此类通道绑定的通道应提供摘要的使用，并且不应因此引入新的摘要/哈希灵活性问题。"
+    },
+    {
+      "indent": 3,
+      "text": "Options:",
+      "zh-CHS": "选项："
+    },
+    {
+      "indent": 3,
+      "text": "o Authentication frameworks and mechanisms that support channel binding MAY fail to establish authentication if channel binding fails.",
+      "zh-CHS": "o 如果通道绑定失败，支持通道绑定的身份验证框架和机制可能无法建立身份验证。"
+    },
+    {
+      "indent": 3,
+      "text": "o Applications MAY send information over the underlying channel and without integrity protection from the application-layer authentication protocol prior to completing the channel binding operation if such information requires only integrity protection. This could be useful for optimistic negotiations.",
+      "zh-CHS": "o 如果信息只需要完整性保护，则在完成通道绑定操作之前，应用程序可以通过底层通道发送信息，而不需要应用层身份验证协议的完整性保护。这可能有助于乐观的谈判。"
+    },
+    {
+      "indent": 3,
+      "text": "o A security mechanism MAY exchange integrity-protected channel bindings.",
+      "zh-CHS": "o 安全机制可以交换完整性保护的通道绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "o A security mechanism MAY exchange integrity-protected digests of channel bindings. Such mechanisms SHOULD provide for hash/digest agility.",
+      "zh-CHS": "o 安全机制可以交换通道绑定的完整性保护摘要。此类机制应提供哈希/摘要灵活性。"
+    },
+    {
+      "indent": 3,
+      "text": "o A security mechanism MAY use channel bindings in key exchange, authentication, or key derivation, prior to the exchange of \"authenticator\" messages.",
+      "zh-CHS": "o 在交换“authenticator”消息之前，安全机制可以在密钥交换、身份验证或密钥派生中使用通道绑定。"
+    },
+    {
+      "indent": 0,
+      "text": "2.2. EAP Channel Binding",
+      "section_title": true,
+      "zh-CHS": "2.2. EAP通道绑定"
+    },
+    {
+      "indent": 3,
+      "text": "This section is informative. This document does not update EAP [RFC3748], it neither normatively describes, nor does it impose requirements on any aspect of EAP or EAP methods.",
+      "zh-CHS": "本节内容丰富。本文件不更新EAP[RFC3748]，既没有规范性描述，也没有对EAP或EAP方法的任何方面提出要求。"
+    },
+    {
+      "indent": 3,
+      "text": "EAP [RFC3748] includes a concept of channel binding described as follows:",
+      "zh-CHS": "EAP[RFC3748]包括信道绑定的概念，描述如下："
+    },
+    {
+      "indent": 6,
+      "text": "The communication within an EAP method of integrity-protected channel properties such as endpoint identifiers which can be compared to values communicated via out of band mechanisms (such as via a AAA or lower layer protocol).",
+      "zh-CHS": "EAP方法内的完整性保护信道属性的通信，例如端点标识符，其可与通过带外机制（例如通过AAA或较低层协议）通信的值进行比较。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 7.15 of [RFC3748] describes the problem as one where a Network Access Server (NAS) (a.k.a. \"authenticator\") may lie to the peer (client) and cause the peer to make incorrect authorization decisions (e.g., as to what traffic may transit through the NAS). This is not quite like the purpose of generic channel binding (MITM detection).",
+      "zh-CHS": "[RFC3748]第7.15节将此问题描述为网络访问服务器（NAS）（又称“验证器”）可能对对等方（客户端）撒谎，并导致对等方做出错误的授权决策（例如，关于哪些流量可能通过NAS传输）。这与通用通道绑定（MITM检测）的目的不同。"
+    },
+    {
+      "indent": 3,
+      "text": "Section 7.15 of [RFC3748] calls for \"a protected exchange of channel properties such as endpoint identifiers\" such that \"it is possible to match the channel properties provided by the authenticator via out-of-band mechanisms against those exchanged within the EAP method\".",
+      "zh-CHS": "[RFC3748]第7.15节要求“受保护的信道属性交换，如端点标识符”，以便“能够将认证器通过带外机制提供的信道属性与EAP方法内交换的信道属性相匹配”。"
+    },
+    {
+      "indent": 3,
+      "text": "This has sometimes been taken to be very similar to the generic notion of channel binding provided here. However, there is a very subtle difference between the two concepts of channel binding that makes it much too difficult to put forth requirements and recommendations that apply to both. The difference is about the lower-layer channel:",
+      "zh-CHS": "这有时被认为与此处提供的通道绑定的一般概念非常相似。然而，通道绑定的两个概念之间存在着非常细微的差异，这使得提出适用于这两个概念的需求和建议变得非常困难。不同之处在于下层通道："
+    },
+    {
+      "indent": 3,
+      "text": "o In the generic channel binding case, the identities of either end of this channel are irrelevant to anything other than the construction of a name for that channel, in which case the identities of the channel's end-points must be established a priori.",
+      "zh-CHS": "o 在通用通道绑定情况下，该通道任意一端的标识与该通道名称的构造无关，在这种情况下，必须事先建立通道端点的标识。"
+    },
+    {
+      "indent": 3,
+      "text": "o Whereas in the EAP case, the identity of the NAS end of the channel, and even security properties of the channel itself, may be established during or after authentication of the EAP peer to the EAP server.",
+      "zh-CHS": "o 然而，在EAP情况下，信道的NAS端的身份，甚至信道本身的安全属性，可以在EAP对等方到EAP服务器的认证期间或之后建立。"
+    },
+    {
+      "indent": 3,
+      "text": "In other words: there is a fundamental difference in mechanics (timing of lower-layer channel establishment) and in purpose (authentication of lower-layer channel properties for authorization purposes vs. MITM detection).",
+      "zh-CHS": "换句话说：在机制（低层通道建立的时间）和目的（用于授权目的的低层通道属性验证与MITM检测）上存在根本性差异。"
+    },
+    {
+      "indent": 3,
+      "text": "After some discussion we have concluded that there is no simple way to obtain requirements and recommendations that apply to both generic and EAP channel binding. Therefore, EAP is out of the scope of this document.",
+      "zh-CHS": "经过一些讨论，我们得出结论，没有简单的方法可以获得适用于通用和EAP通道绑定的要求和建议。因此，EAP不在本文件范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Authentication and Channel Binding Semantics",
+      "section_title": true,
+      "zh-CHS": "3. 身份验证和通道绑定语义"
+    },
+    {
+      "indent": 3,
+      "text": "Some authentication frameworks and/or mechanisms provide for channel binding, such as the GSS-API and some GSS-API mechanisms, whereas others may not, such as SASL (however, ongoing work is adding channel binding support to SASL). Semantics may vary with respect to negotiation, how the binding occurs, and handling of channel binding failure (see below).",
+      "zh-CHS": "一些身份验证框架和/或机制提供通道绑定，如GSS-API和一些GSS-API机制，而其他框架和/或机制可能不提供，如SASL（不过，正在进行的工作是向SASL添加通道绑定支持）。语义可能因协商、绑定如何发生以及通道绑定失败的处理（见下文）而有所不同。"
+    },
+    {
+      "indent": 3,
+      "text": "Where suitable channel binding facilities are not provided, application protocols MAY include a separate, protected exchange of channel bindings. In order to do this, the application-layer authentication service must provide message protection services (at least integrity protection).",
+      "zh-CHS": "如果未提供合适的通道绑定设施，应用程序协议可能包括单独的、受保护的通道绑定交换。为此，应用层身份验证服务必须提供消息保护服务（至少是完整性保护）。"
+    },
+    {
+      "indent": 0,
+      "text": "3.1. The GSS-API and Channel Binding",
+      "section_title": true,
+      "zh-CHS": "3.1. GSS-API和通道绑定"
+    },
+    {
+      "indent": 3,
+      "text": "The GSS-API [RFC2743] provides for the use of channel binding during initialization of GSS-API security contexts, though GSS-API mechanisms are not required to support this facility.",
+      "zh-CHS": "GSS-API[RFC2743]规定在初始化GSS-API安全上下文期间使用通道绑定，但不需要GSS-API机制来支持此功能。"
+    },
+    {
+      "indent": 3,
+      "text": "This channel binding facility is described in [RFC2743] and [RFC2744].",
+      "zh-CHS": "[RFC2743]和[RFC2744]中描述了此通道绑定功能。"
+    },
+    {
+      "indent": 3,
+      "text": "GSS-API mechanisms must fail security context establishment when channel binding fails, and the GSS-API provides no mechanism for the negotiation of channel binding. As a result GSS-API applications must agree a priori, through negotiation or otherwise, on the use of channel binding.",
+      "zh-CHS": "当通道绑定失败时，GSS-API机制必须无法建立安全上下文，并且GSS-API不提供通道绑定协商机制。因此，GSS-API应用程序必须通过协商或其他方式事先同意使用通道绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "Fortunately, it is possible to design GSS-API pseudo-mechanisms that simply wrap around existing mechanisms for the purpose of allowing applications to negotiate the use of channel binding within their existing methods for negotiating GSS-API mechanisms. For example, NFSv4 [RFC3530] provides its own GSS-API mechanism negotiation, as does the SSHv2 protocol [RFC4462]. Such pseudo-mechanisms are being proposed separately, see [STACKABLE].",
+      "zh-CHS": "幸运的是，可以设计简单地围绕现有机制的GSS-API伪机制，以允许应用程序在其协商GSS-API机制的现有方法中协商通道绑定的使用。例如，NFSv4[RFC3530]提供了自己的GSS-API协商机制，SSHv2协议[RFC4462]也是如此。这些伪机制是单独提出的，见[可堆叠]。"
+    },
+    {
+      "indent": 0,
+      "text": "3.2. SASL and Channel Binding",
+      "section_title": true,
+      "zh-CHS": "3.2. SASL与通道绑定"
+    },
+    {
+      "indent": 3,
+      "text": "SASL [RFC4422] does not yet provide for the use of channel binding during initialization of SASL contexts.",
+      "zh-CHS": "SASL[RFC4422]尚未提供在SASL上下文初始化期间使用通道绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "Work is ongoing [SASL-GS2] to specify how SASL, particularly its new bridge to the GSS-API, performs channel binding. SASL will likely differ from the GSS-API in its handling of channel binding failure (i.e., when there may be an MITM) in that channel binding success/failure will only affect the negotiation of SASL security layers. That is, when channel binding succeeds, SASL should select no security layers, leaving session cryptographic protection to the secure channel that SASL authentication has been bound to.",
+      "zh-CHS": "正在进行[SASL-GS2]的工作，以指定SASL，特别是其到GSS-API的新桥接器，如何执行通道绑定。SASL在处理通道绑定失败（即可能存在MITM时）方面可能与GSS-API不同，因为通道绑定成功/失败只会影响SASL安全层的协商。也就是说，当通道绑定成功时，SASL不应选择任何安全层，将会话加密保护留给SASL身份验证绑定到的安全通道。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Channel Bindings Specifications",
+      "section_title": true,
+      "zh-CHS": "4. 通道绑定规范"
+    },
+    {
+      "indent": 3,
+      "text": "Channel bindings for various types of secure channels are not described herein. Some channel bindings specifications can be found in:",
+      "zh-CHS": "本文不描述各种类型的安全通道的通道绑定。一些通道绑定规范可以在以下位置找到："
+    },
+    {
+      "indent": 3,
+      "text": "+--------------------+----------------------------------------------+\n| Secure Channel     | Reference                                    |\n| Type               |                                              |\n+--------------------+----------------------------------------------+\n| SSHv2              | [SSH-CB]                                     |\n|                    |                                              |\n| TLS                | [TLS-CB]                                     |\n|                    |                                              |\n| IPsec              | There is no specification for IPsec channel  |\n|                    | bindings yet, but the IETF Better Than       |\n|                    | Nothing Security (BTNS) WG is working to     |\n|                    | specify IPsec channels, and possibly IPsec   |\n|                    | channel bindings.                            |\n+--------------------+----------------------------------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "4.1. Examples of Unique Channel Bindings",
+      "section_title": true,
+      "zh-CHS": "4.1. 唯一通道绑定的示例"
+    },
+    {
+      "indent": 3,
+      "text": "The following text is not normative, but is here to show how one might construct channel bindings for various types of secure channels.",
+      "zh-CHS": "以下文本不是规范性的，但在这里展示如何为各种类型的安全通道构造通道绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "For SSHv2 [RFC4251] the SSHv2 session ID should suffice as it is a cryptographic binding of all relevant SSHv2 connection parameters: key exchange and negotiation.",
+      "zh-CHS": "对于SSHv2[RFC4251]，SSHv2会话ID应该足够了，因为它是所有相关SSHv2连接参数的加密绑定：密钥交换和协商。"
+    },
+    {
+      "indent": 3,
+      "text": "The TLS [RFC4346] session ID is simply assigned by the server. As such, the TLS session ID does not have the required properties to be useful as a channel binding because any MITM, posing as the server,",
+      "zh-CHS": "TLS[RFC4346]会话ID仅由服务器分配。因此，TLS会话ID没有用作通道绑定所需的属性，因为任何充当服务器的MITM，"
+    },
+    {
+      "indent": 3,
+      "text": "can simply assign the same session ID to the victim client as the server assigned to the MITM. Instead, the initial, unencrypted TLS finished messages (the client's, the server's, or both) are sufficient as they are the output of the TLS pseudo-random function, keyed with the session key, applied to all handshake material.",
+      "zh-CHS": "可以简单地将相同的会话ID分配给受害者客户端，就像分配给MITM的服务器一样。相反，初始未加密的TLS完成消息（客户端、服务器或两者）就足够了，因为它们是TLS伪随机函数的输出，由会话密钥加密，应用于所有握手材料。"
+    },
+    {
+      "indent": 0,
+      "text": "4.2. Examples of End-Point Channel Bindings",
+      "section_title": true,
+      "zh-CHS": "4.2. 端点通道绑定示例"
+    },
+    {
+      "indent": 3,
+      "text": "The following text is not normative, but is here to show how one might construct channel bindings for various types of secure channels.",
+      "zh-CHS": "以下文本不是规范性的，但在这里展示如何为各种类型的安全通道构造通道绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "For SSHv2 [RFC4251] the SSHv2 host public key, when present, should suffice as it is used to sign the algorithm suite negotiation and Diffie-Hellman key exchange; as long the client observes the host public key that corresponds to the private host key that the server used, then there cannot be an MITM in the SSHv2 connection. Note that not all SSHv2 key exchanges use host public keys; therefore, this channel bindings construction is not as useful as the one given in Section 4.1.",
+      "zh-CHS": "对于SSHv2[RFC4251]，SSHv2主机公钥（如果存在）应足够，因为它用于签署算法套件协商和Diffie-Hellman密钥交换；只要客户端观察到与服务器使用的私有主机密钥相对应的主机公钥，那么SSHv2连接中就不可能存在MITM。注意，并非所有SSHv2密钥交换都使用主机公钥；因此，这种通道绑定构造没有第4.1节中给出的那样有用。"
+    },
+    {
+      "indent": 3,
+      "text": "For TLS [RFC4346]the server certificate should suffice for the same reasons as above. Again, not all TLS cipher suites involve server certificates; therefore, the utility of this construction of channel bindings is limited to scenarios where server certificates are commonly used.",
+      "zh-CHS": "对于TLS[RFC4346]，服务器证书应满足上述相同的要求。同样，并非所有TLS密码套件都涉及服务器证书；因此，这种通道绑定构造的实用性仅限于通常使用服务器证书的场景。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Uses of Channel Binding",
+      "section_title": true,
+      "zh-CHS": "5. 通道绑定的使用"
+    },
+    {
+      "indent": 3,
+      "text": "Uses for channel binding identified so far:",
+      "zh-CHS": "到目前为止确定的通道绑定用途："
+    },
+    {
+      "indent": 3,
+      "text": "o Delegating session cryptographic protection to layers where hardware can reasonably be expected to support relevant cryptographic protocols:",
+      "zh-CHS": "o 将会话加密保护委托给硬件可以合理预期支持相关加密协议的层："
+    },
+    {
+      "indent": 6,
+      "text": "* NFSv4 [RFC3530] with Remote Direct Data Placement (RDDP) [NFS-DDP] for zero-copy reception where network interface controllers (NICs) support RDDP. Cryptographic session protection would be delegated to Encapsulating Security Payload (ESP) [RFC4303] / Authentication Headers (AHs) [RFC4302].",
+      "zh-CHS": "* NFSv4[RFC3530]，具有远程直接数据放置（RDDP）[NFS-DDP]，用于网络接口控制器（NIC）支持RDDP的零拷贝接收。加密会话保护将委托给封装安全有效负载（ESP）[RFC4303]/身份验证头（AHs）[RFC4302]。"
+    },
+    {
+      "indent": 6,
+      "text": "* iSCSI [RFC3720] with Remote Direct Memory Access (RDMA) [RFC5046]. Cryptographic session protection would be delegated to ESP/AH.",
+      "zh-CHS": "* 带远程直接内存访问（RDMA）的iSCSI[RFC3720][RFC5046]。加密会话保护将委托给ESP/AH。"
+    },
+    {
+      "indent": 6,
+      "text": "* HTTP with TLS [RFC2817] [RFC2818]. In situations involving proxies, users may want to bind authentication to a TLS channel between the last client-side proxy and the first server-side",
+      "zh-CHS": "* HTTP与TLS[RFC2817][RFC2818]。在涉及代理的情况下，用户可能希望将身份验证绑定到最后一个客户端代理和第一个服务器端代理之间的TLS通道"
+    },
+    {
+      "indent": 9,
+      "text": "proxy (\"concentrator\"). There is ongoing work to expand the set of choices for end-to-end authentication at the HTTP layer, that, coupled with channel binding to TLS, would allow for proxies while not forgoing protection over public internets.",
+      "zh-CHS": "代理（“集中器”）。正在进行的工作是扩展HTTP层端到端身份验证的选择集，再加上与TLS的通道绑定，将允许代理，同时不会放弃对公共互联网的保护。"
+    },
+    {
+      "indent": 3,
+      "text": "o Reducing the number of live cryptographic contexts that an application must maintain:",
+      "zh-CHS": "o 减少应用程序必须维护的实时加密上下文的数量："
+    },
+    {
+      "indent": 6,
+      "text": "* NFSv4 [RFC3530] multiplexes multiple users onto individual connections. Each user is authenticated separately, and users' remote procedure calls (RPCs) are protected with per-user GSS-API security contexts. This means that large timesharing clients must often maintain many cryptographic contexts per-NFSv4 connection. With channel binding to IPsec, they could maintain a much smaller number of cryptographic contexts per-NFSv4 connection, thus reducing memory pressure and interactions with cryptographic hardware.",
+      "zh-CHS": "* NFSv4[RFC3530]将多个用户多路复用到各个连接上。每个用户都经过单独的身份验证，并且用户的远程过程调用（RPC）受到每个用户GSS-API安全上下文的保护。这意味着大型分时客户端通常必须为每个NFSv4连接维护许多加密上下文。通过与IPsec的通道绑定，他们可以在每个NFSv4连接上维护少得多的加密上下文，从而减少内存压力和与加密硬件的交互。"
+    },
+    {
+      "indent": 3,
+      "text": "For example, applications that wish to use RDDP to achieve zero-copy semantics on reception may use a network layer understood by NICs to offload delivery of application data into pre-arranged memory buffers. Note that in order to obtain zero-copy reception semantics either application data has to be in cleartext relative to this RDDP layer, or the RDDP implementation must know how to implement cryptographic session protection protocols used at the application layer.",
+      "zh-CHS": "例如，希望使用RDDP在接收时实现零拷贝语义的应用程序可以使用NIC理解的网络层将应用程序数据的交付卸载到预先安排的内存缓冲区中。请注意，为了获得零拷贝接收语义，应用程序数据必须是相对于此RDDP层的明文，或者RDDP实现必须知道如何实现在应用程序层使用的加密会话保护协议。"
+    },
+    {
+      "indent": 3,
+      "text": "There are a multitude of application-layer cryptographic session protection protocols available. It is not reasonable to expect that NICs should support many such protocols. Further, some application protocols may maintain many cryptographic session contexts per-connection (for example, NFSv4 does). It is thought to be simpler to push the cryptographic session protection down the network stack (to IPsec), and yet be able to produce NICs that offload other operations (i.e., TCP/IP, ESP/AH, and DDP), than it would be to add support in the NIC for the many session cryptographic protection protocols in use in common applications at the application layer.",
+      "zh-CHS": "有许多应用层加密会话保护协议可用。期望NIC支持许多这样的协议是不合理的。此外，一些应用程序协议可以为每个连接维护许多加密会话上下文（例如，NFSv4）。人们认为，将加密会话保护向下推到网络堆栈（到IPsec）更为简单，同时能够生成卸载其他操作（即TCP/IP、ESP/AH和DDP）的NIC，而不是在NIC中添加对应用层常见应用程序中使用的许多会话加密保护协议的支持。"
+    },
+    {
+      "indent": 3,
+      "text": "The following figure shows how the various network layers are related:",
+      "zh-CHS": "下图显示了各个网络层之间的关系："
+    },
+    {
+      "indent": 6,
+      "text": "+---------------------+\n| Application layer   |<---+\n|                     |<-+ |  In cleartext, relative\n+---------------------+  | |  to each other.\n| RDDP                |<---+\n+---------------------+  |\n| TCP/SCTP            |<-+\n+---------------------+  | Channel binding of app-layer\n| ESP/AH              |<-+ authentication to IPsec\n+---------------------+\n| IP                  |\n+---------------------+\n| ...                 |\n+---------------------+",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "6. Benefits of Channel Binding to Secure Channels",
+      "section_title": true,
+      "zh-CHS": "6. 通道绑定对安全通道的好处"
+    },
+    {
+      "indent": 3,
+      "text": "The use of channel binding to delegate session cryptographic protection include:",
+      "zh-CHS": "使用通道绑定来委托会话加密保护包括："
+    },
+    {
+      "indent": 3,
+      "text": "o Performance improvements by avoiding double protection of application data in cases where IPsec is in use and applications provide their own secure channels.",
+      "zh-CHS": "o 在使用IPsec且应用程序提供自己的安全通道的情况下，通过避免对应用程序数据的双重保护来提高性能。"
+    },
+    {
+      "indent": 3,
+      "text": "o Performance improvements by leveraging hardware-accelerated IPsec.",
+      "zh-CHS": "o 通过利用硬件加速的IPsec提高性能。"
+    },
+    {
+      "indent": 3,
+      "text": "o Performance improvements by allowing RDDP hardware offloading to be integrated with IPsec hardware acceleration.",
+      "zh-CHS": "o 通过允许RDDP硬件卸载与IPsec硬件加速集成，提高了性能。"
+    },
+    {
+      "indent": 9,
+      "text": "Where protocols layered above RDDP use privacy protection, RDDP offload cannot be done. Thus, by using channel binding to IPsec, the privacy protection is moved to IPsec, which is layered below RDDP. So, RDDP can address application protocol data that's in cleartext relative to the RDDP headers.",
+      "zh-CHS": "在RDDP之上分层的协议使用隐私保护的情况下，无法完成RDDP卸载。因此，通过使用到IPsec的通道绑定，隐私保护被移动到IPsec，IPsec位于RDDP之下。因此，RDDP可以处理与RDDP头相关的明文中的应用程序协议数据。"
+    },
+    {
+      "indent": 3,
+      "text": "o Latency improvements for applications that multiplex multiple users onto a single channel, such as NFS with RPCSEC_GSS [RFC2203].",
+      "zh-CHS": "o 对于将多个用户多路传输到单个通道上的应用程序，例如使用RPCSEC_GSS的NFS[RFC2203]，延迟有所改善。"
+    },
+    {
+      "indent": 3,
+      "text": "Delegation of session cryptographic protection to IPsec requires features not yet specified. There is ongoing work to specify:",
+      "zh-CHS": "将会话加密保护委托给IPsec需要尚未指定的功能。目前正在开展工作，具体说明："
+    },
+    {
+      "indent": 3,
+      "text": "o IPsec channels [CONN-LATCH];",
+      "zh-CHS": "o IPsec通道[CONN-LATCH]；"
+    },
+    {
+      "indent": 3,
+      "text": "o Application programming interfaces (APIs) related to IPsec channels [BTNS-IPSEC];",
+      "zh-CHS": "o 与IPsec通道相关的应用程序编程接口（API）[BTNS-IPsec]；"
+    },
+    {
+      "indent": 3,
+      "text": "o Channel bindings for IPsec channels;",
+      "zh-CHS": "o IPsec通道的通道绑定；"
+    },
+    {
+      "indent": 3,
+      "text": "o Low infrastructure IPsec authentication [BTNS-CORE].",
+      "zh-CHS": "o 低基础架构IPsec身份验证[BTNS-CORE]。"
+    },
+    {
+      "indent": 0,
+      "text": "7. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "7. IANA考虑"
+    },
+    {
+      "indent": 3,
+      "text": "IANA has created a new registry for channel bindings specifications for various types of channels.",
+      "zh-CHS": "IANA为各种类型的通道的通道绑定规范创建了一个新的注册表。"
+    },
+    {
+      "indent": 3,
+      "text": "The purpose of this registry is not only to ensure uniqueness of values used to name channel bindings, but also to provide a definitive reference to technical specifications detailing each channel binding available for use on the Internet.",
+      "zh-CHS": "此注册表的目的不仅是确保用于命名通道绑定的值的唯一性，而且还提供详细说明可在Internet上使用的每个通道绑定的技术规范的最终参考。"
+    },
+    {
+      "indent": 3,
+      "text": "There is no naming convention for channel bindings: any string composed of US-ASCII alphanumeric characters, period ('.'), and dash ('-') will suffice.",
+      "zh-CHS": "通道绑定没有命名约定：任何由US-ASCII字母数字字符、句点（'.'）和破折号（'-'）组成的字符串就足够了。"
+    },
+    {
+      "indent": 3,
+      "text": "The procedure detailed in Section 7.1 is to be used for registration of a value naming a specific individual mechanism.",
+      "zh-CHS": "第7.1节中详述的程序将用于登记命名特定单独机制的值。"
+    },
+    {
+      "indent": 0,
+      "text": "7.1. Registration Procedure",
+      "section_title": true,
+      "zh-CHS": "7.1. 登记程序"
+    },
+    {
+      "indent": 3,
+      "text": "Registration of a new channel binding requires expert review as defined in BCP 26 [RFC2434].",
+      "zh-CHS": "新通道绑定的注册需要BCP 26[RFC2434]中定义的专家审查。"
+    },
+    {
+      "indent": 3,
+      "text": "Registration of a channel binding is requested by filling in the following template:",
+      "zh-CHS": "通过填写以下模板请求注册通道绑定："
+    },
+    {
+      "indent": 3,
+      "text": "o Subject: Registration of channel binding X",
+      "zh-CHS": "o 主题：通道绑定X的注册"
+    },
+    {
+      "indent": 3,
+      "text": "o Channel binding unique prefix (name):",
+      "zh-CHS": "o 通道绑定唯一前缀（名称）："
+    },
+    {
+      "indent": 3,
+      "text": "o Channel binding type: (One of \"unique\" or \"end-point\")",
+      "zh-CHS": "o 通道绑定类型：（唯一或端点之一）"
+    },
+    {
+      "indent": 3,
+      "text": "o Channel type: (e.g., TLS, IPsec, SSH, etc.)",
+      "zh-CHS": "o 通道类型：（例如TLS、IPsec、SSH等）"
+    },
+    {
+      "indent": 3,
+      "text": "o Published specification (recommended, optional):",
+      "zh-CHS": "o 发布的规范（推荐，可选）："
+    },
+    {
+      "indent": 3,
+      "text": "o Channel binding is secret (requires confidentiality protection): yes/no",
+      "zh-CHS": "o 通道绑定是机密的（需要保密保护）：是/否"
+    },
+    {
+      "indent": 3,
+      "text": "o Description (optional if a specification is given; required if no published specification is specified):",
+      "zh-CHS": "o 说明（如果提供了规范，则为可选；如果未指定发布的规范，则为必需）："
+    },
+    {
+      "indent": 3,
+      "text": "o Intended usage: (one of COMMON, LIMITED USE, or OBSOLETE)",
+      "zh-CHS": "o 预期用途：（通用、有限用途或过时）"
+    },
+    {
+      "indent": 3,
+      "text": "o Person and email address to contact for further information:",
+      "zh-CHS": "o 联系人和电子邮件地址，以获取更多信息："
+    },
+    {
+      "indent": 3,
+      "text": "o Owner/Change controller name and email address:",
+      "zh-CHS": "o 所有者/变更控制器名称和电子邮件地址："
+    },
+    {
+      "indent": 3,
+      "text": "o Expert reviewer name and contact information: (leave blank)",
+      "zh-CHS": "o 专家审核人姓名及联系方式：（留空）"
+    },
+    {
+      "indent": 3,
+      "text": "o Note: (Any other information that the author deems relevant may be added here.)",
+      "zh-CHS": "o 注：（作者认为相关的任何其他信息可在此添加。）"
+    },
+    {
+      "indent": 3,
+      "text": "and sending it via electronic mail to <channel-binding@ietf.org> (a public mailing list) and carbon copying IANA at <iana@iana.org>. After allowing two weeks for community input on the mailing list to be determined, an expert will determine the appropriateness of the registration request and either approve or disapprove the request with notice to the requestor, the mailing list, and IANA.",
+      "zh-CHS": "并通过电子邮件发送至-binding@ietf.org>（一份公开邮件列表）和碳拷贝IANA<iana@iana.org>. 在两周内确定社区对邮件列表的输入后，专家将确定注册请求的适当性，并向请求者、邮件列表和IANA发出通知，批准或不批准该请求。"
+    },
+    {
+      "indent": 3,
+      "text": "If the expert approves registration, it adds her/his name to the submitted registration.",
+      "zh-CHS": "如果专家批准注册，则将其姓名添加到提交的注册中。"
+    },
+    {
+      "indent": 3,
+      "text": "The expert has the primary responsibility of making sure that channel bindings for IETF specifications go through the IETF consensus process and that prefixes are unique.",
+      "zh-CHS": "专家的主要责任是确保IETF规范的通道绑定通过IETF共识过程，并且前缀是唯一的。"
+    },
+    {
+      "indent": 3,
+      "text": "The review should focus on the appropriateness of the requested channel binding for the proposed use, the appropriateness of the proposed prefix, and correctness of the channel binding type in the registration. The scope of this request review may entail consideration of relevant aspects of any provided technical specification, such as their IANA Considerations section. However, this review is narrowly focused on the appropriateness of the requested registration and not on the overall soundness of any provided technical specification.",
+      "zh-CHS": "审查应侧重于所请求的信道绑定是否适合所提议的用途、所提议的前缀是否合适以及注册中信道绑定类型的正确性。该请求审查的范围可能需要考虑任何提供的技术规范的相关方面，如IANA考虑部分。然而，本次审查狭隘地侧重于所请求注册的适当性，而不是所提供技术规范的总体可靠性。"
+    },
+    {
+      "indent": 3,
+      "text": "Authors are encouraged to pursue community review by posting the technical specification as an Internet-Draft and soliciting comment by posting to appropriate IETF mailing lists.",
+      "zh-CHS": "鼓励作者通过将技术规范作为互联网草案发布，并通过发布到适当的IETF邮件列表征求意见，来进行社区审查。"
+    },
+    {
+      "indent": 0,
+      "text": "7.2. Comments on Channel Bindings Registrations",
+      "section_title": true,
+      "zh-CHS": "7.2. 关于频道绑定注册的评论"
+    },
+    {
+      "indent": 3,
+      "text": "Comments on registered channel bindings should first be sent to the \"owner\" of the channel bindings and to the channel binding mailing list.",
+      "zh-CHS": "有关已注册通道绑定的评论应首先发送给通道绑定的“所有者”和通道绑定邮件列表。"
+    },
+    {
+      "indent": 3,
+      "text": "Submitters of comments may, after a reasonable attempt to contact the owner, request IANA to attach their comment to the channel binding type registration itself by sending mail to <iana@iana.org>. At",
+      "zh-CHS": "在合理尝试联系所有者后，评论提交人可以通过向发送邮件的方式请求IANA将其评论附加到频道绑定类型注册本身<iana@iana.org>. 在"
+    },
+    {
+      "indent": 3,
+      "text": "IANA's sole discretion, IANA may attach the comment to the channel bindings registration.",
+      "zh-CHS": "IANA可自行决定将评论附加到频道绑定注册中。"
+    },
+    {
+      "indent": 0,
+      "text": "7.3. Change Control",
+      "section_title": true,
+      "zh-CHS": "7.3. 变更控制"
+    },
+    {
+      "indent": 3,
+      "text": "Once a channel bindings registration has been published by IANA, the author may request a change to its definition. The change request follows the same procedure as the registration request.",
+      "zh-CHS": "IANA发布通道绑定注册后，作者可以请求更改其定义。变更请求遵循与注册请求相同的程序。"
+    },
+    {
+      "indent": 3,
+      "text": "The owner of a channel bindings may pass responsibility for the channel bindings to another person or agency by informing IANA; this can be done without discussion or review.",
+      "zh-CHS": "频道绑定的所有者可以通过通知IANA将频道绑定的责任转移给另一个人或机构；这可以在不进行讨论或审查的情况下完成。"
+    },
+    {
+      "indent": 3,
+      "text": "The IESG may reassign responsibility for a channel bindings registration. The most common case of this will be to enable changes to be made to mechanisms where the author of the registration has died, has moved out of contact, or is otherwise unable to make changes that are important to the community.",
+      "zh-CHS": "IESG可以重新分配通道绑定注册的责任。最常见的情况是，当注册作者去世、失去联系或无法进行对社区重要的更改时，可以对机制进行更改。"
+    },
+    {
+      "indent": 3,
+      "text": "Channel bindings registrations may not be deleted; mechanisms that are no longer believed appropriate for use can be declared OBSOLETE by a change to their \"intended usage\" field. Such channel bindings will be clearly marked in the lists published by IANA.",
+      "zh-CHS": "不能删除通道绑定注册；通过更改“预期用途”字段，可以宣布不再适合使用的机制已过时。IANA发布的列表中将明确标记此类通道绑定。"
+    },
+    {
+      "indent": 3,
+      "text": "The IESG is considered to be the owner of all channel bindings that are on the IETF standards track.",
+      "zh-CHS": "IESG被认为是IETF标准轨道上所有通道绑定的所有者。"
+    },
+    {
+      "indent": 0,
+      "text": "8. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "8. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "Security considerations appear throughout this document. In particular see Section 2.1.",
+      "zh-CHS": "安全注意事项贯穿本文档。具体见第2.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "When delegating session protection from one layer to another, one will almost certainly be making some session security trade-offs, such as using weaker cipher modes in one layer than might be used in the other. Evaluation and comparison of the relative cryptographic strengths of these is difficult, may not be easily automated, and is far out of scope for this document. Implementors and administrators should understand these trade-offs. Interfaces to secure channels and application-layer authentication frameworks and mechanisms could provide some notion of security profile so that applications may avoid delegation of session protection to channels that are too weak to match a required security profile.",
+      "zh-CHS": "当将会话保护从一层委派到另一层时，几乎可以肯定会进行一些会话安全权衡，例如在一层中使用比在另一层中可能使用的更弱的密码模式。评估和比较它们的相对加密强度是困难的，可能不容易自动化，并且远远超出了本文档的范围。实施者和管理员应该理解这些权衡。安全通道和应用层身份验证框架和机制的接口可以提供一些安全配置文件的概念，以便应用程序可以避免将会话保护委托给太弱而无法匹配所需安全配置文件的通道。"
+    },
+    {
+      "indent": 3,
+      "text": "Channel binding makes \"anonymous\" channels (where neither end-point is strongly authenticated to the other) useful. Implementors should avoid making it easy to use such channels without channel binding.",
+      "zh-CHS": "通道绑定使得“匿名”通道（其中两个端点都没有对另一个端点进行强身份验证）非常有用。实现者应该避免在没有通道绑定的情况下轻松使用此类通道。"
+    },
+    {
+      "indent": 3,
+      "text": "The security of channel binding depends on the security of the channels, the construction of their channel bindings, and the security of the authentication mechanism used by the application and its channel binding method.",
+      "zh-CHS": "通道绑定的安全性取决于通道的安全性、通道绑定的构造以及应用程序使用的身份验证机制及其通道绑定方法的安全性。"
+    },
+    {
+      "indent": 3,
+      "text": "Channel bindings should be constructed in such a way that revealing the channel bindings of a channel to third parties does not weaken the security of the channel. However, for end-point channel bindings disclosure of the channel bindings may disclose the identities of the peers.",
+      "zh-CHS": "通道绑定的构造方式应确保向第三方披露通道的通道绑定不会削弱通道的安全性。然而，对于端点通道绑定，通道绑定的公开可能会公开对等方的身份。"
+    },
+    {
+      "indent": 0,
+      "text": "8.1. Non-Unique Channel Bindings and Channel Binding Re-Establishment",
+      "section_title": true,
+      "zh-CHS": "8.1. 非唯一通道绑定和通道绑定重建"
+    },
+    {
+      "indent": 3,
+      "text": "Application developers may be tempted to use non-unique channel bindings for fast re-authentication following channel re-establishment. Care must be taken to avoid the possibility of attacks on multi-user systems.",
+      "zh-CHS": "应用程序开发人员可能会尝试在通道重建后使用非唯一通道绑定进行快速重新身份验证。必须注意避免对多用户系统的攻击。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider a user multiplexing protocol like NFSv4 using channel binding to IPsec on a multi-user client. If another user can connect directly to port 2049 (NFS) on some server using IPsec and merely assert RPCSEC_GSS credential handles, then this user will be able to impersonate any user authenticated by the client to the server. This is because the new connection will have the same channel bindings as the NFS client's! To prevent this, the server must require that at least a host-based client principal, and perhaps all the client's user principals, re-authenticate and perform channel binding before the server will allow the clients to assert RPCSEC_GSS context handles. Alternatively, the protocol could require a) that secure channels provide confidentiality protection and b) that fast re-authentication cookies be difficult to guess (e.g., large numbers selected randomly).",
+      "zh-CHS": "考虑在多用户客户端上使用信道绑定到IPSec的用户复用协议，如NFSv4。如果另一个用户可以使用IPsec直接连接到某台服务器上的端口2049（NFS），并且只需断言RPCSEC_GSS凭据句柄，则该用户将能够模拟客户端向服务器验证的任何用户。这是因为新连接将具有与NFS客户端相同的通道绑定！为了防止出现这种情况，服务器必须要求至少一个基于主机的客户端主体（可能还有所有客户端的用户主体）重新验证并执行通道绑定，然后服务器才能允许客户端断言RPCSEC_GSS上下文句柄。或者，协议可能要求a）安全通道提供保密保护，b）快速重新认证cookie难以猜测（例如，随机选择的大量数据）。"
+    },
+    {
+      "indent": 3,
+      "text": "In other contexts there may not be such problems, for example, in the case of application protocols that don't multiplex users over a single channel and where confidentiality protection is always used in the secure channel.",
+      "zh-CHS": "在其他上下文中可能不存在这样的问题，例如，在应用程序协议的情况下，不通过单个信道复用用户，并且在安全信道中始终使用保密保护。"
+    },
+    {
+      "indent": 0,
+      "text": "9. References",
+      "section_title": true,
+      "zh-CHS": "9. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "9.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "9.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, March 1997.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，1997年3月。"
+    },
+    {
+      "indent": 0,
+      "text": "9.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "9.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[BTNS-AS] Touch, J., Black, D., and Y. Wang, \"Problem and Applicability Statement for Better Than Nothing Security (BTNS)\", Work in Progress, October 2007.",
+      "zh-CHS": "[BTNS-AS]Touch，J.，Black，D.，和Y.Wang，“比没有更好的安全性（BTNS）的问题和适用性声明”，正在进行的工作，2007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BTNS-CORE] Richardson, M. and N. Williams, \"Better-Than-Nothing-Security: An Unauthenticated Mode of IPsec\", Work in Progress, September 2007.",
+      "zh-CHS": "[BTNS-CORE]Richardson，M.和N.Williams，“比没有更好的安全性：未经验证的IPsec模式”，正在进行的工作，2007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[BTNS-IPSEC] Richardson, M. and B. Sommerfeld, \"Requirements for an IPsec API\", Work in Progress, April 2006.",
+      "zh-CHS": "[BTNS-IPSEC]Richardson，M.和B.Sommerfeld，“IPSEC API的要求”，正在进行的工作，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[CONN-LATCH] Williams, N., \"IPsec Channels: Connection Latching\", Work in Progress, September 2007.",
+      "zh-CHS": "[CONN-LATCH]Williams，N.，“IPsec通道：连接锁定”，正在进行的工作，2007年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[Lampson91] Lampson, B., Abadi, M., Burrows, M., and E. Wobber, \"Authentication in Distributed Systems: Theory and Practive\", October 1991.",
+      "zh-CHS": "[Lampson91]Lampson，B.，Abadi，M.，Burrows，M.，和E.Wobber，“分布式系统中的认证：理论和实践”，1991年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[NFS-DDP] Callaghan, B. and T. Talpey, \"NFS Direct Data Placement\", Work in Progress, July 2007.",
+      "zh-CHS": "[NFS-DDP]Callaghan，B.和T.Talpey，“NFS直接数据放置”，正在进行的工作，2007年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC1964] Linn, J., \"The Kerberos Version 5 GSS-API Mechanism\", RFC 1964, June 1996.",
+      "zh-CHS": "[RFC1964]Linn，J.，“Kerberos版本5 GSS-API机制”，RFC19641996年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2203] Eisler, M., Chiu, A., and L. Ling, \"RPCSEC_GSS Protocol Specification\", RFC 2203, September 1997.",
+      "zh-CHS": "[RFC2203]Eisler，M.，Chiu，A.，和L.Ling，“RPCSEC_GSS协议规范”，RFC 2203，1997年9月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2401] Kent, S. and R. Atkinson, \"Security Architecture for the Internet Protocol\", RFC 2401, November 1998.",
+      "zh-CHS": "[RFC2401]Kent，S.和R.Atkinson，“互联网协议的安全架构”，RFC 2401，1998年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2434] Narten, T. and H. Alvestrand, \"Guidelines for Writing an IANA Considerations Section in RFCs\", BCP 26, RFC 2434, October 1998.",
+      "zh-CHS": "[RFC2434]Narten，T.和H.Alvestrand，“在RFCs中编写IANA注意事项部分的指南”，BCP 26，RFC 2434，1998年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2743] Linn, J., \"Generic Security Service Application Program Interface Version 2, Update 1\", RFC 2743, January 2000.",
+      "zh-CHS": "[RFC2743]Linn，J.，“通用安全服务应用程序接口版本2，更新1”，RFC 2743，2000年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2744] Wray, J., \"Generic Security Service API Version 2 : C-bindings\", RFC 2744, January 2000.",
+      "zh-CHS": "[RFC2744]Wray，J.，“通用安全服务API第2版：C-绑定”，RFC 2744，2000年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2817] Khare, R. and S. Lawrence, \"Upgrading to TLS Within HTTP/1.1\", RFC 2817, May 2000.",
+      "zh-CHS": "[RFC2817]Khare，R.和S.Lawrence，“在HTTP/1.1中升级到TLS”，RFC 28172000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2818] Rescorla, E., \"HTTP Over TLS\", RFC 2818, May 2000.",
+      "zh-CHS": "[RFC2818]Rescorla，E.，“TLS上的HTTP”，RFC2818，2000年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3530] Shepler, S., Callaghan, B., Robinson, D., Thurlow, R., Beame, C., Eisler, M., and D. Noveck, \"Network File System (NFS) version 4 Protocol\", RFC 3530, April 2003.",
+      "zh-CHS": "[RFC3530]Shepler，S.，Callaghan，B.，Robinson，D.，Thurlow，R.，Beame，C.，Eisler，M.，和D.Noveck，“网络文件系统（NFS）版本4协议”，RFC 3530，2003年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3720] Satran, J., Meth, K., Sapuntzakis, C., Chadalapaka, M., and E. Zeidner, \"Internet Small Computer Systems Interface (iSCSI)\", RFC 3720, April 2004.",
+      "zh-CHS": "[RFC3720]Satran，J.，Meth，K.，Sapuntzakis，C.，Chadalapaka，M.，和E.Zeidner，“互联网小型计算机系统接口（iSCSI）”，RFC 3720，2004年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3748] Aboba, B., Blunk, L., Vollbrecht, J., Carlson, J., and H. Levkowetz, \"Extensible Authentication Protocol (EAP)\", RFC 3748, June 2004.",
+      "zh-CHS": "[RFC3748]Aboba，B.，Blunk，L.，Vollbrecht，J.，Carlson，J.，和H.Levkowetz，“可扩展身份验证协议（EAP）”，RFC 3748，2004年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4120] Neuman, C., Yu, T., Hartman, S., and K. Raeburn, \"The Kerberos Network Authentication Service (V5)\", RFC 4120, July 2005.",
+      "zh-CHS": "[RFC4120]Neuman，C.，Yu，T.，Hartman，S.，和K.Raeburn，“Kerberos网络身份验证服务（V5）”，RFC41202005年7月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4251] Ylonen, T. and C. Lonvick, \"The Secure Shell (SSH) Protocol Architecture\", RFC 4251, January 2006.",
+      "zh-CHS": "[RFC4251]Ylonen，T.和C.Lonvick，“安全外壳（SSH）协议架构”，RFC 4251，2006年1月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4301] Kent, S. and K. Seo, \"Security Architecture for the Internet Protocol\", RFC 4301, December 2005.",
+      "zh-CHS": "[RFC4301]Kent，S.和K.Seo，“互联网协议的安全架构”，RFC 43012005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4302] Kent, S., \"IP Authentication Header\", RFC 4302, December 2005.",
+      "zh-CHS": "[RFC4302]Kent，S.，“IP认证头”，RFC43022005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4303] Kent, S., \"IP Encapsulating Security Payload (ESP)\", RFC 4303, December 2005.",
+      "zh-CHS": "[RFC4303]Kent，S.，“IP封装安全有效载荷（ESP）”，RFC 4303，2005年12月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4346] Dierks, T. and E. Rescorla, \"The Transport Layer Security (TLS) Protocol Version 1.1\", RFC 4346, April 2006.",
+      "zh-CHS": "[RFC4346]Dierks，T.和E.Rescorla，“传输层安全（TLS）协议版本1.1”，RFC 4346，2006年4月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4422] Melnikov, A. and K. Zeilenga, \"Simple Authentication and Security Layer (SASL)\", RFC 4422, June 2006.",
+      "zh-CHS": "[RFC4422]Melnikov，A.和K.Zeilenga，“简单身份验证和安全层（SASL）”，RFC 4422，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC4462] Hutzelman, J., Salowey, J., Galbraith, J., and V. Welch, \"Generic Security Service Application Program Interface (GSS-API) Authentication and Key Exchange for the Secure Shell (SSH) Protocol\", RFC 4462, May 2006.",
+      "zh-CHS": "[RFC4462]Hutzelman，J.，Salowey，J.，Galbraith，J.，和V.Welch，“安全壳（SSH）协议的通用安全服务应用程序接口（GSS-API）认证和密钥交换”，RFC 4462，2006年5月。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5046] Ko, M., Chadalapaka, M., Hufferd, J., Elzur, U., Shah, H., and P. Thaler, \"Internet Small Computer System Interface (iSCSI) Extensions for Remote Direct Memory Access (RDMA)\", RFC 5046, October 2007.",
+      "zh-CHS": "[RFC5046]Ko，M.，Chadalapaka，M.，Hufferd，J.，Elzur，U.，Shah，H.，和P.Thaler，“远程直接内存访问（RDMA）的互联网小型计算机系统接口（iSCSI）扩展”，RFC 5046，2007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SASL-GS2] Josefsson, S., \"Using GSS-API Mechanisms in SASL: The GS2 Mechanism Family\", Work in Progress, October 2007.",
+      "zh-CHS": "[SASL-GS2]Josefsson，S.，“在SASL中使用GSS-API机制：GS2机制家族”，正在进行的工作，2007年10月。"
+    },
+    {
+      "indent": 3,
+      "text": "[SSH-CB] Williams, N., \"Channel Binding Identifiers for Secure Shell Channels\", Work in Progress, November 2007.",
+      "zh-CHS": "[SSH-CB]Williams，N.，“安全外壳通道的通道绑定标识符”，正在进行的工作，2007年11月。"
+    },
+    {
+      "indent": 3,
+      "text": "[STACKABLE] Williams, N., \"Stackable Generic Security Service Pseudo-Mechanisms\", Work in Progress, June 2006.",
+      "zh-CHS": "[可堆叠]Williams，N.，“可堆叠通用安全服务伪机制”，正在进行的工作，2006年6月。"
+    },
+    {
+      "indent": 3,
+      "text": "[TLS-CB] Altman, J. and N. Williams, \"Unique Channel Bindings for TLS\", Work in Progress, November 2007.",
+      "zh-CHS": "[TLS-CB]Altman，J.和N.Williams，“TLS的独特通道绑定”，正在进行的工作，2007年11月。"
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. Acknowledgments",
+      "section_title": true,
+      "zh-CHS": "附录A.确认书"
+    },
+    {
+      "indent": 3,
+      "text": "Thanks to Mike Eisler for his work on the Channel Conjunction Mechanism document and for bringing the problem to a head, Sam Hartman for pointing out that channel binding provides a general solution to the channel binding problem, and Jeff Altman for his suggestion of using the TLS finished messages as the TLS channel bindings. Also, thanks to Bill Sommerfeld, Radia Perlman, Simon Josefsson, Joe Salowey, Eric Rescorla, Michael Richardson, Bernard Aboba, Tom Petch, Mark Brown, and many others.",
+      "zh-CHS": "感谢Mike Eisler在通道连接机制文档上的工作，并将问题带到了最前面，Sam Hartman指出通道绑定提供了通道绑定问题的一般解决方案，Jeff Altman建议使用TLS完成的消息作为TLS通道绑定。此外，还要感谢比尔·索末菲、拉迪亚·帕尔曼、西蒙·约瑟夫森、乔·萨洛维、埃里克·瑞斯科拉、迈克尔·理查森、伯纳德·阿博巴、汤姆·佩奇、马克·布朗和其他许多人。"
+    },
+    {
+      "indent": 0,
+      "text": "Author's Address",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Nicolas Williams Sun Microsystems 5300 Riata Trace Ct. Austin, TX 78727 US",
+      "zh-CHS": "Nicolas Williams Sun Microsystems 5300 Riata Trace Ct。德克萨斯州奥斯汀78727美国"
+    },
+    {
+      "indent": 3,
+      "text": "EMail: Nicolas.Williams@sun.com",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "Full Copyright Statement",
+      "zh-CHS": "完整版权声明"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (C) The IETF Trust (2007).",
+      "zh-CHS": "版权所有（C）IETF信托基金（2007年）。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to the rights, licenses and restrictions contained in BCP 78, and except as set forth therein, the authors retain all their rights.",
+      "zh-CHS": "本文件受BCP 78中包含的权利、许可和限制的约束，除其中规定外，作者保留其所有权利。"
+    },
+    {
+      "indent": 3,
+      "text": "This document and the information contained herein are provided on an \"AS IS\" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.",
+      "zh-CHS": "本文件及其包含的信息以“原样”为基础提供，贡献者、他/她所代表或赞助的组织（如有）、互联网协会、IETF信托基金和互联网工程任务组不承担任何明示或暗示的担保，包括但不限于任何保证，即使用本文中的信息不会侵犯任何权利，或对适销性或特定用途适用性的任何默示保证。"
+    },
+    {
+      "indent": 0,
+      "text": "Intellectual Property",
+      "zh-CHS": "知识产权"
+    },
+    {
+      "indent": 3,
+      "text": "The IETF takes no position regarding the validity or scope of any Intellectual Property Rights or other rights that might be claimed to pertain to the implementation or use of the technology described in this document or the extent to which any license under such rights might or might not be available; nor does it represent that it has made any independent effort to identify any such rights. Information on the procedures with respect to rights in RFC documents can be found in BCP 78 and BCP 79.",
+      "zh-CHS": "IETF对可能声称与本文件所述技术的实施或使用有关的任何知识产权或其他权利的有效性或范围，或此类权利下的任何许可可能或可能不可用的程度，不采取任何立场；它也不表示它已作出任何独立努力来确定任何此类权利。有关RFC文件中权利的程序信息，请参见BCP 78和BCP 79。"
+    },
+    {
+      "indent": 3,
+      "text": "Copies of IPR disclosures made to the IETF Secretariat and any assurances of licenses to be made available, or the result of an attempt made to obtain a general license or permission for the use of such proprietary rights by implementers or users of this specification can be obtained from the IETF on-line IPR repository at http://www.ietf.org/ipr.",
+      "zh-CHS": "向IETF秘书处披露的知识产权副本和任何许可证保证，或本规范实施者或用户试图获得使用此类专有权利的一般许可证或许可的结果，可从IETF在线知识产权存储库获取，网址为http://www.ietf.org/ipr."
+    },
+    {
+      "indent": 3,
+      "text": "The IETF invites any interested party to bring to its attention any copyrights, patents or patent applications, or other proprietary rights that may cover technology that may be required to implement this standard. Please address the information to the IETF at ietf-ipr@ietf.org.",
+      "zh-CHS": "IETF邀请任何相关方提请其注意任何版权、专利或专利申请，或其他可能涵盖实施本标准所需技术的专有权利。请将信息发送至IETF的IETF-ipr@ietf.org."
+    }
+  ]
+}

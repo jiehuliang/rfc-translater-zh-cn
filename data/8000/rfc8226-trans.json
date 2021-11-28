@@ -1,0 +1,1027 @@
+{
+  "title": {
+    "text": "RFC 8226: Secure Telephone Identity Credentials: Certificates",
+    "zh-CHS": "RFC 8226"
+  },
+  "number": 8226,
+  "created_at": "2021-10-29 03:38:34.483809+08:00",
+  "updated_by": "",
+  "contents": [
+    {
+      "indent": 0,
+      "text": "Internet Engineering Task Force (IETF)                       J. Peterson\nRequest for Comments: 8226                                       Neustar\nCategory: Standards Track                                      S. Turner\nISSN: 2070-1721                                                    sn3rd\n                                                           February 2018",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 10,
+      "text": "Secure Telephone Identity Credentials: Certificates",
+      "zh-CHS": "安全电话身份凭据：证书"
+    },
+    {
+      "indent": 0,
+      "text": "Abstract",
+      "zh-CHS": "摘要"
+    },
+    {
+      "indent": 3,
+      "text": "In order to prevent the impersonation of telephone numbers on the Internet, some kind of credential system needs to exist that cryptographically asserts authority over telephone numbers. This document describes the use of certificates in establishing authority over telephone numbers, as a component of a broader architecture for managing telephone numbers as identities in protocols like SIP.",
+      "zh-CHS": "为了防止在互联网上模拟电话号码，需要存在某种凭证系统，以加密方式对电话号码进行授权。本文档描述了在建立对电话号码的权限时使用证书的情况，作为在SIP等协议中将电话号码作为身份进行管理的更广泛体系结构的一个组成部分。"
+    },
+    {
+      "indent": 0,
+      "text": "Status of This Memo",
+      "zh-CHS": "关于下段备忘"
+    },
+    {
+      "indent": 3,
+      "text": "This is an Internet Standards Track document.",
+      "zh-CHS": "这是一份互联网标准跟踪文件。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is a product of the Internet Engineering Task Force (IETF). It represents the consensus of the IETF community. It has received public review and has been approved for publication by the Internet Engineering Steering Group (IESG). Further information on Internet Standards is available in Section 2 of RFC 7841.",
+      "zh-CHS": "本文件是互联网工程任务组（IETF）的产品。它代表了IETF社区的共识。它已经接受了公众审查，并已被互联网工程指导小组（IESG）批准出版。有关互联网标准的更多信息，请参见RFC 7841第2节。"
+    },
+    {
+      "indent": 3,
+      "text": "Information about the current status of this document, any errata, and how to provide feedback on it may be obtained at https://www.rfc-editor.org/info/rfc8226.",
+      "zh-CHS": "有关本文件当前状态、任何勘误表以及如何提供反馈的信息，请访问https://www.rfc-editor.org/info/rfc8226."
+    },
+    {
+      "indent": 0,
+      "text": "Copyright Notice",
+      "zh-CHS": "版权公告"
+    },
+    {
+      "indent": 3,
+      "text": "Copyright (c) 2018 IETF Trust and the persons identified as the document authors. All rights reserved.",
+      "zh-CHS": "版权所有（c）2018 IETF信托基金和确定为文件作者的人员。版权所有。"
+    },
+    {
+      "indent": 3,
+      "text": "This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document. Please review these documents carefully, as they describe your rights and restrictions with respect to this document. Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.",
+      "zh-CHS": "本文件受BCP 78和IETF信托有关IETF文件的法律规定的约束(https://trustee.ietf.org/license-info)自本文件出版之日起生效。请仔细阅读这些文件，因为它们描述了您对本文件的权利和限制。从本文件中提取的代码组件必须包括信托法律条款第4.e节中所述的简化BSD许可证文本，并提供简化BSD许可证中所述的无担保。"
+    },
+    {
+      "indent": 0,
+      "text": "Table of Contents",
+      "zh-CHS": "目录"
+    },
+    {
+      "indent": 3,
+      "text": "1. Introduction ....................................................2\n2. Terminology .....................................................3\n3. Authority for Telephone Numbers in Certificates .................4\n4. Certificate Usage with STIR .....................................5\n5. Enrollment and Authorization Using the TN Authorization List ....6\n   5.1. Constraints on Signing PASSporTs ...........................8\n   5.2. Certificate Extension Scope and Structure ..................8\n6. Provisioning Private Keying Material ............................9\n7. Acquiring Credentials to Verify Signatures ......................9\n8. JWT Claim Constraints Syntax ...................................10\n9. TN Authorization List Syntax ...................................12\n10. Certificate Freshness and Revocation ..........................14\n   10.1. Acquiring the TN List by Reference .......................15\n11. IANA Considerations ...........................................16\n   11.1. ASN.1 Registrations ......................................16\n   11.2. Media Type Registrations .................................16\n12. Security Considerations .......................................17\n13. References ....................................................18\n   13.1. Normative References .....................................18\n   13.2. Informative References ...................................20\nAppendix A. ASN.1 Module ..........................................21\nAcknowledgments ...................................................24\nAuthors' Addresses ................................................24",
+      "raw": true,
+      "toc": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "1. Introduction",
+      "section_title": true,
+      "zh-CHS": "1. 介绍"
+    },
+    {
+      "indent": 3,
+      "text": "The Secure Telephone Identity Revisited (STIR) problem statement [RFC7340] identifies the primary enabler of robocalling, vishing (voicemail hacking), swatting, and related attacks as the capability to impersonate a calling party number. The starkest examples of these attacks are cases where automated callees on the Public Switched Telephone Network (PSTN) rely on the calling number as a security measure -- for example, to access a voicemail system. Robocallers use impersonation as a means of obscuring identity. While robocallers can, in the ordinary PSTN, block (that is, withhold) their caller identity, callees are less likely to pick up calls from blocked identities; therefore, appearing to call from some number, any number, is preferable. Robocallers, however, prefer not to call from a number that can trace back to the robocaller, and therefore they impersonate numbers that are not assigned to them.",
+      "zh-CHS": "安全电话身份重访（STIR）问题声明[RFC7340]将机器人呼叫、可视（语音邮件黑客）、打击和相关攻击的主要促成因素确定为模拟主叫方号码的能力。这些攻击最明显的例子是，公共交换电话网（PSTN）上的自动呼叫者依靠呼叫者号码作为安全措施——例如，访问语音邮件系统。机器人学习者使用模仿来掩盖身份。虽然在普通的PSTN中，机器人呼叫者可以屏蔽（即保留）呼叫者身份，但被呼叫者不太可能接听来自被屏蔽身份的电话；因此，从某个号码、任何号码打电话都是可取的。然而，机器人呼叫者不喜欢从一个可以追溯到机器人呼叫者的号码呼叫，因此他们模拟没有分配给他们的号码。"
+    },
+    {
+      "indent": 3,
+      "text": "One of the most important components of a system to prevent impersonation is the implementation of credentials that identify the parties who control telephone numbers. With these credentials, parties can assert that they are in fact authorized to use telephony numbers (TNs), and thus they distinguish themselves from",
+      "zh-CHS": "防止假冒的系统最重要的组成部分之一是实现识别控制电话号码的各方的凭证。有了这些凭证，各方可以断言他们实际上被授权使用电话号码（TNs），从而使他们自己与其他人区别开来"
+    },
+    {
+      "indent": 3,
+      "text": "impersonators unable to present such credentials. For that reason, the STIR threat model [RFC7375] stipulates that \"The design of the credential system envisioned as a solution to these threats must, for example, limit the scope of the credentials issued to carriers or national authorities to those numbers that fall under their purview.\" This document describes credential systems for telephone numbers based on [X.509] version 3 certificates in accordance with [RFC5280]. While telephone numbers have long been part of the X.509 standard (X.509 supports arbitrary naming attributes to be included in a certificate; the telephoneNumber attribute was defined in the 1988 [X.520] specification), this document provides ways to determine authority more aligned with telephone network requirements, including extending X.509 with a Telephony Number Authorization List certificate extension, which binds certificates to asserted authority for particular telephone numbers or, potentially, telephone number blocks or ranges.",
+      "zh-CHS": "模拟者无法提供此类凭据。因此，STIR威胁模型[RFC7375]规定，“作为这些威胁的解决方案，设想的凭证系统的设计必须将颁发给运营商或国家当局的凭证范围限制在其权限范围内。”本文件描述了根据[RFC5280]基于[X.509]版本3证书的电话号码凭证系统。虽然电话号码长期以来一直是X.509标准的一部分（X.509支持证书中包含的任意命名属性；电话号码属性在1988[X.520]规范中定义），但本文件提供了确定更符合电话网络要求的权限的方法，包括使用电话号码授权列表证书扩展扩展扩展X.509，该扩展将证书绑定到特定电话号码或电话号码块或范围的断言权限。"
+    },
+    {
+      "indent": 3,
+      "text": "In the STIR in-band architecture specified in [RFC8224], two basic types of entities need access to these credentials: authentication services and verification services (or verifiers). An authentication service must be operated by an entity enrolled with the certification authority (CA) (see Section 5), whereas a verifier need only trust the trust anchor of the authority and also have a means to access and validate the public keys associated with these certificates. Although the guidance in this document is written with the STIR in-band architecture in mind, the credential system described in this document could be useful for other protocols that want to make use of certificates to assert authority over telephone numbers on the Internet.",
+      "zh-CHS": "在[RFC8224]中指定的STIR带内体系结构中，两种基本类型的实体需要访问这些凭证：身份验证服务和验证服务（或验证器）。认证服务必须由注册认证机构（CA）的实体操作（见第5节），而验证者只需信任认证机构的信任锚，还需要有访问和验证与这些证书相关联的公钥的方法。尽管本文档中的指南是在考虑STIR带内体系结构的情况下编写的，但本文档中描述的凭证系统对于希望利用证书对Internet上的电话号码进行授权的其他协议可能有用。"
+    },
+    {
+      "indent": 3,
+      "text": "This document specifies only the credential syntax and semantics necessary to support this architecture. It does not assume any particular CA or deployment environment. We anticipate that some deployment experience will be necessary to determine optimal operational models.",
+      "zh-CHS": "本文档仅指定支持此体系结构所需的凭据语法和语义。它不假定任何特定的CA或部署环境。我们预计需要一些部署经验来确定最佳运作模式。"
+    },
+    {
+      "indent": 0,
+      "text": "2. Terminology",
+      "section_title": true,
+      "zh-CHS": "2. 术语"
+    },
+    {
+      "indent": 3,
+      "text": "The key words \"MUST\", \"MUST NOT\", \"REQUIRED\", \"SHALL\", \"SHALL NOT\", \"SHOULD\", \"SHOULD NOT\", \"RECOMMENDED\", \"NOT RECOMMENDED\", \"MAY\", and \"OPTIONAL\" in this document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all capitals, as shown here.",
+      "zh-CHS": "本文件中的关键词“必须”、“不得”、“必需”、“应”、“不应”、“建议”、“不建议”、“可”和“可选”在所有大写字母出现时（如图所示）应按照BCP 14[RFC2119][RFC8174]所述进行解释。"
+    },
+    {
+      "indent": 0,
+      "text": "3. Authority for Telephone Numbers in Certificates",
+      "section_title": true,
+      "zh-CHS": "3. 证书中的电话号码管理局"
+    },
+    {
+      "indent": 3,
+      "text": "At a high level, this specification details two non-exclusive approaches that can be employed to determine authority over telephone numbers with certificates.",
+      "zh-CHS": "在较高的层次上，本规范详细说明了两种非排他性方法，可用于确定对带有证书的电话号码的权限。"
+    },
+    {
+      "indent": 3,
+      "text": "The first approach is to leverage the existing subject of the certificate to ascertain that the holder of the certificate is authorized to claim authority over a telephone number. The subject might be represented as a domain name in the subjectAltName, such as an \"example.net\" where that domain is known to relying parties as a carrier, or represented with other identifiers related to the operation of the telephone network, including Service Provider Codes (SPCs) such as Operating Company Numbers (OCNs) or Service Provider Identifiers (SPIDs) via the TN Authorization List specified in this document. A relying party could then employ an external data set or service that determines whether or not a specific telephone number is under the authority of the carrier identified as the subject of the certificate and use that to ascertain whether or not the carrier should have authority over a telephone number. Potentially, a certificate extension to convey the URI of such an information service trusted by the issuer of the certificate could be developed (though this specification does not propose one). Alternatively, some relying parties could form bilateral or multilateral trust relationships with peer carriers, trusting one another's assertions just as telephone carriers in the Signaling System 7 (SS7) network today rely on transitive trust when displaying the calling party telephone number received through SS7 signaling.",
+      "zh-CHS": "第一种方法是利用证书的现有主题，确定证书持有人有权通过电话号码申请授权。主题可以表示为主题名称中的域名，例如依赖方已知该域名为运营商的“example.net”，或者用与电话网络运营相关的其他标识符表示，包括服务提供商代码（SPC），例如运营公司编号（OCN）或通过本文件规定的TN授权列表提供服务提供商标识符（SPID）。然后，依赖方可以使用外部数据集或服务来确定某一特定电话号码是否在被确定为证书主体的承运人的授权之下，并使用该数据集或服务来确定承运人是否应拥有对某一电话号码的授权。潜在地，可以开发一个证书扩展来传递由证书颁发者信任的此类信息服务的URI（尽管本规范不建议这样做）。或者，一些依赖方可以与对等载波形成双边或多边信任关系，彼此信任对方的断言，就像今天信令系统7（SS7）网络中的电话载波在显示通过SS7信令接收的呼叫方电话号码时依赖传递信任一样。"
+    },
+    {
+      "indent": 3,
+      "text": "The second approach is to extend the syntax of certificates to include a new attribute, defined here as the TN Authorization List, which contains a list of telephone numbers defining the scope of authority of the certificate. Relying parties, if they trust the issuer of the certificate as a source of authoritative information on telephone numbers, could therefore use the TN Authorization List instead of the subject of the certificate to make a decision about whether or not the signer has authority over a particular telephone number. The TN Authorization List could be provided in one of two ways: as a literal value in the certificate or as a network service that allows relying parties to query in real time to determine that a telephone number is in the scope of a certificate. Using the TN Authorization List rather than the certificate subject makes sense when, for example, for privacy reasons the certificate owner would prefer not to be identified, or in cases where the holder of the certificate does not participate in the sort of traditional carrier infrastructure that the first approach assumes.",
+      "zh-CHS": "第二种方法是扩展证书的语法，以包括一个新属性，在这里定义为TN Authorization List，它包含定义证书权限范围的电话号码列表。如果依赖方相信证书的颁发者是电话号码权威信息的来源，则可以使用TN授权列表而不是证书的主体来决定签名者是否对特定电话号码拥有权限。TN授权列表可以通过两种方式之一提供：作为证书中的文字值，或作为允许依赖方实时查询以确定电话号码是否在证书范围内的网络服务。例如，出于隐私原因，证书所有者不希望被识别，或者证书持有人不参与第一种方法假设的那种传统运营商基础设施时，使用TN授权列表而不是证书主体是有意义的。"
+    },
+    {
+      "indent": 3,
+      "text": "The first approach requires little change to existing Public Key Infrastructure (PKI) certificates; for the second approach, we must define an appropriate enrollment and authorization process. For the purposes of STIR, the over-the-wire format specified in [RFC8224] accommodates either of these approaches: the methods for canonicalizing, for signing, for identifying and accessing the certificate, and so on remain the same; it is only the verifier behavior and authorization decision that will change, depending on the approach to telephone number authority taken by the certificate. For that reason, the two approaches are not mutually exclusive, and in fact a certificate issued to a traditional telephone network service provider could contain a TN Authorization List or not, were it supported by the CA issuing the credential. Regardless of which approach is used, certificates that assert authority over telephone numbers are subject to the ordinary operational procedures that govern certificate use per [RFC5280]. This means that verification services must be mindful of the need to ensure that they trust the trust anchor that issued the certificate and that they have some means to determine the freshness of the certificate (see Section 10).",
+      "zh-CHS": "第一种方法几乎不需要对现有的公钥基础设施（PKI）证书进行更改；对于第二种方法，我们必须定义适当的注册和授权流程。出于STIR的目的，[RFC8224]中规定的在线格式适用于以下两种方法之一：规范化、签名、标识和访问证书等的方法保持不变；只有验证者的行为和授权决定才会改变，这取决于证书对电话号码授权的方式。因此，这两种方法并不相互排斥，事实上，如果颁发凭证的CA支持，颁发给传统电话网络服务提供商的证书可以包含TN授权列表，也可以不包含TN授权列表。无论使用哪种方法，对电话号码进行授权的证书都要遵循[RFC5280]规定的管理证书使用的普通操作程序。这意味着验证服务必须注意需要确保他们信任颁发证书的信任锚，并且他们有一些方法来确定证书的新鲜度（参见第10节）。"
+    },
+    {
+      "indent": 0,
+      "text": "4. Certificate Usage with STIR",
+      "section_title": true,
+      "zh-CHS": "4. 使用STIR的证书使用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8224], Section 7.4 requires that all credential systems used by STIR explain how they address the requirements enumerated below. Certificates as described in this document address the STIR requirements as follows:",
+      "zh-CHS": "[RFC8224]第7.4节要求STIR使用的所有凭证系统解释它们如何满足以下列举的要求。本文件中所述的证书满足以下STIR要求："
+    },
+    {
+      "indent": 3,
+      "text": "1. The URI [RFC3986] schemes permitted in the SIP Identity header \"info\" parameter, as well as any special procedures required to dereference the URIs: while normative text is given below in Section 7, this mechanism permits the HTTP [RFC7230], CID (Content-ID) [RFC2392], and SIP URI schemes to appear in the \"info\" parameter.",
+      "zh-CHS": "1. SIP标识头“info”参数中允许的URI[RFC3986]方案，以及取消引用URI所需的任何特殊程序：虽然下面第7节给出了规范性文本，但该机制允许HTTP[RFC7230]、CID（内容ID）[RFC2392]和SIP URI方案出现在“info”参数中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Procedures required to extract keying material from the resources designated by the URI: implementations perform no special procedures beyond dereferencing the \"info\" URI. See Section 7.",
+      "zh-CHS": "2. 从URI指定的资源中提取键控材料所需的过程：实现除了取消引用“info”URI之外，不执行任何特殊过程。见第7节。"
+    },
+    {
+      "indent": 3,
+      "text": "3. Procedures used by the verification service to determine the scope of the credential: this specification effectively proposes two methods, as outlined in Section 3: one where the subject (or, more properly, subjectAltName) of the certificate indicates the scope of authority through a domain name, and relying parties either trust the subject entirely or have some direct means of determining whether or not a number falls under a subject's authority; and another where an extension to the certificate as described in Section 9 identifies the scope of authority of the certificate.",
+      "zh-CHS": "3. 验证服务用于确定凭证范围的程序：本规范有效地提出了两种方法，如第3节所述：一种是证书的主体（或者更恰当地说，主体名称）通过域名指示权限范围，依赖方要么完全信任主体，要么有直接手段确定某个数字是否属于主体的权限；第9节所述的证书扩展标识了证书的授权范围。"
+    },
+    {
+      "indent": 3,
+      "text": "4. The cryptographic algorithms required to validate the credentials: for this specification, that means the signature algorithms used to sign certificates. This specification REQUIRES that implementations support both the Elliptic Curve Digital Signature Algorithm (ECDSA) with the P-256 curve (see [DSS]) and RSA PKCS #1 v1.5 (\"PKCS\" stands for \"Public-Key Cryptography Standards\") (see [RFC8017], Section 8.2) for certificate signatures. Implementers are advised that the latter algorithm is mandated only as a transitional mechanism, due to its widespread use in existing PKIs, but we anticipate that this mechanism will eventually be deprecated.",
+      "zh-CHS": "4. 验证凭证所需的加密算法：对于本规范，这意味着用于签署证书的签名算法。本规范要求实现支持P-256曲线椭圆曲线数字签名算法（ECDSA）（参见[DSS]）和RSA PKCS#1 v1.5（“PKCS”代表“公钥加密标准”）（参见[RFC8017]，第8.2节）的证书签名。建议实施者，由于后者在现有PKI中的广泛使用，后者只能作为一种过渡机制，但我们预计这种机制最终将被弃用。"
+    },
+    {
+      "indent": 3,
+      "text": "5. Finally, note that all certificates compliant with this specification:",
+      "zh-CHS": "5. 最后，请注意，所有符合本规范的证书："
+    },
+    {
+      "indent": 7,
+      "text": "* MUST provide cryptographic keying material sufficient to generate the ECDSA using P-256 and SHA-256 signatures necessary to support the ES256 hashed signatures required by PASSporT [RFC8225], which in turn follows the JSON Web Token (JWT) [RFC7519].",
+      "zh-CHS": "* 必须提供足以使用P-256和SHA-256签名生成ECDSA的加密密钥材料，以支持PASSporT[RFC8225]所需的ES256哈希签名，而PASSporT[RFC8225]又遵循JSON Web令牌（JWT）[RFC7519]。"
+    },
+    {
+      "indent": 7,
+      "text": "* MUST support both ECDSA with P-256 and RSA PKCS #1 v1.5 for certificate signature verification.",
+      "zh-CHS": "* 必须支持带有P-256的ECDSA和RSA PKCS#1 v1.5，以进行证书签名验证。"
+    },
+    {
+      "indent": 3,
+      "text": "This document also includes additional certificate-related requirements:",
+      "zh-CHS": "本文件还包括其他与证书相关的要求："
+    },
+    {
+      "indent": 3,
+      "text": "o See Section 5.1 for requirements related to the JWT Claim Constraints certificate extension.",
+      "zh-CHS": "o 有关JWT索赔约束证书扩展的要求，请参见第5.1节。"
+    },
+    {
+      "indent": 3,
+      "text": "o See Section 7 for requirements related to relying parties acquiring credentials.",
+      "zh-CHS": "o 有关依赖方获取凭证的要求，请参见第7节。"
+    },
+    {
+      "indent": 3,
+      "text": "o See Sections 10 and 10.1 for requirements related to certificate freshness and the Authority Information Access (AIA) certificate extension.",
+      "zh-CHS": "o 有关证书新鲜度和机构信息访问（AIA）证书扩展的要求，请参见第10节和第10.1节。"
+    },
+    {
+      "indent": 0,
+      "text": "5. Enrollment and Authorization Using the TN Authorization List",
+      "section_title": true,
+      "zh-CHS": "5. 使用TN授权列表进行注册和授权"
+    },
+    {
+      "indent": 3,
+      "text": "This document covers three models for enrollment when using the TN Authorization List extension.",
+      "zh-CHS": "本文档介绍了使用TN授权列表扩展时的三种注册模式。"
+    },
+    {
+      "indent": 3,
+      "text": "The first enrollment model is one where the CA acts in concert with national numbering authorities to issue credentials to those parties to whom numbers are assigned. In the United States, for example, telephone number blocks are assigned to Local Exchange Carriers (LECs) by the North American Numbering Plan Administration (NANPA), who is in turn directed by the national regulator. LECs may also",
+      "zh-CHS": "第一种注册模式是CA与国家编号机构合作，向分配编号的各方颁发证书。例如，在美国，电话号码块由北美号码计划管理局（NANPA）分配给本地交换运营商（LEC），而NANPA又由国家监管机构负责管理。LEC也可能"
+    },
+    {
+      "indent": 3,
+      "text": "receive numbers in smaller allocations, through number pooling, or via an individual assignment through number portability. LECs assign numbers to customers, who may be private individuals or organizations -- and organizations take responsibility for assigning numbers within their own enterprise. This model requires top-down adoption of the model from regulators through to carriers. Assignees of E.164 numbering resources participating in this enrollment model should take appropriate steps to establish trust anchors.",
+      "zh-CHS": "通过号码池或通过号码可移植性的个人分配，以较小的分配方式接收号码。LEC为客户分配号码，客户可能是个人或组织，而组织则负责在自己的企业内分配号码。这种模式要求从监管机构到运营商自上而下采用该模式。参与此注册模型的E.164编号资源的受让人应采取适当步骤建立信任锚。"
+    },
+    {
+      "indent": 3,
+      "text": "The second enrollment model is a bottom-up approach where a CA requires that an entity prove control by means of some sort of test that, as with certification authorities for web PKI, might either be (1) automated or (2) a manual administrative process. As an example of an automated process, an authority might send a text message to a telephone number containing a URL (which might be dereferenced by the recipient) as a means of verifying that a user has control of a terminal corresponding to that number. Checks of this form are frequently used in commercial systems today to validate telephone numbers provided by users. This is comparable to existing enrollment systems used by some certificate authorities for issuing S/MIME credentials for email by verifying that the party applying for a credential receives mail at the email address in question.",
+      "zh-CHS": "第二种注册模型是一种自底向上的方法，CA要求实体通过某种测试来证明控制，就像web PKI的证书颁发机构一样，（1）自动化或（2）手动管理过程。作为自动化过程的一个示例，权威机构可以向包含URL的电话号码发送文本消息（该URL可能会被接收者取消引用），作为验证用户是否控制对应于该号码的终端的手段。在今天的商业系统中，经常使用这种形式的检查来验证用户提供的电话号码。这与某些证书颁发机构使用的现有注册系统相当，这些系统通过验证申请凭据的一方是否在所述电子邮件地址接收邮件来为电子邮件颁发S/MIME凭据。"
+    },
+    {
+      "indent": 3,
+      "text": "The third enrollment model is delegation: that is, the holder of a certificate (assigned by either of the two methods above) might delegate some or all of their authority to another party. In some cases, multiple levels of delegation could occur: a LEC, for example, might delegate authority to a customer organization for a block of 100 numbers used by an IP PBX, and the organization might in turn delegate authority for a particular number to an individual employee. This is analogous to delegation of organizational identities in traditional hierarchical PKIs who use the name constraints extension [RFC5280]; the root CA delegates names in sales to the sales department CA, names in development to the development CA, etc. As lengthy certificate delegation chains are brittle, however, and can cause delays in the verification process, this document considers optimizations to reduce the complexity of verification.",
+      "zh-CHS": "第三种注册模式是委托：也就是说，证书持有人（通过上述两种方法之一指定）可以将其部分或全部权限委托给另一方。在某些情况下，可能会发生多个级别的授权：例如，LEC可能会将IP PBX使用的100个号码的数据块的授权委托给客户组织，而该组织可能反过来将特定号码的授权委托给单个员工。这类似于使用名称约束扩展[RFC5280]的传统分层PKI中的组织身份委派；根CA将销售中的名称委托给销售部门CA，将开发中的名称委托给开发CA，等等。但是，由于冗长的证书委托链很脆弱，并且可能会导致验证过程延迟，因此本文档考虑优化以降低验证的复杂性。"
+    },
+    {
+      "indent": 3,
+      "text": "Future work might explore methods of partial delegation, where certificate holders delegate only part of their authority. For example, individual assignees may want to delegate to a service authority for text messages associated with their telephone number but not for other functions.",
+      "zh-CHS": "未来的工作可能会探索部分授权的方法，即证书持有者只授权其部分权限。例如，个人受让人可能希望将与其电话号码相关联的文本消息委托给服务机构，但不希望将其他功能委托给服务机构。"
+    },
+    {
+      "indent": 0,
+      "text": "5.1. Constraints on Signing PASSporTs",
+      "section_title": true,
+      "zh-CHS": "5.1. 签署护照的限制"
+    },
+    {
+      "indent": 3,
+      "text": "The public key in the certificate is used to validate the signature on a JWT [RFC7519] that conforms to the conventions specified in PASSporT [RFC8225]. This specification supports constraints on the JWT claims, thereby allowing the CA to grant different permissions to certificate holders -- for example, those enrolled from proof-of-possession versus delegation. A Certificate Policy (CP) and a Certification Practice Statement (CPS) [RFC3647] are produced as part of the normal PKI bootstrapping process (i.e., the CP is written first, and then the CA says how it conforms to the CP in the CPS). A CA that wishes to place constraints on the JWT claims MUST include the JWT Claim Constraints certificate extension in issued certificates. See Section 8 for information about the certificate extension.",
+      "zh-CHS": "证书中的公钥用于验证JWT[RFC7519]上的签名，该签名符合PASSporT[RFC8225]中规定的约定。该规范支持对JWT声明的约束，从而允许CA向证书持有者授予不同的权限——例如，从占有证明与委托证明登记的持有者。证书策略（CP）和认证实践声明（CPS）[RFC3647]是作为正常PKI引导过程的一部分生成的（即，先编写CP，然后CA说明其如何符合CPS中的CP）。希望对JWT索赔施加约束的CA必须在颁发的证书中包含JWT索赔约束证书扩展。有关证书扩展的信息，请参见第8节。"
+    },
+    {
+      "indent": 0,
+      "text": "5.2. Certificate Extension Scope and Structure",
+      "section_title": true,
+      "zh-CHS": "5.2. 证书扩展范围和结构"
+    },
+    {
+      "indent": 3,
+      "text": "This specification places no limits on the number of telephone numbers that can be associated with any given certificate. Some service providers may be assigned millions of numbers and may wish to have a single certificate that can be applied to signing for any one of those numbers. Others may wish to compartmentalize authority over subsets of the numbers they control.",
+      "zh-CHS": "本规范对可与任何给定证书关联的电话号码数量没有限制。一些服务提供商可能被分配了数百万个号码，并且可能希望拥有一个可以应用于其中任何一个号码的签名的证书。其他人可能希望对他们控制的数字子集划分权限。"
+    },
+    {
+      "indent": 3,
+      "text": "Moreover, service providers may wish to have multiple certificates with the same scope of authority. For example, a service provider with several regional gateway systems may want each system to be capable of signing for each of their numbers but not want to have each system share the same private key.",
+      "zh-CHS": "此外，服务提供商可能希望拥有具有相同权限范围的多个证书。例如，具有多个区域网关系统的服务提供商可能希望每个系统能够对其每个号码进行签名，但不希望每个系统共享相同的私钥。"
+    },
+    {
+      "indent": 3,
+      "text": "The set of telephone numbers for which a particular certificate is valid is expressed in the certificate through a certificate extension; the certificate's extensibility mechanism is defined in [RFC5280], but the TN Authorization List extension is specified in this document.",
+      "zh-CHS": "特定证书有效的电话号码集通过证书扩展在证书中表示；[RFC5280]中定义了证书的扩展机制，但本文档中指定了TN授权列表扩展。"
+    },
+    {
+      "indent": 3,
+      "text": "The subjects of certificates containing the TN Authorization List extension are typically the administrative entities to whom numbers are assigned or delegated. For example, a LEC might hold a certificate for a range of telephone numbers. In some cases, the organization or individual issued such a certificate may not want to associate themselves with a certificate; for example, a private individual with a certificate for a single telephone number might not want to distribute that certificate publicly if every verifier immediately knew their name. The certification authorities issuing certificates with the TN Authorization List extensions may, in",
+      "zh-CHS": "包含TN授权列表扩展的证书的主体通常是分配或委托编号的管理实体。例如，LEC可能持有一系列电话号码的证书。在某些情况下，颁发此类证书的组织或个人可能不想将自己与证书联系起来；例如，如果每个验证者立即知道自己的姓名，那么拥有单个电话号码证书的个人可能不想公开分发该证书。颁发TN授权列表扩展证书的认证机构可以："
+    },
+    {
+      "indent": 3,
+      "text": "accordance with their policies, obscure the identity of the subject, though mechanisms for doing so are outside the scope of this document.",
+      "zh-CHS": "根据他们的政策，模糊主体的身份，尽管这样做的机制不在本文件的范围内。"
+    },
+    {
+      "indent": 0,
+      "text": "6. Provisioning Private Keying Material",
+      "section_title": true,
+      "zh-CHS": "6. 提供私钥资料"
+    },
+    {
+      "indent": 3,
+      "text": "In order for authentication services to sign calls via the procedures described in [RFC8224], they must hold a private key corresponding to a certificate with authority over the calling number. [RFC8224] does not require that any particular entity in a SIP deployment architecture sign requests, only that it be an entity with an appropriate private key; the authentication service role may be instantiated by any entity in a SIP network. For a certificate granting authority only over a particular number that has been issued to an end user, for example, an end-user device might hold the private key and generate the signature. In the case of a service provider with authority over large blocks of numbers, an intermediary might hold the private key and sign calls.",
+      "zh-CHS": "为了使身份验证服务能够通过[RFC8224]中描述的过程对呼叫进行签名，它们必须持有与对呼叫号码具有权限的证书相对应的私钥。[RFC8224]不要求SIP部署体系结构中的任何特定实体签署请求，只要求该实体具有适当的私钥；认证服务角色可以由SIP网络中的任何实体实例化。例如，对于仅对已颁发给最终用户的特定号码授予权限的证书，最终用户设备可能持有私钥并生成签名。如果服务提供商有权管理大量号码，则中间人可能持有私钥并对呼叫进行签名。"
+    },
+    {
+      "indent": 3,
+      "text": "The specification RECOMMENDS distribution of private keys through PKCS #8 objects signed by a trusted entity -- for example, through the Cryptographic Message Syntax (CMS) package specified in [RFC5958].",
+      "zh-CHS": "该规范建议通过受信任实体签名的PKCS#8对象分发私钥，例如，通过[RFC5958]中指定的加密消息语法（CMS）包。"
+    },
+    {
+      "indent": 0,
+      "text": "7. Acquiring Credentials to Verify Signatures",
+      "section_title": true,
+      "zh-CHS": "7. 获取凭据以验证签名"
+    },
+    {
+      "indent": 3,
+      "text": "This specification documents multiple ways that a verifier can gain access to the credentials needed to verify a request. As the validity of certificates does not depend on the method of their acquisition, there is no need to standardize any single mechanism for this purpose. All entities that comply with [RFC8224] necessarily support SIP, and consequently SIP itself can serve as a way to deliver certificates. [RFC8224] provides an \"info\" parameter of the Identity header; this parameter contains a URI for the credential used to generate the Identity header. [RFC8224] also requires that documents that define credential systems list the URI schemes that may be present in the \"info\" parameter. For implementations compliant with this specification, three URI schemes are REQUIRED: the CID URI, the SIP URI, and the HTTP URI.",
+      "zh-CHS": "本规范记录了验证器可以通过多种方式访问验证请求所需的凭据。由于证书的有效性不取决于获取证书的方法，因此没有必要为此目的将任何单一机制标准化。所有符合[RFC8224]的实体都必须支持SIP，因此SIP本身可以作为传递证书的一种方式。[RFC8224]提供标识头的“info”参数；此参数包含用于生成标识标头的凭据的URI。[RFC8224]还要求定义凭证系统的文档列出“info”参数中可能存在的URI方案。对于符合此规范的实现，需要三个URI方案：CID URI、SIP URI和HTTP URI。"
+    },
+    {
+      "indent": 3,
+      "text": "The simplest way for a verifier to acquire the certificate needed to verify a signature is for the certificate to be conveyed in a SIP request along with the signature itself. In SIP, for example, a certificate could be carried in a multipart MIME body [RFC2046], and the URI in the Identity header \"info\" parameter could specify that body with a CID URI [RFC2392]. However, in many environments this is not feasible due to message size restrictions or lack of necessary support for multipart MIME.",
+      "zh-CHS": "验证器获取验证签名所需证书的最简单方法是在SIP请求中传输证书以及签名本身。例如，在SIP中，可以在多部分MIME主体[RFC2046]中携带证书，标识头“info”参数中的URI可以使用CID URI[RFC2392]指定该主体。但是，在许多环境中，由于消息大小限制或缺乏对多部分MIME的必要支持，这是不可行的。"
+    },
+    {
+      "indent": 3,
+      "text": "The Identity header \"info\" parameter in a SIP request may contain a URI that the verifier dereferences. Implementations of this specification are REQUIRED to support the use of SIP for this function (via the SUBSCRIBE/NOTIFY mechanism) as well as HTTP and HTTPS.",
+      "zh-CHS": "SIP请求中的标识头“info”参数可能包含验证器取消引用的URI。此规范的实现需要支持此功能使用SIP（通过订阅/通知机制）以及HTTP和HTTPS。"
+    },
+    {
+      "indent": 3,
+      "text": "Note well that as an optimization, a verifier may have access to a service, a cache, or other local store that grants access to certificates for a particular telephone number. However, there may be multiple valid certificates that can sign a call setup request for a telephone number, and as a consequence, there needs to be some discriminator that the signer uses to identify their credentials. The Identity header \"info\" parameter itself can serve as such a discriminator, provided implementations use that parameter as a key when accessing certificates from caches or other sources.",
+      "zh-CHS": "请注意，作为一种优化，验证器可以访问服务、缓存或其他本地存储，这些本地存储允许访问特定电话号码的证书。但是，可能有多个有效证书可以对电话号码的呼叫设置请求进行签名，因此，签名者需要使用一些鉴别器来识别其凭据。如果实现在从缓存或其他源访问证书时使用该参数作为密钥，则标识头“info”参数本身可以用作这样的鉴别器。"
+    },
+    {
+      "indent": 0,
+      "text": "8. JWT Claim Constraints Syntax",
+      "section_title": true,
+      "zh-CHS": "8. JWT声明约束语法"
+    },
+    {
+      "indent": 3,
+      "text": "Certificate subjects are limited to specific values for PASSporT claims with the JWT Claim Constraints certificate extension; issuers permit all claims by omitting the JWT Claim Constraints certificate extension from the certificate's extension field [RFC5280]. The extension is non-critical, applicable only to end-entity certificates, and defined with ASN.1 [X.680] [X.681] [X.682] [X.683] later in this section. The syntax of the claims is given in PASSporT; specifying new claims follows the procedures in [RFC8225], Section 8.3.",
+      "zh-CHS": "证书主题仅限于具有JWT索赔约束证书扩展的护照索赔的特定值；发卡机构通过从证书的扩展字段[RFC5280]中省略JWT索赔约束证书扩展来允许所有索赔。该扩展是非关键性的，仅适用于最终实体证书，并在本节后面的ASN.1[X.680][X.681][X.682][X.683]中定义。护照中给出了索赔的语法；指定新权利要求遵循[RFC8225]第8.3节中的程序。"
+    },
+    {
+      "indent": 3,
+      "text": "This certificate extension is optional, but if present, it constrains the claims that authentication services may include in the PASSporT objects they sign. Constraints are applied by issuers and enforced by verifiers when validating PASSporT claims as follows:",
+      "zh-CHS": "此证书扩展是可选的，但如果存在，它将限制身份验证服务可能包含在其签名的PASSporT对象中的声明。在验证护照声明时，发卡机构应用约束条件并由验证者强制执行，如下所示："
+    },
+    {
+      "indent": 3,
+      "text": "1. mustInclude indicates claims that MUST appear in the PASSporT in addition to iat, orig, and dest. The baseline claims of PASSporT (\"iat\", \"orig\", and \"dest\") are considered to be permitted by default and SHOULD NOT be included. If mustInclude is absent, iat, orig, and dest MUST appear in the PASSporT.",
+      "zh-CHS": "1. mustInclude表示除iat、orig和dest外必须出现在护照中的索赔。PASSporT的基线索赔（“iat”、“orig”和“dest”）被视为默认允许，不应包括在内。如果mustInclude不存在，则iat、orig和dest必须出现在护照中。"
+    },
+    {
+      "indent": 3,
+      "text": "2. permittedValues indicates that if the claim name is present, the claim MUST contain one of the listed values.",
+      "zh-CHS": "2. PermittedValue表示如果存在声明名称，则声明必须包含列出的值之一。"
+    },
+    {
+      "indent": 3,
+      "text": "Consider two examples with a PASSporT claim called \"confidence\" with values \"low\", \"medium\", and \"high\":",
+      "zh-CHS": "考虑两个例子，护照申诉被称为“信心”值“低”，“中等”和“高”："
+    },
+    {
+      "indent": 3,
+      "text": "o If a CA issues to an authentication service a certificate that contains the mustInclude JWTClaimName \"confidence\", then an authentication service MUST include the \"confidence\" claim in all PASSporTs it generates; a verification service will treat as invalid any PASSporT it receives with a PASSporT claim that does not include the \"confidence\" claim.",
+      "zh-CHS": "o 如果CA向认证服务颁发包含mustInclude JWTClaimName“confidence”的证书，则认证服务必须在其生成的所有护照中包含“confidence”声明；核查服务机构将其收到的任何护照视为无效，护照声明不包括“信任”声明。"
+    },
+    {
+      "indent": 3,
+      "text": "o If a CA issues to an authentication service a certificate that contains the permittedValues JWTClaimName \"confidence\" and a permitted \"high\" value, then an authentication service will treat as invalid any PASSporT it receives with a PASSporT claim that does not include the \"confidence\" claim with a \"high\" value.",
+      "zh-CHS": "o 如果CA向身份验证服务颁发包含许可值JWTClaimName“信心”和允许的“高”值的证书，则身份验证服务将其收到的任何护照声明视为无效，该护照声明不包括具有“高”值的“信心”声明。"
+    },
+    {
+      "indent": 3,
+      "text": "The JWT Claim Constraints certificate extension is identified by the following object identifier (OID), which is defined under the id-pe OID arc defined in [RFC5280] and managed by IANA (see Section 11):",
+      "zh-CHS": "JWT索赔约束证书扩展由以下对象标识符（OID）标识，该标识符在[RFC5280]中定义的id pe OID arc下定义，并由IANA管理（见第11节）："
+    },
+    {
+      "indent": 5,
+      "text": "id-pe-JWTClaimConstraints OBJECT IDENTIFIER ::= { id-pe 27 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The JWT Claim Constraints certificate extension has the following syntax:",
+      "zh-CHS": "JWT索赔约束证书扩展具有以下语法："
+    },
+    {
+      "indent": 5,
+      "text": "JWTClaimConstraints ::= SEQUENCE {\n  mustInclude [0] JWTClaimNames OPTIONAL,\n    -- The listed claim names MUST appear in the PASSporT\n    -- in addition to iat, orig, and dest.  If absent, iat, orig,\n    -- and dest MUST appear in the PASSporT.\n  permittedValues [1] JWTClaimPermittedValuesList OPTIONAL }\n    -- If the claim name is present, the claim MUST contain one of\n    -- the listed values.\n( WITH COMPONENTS { ..., mustInclude PRESENT } |\n  WITH COMPONENTS { ..., permittedValues PRESENT } )",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "JWTClaimPermittedValuesList ::= SEQUENCE SIZE (1..MAX) OF\n                                  JWTClaimPermittedValues",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "JWTClaimPermittedValues ::= SEQUENCE {\n  claim  JWTClaimName,\n  permitted  SEQUENCE SIZE (1..MAX) OF UTF8String }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "JWTClaimNames ::= SEQUENCE SIZE (1..MAX) OF JWTClaimName",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 5,
+      "text": "JWTClaimName ::= IA5String",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "9. TN Authorization List Syntax",
+      "section_title": true,
+      "zh-CHS": "9. TN授权列表语法"
+    },
+    {
+      "indent": 3,
+      "text": "The subjects of certificates containing the TN Authorization List extension are the administrative entities to whom numbers are assigned or delegated. When a verifier is validating a caller's identity, local policy always determines the circumstances under which any particular subject may be trusted, but the purpose of the TN Authorization List extension in particular is to allow a verifier to ascertain when the CA has designated that the subject has authority over a particular telephone number or number range. The non-critical TN Authorization List certificate extension is included in the certificate's extension field [RFC5280]. The extension is defined with ASN.1 [X.680] [X.681] [X.682] [X.683]. The syntax and semantics of the extension are as follows.",
+      "zh-CHS": "包含TN授权列表扩展的证书的主体是分配或委托编号的管理实体。当验证器验证呼叫者的身份时，本地策略始终确定在何种情况下可以信任任何特定主题，但TN授权列表扩展的目的尤其是允许验证者确定CA何时已指定受试者对特定电话号码或号码范围具有权限。非关键TN授权列表证书扩展包含在证书的扩展字段[RFC5280]中。扩展定义为ASN.1[X.680][X.681][X.682][X.683]。扩展的语法和语义如下所示。"
+    },
+    {
+      "indent": 3,
+      "text": "The subjects of certificates containing the TN Authorization List extension are the administrative entities to whom numbers are assigned or delegated. In an end-entity certificate, the TN Authorization List indicates the TNs that it has authorized. In a CA certificate, the TN Authorization List limits the set of TNs for certification paths that include this certificate.",
+      "zh-CHS": "包含TN授权列表扩展的证书的主体是分配或委托编号的管理实体。在终端实体证书中，TN授权列表指示其已授权的TNs。在CA证书中，TN授权列表限制包含此证书的证书路径的TN集。"
+    },
+    {
+      "indent": 3,
+      "text": "The TN Authorization List certificate extension is identified by the following object identifier (OID), which is defined under the id-pe OID arc defined in [RFC5280] and managed by IANA (see Section 11):",
+      "zh-CHS": "TN授权列表证书扩展由以下对象标识符（OID）标识，该标识符在[RFC5280]中定义的id pe OID arc下定义，并由IANA管理（见第11节）："
+    },
+    {
+      "indent": 5,
+      "text": "id-pe-TNAuthList OBJECT IDENTIFIER ::= { id-pe 26 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The TN Authorization List certificate extension has the following syntax:",
+      "zh-CHS": "TN授权列表证书扩展具有以下语法："
+    },
+    {
+      "indent": 4,
+      "text": "TNAuthorizationList ::= SEQUENCE SIZE (1..MAX) OF TNEntry",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TNEntry ::= CHOICE {\n  spc   [0] ServiceProviderCode,\n  range [1] TelephoneNumberRange,\n  one   [2] TelephoneNumber\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "ServiceProviderCode ::= IA5String",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "-- SPCs may be OCNs, various SPIDs, or other SP identifiers\n-- from the telephone network.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TelephoneNumberRange ::= SEQUENCE {\n  start TelephoneNumber,\n  count INTEGER (2..MAX),\n  ...\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TelephoneNumber ::= IA5String (SIZE (1..15)) (FROM (\"0123456789#*\"))",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "The TN Authorization List certificate extension indicates the authorized phone numbers for the call setup signer. It indicates one or more blocks of telephone number entries that have been authorized for use by the call setup signer. There are three ways to identify the block:",
+      "zh-CHS": "TN授权列表证书分机指示呼叫设置签名者的授权电话号码。它表示一个或多个电话号码条目块，这些条目已被授权由呼叫设置签名者使用。有三种方法可以识别块："
+    },
+    {
+      "indent": 3,
+      "text": "1. SPCs as described in this document are a generic term for the identifiers used to designate service providers in telephone networks today. In North American context, these would include OCNs as specified in [ATIS-0300251], related SPIDs, or other similar identifiers for service providers. SPCs can be used to indirectly name all of the telephone numbers associated with that identifier for a service provider.",
+      "zh-CHS": "1. 本文件中所述的SPC是一个通用术语，用于在今天的电话网络中指定服务提供商的标识符。在北美环境中，这些将包括[ATIS-0300251]中规定的OCN、相关SPID或服务提供商的其他类似标识符。SPC可用于间接命名服务提供商与该标识符关联的所有电话号码。"
+    },
+    {
+      "indent": 3,
+      "text": "2. Telephone numbers can be listed in a range (in the TelephoneNumberRange format), which consists of a starting telephone number and then an integer count of numbers within the range, where the valid boundaries of ranges may vary according to national policies. The count field is only applicable to start fields whose values do not include \"*\" or \"#\" (i.e., a TelephoneNumber that does not include \"*\" or \"#\"). count MUST NOT make the number increase in length (i.e., a TelephoneNumberRange with TelephoneNumber=10 and count=91 is invalid); formally, given the inputs count and TelephoneNumber of length D, TelephoneNumber + count MUST be less than 10^D.",
+      "zh-CHS": "2. 电话号码可以在一个范围内列出（采用电话号码排列格式），该范围由起始电话号码和范围内的整数计数组成，其中范围的有效边界可能根据国家政策而有所不同。计数字段仅适用于其值不包括“*”或“#”（即不包括“*”或“#”）的起始字段。计数不得使数字长度增加（即，电话号码为10且计数为91的电话号码排列无效）；形式上，给定长度为D的输入计数和电话号码，电话号码+计数必须小于10^D。"
+    },
+    {
+      "indent": 3,
+      "text": "3. A single telephone number can be listed (as a TelephoneNumber).",
+      "zh-CHS": "3. 可以列出单个电话号码（作为电话号码）。"
+    },
+    {
+      "indent": 3,
+      "text": "Note that because large-scale service providers may want to associate many numbers, possibly millions of numbers, with a particular certificate, optimizations are required for those cases to prevent the certificate size from becoming unmanageable. In these cases, the TN Authorization List may be given by reference rather than by value, through the presence of a separate certificate extension that permits verifiers to either (1) securely download the list of numbers associated with a certificate or (2) verify that a single number is under the authority of this certificate. For more on this optimization, see Section 10.1.",
+      "zh-CHS": "请注意，由于大型服务提供商可能希望将许多数字（可能是数百万数字）与特定证书相关联，因此需要对这些情况进行优化，以防止证书大小变得无法管理。在这些情况下，TN授权列表可以通过引用而不是通过值给出，通过存在单独的证书扩展，允许验证者（1）安全下载与证书相关联的号码列表，或（2）验证单个号码是否在本证书的授权下。有关此优化的更多信息，请参见第10.1节。"
+    },
+    {
+      "indent": 0,
+      "text": "10. Certificate Freshness and Revocation",
+      "section_title": true,
+      "zh-CHS": "10. 证书的新鲜度和撤销"
+    },
+    {
+      "indent": 3,
+      "text": "Regardless of which of the approaches in Section 3 is followed for using certificates, a certificate verification mechanism is required. However, the traditional problem of certificate freshness gains a new wrinkle when using the TN Authorization List extension with telephone numbers or number ranges (as opposed to SPCs), because verifiers must establish not only that a certificate remains valid but also that the certificate's scope contains the telephone number that the verifier is validating. Dynamic changes to number assignments can occur due to number portability, for example. So, even if a verifier has a valid cached certificate for a telephone number (or a range containing the number), the verifier must determine that the entity that created the PASSporT, which includes a digital signature, is still a proper authority for that number.",
+      "zh-CHS": "无论采用第3节中的哪种方法使用证书，都需要证书验证机制。然而，当使用电话号码或号码范围（与SPC相反）的TN授权列表扩展时，传统的证书新鲜度问题又出现了新的问题，因为验证器不仅必须确定证书仍然有效，还必须确定证书的作用域包含验证器正在验证的电话号码。例如，由于号码的可移植性，可能会对号码分配进行动态更改。因此，即使验证者拥有电话号码（或包含该号码的范围）的有效缓存证书，验证者也必须确定创建护照（包括数字签名）的实体仍然是该号码的适当授权机构。"
+    },
+    {
+      "indent": 3,
+      "text": "To verify the status of such a certificate, the verifier needs to acquire the certificate if necessary (via the methods described in Section 7) and then would need to either:",
+      "zh-CHS": "为了验证此类证书的状态，如有必要，验证者需要获得证书（通过第7节中描述的方法），然后需要："
+    },
+    {
+      "indent": 3,
+      "text": "a. Rely on short-lived certificates and not check the certificate's status, or",
+      "zh-CHS": "a. 依赖短期证书而不检查证书的状态，或"
+    },
+    {
+      "indent": 3,
+      "text": "b. Rely on status information from the authority (e.g., the Online Certificate Status Protocol (OCSP)).",
+      "zh-CHS": "b. 依赖权威机构的状态信息（例如，在线证书状态协议（OCSP））。"
+    },
+    {
+      "indent": 3,
+      "text": "The trade-off between short-lived certificates and using status information is that the former's burden is on the front end (i.e., enrollment) and the latter's burden is on the back end (i.e., verification). Both impact call setup time, but some approaches to generating a short-lived certificate, like requiring one for each call, would incur a greater operational cost than acquiring status information. This document makes no particular recommendation for a means of determining certificate freshness for STIR, as this requires further study and implementation experience. Acquiring online status information for certificates has the potential to disclose private information [RFC7258] if proper precautions are not taken. Future specifications that define certificate freshness mechanisms for STIR MUST note any such risks and provide countermeasures where possible.",
+      "zh-CHS": "短期证书和使用状态信息之间的权衡是前者的负担在前端（即注册），后者的负担在后端（即验证）。这两种方法都会影响呼叫设置时间，但某些生成短期证书的方法（如每次呼叫都需要一个证书）会比获取状态信息产生更大的运营成本。本文件未对确定STIR证书新鲜度的方法提出特别建议，因为这需要进一步研究和实施经验。如果没有采取适当的预防措施，获取证书的在线状态信息可能会泄露私人信息[RFC7258]。定义STIR证书新鲜度机制的未来规范必须注意任何此类风险，并在可能的情况下提供对策。"
+    },
+    {
+      "indent": 0,
+      "text": "10.1. Acquiring the TN List by Reference",
+      "section_title": true,
+      "zh-CHS": "10.1. 通过引用获取TN列表"
+    },
+    {
+      "indent": 3,
+      "text": "One alternative to checking certificate status for a particular telephone number is simply acquiring the TN Authorization List by reference, that is, through dereferencing a URL in the certificate, rather than including the value of the TN Authorization List in the certificate itself.",
+      "zh-CHS": "检查特定电话号码的证书状态的一种替代方法是简单地通过引用获取TN授权列表，即，通过取消对证书中的URL的引用，而不是将TN授权列表的值包含在证书本身中。"
+    },
+    {
+      "indent": 3,
+      "text": "Acquiring a list of the telephone numbers associated with a certificate or its subject lends itself to an application-layer query/response interaction outside of certificate status, one that could be initiated through a separate URI included in the certificate. The AIA extension (see [RFC5280]) supports such a mechanism: it designates an OID to identify the accessMethod and an accessLocation, which would most likely be a URI. A verifier would then follow the URI to ascertain whether the TNs in the list are authorized for use by the caller. As with the certificate extension defined in Section 9, a URI dereferenced from an end-entity certificate will indicate the TNs that the caller has been authorized. Verifiers MUST support the AIA extension, and the dereferenced URI from a CA certificate limits the set of TNs for certification paths that include this certificate.",
+      "zh-CHS": "获取与证书或其主题相关联的电话号码列表有助于证书状态之外的应用层查询/响应交互，该交互可以通过证书中包含的单独URI启动。AIA扩展（请参见[RFC5280]）支持这样一种机制：它指定一个OID来标识accessMethod和accessLocation，这很可能是一个URI。然后，验证器将跟踪URI，以确定列表中的TNs是否被授权供调用方使用。与第9节中定义的证书扩展一样，从终端实体证书中取消引用的URI将指示调用方已被授权的TNs。验证器必须支持AIA扩展，CA证书的取消引用URI限制了包含此证书的证书路径的TNs集。"
+    },
+    {
+      "indent": 3,
+      "text": "HTTPS is the most obvious candidate for a protocol to be used for fetching the list of telephone numbers associated with a particular certificate. This document defines a new AIA accessMethod, called \"id-ad-stirTNList\", which uses the following AIA OID:",
+      "zh-CHS": "HTTPS是用于获取与特定证书相关联的电话号码列表的协议最明显的候选协议。本文档定义了一种新的AIA访问方法，称为“id ad stirTNList”，它使用以下AIA OID："
+    },
+    {
+      "indent": 5,
+      "text": "id-ad-stirTNList  OBJECT IDENTIFIER ::= { id-ad 14 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "When the \"id-ad-stirTNList\" accessMethod is used, the accessLocation MUST be an HTTPS URI. Dereferencing the URI will return the complete DER-encoded TN Authorization List (see Section 9) for the certificate with a Content-Type of application/tnauthlist (see Section 11.2).",
+      "zh-CHS": "当使用“id ad stirTNList”accessMethod时，accessLocation必须是HTTPS URI。取消对URI的引用将返回内容类型为application/tnauthlist的证书的完整DER编码TN授权列表（参见第9节）（参见第11.2节）。"
+    },
+    {
+      "indent": 3,
+      "text": "Delivering the entire list of telephone numbers associated with a particular certificate will divulge to STIR verifiers information about telephone numbers other than the one associated with the particular call that the verifier is checking. In some environments, where STIR verifiers handle a high volume of calls, maintaining an up-to-date and complete cache for the numbers associated with crucial certificate holders could give an important boost to performance.",
+      "zh-CHS": "交付与特定证书相关联的电话号码的完整列表将向STIR验证器泄露有关电话号码的信息，而不是验证器正在检查的与特定呼叫相关联的电话号码。在某些环境中，STIR验证器处理大量呼叫，为与关键证书持有者相关的号码维护最新和完整的缓存可以大大提高性能。"
+    },
+    {
+      "indent": 0,
+      "text": "11. IANA Considerations",
+      "section_title": true,
+      "zh-CHS": "11. IANA考虑"
+    },
+    {
+      "indent": 0,
+      "text": "11.1. ASN.1 Registrations",
+      "section_title": true,
+      "zh-CHS": "11.1. ASN.1注册"
+    },
+    {
+      "indent": 3,
+      "text": "This document makes use of object identifiers for the TN certificate extension defined in Section 9, the \"TN List by reference\" AIA access descriptor defined in Section 10.1, and the ASN.1 module identifier defined in Appendix A. Therefore, per this document, IANA has made the following assignments, as shown on <https://www.iana.org/assignments/smi-numbers>:",
+      "zh-CHS": "本文件使用了第9节中定义的TN证书扩展的对象标识符、第10.1节中定义的“参照TN列表”AIA访问描述符以及附录A中定义的ASN.1模块标识符。因此，根据本文件，IANA进行了以下分配：，如图所示<https://www.iana.org/assignments/smi-numbers>:"
+    },
+    {
+      "indent": 3,
+      "text": "o TN Authorization List certificate extension in the \"SMI Security for PKIX Certificate Extension\" (1.3.6.1.5.5.7.1) registry:",
+      "zh-CHS": "o “用于PKIX证书扩展的SMI安全性”（1.3.6.1.5.5.7.1）注册表中的TN授权列表证书扩展："
+    },
+    {
+      "indent": 6,
+      "text": "26 id-pe-TNAuthList",
+      "zh-CHS": "26身份证认证列表"
+    },
+    {
+      "indent": 3,
+      "text": "o JWT Claim Constraints certificate extension in the \"SMI Security for PKIX Certificate Extension\" (1.3.6.1.5.5.7.1) registry:",
+      "zh-CHS": "o JWT在“SMI Security for PKIX证书扩展”（1.3.6.1.5.5.7.1）注册表中声明约束证书扩展："
+    },
+    {
+      "indent": 6,
+      "text": "27 id-pe-JWTClaimConstraints",
+      "zh-CHS": "27 id pe JWTClaimConstraints"
+    },
+    {
+      "indent": 3,
+      "text": "o TN List by reference access descriptor in the \"SMI Security for PKIX Access Descriptor\" (1.3.6.1.5.5.7.48) registry:",
+      "zh-CHS": "o “SMI Security for PKIX访问描述符”（1.3.6.1.5.5.7.48）注册表中的TN引用访问描述符列表："
+    },
+    {
+      "indent": 6,
+      "text": "14 id-ad-stirTNList",
+      "zh-CHS": "14 id广告列表"
+    },
+    {
+      "indent": 3,
+      "text": "o The TN ASN.1 module in the \"SMI Security for PKIX Module Identifier\" (1.3.6.1.5.5.7.0) registry:",
+      "zh-CHS": "o “用于PKIX模块标识符的SMI安全性”（1.3.6.1.5.5.7.0）注册表中的TN ASN.1模块："
+    },
+    {
+      "indent": 6,
+      "text": "89 id-mod-tn-module",
+      "zh-CHS": "89 id mod tn模块"
+    },
+    {
+      "indent": 0,
+      "text": "11.2. Media Type Registrations",
+      "section_title": true,
+      "zh-CHS": "11.2. 媒体类型注册"
+    },
+    {
+      "indent": 3,
+      "text": "Type name: application Subtype name: tnauthlist Required parameters: None Optional parameters: None Encoding considerations: Binary Security considerations: See Section 12 of RFC 8226 Interoperability considerations: The TN Authorization List inside this media type MUST be DER-encoded TNAuthorizationList. Published specification: RFC 8226 Applications that use this media type: Issuers and relying parties of secure telephone identity certificates, to limit the subject's authority to a particular telephone number or telephone number range. Fragment identifier considerations: None",
+      "zh-CHS": "类型名称：应用程序子类型名称：tnauthlist必需参数：无可选参数：无编码注意事项：二进制安全注意事项：请参阅RFC 8226互操作性注意事项第12节：此媒体类型内的TN授权列表必须是DER编码的TNAuthorizationList。已发布规范：使用此媒体类型的RFC 8226应用程序：安全电话身份证书的颁发者和依赖方，将主体权限限制在特定电话号码或电话号码范围内。片段标识符注意事项：无"
+    },
+    {
+      "indent": 4,
+      "text": "Additional information:\n   Deprecated alias names for this type: None\n   Magic number(s): None\n   File extension(s): None\n   Macintosh File Type Code(s): None\nPerson & email address to contact for further information:\n   Jon Peterson <jon.peterson@team.neustar>\nIntended usage: COMMON\nRestrictions on usage: None\nAuthor: Sean Turner <sean@sn3rd.com>\nChange controller: The IESG <iesg@ietf.org>",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 0,
+      "text": "12. Security Considerations",
+      "section_title": true,
+      "zh-CHS": "12. 安全考虑"
+    },
+    {
+      "indent": 3,
+      "text": "This document is entirely about security. For further information on certificate security and practices, see [RFC5280], in particular its Security Considerations section.",
+      "zh-CHS": "这份文件完全是关于安全的。有关证书安全性和实践的更多信息，请参阅[RFC5280]，特别是其安全注意事项部分。"
+    },
+    {
+      "indent": 3,
+      "text": "If a certification authority issues a certificate attesting authority over many telephone numbers, the TNAuthList element can divulge to relying parties extraneous telephone numbers associated with the certificate that have no bearing on any given call in progress. The potential privacy risk can be exacerbated by the use of AIA, as described in Section 10.1, to link many thousands of numbers to a single certificate. Even an SPC in a certificate can be used to link a certificate to a particular carrier and, with access to industry databases, potentially the set of numbers associated with that SPC. While these practices may not cause concern in some environments, in other scenarios alternative approaches could minimize the data revealed to relying parties. For example, a service provider with authority over a large block of numbers could generate short-lived certificates for individual TNs that are not so easily linked to the service provider or any other numbers that the service provider controls. Optimizations to facilitate acquiring short-lived certificates are a potential area of future work for STIR.",
+      "zh-CHS": "如果证书颁发机构通过多个电话号码颁发证书认证机构，则TNAuthList元素可以向依赖方泄露与证书相关的、与任何给定正在进行的呼叫无关的外部电话号码。如第10.1节所述，使用AIA将数千个数字链接到一个证书，可能会加剧潜在的隐私风险。即使证书中的SPC也可用于将证书链接到特定的运营商，并通过访问行业数据库，潜在地链接到与该SPC相关的一组数字。虽然这些做法在某些环境中可能不会引起关注，但在其他情况下，替代方法可最大限度地减少向依赖方披露的数据。例如，拥有大量数字权限的服务提供商可以为单个TN生成短期证书，这些TN不容易链接到服务提供商或服务提供商控制的任何其他数字。促进获取短期证书的优化是STIR未来工作的一个潜在领域。"
+    },
+    {
+      "indent": 3,
+      "text": "The TN Authorization List returned through a dereferenced URI is served over HTTPS; the TN Authorization List is therefore protected in transit. But, the TN Authorization List served is not a signed object and therefore the server is trusted to faithfully return the TN Authorization List provided to it by the list generator.",
+      "zh-CHS": "通过解除引用的URI返回的TN授权列表通过HTTPS提供服务；因此，TN授权列表在运输过程中受到保护。但是，所服务的TN授权列表不是已签名的对象，因此信任服务器忠实地返回列表生成器提供给它的TN授权列表。"
+    },
+    {
+      "indent": 0,
+      "text": "13. References",
+      "section_title": true,
+      "zh-CHS": "13. 工具书类"
+    },
+    {
+      "indent": 0,
+      "text": "13.1. Normative References",
+      "section_title": true,
+      "zh-CHS": "13.1. 规范性引用文件"
+    },
+    {
+      "indent": 3,
+      "text": "[ATIS-0300251] ATIS Recommendation 0300251, \"Codes for Identification of Service Providers for Information Exchange\", 2007.",
+      "zh-CHS": "[ATIS-0300251]ATIS建议0300251，“信息交换服务提供商识别代码”，2007年。"
+    },
+    {
+      "indent": 3,
+      "text": "[DSS] National Institute of Standards and Technology, U.S. Department of Commerce, \"Digital Signature Standard (DSS)\", NIST FIPS PUB 186-4, DOI 10.6028/NIST.FIPS.186-4, July 2013, <http://nvlpubs.nist.gov/nistpubs/FIPS/ NIST.FIPS.186-4.pdf>.",
+      "zh-CHS": "[DSS]美国商务部国家标准与技术研究所，“数字签名标准（DSS）”，NIST FIPS PUB 186-4，DOI 10.6028/NIST.FIPS.186-42013年7月<http://nvlpubs.nist.gov/nistpubs/FIPS/ NIST.FIPS.186-4.pdf>。"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2119] Bradner, S., \"Key words for use in RFCs to Indicate Requirement Levels\", BCP 14, RFC 2119, DOI 10.17487/RFC2119, March 1997, <https://www.rfc-editor.org/info/rfc2119>.",
+      "zh-CHS": "[RFC2119]Bradner，S.，“RFC中用于表示需求水平的关键词”，BCP 14，RFC 2119，DOI 10.17487/RFC2119，1997年3月<https://www.rfc-editor.org/info/rfc2119>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2392] Levinson, E., \"Content-ID and Message-ID Uniform Resource Locators\", RFC 2392, DOI 10.17487/RFC2392, August 1998, <https://www.rfc-editor.org/info/rfc2392>.",
+      "zh-CHS": "[RFC2392]Levinson，E.，“内容ID和消息ID统一资源定位器”，RFC 2392，DOI 10.17487/RFC2392，1998年8月<https://www.rfc-editor.org/info/rfc2392>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3986] Berners-Lee, T., Fielding, R., and L. Masinter, \"Uniform Resource Identifier (URI): Generic Syntax\", STD 66, RFC 3986, DOI 10.17487/RFC3986, January 2005, <https://www.rfc-editor.org/info/rfc3986>.",
+      "zh-CHS": "[RFC3986]Berners Lee，T.，Fielding，R.，和L.Masinter，“统一资源标识符（URI）：通用语法”，STD 66，RFC 3986，DOI 10.17487/RFC3986，2005年1月<https://www.rfc-editor.org/info/rfc3986>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5280] Cooper, D., Santesson, S., Farrell, S., Boeyen, S., Housley, R., and W. Polk, \"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile\", RFC 5280, DOI 10.17487/RFC5280, May 2008, <https://www.rfc-editor.org/info/rfc5280>.",
+      "zh-CHS": "[RFC5280]Cooper，D.，Santesson，S.，Farrell，S.，Boeyen，S.，Housley，R.，和W.Polk，“Internet X.509公钥基础设施证书和证书撤销列表（CRL）配置文件”，RFC 5280，DOI 10.17487/RFC5280，2008年5月<https://www.rfc-editor.org/info/rfc5280>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5912] Hoffman, P. and J. Schaad, \"New ASN.1 Modules for the Public Key Infrastructure Using X.509 (PKIX)\", RFC 5912, DOI 10.17487/RFC5912, June 2010, <https://www.rfc-editor.org/info/rfc5912>.",
+      "zh-CHS": "[RFC5912]Hoffman，P.和J.Schaad，“使用X.509（PKIX）的公钥基础设施的新ASN.1模块”，RFC 5912，DOI 10.17487/RFC5912，2010年6月<https://www.rfc-editor.org/info/rfc5912>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC5958] Turner, S., \"Asymmetric Key Packages\", RFC 5958, DOI 10.17487/RFC5958, August 2010, <https://www.rfc-editor.org/info/rfc5958>.",
+      "zh-CHS": "[RFC5958]Turner，S.，“非对称密钥包”，RFC 5958，DOI 10.17487/RFC5958，2010年8月<https://www.rfc-editor.org/info/rfc5958>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7230] Fielding, R., Ed., and J. Reschke, Ed., \"Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing\", RFC 7230, DOI 10.17487/RFC7230, June 2014, <https://www.rfc-editor.org/info/rfc7230>.",
+      "zh-CHS": "[RFC7230]Fielding，R.，Ed.，和J.Reschke，Ed.，“超文本传输协议（HTTP/1.1）：消息语法和路由”，RFC 7230，DOI 10.17487/RFC7230，2014年6月<https://www.rfc-editor.org/info/rfc7230>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7258] Farrell, S. and H. Tschofenig, \"Pervasive Monitoring Is an Attack\", BCP 188, RFC 7258, DOI 10.17487/RFC7258, May 2014, <https://www.rfc-editor.org/info/rfc7258>.",
+      "zh-CHS": "[RFC7258]Farrell，S.和H.Tschofenig，“普遍监控是一种攻击”，BCP 188，RFC 7258，DOI 10.17487/RFC7258，2014年5月<https://www.rfc-editor.org/info/rfc7258>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7519] Jones, M., Bradley, J., and N. Sakimura, \"JSON Web Token (JWT)\", RFC 7519, DOI 10.17487/RFC7519, May 2015, <https://www.rfc-editor.org/info/rfc7519>.",
+      "zh-CHS": "[RFC7519]Jones，M.，Bradley，J.和N.Sakimura，“JSON网络令牌（JWT）”，RFC 7519，DOI 10.17487/RFC7519，2015年5月<https://www.rfc-editor.org/info/rfc7519>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8017] Moriarty, K., Ed., Kaliski, B., Jonsson, J., and A. Rusch, \"PKCS #1: RSA Cryptography Specifications Version 2.2\", RFC 8017, DOI 10.17487/RFC8017, November 2016, <https://www.rfc-editor.org/info/rfc8017>.",
+      "zh-CHS": "[RFC8017]Moriarty，K.，Ed.，Kaliski，B.，Jonsson，J.，和A.Rusch，“PKCS#1:RSA加密规范版本2.2”，RFC 8017，DOI 10.17487/RFC8017，2016年11月<https://www.rfc-editor.org/info/rfc8017>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8174] Leiba, B., \"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words\", BCP 14, RFC 8174, DOI 10.17487/RFC8174, May 2017, <https://www.rfc-editor.org/info/rfc8174>.",
+      "zh-CHS": "[RFC8174]Leiba，B.，“RFC 2119关键词中大写与小写的歧义”，BCP 14，RFC 8174，DOI 10.17487/RFC8174，2017年5月<https://www.rfc-editor.org/info/rfc8174>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8224] Peterson, J., Jennings, C., Rescorla, E., and C. Wendt, \"Authenticated Identity Management in the Session Initiation Protocol (SIP)\", RFC 8224, DOI 10.17487/RFC8224, February 2018, <https://www.rfc-editor.org/info/rfc8224>.",
+      "zh-CHS": "[RFC8224]Peterson，J.，Jennings，C.，Rescorla，E.，和C.Wendt，“会话启动协议（SIP）中的身份验证管理”，RFC 8224，DOI 10.17487/RFC82242018年2月<https://www.rfc-editor.org/info/rfc8224>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC8225] Wendt, C. and J. Peterson, \"PASSporT: Personal Assertion Token\", RFC 8225, DOI 10.17487/RFC8225, February 2018, <https://www.rfc-editor.org/info/rfc8225>.",
+      "zh-CHS": "[RFC8225]Wendt，C.和J.Peterson，“护照：个人主张令牌”，RFC 8225，DOI 10.17487/RFC82252018年2月<https://www.rfc-editor.org/info/rfc8225>."
+    },
+    {
+      "indent": 3,
+      "text": "[X.509] International Telecommunication Union, \"Information technology - Open Systems Interconnection - The Directory: Public-key and attribute certificate frameworks\", ITU-T Recommendation X.509, ISO/IEC 9594-8, October 2016, <https://www.itu.int/rec/T-REC-X.509>.",
+      "zh-CHS": "[X.509]国际电信联盟，“信息技术-开放系统互连-目录：公钥和属性证书框架”，ITU-T建议X.509，ISO/IEC 9594-8，2016年10月<https://www.itu.int/rec/T-REC-X.509>."
+    },
+    {
+      "indent": 3,
+      "text": "[X.680] International Telecommunication Union, \"Information Technology - Abstract Syntax Notation One (ASN.1): Specification of basic notation\", ITU-T Recommendation X.680, ISO/IEC 8824-1, August 2015, <https://www.itu.int/rec/T-REC-X.680>.",
+      "zh-CHS": "[X.680]国际电信联盟，“信息技术-抽象语法符号1（ASN.1）：基本符号规范”，ITU-T建议X.680，ISO/IEC 8824-1，2015年8月<https://www.itu.int/rec/T-REC-X.680>."
+    },
+    {
+      "indent": 3,
+      "text": "[X.681] International Telecommunication Union, \"Information Technology - Abstract Syntax Notation One (ASN.1): Information object specification\", ITU-T Recommendation X.681, ISO/IEC 8824-2, August 2015, <https://www.itu.int/rec/T-REC-X.681>.",
+      "zh-CHS": "[X.681]国际电信联盟，“信息技术-抽象语法符号1（ASN.1）：信息对象规范”，ITU-T建议X.681，ISO/IEC 8824-2，2015年8月<https://www.itu.int/rec/T-REC-X.681>."
+    },
+    {
+      "indent": 3,
+      "text": "[X.682] International Telecommunication Union, \"Information Technology - Abstract Syntax Notation One (ASN.1): Constraint specification\", ITU-T Recommendation X.682, ISO/IEC 8824-3, August 2015, <https://www.itu.int/rec/T-REC-X.682>.",
+      "zh-CHS": "[X.682]国际电信联盟，“信息技术-抽象语法符号1（ASN.1）：约束规范”，ITU-T建议X.682，ISO/IEC 8824-3，2015年8月<https://www.itu.int/rec/T-REC-X.682>."
+    },
+    {
+      "indent": 3,
+      "text": "[X.683] International Telecommunication Union, \"Information Technology - Abstract Syntax Notation One (ASN.1): Parameterization of ASN.1 specifications\", ITU-T Recommendation X.683, ISO/IEC 8824-4, August 2015, <https://www.itu.int/rec/T-REC-X.683>.",
+      "zh-CHS": "[X.683]国际电信联盟，“信息技术-抽象语法符号1（ASN.1）：ASN.1规范的参数化”，ITU-T建议X.683，ISO/IEC 8824-42015年8月<https://www.itu.int/rec/T-REC-X.683>."
+    },
+    {
+      "indent": 0,
+      "text": "13.2. Informative References",
+      "section_title": true,
+      "zh-CHS": "13.2. 资料性引用"
+    },
+    {
+      "indent": 3,
+      "text": "[RFC2046] Freed, N. and N. Borenstein, \"Multipurpose Internet Mail Extensions (MIME) Part Two: Media Types\", RFC 2046, DOI 10.17487/RFC2046, November 1996, <https://www.rfc-editor.org/info/rfc2046>.",
+      "zh-CHS": "[RFC2046]Freed，N.和N.Borenstein，“多用途互联网邮件扩展（MIME）第二部分：媒体类型”，RFC 2046，DOI 10.17487/RFC2046，1996年11月<https://www.rfc-editor.org/info/rfc2046>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC3647] Chokhani, S., Ford, W., Sabett, R., Merrill, C., and S. Wu, \"Internet X.509 Public Key Infrastructure Certificate Policy and Certification Practices Framework\", RFC 3647, DOI 10.17487/RFC3647, November 2003, <https://www.rfc-editor.org/info/rfc3647>.",
+      "zh-CHS": "[RFC3647]Chokhani，S.，Ford，W.，Sabett，R.，Merrill，C.，和S.Wu，“互联网X.509公钥基础设施证书政策和认证实践框架”，RFC 3647，DOI 10.17487/RFC3647，2003年11月<https://www.rfc-editor.org/info/rfc3647>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7340] Peterson, J., Schulzrinne, H., and H. Tschofenig, \"Secure Telephone Identity Problem Statement and Requirements\", RFC 7340, DOI 10.17487/RFC7340, September 2014, <https://www.rfc-editor.org/info/rfc7340>.",
+      "zh-CHS": "[RFC7340]Peterson，J.，Schulzrinne，H.和H.Tschofenig，“安全电话身份问题声明和要求”，RFC 7340，DOI 10.17487/RFC7340，2014年9月<https://www.rfc-editor.org/info/rfc7340>."
+    },
+    {
+      "indent": 3,
+      "text": "[RFC7375] Peterson, J., \"Secure Telephone Identity Threat Model\", RFC 7375, DOI 10.17487/RFC7375, October 2014, <https://www.rfc-editor.org/info/rfc7375>.",
+      "zh-CHS": "[RFC7375]Peterson，J.，“安全电话身份威胁模型”，RFC 7375，DOI 10.17487/RFC7375，2014年10月<https://www.rfc-editor.org/info/rfc7375>."
+    },
+    {
+      "indent": 3,
+      "text": "[X.520] International Telecommunication Union, \"Information technology - Open Systems Interconnection - The Directory: Selected attribute types\", ITU-T Recommendation X.520, ISO/IEC 9594-6, October 2016, <https://www.itu.int/rec/T-REC-X.520>.",
+      "zh-CHS": "[X.520]国际电信联盟，“信息技术-开放系统互连-目录：选定的属性类型”，ITU-T建议X.520，ISO/IEC 9594-6，2016年10月<https://www.itu.int/rec/T-REC-X.520>."
+    },
+    {
+      "indent": 0,
+      "text": "Appendix A. ASN.1 Module",
+      "section_title": true,
+      "zh-CHS": "附录A.ASN.1模块"
+    },
+    {
+      "indent": 3,
+      "text": "This appendix provides the normative ASN.1 [X.680] definitions for the structures described in this specification using ASN.1, as defined in [X.680], [X.681], [X.682], and [X.683].",
+      "zh-CHS": "本附录提供了规范性ASN.1[X.680]定义，用于本规范中使用ASN.1描述的结构，如[X.680]、[X.681]、[X.682]和[X.683]中所定义。"
+    },
+    {
+      "indent": 3,
+      "text": "The modules defined in this document are compatible with the most current ASN.1 specifications published in 2015 (see [X.680], [X.681], [X.682], and [X.683]). None of the newly defined tokens in the 2008 ASN.1 (DATE, DATE-TIME, DURATION, NOT-A-NUMBER, OID-IRI, RELATIVE-OID-IRI, TIME, TIME-OF-DAY) are currently used in any of the ASN.1 specifications referred to here.",
+      "zh-CHS": "本文件中定义的模块与2015年发布的最新ASN.1规范兼容（见[X.680]、[X.681]、[X.682]和[X.683]）。2008 ASN.1中新定义的令牌（日期、日期时间、持续时间、非数字、OID-IRI、相对OID-IRI、时间、每日时间）目前均未用于此处提及的任何ASN.1规范中。"
+    },
+    {
+      "indent": 3,
+      "text": "This ASN.1 module imports ASN.1 from [RFC5912].",
+      "zh-CHS": "此ASN.1模块从[RFC5912]导入ASN.1。"
+    },
+    {
+      "indent": 4,
+      "text": "TN-Module-2016\n  { iso(1) identified-organization(3) dod(6) internet(1) security(5)\n    mechanisms(5) pkix(7) id-mod(0) id-mod-tn-module(89) }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "DEFINITIONS EXPLICIT TAGS ::= BEGIN",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "IMPORTS",
+      "zh-CHS": "进口"
+    },
+    {
+      "indent": 4,
+      "text": "id-ad, id-pe\nFROM PKIX1Explicit-2009  -- From RFC 5912\n  { iso(1) identified-organization(3) dod(6) internet(1) security(5)\n    mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-explicit-02(51) }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "EXTENSION\nFROM PKIX-CommonTypes-2009  -- From RFC 5912\n  { iso(1) identified-organization(3) dod(6) internet(1) security(5)\n    mechanisms(5) pkix(7) id-mod(0) id-mod-pkixCommon-02(57) }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": ";",
+      "zh-CHS": ";"
+    },
+    {
+      "indent": 4,
+      "text": "-- -- JWT Claim Constraints Certificate Extension --",
+      "zh-CHS": "----JWT索赔约束证书扩展--"
+    },
+    {
+      "indent": 4,
+      "text": "ext-jwtClaimConstraints EXTENSION  ::= {\n  SYNTAX JWTClaimConstraints IDENTIFIED BY id-pe-JWTClaimConstraints\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "id-pe-JWTClaimConstraints OBJECT IDENTIFIER ::= { id-pe 27 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "JWTClaimConstraints ::= SEQUENCE {\n  mustInclude [0] JWTClaimNames OPTIONAL,\n    -- The listed claim names MUST appear in the PASSporT\n    -- in addition to iat, orig, and dest.  If absent, iat, orig,\n    -- and dest MUST appear in the PASSporT.\n  permittedValues [1] JWTClaimPermittedValuesList OPTIONAL }\n    -- If the claim name is present, the claim MUST contain one of\n    -- the listed values.\n( WITH COMPONENTS { ..., mustInclude PRESENT } |\n  WITH COMPONENTS { ..., permittedValues PRESENT } )",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "JWTClaimPermittedValuesList ::= SEQUENCE SIZE (1..MAX) Of\n                                  JWTClaimPermittedValues",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "JWTClaimPermittedValues ::= SEQUENCE {\n  claim  JWTClaimName,\n  permitted  SEQUENCE SIZE (1..MAX) OF UTF8String }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "JWTClaimNames ::= SEQUENCE SIZE (1..MAX) OF JWTClaimName",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "JWTClaimName ::= IA5String",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "-- -- Telephony Number Authorization List Certificate Extension --",
+      "zh-CHS": "----电话号码授权列表证书扩展--"
+    },
+    {
+      "indent": 4,
+      "text": "ext-tnAuthList  EXTENSION  ::= {\n  SYNTAX TNAuthorizationList IDENTIFIED BY id-pe-TNAuthList\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "id-pe-TNAuthList OBJECT IDENTIFIER ::= { id-pe 26 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TNAuthorizationList ::= SEQUENCE SIZE (1..MAX) OF TNEntry",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TNEntry ::= CHOICE {\n  spc    [0] ServiceProviderCode,\n  range  [1] TelephoneNumberRange,\n  one    [2] TelephoneNumber\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "ServiceProviderCode ::= IA5String",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "-- SPCs may be OCNs, various SPIDs, or other SP identifiers\n-- from the telephone network.",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TelephoneNumberRange ::= SEQUENCE {\n  start TelephoneNumber,\n  count INTEGER (2..MAX),\n  ...\n  }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "TelephoneNumber ::= IA5String (SIZE (1..15)) (FROM (\"0123456789#*\"))",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "-- TN Access Descriptor",
+      "zh-CHS": "--TN访问描述符"
+    },
+    {
+      "indent": 4,
+      "text": "id-ad-stirTNList OBJECT IDENTIFIER ::= { id-ad 14 }",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 4,
+      "text": "END",
+      "zh-CHS": "终止"
+    },
+    {
+      "indent": 0,
+      "text": "Acknowledgments",
+      "zh-CHS": "致谢"
+    },
+    {
+      "indent": 3,
+      "text": "Anders Kristensen, Russ Housley, Brian Rosen, Cullen Jennings, Dave Crocker, Tony Rutkowski, John Braunberger, Eric Rescorla, and Martin Thomson provided key input to the discussions leading to this document. Russ Housley provided some direct assistance and text surrounding the ASN.1 module.",
+      "zh-CHS": "Anders Kristensen、Russ Housley、Brian Rosen、Cullen Jennings、Dave Crocker、Tony Rutkowski、John Braunberger、Eric Rescorla和Martin Thomson为本文件的讨论提供了关键信息。Russ Housley围绕ASN.1模块提供了一些直接的帮助和文本。"
+    },
+    {
+      "indent": 0,
+      "text": "Authors' Addresses",
+      "zh-CHS": "作者地址"
+    },
+    {
+      "indent": 3,
+      "text": "Jon Peterson Neustar, Inc.",
+      "zh-CHS": "乔恩·彼得森纽斯达公司。"
+    },
+    {
+      "indent": 3,
+      "text": "Email: jon.peterson@neustar.biz",
+      "raw": true,
+      "zh-CHS": " "
+    },
+    {
+      "indent": 3,
+      "text": "Sean Turner sn3rd",
+      "zh-CHS": "肖恩·特纳"
+    },
+    {
+      "indent": 3,
+      "text": "Email: sean@sn3rd.com",
+      "raw": true,
+      "zh-CHS": " "
+    }
+  ]
+}
