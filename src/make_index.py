@@ -20,7 +20,6 @@ def make_index():
             print("not found title: %s" % filename)
             continue
         title = m[1].strip()
-        print(title)
         m = re.match(r'rfc(\d+).html', rfcfile)
         if m:
             filenum = int(m[1])
