@@ -15,11 +15,12 @@ def make_index():
         rfcfile = re.sub(r'^html[/\\]', '', filename)
         with open(filename, 'r', encoding="utf-8") as f:
             html = f.read()
-        m = re.search(r'<title>([^<]*)</title>', html)
+        m = re.search(r'<h1 class="alert-heading">([^<]*)</h1>', html)
         if not m:
             print("not found title: %s" % filename)
             continue
         title = m[1].strip()
+        print(title)
         m = re.match(r'rfc(\d+).html', rfcfile)
         if m:
             filenum = int(m[1])
