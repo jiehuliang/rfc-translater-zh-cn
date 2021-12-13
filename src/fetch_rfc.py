@@ -223,9 +223,16 @@ class RFCNotFound(Exception):
 
 # 删除文中的a标签(RFC链接等)
 def _cleanhtml(raw_html):
-    cleaner = re.compile(rb'<a href="./rfc\d+[^"]*"[^>]*>')
-    cleantext = re.sub(cleaner, b'', raw_html)
-    return cleantext
+    cleaner1 = re.compile(rb'<a href="./rfc\d+[^"]*"[^>]*>')
+    cleantext1 = re.sub(cleaner1, b'', raw_html)
+
+    cleaner2 = re.compile(rb'<a href=.* class="pilcrow".*a>')
+    cleantext2 = re.sub(cleaner2, b'', cleantext1)
+
+    cleaner3 = re.compile(rb'\s*')
+    cleantext3 = re.sub(cleaner3, b' ', cleantext2)
+    # print(cleantext2)
+    return cleantext2
 
 # [EntryPoint]
 # RFC获取
@@ -246,12 +253,6 @@ def fetch_rfc(number, force=False):
 
     # 创建输出目录
     os.makedirs(output_dir, exist_ok=True)
-
-    # proxy = '127.0.0.1:10809'
-    # proxies = {
-    #     "http": "http://%(proxy)s/" % {'proxy': proxy},
-    #     "https": "http://%(proxy)s/" % {'proxy': proxy}
-    # }
 
     # 获取RFC页面的内容
     headers = {'User-agent': '', 'referer': url}
@@ -291,15 +292,16 @@ def fetch_rfc(number, force=False):
     # 获取文章内容
     # MEMO: RFC的HTML结构发生变化的时候，研究一下这里是否可以搞定
     contents = tree.xpath(
-        '//pre[not(contains(@class,"meta-info"))]/text() | '    # 正文(但正文开头的元信息除外)
-        '//pre[not(contains(@class,"meta-info"))]/a/text() | '  # 正文中的链接
+        '//p/text() | '    # 正文(但正文开头的元信息除外)
+        '//p/a/text() | '  # 正文中的链接
         # 小节的标题
-        '//pre/span[@class="h1" or @class="h2" or @class="h3" or '
+        '//p/span[@class="h1" or @class="h2" or @class="h3" or '
                    '@class="h4" or @class="h5" or @class="h6"]//text() |'
-        '//pre/span/a[@class="selflink"]/text() |'  # 标题编号
+        '//p/span/a[@class="selflink"]/text() |'  # 标题编号
         '//a[@class="grey"]'  # 页的划分
     )
 
+    print(contents)
     # 在分页时，段落跨页的处理(RFC8650 ~不再分页，所以没有关系)
     contents_len = len(contents)
     for i, content in enumerate(contents):
