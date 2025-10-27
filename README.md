@@ -1,6 +1,6 @@
 
 # RFC Translater
-为了方便自己下载rfc html进行阅读 , 项目fork自: https://gitee.com/jiehuLiang/rfc-translater-zh-cn  
+为了方便自己下载rfc html进行阅读 , 项目fork自: https://gitee.com/twhhu/rfc-translater-zh-cn 
 项目源自GitHub开源项目：https://github.com/tex2e/rfc-translater
 
 ### 目的
